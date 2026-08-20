@@ -241,7 +241,7 @@ pnpm build
 pnpm dist
 ```
 
-（等效于在 `apps/desktop` 下执行 `pnpm dist`。）输出目录为项目根目录下的 `release/`，生成 Portable 单文件 `llama Launcher 0.0.04.exe`。
+（等效于在 `apps/desktop` 下执行 `pnpm dist`。）输出目录为项目根目录下的 `release/`，生成 Portable 单文件 `llama Launcher 0.0.05.exe`。
 
 打包前会自动终止可能占用文件的 llama Launcher 进程并清理输出目录。打包时不包含 llama.cpp 二进制，用户在首次使用时选择 llama-server 所在目录即可。
 
