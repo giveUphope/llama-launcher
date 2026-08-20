@@ -38,4 +38,4 @@ jobs:
           generate_release_notes: true
           files: release/llama Launcher ${{ steps.ver.outputs.v }}.exe
         env:
-          GITHUB_TOKEN: *** github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
