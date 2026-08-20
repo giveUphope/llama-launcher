@@ -6,9 +6,9 @@
 ### 5.1 参数定义 (shared/params/definitions.ts)
 
 - **`PARAM_GROUPS`**：3 组 — `basic`（基础）/ `advanced`（高级）/ `server`（服务）。
-- **`PARAMS`**：共 47 个参数，分布如下：
+- **`PARAMS`**：共 49 个参数，分布如下：
   - basic：20 个（13 核心 + 7 采样）
-  - advanced：17 个（含 4 个思考控制参数 + 6 个推测解码参数）
+  - advanced：19 个（含 5 个思考控制参数 + 6 个推测解码参数）
   - server：10 个
 - 每个参数定义包含：`key, group, type, flag, default, subcategory, dependsOn, ggufField, invert_flag` 等字段。
 - **8 种控件类型**：`text` / `int_slider` / `int_entry` / `float_slider` / `dropdown` / `checkbox` / `file` / `dir`。
@@ -18,7 +18,7 @@
 
 - `_enabled` key 编码为 **JSON 字符串**存入 `PresetValues`，记录每个参数是否被用户显式启用。
 - 用户修改参数值时，若与默认值不同则**自动勾选启用**。
-- **基线启用参数** `BASELINE_ENABLED_KEYS`（`cache_type_k` / `cache_type_v` / `load_mode` / `fit`）：初始化与 `resetAll` 时即启用并下发到命令行（实测推荐内存配置：KV 量化 q8_0、`--load-mode none`、`--fit off`，依据 `docs/plan-kv-split-cli-test.md`），**不计入分组"已修改"蓝点**；用户可手动取消勾选，预设自带的 `_enabled` 会覆盖基线状态。
+- **基线启用参数** `BASELINE_ENABLED_KEYS`（`cache_type_k` / `cache_type_v` / `load_mode` / `fit` / `kv_unified`）：初始化与 `resetAll` 时即启用并下发到命令行（实测推荐内存配置：KV 量化 q8_0、`--load-mode none`、`--fit off`、`--no-kv-unified`，依据 `docs/plan-kv-split-cli-test.md`），**不计入分组"已修改"蓝点**；用户可手动取消勾选，预设自带的 `_enabled` 会覆盖基线状态。
 - `MODEL_KEY`（`model`）和 `mmproj` 为特殊 key，不参与自动勾选，始终传递。
 
 ### 5.3 参数控件组件 (ui/components/params/)
@@ -55,7 +55,7 @@
    ```
    <新二进制目录>/llama-server.exe --help > docs/params/llama-server-help-out.txt
    ```
-2. **更新版本标注**：`scripts/generate-params-doc.cjs` 中硬编码的来源版本串（如 `b10360`）改为新版本号（文档头"来源"行）。
+2. **更新版本标注**：`scripts/generate-params-doc.cjs` 中硬编码的来源版本串（如 `b10502`）改为新版本号（文档头"来源"行）。
 3. **漂移审计**（flag 增删 / 默认值变化 / 应用参数缺失）：
    ```
    node scripts/verify-help-drift.cjs docs/params/llama-server-help-out.txt
@@ -69,4 +69,4 @@
 9. **回归**：`pnpm lint` + `pnpm test`。
 10. **记录**：`docs/CHANGELOG.md` [Unreleased] 补充条目。
 
-**实测参考（2026-08-15，b10360→b10429）**：flag 集合 414 个完全一致（0 增 / 0 删），应用 63 个 flag 全部存在；唯一语义变化为 `--load-mode` 默认 `mmap`→`auto`（新增 `auto` 模式）→ 应用下拉补入 `auto` 选项，默认保持实测推荐的 `none`。此流程即本次审计的完整回放。
+**实测参考（2026-08-15，b10429→b10502）**：flag 集合 415 个完全一致（应用 55 个 flag 全部存在于新 help），唯一语义变化为 `--load-mode` 默认 `mmap`→`auto`（b10502 新增 auto 模式）→ 应用下拉补入 `auto` 选项，默认保持实测推荐的 `none`。此流程即本次审计的完整回放。

@@ -245,11 +245,11 @@
 ## 10. 参数表驱动测试生成
 
 - **状态**：✅ 已完成（2026-08-14）
-- **验证**：新增 `packages/core/tests/command-builder-definitions.test.ts`（8 例全过）：从 `definitions.ts` 表驱动生成结构约束用例（key 唯一/flag 齐全/int·float 范围与默认值/dropdown 选项含默认/checkbox flag+invert_flag）与发射行为用例（56 参数逐一验证显式启用发射、未启用零发射、float 2 位小数）；`pnpm lint` 全绿。
+- **验证**：新增 `packages/core/tests/command-builder-definitions.test.ts`（8 例全过）：从 `definitions.ts` 表驱动生成结构约束用例（key 唯一/flag 齐全/int·float 范围与默认值/dropdown 选项含默认/checkbox flag+invert_flag）与发射行为用例（49 参数逐一验证显式启用发射、未启用零发射、float 2 位小数）；`pnpm lint` 全绿。
 - **来源**：DeepSeek 全链路验证文化（每个层级都有评测/验证）
 
 ### 现状（事实）
-- `packages/core/src/command-builder.ts` 的测试（`packages/core/tests/command-builder.test.ts`）为**手工用例**，覆盖若干典型参数组合；`definitions.ts` 中 56 个参数的类型约束（int 钳制、float 2 位小数、dropdown 选项、checkbox flag 语义）没有逐参数验证。
+- `packages/core/src/command-builder.ts` 的测试（`packages/core/tests/command-builder.test.ts`）为**手工用例**，覆盖若干典型参数组合；`definitions.ts` 中 49 个参数的类型约束（int 钳制、float 2 位小数、dropdown 选项、checkbox flag 语义）没有逐参数验证。
 - `scripts/verify-params-sync.cjs` 已做「定义 ↔ 文档 ↔ help 输出」三方对拍（golden-master 思想），但**不验证命令构建行为本身**。
 
 ### 参照模式（事实）
@@ -321,5 +321,5 @@
 ## 事实核查备注
 
 - GGUF 元数据**缓存已存在**（`gguf-meta.ts`:614-671），#5 只补「未命中路径的 worker 化」，不做重复缓存。
-- IPC 通道确为 **46 个**（`ipc.ts` 与 `preload/ipc-constants.cjs` 由 `generate-preload.cjs` 生成、`verify-ipc-sync.cjs` 校验产物未过期），与 `docs/ipc-channels.md` 一致。
+- IPC 通道确为 **48 个**（`ipc.ts` 与 `preload/ipc-constants.cjs` 由 `generate-preload.cjs` 生成、`verify-ipc-sync.cjs` 校验产物未过期），与 `docs/ipc-channels.md` 一致。
 - 下载续传已从周期快照改为 **事件日志**（`download-log.ts`，`.llama_dl.jsonl` append-only），崩溃恢复窗口为 0；旧 `.llama_dl.json` 快照由 `migrateLegacyMeta` 一次性迁移。

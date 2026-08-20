@@ -16,7 +16,7 @@
 | 文档 | 内容 |
 |------|------|
 | [README.md](README.md)（本文件） | 功能总览、快速开始、使用指南 |
-| [params/LLAMA_SERVER_PARAMS.md](params/LLAMA_SERVER_PARAMS.md) | 47 个参数与 llama-server `--help` 完整对照表 |
+| [params/LLAMA_SERVER_PARAMS.md](params/LLAMA_SERVER_PARAMS.md) | 49 个参数与 llama-server `--help` 完整对照表 |
 
 ### 架构与核心
 
@@ -33,7 +33,7 @@
 | 文档 | 内容 |
 |------|------|
 | [desktop-main.md](desktop-main.md) | 主进程：窗口、IPC 注册、Launcher 桥接、Preload（§6） |
-| [ipc-channels.md](ipc-channels.md) | 46 个 IPC 通道完整清单（改 IPC 前必读，§8） |
+| [ipc-channels.md](ipc-channels.md) | 48 个 IPC 通道完整清单（改 IPC 前必读，§8） |
 | [frontend.md](frontend.md) | 前端架构 + **UI 风格规范 §7.5**（§7） |
 | [style/STYLE_TODO.md](style/STYLE_TODO.md) | UI 风格待修复清单（含修复效果验证方式） |
 
@@ -42,6 +42,8 @@
 | 文档 | 内容 |
 |------|------|
 | [packaging.md](packaging.md) | electron-builder 打包配置、常见故障、版本一致性清单（§11） |
+| [ci-cd.md](ci-cd.md) | CI/CD 工作流：PR/push 验证、main 分支自动版本递增与发版触发（§15） |
+| [auto-release.md](auto-release.md) | 自动发版工作流：Windows runner 打包 + GitHub Release 自动创建（§16） |
 | [testing.md](testing.md) | 测试结构与用例说明（§12） |
 | [workflow.md](workflow.md) | 开发工作流（§14） |
 | [optimization/OPTIMIZATION_TODO.md](optimization/OPTIMIZATION_TODO.md) | DeepSeek / DSH 设计借鉴待优化清单（每条含事实对比与优化预期） |
@@ -53,7 +55,7 @@
 - **改 IPC**：先读 [ipc-channels.md](ipc-channels.md)，改完跑 `pnpm lint`（`verify-ipc-sync.cjs` 校验）。
 - **改参数**：对照 [params/LLAMA_SERVER_PARAMS.md](params/LLAMA_SERVER_PARAMS.md) 与 [params-system.md](params-system.md)，改完跑 `node scripts/verify-params-sync.cjs`。
 - **改 UI**：先对照 [frontend.md](frontend.md) §7.5 检查清单；发现问题登记 [style/STYLE_TODO.md](style/STYLE_TODO.md)。
-- **打包 / 发版**：先读 [packaging.md](packaging.md) §11（junction 陷阱、输出目录锁定）；版本升级按 §11.6 清单同步。
+- **打包 / 发版**：先读 [packaging.md](packaging.md) §11（junction 陷阱、输出目录锁定）+ [ci-cd.md](ci-cd.md) + [auto-release.md](auto-release.md)（GitHub Actions 流水线）。
 - **做架构优化**：先对照 [optimization/OPTIMIZATION_TODO.md](optimization/OPTIMIZATION_TODO.md) 的条目（含事实与预期），改完按「实施顺序与验收」更新状态。
 
 ---
@@ -73,7 +75,7 @@
 
 ### 全覆盖的参数配置
 
-- 内置 **47 个 `llama-server` 参数**，分 3 组管理（基础 / 高级 / 服务）
+- 内置 **49 个 `llama-server` 参数**，分 3 组管理（基础 / 高级 / 服务）
 - 参数与 llama-server 的完整对照见 [params/LLAMA_SERVER_PARAMS.md](params/LLAMA_SERVER_PARAMS.md)
 - 参数控件类型丰富：滑块、数字输入、下拉框、开关、文件选择、目录选择
 - 鼠标悬停参数标签即可查看中文/英文帮助说明
@@ -180,6 +182,8 @@ llama_launcher/
     ├── ipc-channels.md              # IPC 通道清单
     ├── data-persistence.md          # 类型定义与持久化
     ├── packaging.md                 # 打包配置
+    ├── ci-cd.md                     # CI/CD 工作流
+    ├── auto-release.md              # 自动发版工作流
     ├── design-decisions.md          # 关键设计决策
     ├── workflow.md                  # 开发工作流
     ├── testing.md                   # 测试
@@ -241,7 +245,6 @@ pnpm build
 pnpm dist
 ```
 
-（等效于在 `apps/desktop` 下执行 `pnpm dist`。）输出目录为项目根目录下的 `release/`，生成 Portable 单文件 `llama Launcher 0.0.05.exe`。
 
 打包前会自动终止可能占用文件的 llama Launcher 进程并清理输出目录。打包时不包含 llama.cpp 二进制，用户在首次使用时选择 llama-server 所在目录即可。
 
@@ -280,7 +283,7 @@ pnpm lint
 
 ### 4. 调整参数
 
-在"参数设置"页面（基础 / 高级 / 服务端三个标签）调整 47 个启动参数。每个参数可独立启用/禁用，未启用的参数不会出现在命令行中。
+在"参数设置"页面（基础 / 高级 / 服务端三个标签）调整 49 个启动参数。每个参数可独立启用/禁用，未启用的参数不会出现在命令行中。
 
 点击"应用建议参数"可一键应用从 GGUF 元数据推导的参数（会先重置当前参数）。
 
@@ -307,7 +310,7 @@ pnpm lint
 
 ## IPC 通道
 
-应用通过 46 个 IPC 通道实现主进程与渲染进程通信，分为 9 类：
+应用通过 48 个 IPC 通道实现主进程与渲染进程通信，分为 9 类：
 
 | 类别 | 通道数 | 说明 |
 |------|--------|------|
@@ -316,7 +319,7 @@ pnpm lint
 | Presets | 4 | 预设 CRUD |
 | Server | 7 | 启动/停止/重启/状态/命令预览/输出推送/性能测试 |
 | 通用 | 3 | 剪贴板、打开外链、打开目录 |
-| Window | 6 | 关闭、最小化、最大化切换、状态查询、最大化/还原通知 |
+| Window | 8 | 关闭、最小化、最大化切换、状态查询、最大化/还原通知 |
 | System | 5 | 端口检测、文件存在检测、llama-server 查找、回收站检测/清理 |
 | Download | 10 | URL 解析、搜索、文件列表、下载、取消、暂停、恢复、进度/完成/错误推送 |
 | FS | 2 | 目录列表、创建目录 |

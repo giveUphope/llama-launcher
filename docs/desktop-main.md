@@ -23,7 +23,7 @@
 
 IPC 按功能域声明式注册：`ipc/` 目录下 settings/models/presets/server/system/window/download 各模块导出 `register*Ipc`，`ipc/index.ts` 以 `ipcRegistrars` 数组汇总装配（`registerIpcHandlers()` 遍历调用）；共享的模型目录监听单例在 `ipc/models-watcher.ts`（`watchModelsDir`/`notifyModelsChanged`）。
 
-共 46 个 IPC 通道，分 9 类：Settings / Models / Presets / Server / 通用 / Window / System / Download /
+共 48 个 IPC 通道，分 9 类：Settings / Models / Presets / Server / 通用 / Window / System / Download /
  FS。
 
 - 下载完成时调用 `notifyModelsChanged()` 刷新模型列表。

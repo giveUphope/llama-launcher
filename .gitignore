@@ -26,3 +26,4 @@ llama-*-bin-*/
 packages/core/live_result.json
 
 
+.tmp/

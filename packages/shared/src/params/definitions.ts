@@ -22,7 +22,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
 ];
 
 export const PARAMS: ParamDef[] = [
-  // ---------------- basic (9) ----------------
+  // ---------------- basic (13) ----------------
   // 子分组 network：网络配置
   { key: 'host', group: 'basic', type: 'text', flag: '--host', default: '127.0.0.1', subcategory: 'network' },
   { key: 'port', group: 'basic', type: 'int_entry', flag: '--port', default: 8080, min: 1, max: 65535, subcategory: 'network' },
@@ -54,7 +54,7 @@ export const PARAMS: ParamDef[] = [
   { key: 'gpu_layers', group: 'basic', type: 'text', flag: '-ngl', default: 'auto', subcategory: 'memory' },
   { key: 'n_cpu_moe', group: 'basic', type: 'int_entry', flag: '-ncmoe', default: 0, min: 0, max: 256, subcategory: 'memory' },
 
-  // ---------------- advanced (14) ----------------
+  // ---------------- advanced (19) ----------------
   // 子分组 kv_cache：KV 缓存
   {
     key: 'cache_type_k', group: 'advanced', type: 'dropdown', flag: '-ctk', default: 'q8_0',
