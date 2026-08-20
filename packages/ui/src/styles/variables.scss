@@ -1,0 +1,50 @@
+// 强调色 (浅蓝)
+$accent: #4a9eff;
+$accent-hover: #3a8ee5;
+$accent-pressed: #2e7bd4;
+$accent-soft: #e8f2ff;
+$accent-dim: #9dc4f5;
+
+// 状态色
+$success: #27ae60;
+$danger: #e74c3c;
+$danger-hover: #c0392b;
+$warn: #f39c12;
+$info: #007acc; // 信息蓝（同 VS Code 状态栏蓝），用于 info 级别提示
+
+// VS Code 状态栏蓝
+$statusbar-blue: #007acc;
+
+// 字体
+// 优先级：系统 UI 字体（Win11 Segoe UI Variable）> Segoe UI > Windows 雅黑（UI 变体 + 标准变体双回退，
+// 避免精简系统缺 YaHei UI 时中文落到宋体/锯齿）> 现代黑体（HarmonyOS Sans SC / MiSans，若安装）>
+// macOS 苹方 > Linux 思源 > 通用回退
+$font-family: system-ui, -apple-system, 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei',
+  'HarmonyOS Sans SC', 'MiSans', 'PingFang SC', 'Noto Sans CJK SC', 'Source Han Sans SC', sans-serif;
+// 等宽：数值/路径/日志；末尾补 CJK 回退（日志可能含中文）
+$font-mono: 'Cascadia Code', 'Cascadia Mono', 'JetBrains Mono', 'Consolas', 'Courier New', monospace,
+  'Microsoft YaHei UI', 'PingFang SC';
+
+// 字号规范（语义化层级；2026-08 整体上调 1px——原 xs10/sm11/base12 在桌面端偏小）
+$fs-xs: 11px;   // 辅助标签、徽章
+$fs-sm: 12px;   // 次要提示、状态栏、summary chip
+$fs-base: 13px; // 正文、卡片内容、输入框、控制台
+$fs-md: 14px;   // 按钮、列表项
+$fs-lg: 15px;   // 卡片标题、参数名、导航项
+$fs-appname: 16px; // 应用名（介于 lg 与 xl 之间）
+$fs-xl: 20px;   // 页面标题
+
+// 圆角体系（胶囊化重构：交互元素胶囊，容器大圆角，行中等圆角）
+$radius-pill: 999px;    // 胶囊：按钮/输入/chip/徽章/tab/开关
+$radius-card: 16px;     // 卡片容器
+$radius-modal: 20px;    // 弹窗面板
+$radius-row: 10px;      // 行/参数行/表格单元/下拉项
+$radius-control: 8px;   // 小控件过渡值（图标按钮、迷你元素）
+
+// 动效（果冻感）
+$ease-jelly: cubic-bezier(0.34, 1.56, 0.64, 1); // 过冲回弹
+$dur-fast: 0.16s;  // hover/focus/press（≥0.16s 避免玻璃表面切换背景时的闪烁感）
+$dur-med: 0.22s;   // 浮层进入/开关
+
+// 彩虹点缀（静态渐变，不流动；用于 CTA 按钮/进度条/装饰条）
+$rainbow-grad: linear-gradient(90deg, #ff6b6b, #ffa94d, #ffe066, #69db7c, #4dabf7, #9775fa, #ff6b6b);

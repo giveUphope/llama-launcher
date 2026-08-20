@@ -1,0 +1,568 @@
+<script setup lang="ts">
+import { computed, ref, shallowRef, onMounted, onUnmounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useSettingsStore } from '@/stores/settings';
+import { useServerStore } from '@/stores/server';
+import { useParamsStore } from '@/stores/params';
+import { useI18nStore } from '@/stores/i18n';
+import { MODEL_KEY, APP_NAME } from '@llama-launcher/shared';
+import type { ModelInfo } from '@llama-launcher/shared';
+import Icon from '@/components/common/Icon.vue';
+import appIcon from '@/assets/app-icon.svg';
+import { useStartServer } from '@/composables/useStartServer';
+import { useModelPreset } from '@/composables/useModelPreset';
+
+const settings = useSettingsStore();
+const server = useServerStore();
+const params = useParamsStore();
+const i18n = useI18nStore();
+const route = useRoute();
+const router = useRouter();
+
+// 统一的启动/重启前置校验与流程（LaunchPage 共用）
+const { start: launchStart, restart: launchRestart } = useStartServer();
+// 智能预设：模型切换时自动发现该模型已保存的预设并询问应用
+const { applyModelPresetIfAny } = useModelPreset();
+
+// 模型列表（TopBar 常驻下拉用）：浅响应式——每次路由切换都会整体替换刷新，
+// 避免数百个 ModelInfo 深响应式包装的开销（与模型管理页同模式）。
+const models = shallowRef<ModelInfo[]>([]);
+const modelDropdownOpen = ref(false);
+
+const isRunning = computed(() => server.status === 'running' || server.status === 'starting');
+
+// 当前选中模型文件名（用于下拉显示）
+const currentModelName = computed(() => {
+  const p = String(params.values[MODEL_KEY] ?? '');
+  if (!p) return '';
+  const m = models.value.find((x) => x.path === p);
+  return m?.name ?? p.split(/[\\/]/).pop() ?? p;
+});
+
+// 模型列表为空时不显示下拉
+const hasModels = computed(() => models.value.length > 0);
+
+async function refreshModels() {
+  const dir = settings.settings?.models_dir ?? '';
+  if (!dir) { models.value = []; return; }
+  try {
+    const result = await window.api.models.scan(dir);
+    // 防御性检查：浏览器预览/mock 环境下 scan 可能返回 null
+    models.value = Array.isArray(result) ? result : [];
+  } catch {
+    models.value = [];
+  }
+}
+
+// 监听模型目录变化，重新扫描
+watch(() => settings.settings?.models_dir ?? '', () => {
+  void refreshModels();
+});
+
+// 订阅模型列表变更事件（下载完成、文件增删等）
+let unsubModelsChanged: (() => void) | null = null;
+// 路由切换时也刷新（从下载页返回时确保列表最新）
+watch(() => route.path, () => {
+  void refreshModels();
+});
+
+async function onSelectModel(path: string) {
+  modelDropdownOpen.value = false;
+  if (!path) {
+    // 选择"管理模型…"项
+    void router.push('/models');
+    return;
+  }
+  // 统一走 params.applyModel：保留参数值 + 自动检测 mmproj + 加载 GGUF 元数据，
+  // 切换模型时自动清空控制台（旧日志属于上一个模型）
+  await params.applyModel(path);
+  // 智能预设：该模型存在已保存预设时弹窗询问应用（应用会覆盖当前参数配置）
+  await applyModelPresetIfAny(path);
+}
+
+function toggleModelDropdown() {
+  modelDropdownOpen.value = !modelDropdownOpen.value;
+}
+
+// 点击外部关闭下拉
+function onDocClick() {
+  modelDropdownOpen.value = false;
+}
+
+onMounted(() => {
+  void refreshModels();
+  void refreshWindowState();
+  document.addEventListener('click', onDocClick);
+  // 浏览器预览环境(无 Electron preload)下 window.api 未定义,需容错
+  try {
+    unsubModelsChanged = window.api.models.onChanged(() => {
+      void refreshModels();
+    });
+    unsubMax = window.api.window.onMaximized(() => { isMaximized.value = true; });
+    unsubUnmax = window.api.window.onUnmaximized(() => { isMaximized.value = false; });
+  } catch {
+    // window.api 未定义(浏览器预览环境),忽略事件订阅
+  }
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', onDocClick);
+  if (unsubModelsChanged) { unsubModelsChanged(); unsubModelsChanged = null; }
+  if (unsubMax) { unsubMax(); unsubMax = null; }
+  if (unsubUnmax) { unsubUnmax(); unsubUnmax = null; }
+});
+
+// ---- 自定义标题栏窗口控制 ----
+const isMaximized = ref(false);
+let unsubMax: (() => void) | null = null;
+let unsubUnmax: (() => void) | null = null;
+
+async function refreshWindowState() {
+  try {
+    const s = await window.api.window.getState();
+    isMaximized.value = !!s.maximized;
+  } catch {
+    isMaximized.value = false;
+  }
+}
+
+function onMinimize() {
+  void window.api.window.minimize();
+}
+
+function onToggleMaximize() {
+  void window.api.window.toggleMaximize();
+}
+
+function onClose() {
+  void window.api.window.close();
+}
+
+function onTitleBarDblClick(e?: MouseEvent) {
+  // 仅当双击发生在拖拽区域（非右侧交互控件）时才切换最大化，
+  // 避免双击"启动/停止"等按钮误触发最大化。
+  if (e && (e.target as HTMLElement)?.closest('.right')) return;
+  onToggleMaximize();
+}
+
+async function onStart() {
+  await launchStart();
+}
+
+async function onStop() {
+  await server.stop();
+}
+
+async function onRestart() {
+  await launchRestart();
+}
+
+async function onOpenWeb() {
+  // 内嵌 Web UI：跳转侧边栏「Web UI」标签页，不再跳转外部浏览器
+  void router.push('/webui');
+}
+</script>
+
+<template>
+  <header class="topbar" @dblclick="onTitleBarDblClick">
+    <div class="left">
+      <!-- 应用图标（与打包/任务栏图标一致） -->
+      <img class="app-icon" :src="appIcon" alt="" draggable="false" />
+      <!-- 应用名 -->
+      <span class="app-name">{{ APP_NAME }}</span>
+    </div>
+    <div class="right">
+      <!-- 模型选择常驻下拉 -->
+      <div v-if="hasModels" class="model-picker" @click.stop>
+        <button class="model-btn" @click="toggleModelDropdown" :title="currentModelName">
+          <Icon name="models" :size="14" />
+          <span class="model-name">{{ currentModelName || i18n.t('lbl_select_model') }}</span>
+          <Icon name="chevron_down" :size="12" />
+        </button>
+        <div v-if="modelDropdownOpen" class="model-dropdown">
+          <button class="dropdown-item manage" @click="onSelectModel('')">
+            {{ i18n.t('lbl_manage_models') }}...
+          </button>
+          <div class="dropdown-divider"></div>
+          <button
+            v-for="m in models"
+            :key="m.path"
+            class="dropdown-item"
+            :class="{ active: m.path === params.values.model }"
+            @click="onSelectModel(m.path)"
+            :title="m.path"
+          >
+            <span class="dropdown-name">{{ m.name }}</span>
+            <span class="dropdown-size">{{ m.size_str }}</span>
+          </button>
+        </div>
+      </div>
+      <button
+        class="btn btn-start"
+        :disabled="isRunning"
+        :title="i18n.t('start')"
+        @click="onStart"
+      >
+        <Icon name="play" :size="14" />
+        <span class="btn-text">{{ i18n.t('start') }}</span>
+      </button>
+      <button
+        class="btn btn-stop"
+        :disabled="!isRunning"
+        :title="i18n.t('stop')"
+        @click="onStop"
+      >
+        <Icon name="stop" :size="14" />
+        <span class="btn-text">{{ i18n.t('stop') }}</span>
+      </button>
+      <button
+        class="btn btn-restart"
+        :disabled="!isRunning"
+        :title="i18n.t('restart')"
+        @click="onRestart"
+      >
+        <Icon name="refresh" :size="14" />
+        <span class="btn-text">{{ i18n.t('restart') }}</span>
+      </button>
+      <button
+        class="btn btn-web"
+        :disabled="!isRunning"
+        :title="i18n.t('open_web')"
+        @click="onOpenWeb"
+      >
+        <Icon name="external" :size="14" />
+        <span class="btn-text">{{ i18n.t('open_web') }}</span>
+      </button>
+
+      <!-- 自定义窗口控制（替代原生标题栏按钮） -->
+      <div class="window-controls">
+        <button class="win-btn" :title="i18n.t('win_minimize')" @click="onMinimize" aria-label="minimize">
+          <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+        </button>
+        <button class="win-btn" :title="isMaximized ? i18n.t('win_restore') : i18n.t('win_maximize')" @click="onToggleMaximize" aria-label="toggle maximize">
+          <!-- 最大化：单个圆角方框 -->
+          <svg v-if="!isMaximized" width="12" height="12" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /></svg>
+          <!-- 还原：双层重叠窗口（后窗轮廓 + 前窗顶/右边，与最小化/关闭同风格） -->
+          <svg v-else width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2.5" width="6.5" height="6.5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /><path d="M4.5 4.5h5.5v5.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+        <button class="win-btn win-close" :title="i18n.t('win_close')" @click="onClose" aria-label="close">
+          <svg width="12" height="12" viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /><line x1="9" y1="3" x2="3" y2="9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+</template>
+
+<style scoped lang="scss">
+.topbar {
+  height: var(--topbar-h);
+  flex: 0 0 var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  background: var(--glass-bg);
+  border-bottom: 1px solid var(--glass-border);
+  // 自定义标题栏：标题栏本身作为拖拽区域
+  -webkit-app-region: drag;
+  // 拖拽时禁止选中文本，避免拖动变成文本选择
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 100%;
+}
+
+.app-name {
+  font-size: var(--fs-appname);  // 应用名专用字号，介于 lg(14) 和 xl(18) 之间
+  font-weight: 700;
+  color: var(--fg-primary);
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+  // 标题文本可拖动窗口，但不可被选中（否则拖动会变成文本选择）
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+.app-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  // 交互控件不可拖拽（否则点击/输入会触发窗口拖动）
+  -webkit-app-region: no-drag;
+}
+
+// 自定义窗口控制按钮簇（双击标题栏区域外的独立控制区）
+.window-controls {
+  display: flex;
+  align-items: stretch;
+  height: var(--topbar-h);
+  margin-right: -12px; // 抵消 topbar 右侧 padding，使按钮贴合窗口右缘
+}
+
+.win-btn {
+  width: 46px;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-control);
+  transition: background var(--dur-fast) var(--ease-jelly), color var(--dur-fast) var(--ease-jelly),
+    transform var(--dur-fast) var(--ease-jelly);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--fg-primary);
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+}
+
+.win-close:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  color: var(--fg-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-jelly), color var(--dur-fast) var(--ease-jelly),
+    transform var(--dur-fast) var(--ease-jelly);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--fg-primary);
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-md);
+  color: var(--fg-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
+    transform var(--dur-fast) var(--ease-jelly);
+
+  &:hover:not(:disabled) {
+    background: var(--bg-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.btn-start {
+  // 主 CTA：彩虹毛玻璃按钮 —— 仅边框带彩虹主题色（border-box 层），
+  // 内部为玻璃表面（padding-box 层，不设高亮底色）；hover/active 只动 opacity/transform
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--glass-bg-strong), var(--glass-bg-strong)) padding-box,
+    var(--rainbow-grad) border-box;
+  color: var(--fg-primary);
+  font-weight: 600;
+
+  &:hover:not(:disabled) {
+    opacity: 0.92;
+  }
+
+  &:active:not(:disabled) {
+    opacity: 0.85;
+  }
+}
+
+.btn-stop {
+  color: var(--danger);
+  border-color: var(--danger);
+
+  &:hover:not(:disabled) {
+    background: var(--danger);
+    color: #fff;
+  }
+}
+
+.btn-restart {
+  color: var(--warn);
+  border-color: var(--warn);
+
+  &:hover:not(:disabled) {
+    background: var(--warn);
+    color: #1a1a1a; // warn 黄底 → 深色文字（§7.5.1：warn 底 → #1a1a1a）
+  }
+}
+
+.btn-web {
+  color: var(--accent);
+  border-color: var(--accent);
+
+  &:hover:not(:disabled) {
+    background: var(--accent);
+    color: #fff;
+  }
+}
+
+/* 模型选择常驻下拉 */
+.model-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.model-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--fg-primary);
+  font-size: var(--fs-base);
+  cursor: pointer;
+  max-width: 220px;
+  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
+    transform var(--dur-fast) var(--ease-jelly);
+
+  &:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.model-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.model-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  min-width: 320px;
+  max-width: 480px;
+  max-height: 360px;
+  overflow-y: auto;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-row);
+  box-shadow: var(--shadow-dropdown);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  z-index: 100;
+  padding: 4px;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  color: var(--fg-primary);
+  font-size: var(--fs-base);
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-pill);
+  transition: background var(--dur-fast) var(--ease-jelly), transform var(--dur-fast) var(--ease-jelly);
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &.active {
+    background: var(--bg-active);
+    color: var(--accent);
+  }
+
+  &.manage {
+    color: var(--fg-secondary);
+    font-style: italic;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+    // 统一圆角（原为上圆角+下方角 pill/0/0，会导致 :focus-visible 焦点环上半圆弧、下半平直，
+    // 与下方分割线叠加后"下半部分风格不统一"）。改为统一 control 圆角，焦点环各边一致，
+    // 同时用较小的圆角区别于普通下拉项的全胶囊形态，仍靠斜体/次级色/分割线维持头部语义。
+    border-radius: var(--radius-control);
+  }
+}
+
+.dropdown-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.dropdown-size {
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  flex-shrink: 0;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+</style>

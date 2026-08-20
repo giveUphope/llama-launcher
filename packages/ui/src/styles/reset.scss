@@ -1,0 +1,104 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--font-family);
+  font-size: var(--fs-lg);
+  color: var(--fg-primary);
+  background: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+#app {
+  height: 100%;
+  width: 100%;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 55%, var(--fg-muted));
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+// 交互元素基础过渡（含 box-shadow，供焦点环平滑出现；scoped 样式可覆盖时长/属性）
+button,
+a,
+select,
+input,
+textarea,
+[role='button'],
+.btn,
+.action-btn,
+.mini-btn,
+.icon-btn {
+  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
+    color var(--dur-fast) var(--ease-jelly), box-shadow var(--dur-fast) var(--ease-jelly),
+    transform var(--dur-fast) var(--ease-jelly), opacity var(--dur-fast) var(--ease-jelly);
+}
+
+// 键盘焦点环：用 box-shadow（可动画过渡）替代 outline（瞬时弹出造成闪烁）。
+// 注意：焦点环只负责描边，绝不能在此设置 border-radius——否则会覆盖元素自身圆角
+// （如胶囊输入框 999px 被压成 control 圆角），且 input 鼠标点击也会命中 :focus-visible，
+// 造成「获得鼠标焦点时形状突变」的显示异常。圆角由各元素自身样式决定。
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--border-focus);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

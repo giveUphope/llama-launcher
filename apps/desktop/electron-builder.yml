@@ -1,0 +1,33 @@
+appId: com.llama-launcher.app
+productName: llama Launcher
+directories:
+  output: ../../release
+  buildResources: resources
+# 应用图标：羊驼启动器（圆角蓝牌 + 白色羊驼剪影），由 scripts/icon-gen 生成。
+# 同时用于打包后的 exe、任务栏与窗口标题栏。
+icon: resources/icon.ico
+asar: true
+# 仅打包应用本身，不打包 llama 二进制（由用户自行配置路径）
+# beforePack/afterPack 钩子处理 pnpm 符号链接，仅复制 dist/*.js 到 asar
+beforePack: ../../scripts/before-pack.cjs
+afterPack: ../../scripts/after-pack.cjs
+files:
+  - dist/**/*
+  - package.json
+  - node_modules/@llama-launcher/**/*
+  # 排除桌面端 dist 中的 source map
+  - '!dist/**/*.map'
+
+# 托盘图标等运行时资源复制到 process.resourcesPath（asar 内路径 nativeImage 无法读取）
+extraResources:
+  - from: resources/icon-32.png
+    to: icon-32.png
+  - from: resources/icon-16.png
+    to: icon-16.png
+  - from: resources/icon.ico
+    to: icon.ico
+
+win:
+  target:
+    - portable
+  signAndEditExecutable: false

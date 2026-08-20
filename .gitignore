@@ -1,0 +1,22 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+Thumbs.db
+*.pyc
+__pycache__/
+.turbo/
+release/
+.env
+.env.local
+*.tsbuildinfo
+.vite-dev-port
+
+# 开发用 llama.cpp 二进制目录（不随仓库分发，用户自行下载；AGENTS.md 已说明）
+llama-*-bin-*/
+
+# ZCode 会话计划文件（按会话 UUID 生成，不应随代码提交）
+.zcode/
+
+

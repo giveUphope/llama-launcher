@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "lib": ["ES2022"],
+    "types": ["node"],
+    // 编译产物输出到 node_modules 下的临时目录（天然被 .gitignore 忽略）：
+    // 避免 vite.config.js / vite.config.d.ts 污染包根目录——Vite 配置加载优先级
+    // js > ts，产物与源文件并存会导致 Vite 实际加载编译产物、改 ts 忘编译时加载旧配置。
+    // outDir 后包根目录不再有 vite.config.js，Vite 直接以 esbuild 加载 vite.config.ts。
+    "outDir": "./node_modules/.vite-config-dist",
+    "tsBuildInfoFile": "./node_modules/.vite-config-dist/.tsbuildinfo"
+  },
+  "include": ["vite.config.ts"]
+}

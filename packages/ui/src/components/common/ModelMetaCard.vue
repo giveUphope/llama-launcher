@@ -1,0 +1,212 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { useI18nStore } from '@/stores/i18n';
+import { useParamsStore } from '@/stores/params';
+import { MODEL_KEY } from '@llama-launcher/shared';
+import type { GgufModelInfo } from '@llama-launcher/shared';
+import Card from '@/components/common/Card.vue';
+import Icon from '@/components/common/Icon.vue';
+
+const i18n = useI18nStore();
+const params = useParamsStore();
+
+// 折叠状态（默认展开，让用户首次看到模型信息）
+const collapsed = ref(false);
+// 详情展开状态（默认折叠，避免信息过载；用户主动展开查看完整元数据）
+const showDetails = ref(false);
+
+const modelPath = computed(() => String(params.values[MODEL_KEY] ?? ''));
+const info = computed(() => params.ggufInfo);
+const hasInfo = computed(() => !!info.value);
+const modelName = computed(() => info.value?.name || info.value?.architecture || '');
+
+interface MetaRow {
+  labelKey: string;
+  value: unknown;
+}
+
+// 主摘要：模型识别关键信息（架构、量化、规模、上下文长度——后两者直接影响运行参数）
+const summaryRows = computed<MetaRow[]>(() => {
+  if (!info.value) return [];
+  const i = info.value;
+  return [
+    { labelKey: 'gguf_arch', value: i.architecture },
+    { labelKey: 'gguf_quant', value: i.quantization },
+    { labelKey: 'gguf_size_label', value: i.size_label },
+    { labelKey: 'gguf_context_length', value: i.context_length },
+  ].filter((r) => r.value !== null && r.value !== undefined && r.value !== '');
+});
+
+// 详细信息：仅保留与「运行参数」直接相关的内置信息（SWA / MTP / 聊天模板，
+// 均对应用户可在参数页调整的启动参数）；模型来源（名称/组织/许可）、纯结构细节与
+// tokenizer 内部 id 等非参数信息不再展示，避免信息过载、聚焦运行配置。
+const detailRows = computed<MetaRow[]>(() => {
+  if (!info.value) return [];
+  const i: GgufModelInfo = info.value;
+  return [
+    // 混合 SSM 模型全注意力间隔（→ swa-full 建议）
+    { labelKey: 'gguf_full_attn_interval', value: i.full_attention_interval },
+    // 推测解码（→ spec-type/mtp 相关参数）
+    { labelKey: 'gguf_mtp_layers', value: i.nextn_predict_layers },
+    // 聊天模板（→ --chat-template）
+    { labelKey: 'gguf_chat_template', value: i.chat_template ? '✓' : null },
+  ].filter((r) => r.value !== null && r.value !== undefined && r.value !== '');
+});
+
+// 是否有详细信息可展开
+const hasDetails = computed(() => detailRows.value.length > 0);
+
+function formatValue(v: unknown): string {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'string') return v || '—';
+  if (typeof v === 'boolean') return v ? '✓' : '✗';
+  if (typeof v === 'number') return v.toLocaleString();
+  return String(v);
+}
+</script>
+
+<template>
+  <Card v-if="modelPath && hasInfo" title-key="card_model_info">
+    <div class="meta-header">
+      <span v-if="modelName" class="meta-model-name">{{ modelName }}</span>
+      <button class="meta-toggle" @click="collapsed = !collapsed">
+        <Icon :name="collapsed ? 'chevron_right' : 'chevron_down'" :size="12" />
+      </button>
+    </div>
+    <div v-if="!collapsed" class="meta-body">
+      <div class="meta-chips">
+        <span v-for="row in summaryRows" :key="row.labelKey" class="meta-chip">
+          <span class="chip-key">{{ i18n.t(row.labelKey) }}</span>
+          <span class="chip-eq">=</span>
+          <span class="chip-val">{{ formatValue(row.value) }}</span>
+        </span>
+      </div>
+      <button
+        v-if="hasDetails"
+        class="details-toggle"
+        @click="showDetails = !showDetails"
+      >
+        <Icon :name="showDetails ? 'chevron_down' : 'chevron_right'" :size="11" />
+        <span>{{ i18n.t('gguf_details_toggle') }} ({{ detailRows.length }})</span>
+      </button>
+      <div v-if="showDetails && hasDetails" class="meta-chips details">
+        <span v-for="row in detailRows" :key="row.labelKey" class="meta-chip">
+          <span class="chip-key">{{ i18n.t(row.labelKey) }}</span>
+          <span class="chip-eq">=</span>
+          <span class="chip-val">{{ formatValue(row.value) }}</span>
+        </span>
+      </div>
+    </div>
+  </Card>
+</template>
+
+<style scoped lang="scss">
+.meta-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.meta-model-name {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--fg-muted);
+  border-radius: var(--radius-pill);
+  transition: background var(--dur-fast) var(--ease-jelly), color var(--dur-fast) var(--ease-jelly),
+    transform var(--dur-fast) var(--ease-jelly);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--fg-primary);
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
+}
+
+.meta-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meta-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+}
+
+.chip-key {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.chip-eq {
+  color: var(--fg-muted);
+}
+
+.chip-val {
+  color: var(--fg-primary);
+}
+
+// 详情区使用更小字号和更淡的背景，与主摘要区分视觉层级
+.meta-chips.details {
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+
+.details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-pill);
+  align-self: flex-start;
+  transition: color var(--dur-fast) var(--ease-jelly), background var(--dur-fast) var(--ease-jelly),
+    transform var(--dur-fast) var(--ease-jelly);
+
+  &:hover {
+    color: var(--accent);
+    background: var(--bg-hover);
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+</style>

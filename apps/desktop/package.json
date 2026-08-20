@@ -1,0 +1,38 @@
+{
+  "name": "@llama-launcher/desktop",
+  "version": "1.4.5",
+  "private": true,
+  "type": "module",
+  "main": "./dist/main/index.js",
+  "scripts": {
+    "dev": "pnpm dev:vite",
+    "dev:console": "cross-env NODE_ENV=development LLAMA_DEV_CONSOLE=1 pnpm dev:vite",
+    "dev:vite": "cross-env NODE_ENV=development concurrently -k --success first -n vite,tsc,electron -c magenta,cyan,blue \"pnpm --filter @llama-launcher/ui dev\" \"pnpm dev:tsc:watch\" \"pnpm dev:electron:watch\"",
+    "dev:tsc:watch": "cross-env NODE_ENV=development tsc -b --watch",
+    "dev:electron:watch": "cross-env NODE_ENV=development node ../../scripts/dev-watch.cjs",
+    "dev:electron": "cross-env NODE_ENV=development tsc -b && node ../../scripts/copy-preload.cjs && wait-on file:../../packages/ui/.vite-dev-port && electron .",
+    "build:ui": "pnpm --filter @llama-launcher/ui build",
+    "build:main": "tsc -b && node ../../scripts/copy-preload.cjs && node ../../scripts/copy-ui.cjs",
+    "build": "pnpm build:ui && pnpm build:main",
+    "clean": "tsc -b --clean",
+    "gen:icon": "node ../../scripts/icon-gen/gen-icon.cjs",
+    "start": "pnpm build && cross-env NODE_ENV=production electron .",
+    "start:hot": "concurrently -k --success first -n vite,electron -c magenta,blue \"pnpm --filter @llama-launcher/ui dev\" \"wait-on file:../../packages/ui/.vite-dev-port && pnpm start:hot:electron\"",
+    "start:hot:electron": "cross-env NODE_ENV=production LLAMA_DEV_SERVER_URL=http://localhost:5173 tsc -b && node ../../scripts/copy-preload.cjs && electron .",
+    "dist": "pnpm build && node ../../scripts/dist-with-fallback.cjs",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@llama-launcher/core": "workspace:*",
+    "@llama-launcher/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.3.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.8.0",
+    "wait-on": "^8.0.0"
+  }
+}

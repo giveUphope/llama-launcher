@@ -1,0 +1,178 @@
+@use 'variables' as *;
+
+// 与主题无关的全局变量：尺寸、字体、强调色
+:root {
+  --accent: #{$accent};
+  --accent-hover: #{$accent-hover};
+  --accent-pressed: #{$accent-pressed};
+  --accent-soft: #{$accent-soft};
+  --accent-dim: #{$accent-dim};
+  --success: #{$success};
+  --danger: #{$danger};
+  --danger-hover: #{$danger-hover};
+  --warn: #{$warn};
+  --info: #{$info};
+  --statusbar-blue: #{$statusbar-blue};
+  --font-family: #{$font-family};
+  --font-mono: #{$font-mono};
+
+  // 字号语义变量
+  --fs-xs: #{$fs-xs};
+  --fs-sm: #{$fs-sm};
+  --fs-base: #{$fs-base};
+  --fs-md: #{$fs-md};
+  --fs-lg: #{$fs-lg};
+  --fs-appname: #{$fs-appname};
+  --fs-xl: #{$fs-xl};
+
+  // 工具提示（浮层在两种主题下均保持深色以保证对比度）
+  --tooltip-bg: #1e1e1e;
+  --tooltip-fg: #ffffff;
+
+  --topbar-h: 52px;
+  --sidebar-w: 210px;
+  --sidebar-w-collapsed: 56px;
+  --statusbar-h: 28px;
+
+  // 页面级主操作按钮高度（action-btn 统一引用，避免各组件高度漂移）
+  --btn-h: 30px;
+
+  // 圆角体系（胶囊化重构，见 docs/frontend.md §7.5.3）
+  --radius-pill: #{$radius-pill};
+  --radius-card: #{$radius-card};
+  --radius-modal: #{$radius-modal};
+  --radius-row: #{$radius-row};
+  --radius-control: #{$radius-control};
+
+  // 动效（果冻感；只动 transform/opacity，reduced-motion 关闭）
+  --ease-jelly: #{$ease-jelly};
+  --dur-fast: #{$dur-fast};
+  --dur-med: #{$dur-med};
+
+  // 彩虹点缀（静态渐变；CTA/进度条/装饰条）
+  --rainbow-grad: #{$rainbow-grad};
+  // 分区装饰取色：hsl(var(--hue) ...)，默认取强调蓝相
+  --hue: 220deg;
+
+  // 单玻璃层（全应用仅此 1 层 backdrop-filter，背景静态 ⇒ blur 缓存）
+  --glass-blur: 12px;
+  --glass-saturate: 140%;
+
+  // 装饰背景斑块（body::before，低饱和彩虹）
+  --bg-blob-1: hsla(200, 85%, 60%, 0.16);
+  --bg-blob-2: hsla(280, 85%, 65%, 0.13);
+  --bg-blob-3: hsla(120, 75%, 55%, 0.11);
+
+  // 侧边栏恒为深色玻璃（两种主题一致；区别于通用玻璃表面）
+  --glass-sidebar: rgba(37, 37, 37, 0.72);
+  --glass-sidebar-border: rgba(255, 255, 255, 0.06);
+
+  // 浮层层级阴影 + 遮罩（按层级引用，避免各处硬编码 rgba 漂移）
+  --shadow-tooltip: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-modal: 0 12px 40px rgba(0, 0, 0, 0.4);
+  --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --overlay: rgba(0, 0, 0, 0.45);
+
+  // 下载分类/量化/来源徽章语义色（两种主题恒定，作分类图例）
+  --badge-cat-gguf: #6f4fd8;
+  --badge-cat-safetensors: #1f9d72;
+  --badge-cat-bin: #c87f0a;
+  --badge-quant-k: #2563eb;
+  --badge-quant-i: #7c3aed;
+  --badge-quant-legacy: #6b7280;
+  --badge-quant-fp8: #ea580c;
+  --badge-quant-bf16: #0d9488;
+  --badge-quant-fp16: #16a34a;
+  --badge-quant-fp32: #475569;
+  --badge-quant-int: #dc2626;
+  --badge-src-modelscope: #c87f0a;
+  --badge-src-huggingface: #2563eb;
+}
+
+// 深色模式
+:root[data-theme='dark'] {
+  --bg-app: #1e1e1e;
+  --bg-sidebar: #252526;
+  --bg-topbar: #2d2d2d;
+  --bg-card: #2d2d2d;
+  --bg-input: #3c3c3c;
+  --bg-hover: #464646; // 比 --bg-input 亮一档：深色主题下 hover 背景反馈可见（原 #3c3c3c 与输入底同色）
+  --bg-active: #094771;
+  --fg-primary: #ffffff;
+  --fg-secondary: #cccccc;
+  --fg-muted: #858585;
+  --border: #3c3c3c;
+  --border-focus: #{$accent};
+  --switch-track: #3c3c3c;
+  --switch-btn: #ffffff;
+  --status-fg: #ffffff;
+  --console-bg: #1e1e1e;
+  --console-fg: #d4d4d4;
+
+  --sidebar-fg-primary: #ffffff;
+  --sidebar-fg-secondary: #cccccc;
+  --sidebar-fg-muted: #858585;
+  --sidebar-bg-hover: #3c3c3c;
+  --sidebar-bg-active: #094771;
+
+  // 玻璃表面（深色：半透明暖灰，透出下层模糊斑块）
+  --glass-bg: rgba(30, 30, 30, 0.62);
+  --glass-bg-strong: rgba(40, 40, 40, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.05);
+}
+
+// 浅色模式
+:root[data-theme='light'] {
+  --bg-app: #f3f3f3;
+  --bg-sidebar: #2c2c2c;
+  --bg-topbar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --bg-hover: #eaeaea;
+  --bg-active: #e8f2ff;
+  --fg-primary: #1a1a1a;
+  --fg-secondary: #6b6b6b;
+  --fg-muted: #9e9e9e;
+  --border: #e0e0e0;
+  --border-focus: #{$accent};
+  --switch-track: #c4c4c4;
+  --switch-btn: #ffffff;
+  --status-fg: #ffffff;
+  // 控制台始终深色
+  --console-bg: #1e1e1e;
+  --console-fg: #d4d4d4;
+
+  // 浅色主题下侧边栏保持深色，文字使用浅色对比色
+  --sidebar-fg-primary: #ffffff;
+  --sidebar-fg-secondary: #d4d4d4;
+  --sidebar-fg-muted: #9e9e9e;
+  --sidebar-bg-hover: #3c3c3c;
+  --sidebar-bg-active: #094771;
+
+  // 玻璃表面（浅色：半透明白，低饱和斑块透出；不透明度 ≥0.72 保证深色文字对比度）
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --glass-highlight: rgba(255, 255, 255, 0.95);
+}
+
+// 视觉效果关闭（data-fx='off'，Settings「视觉效果」开关 / 回退开关）：
+// 表面回落实底、玻璃层隐藏、动画全关 —— 回退 = 一个属性
+:root[data-fx='off'] {
+  --glass-bg: var(--bg-card);
+  --glass-bg-strong: var(--bg-card);
+  --glass-border: var(--border);
+  --glass-highlight: transparent;
+  --glass-sidebar: var(--bg-sidebar);
+  --bg-blob-1: transparent;
+  --bg-blob-2: transparent;
+  --bg-blob-3: transparent;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--fg-primary);
+  transition: background-color 0.12s ease, color 0.12s ease;
+}

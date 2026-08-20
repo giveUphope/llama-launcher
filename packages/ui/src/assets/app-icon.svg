@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <!-- 彩虹渐变底（呼应 UI 点缀式彩虹 rainbow-grad 同色相；注释内禁用双连字符，XML 严格解析） -->
+    <linearGradient id="appTile" x1="0" y1="15" x2="256" y2="241" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff6b6b"/>
+      <stop offset="0.35" stop-color="#ffa94d"/>
+      <stop offset="0.6" stop-color="#4dabf7"/>
+      <stop offset="1" stop-color="#9775fa"/>
+    </linearGradient>
+  </defs>
+  <!-- 圆角方牌 -->
+  <rect x="15" y="15" width="226" height="226" rx="56" fill="url(#appTile)"/>
+  <!-- 羊驼剪影（白色；不含内耳——小尺寸下内耳成脏点，且与窗口图标 gen-icon 保持一致） -->
+  <g fill="#ffffff">
+    <polygon points="96,38 78,116 120,112"/>
+    <polygon points="160,38 178,116 136,112"/>
+    <ellipse cx="128" cy="158" rx="62" ry="66"/>
+    <ellipse cx="128" cy="184" rx="40" ry="34"/>
+  </g>
+</svg>

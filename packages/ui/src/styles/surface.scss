@@ -1,0 +1,73 @@
+// 全局表面系统：单玻璃层 + 玻璃表面类 + 装饰背景斑块 + 动效开关。
+// 性能约定（见 docs/frontend.md §7.5）：全应用仅 .glass-layer 一处 backdrop-filter，
+// 其余表面只走半透明（--glass-bg），列表行/控制台行/参数行一律不 blur。
+
+// 单玻璃层：全视口固定，blur 一次。背景为静态/慢漂移斑块 ⇒ 模糊结果缓存，稳态零重算。
+.glass-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+// 装饰背景斑块：body::before 固定层（z-index -1，位于玻璃层之下被其模糊）
+body::before {
+  content: '';
+  position: fixed;
+  inset: -12%;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 50% 42% at 14% 10%, var(--bg-blob-1), transparent 72%),
+    radial-gradient(ellipse 46% 42% at 86% 22%, var(--bg-blob-2), transparent 72%),
+    radial-gradient(ellipse 55% 44% at 55% 96%, var(--bg-blob-3), transparent 72%);
+  will-change: transform;
+  animation: blob-drift 60s ease-in-out infinite alternate;
+}
+@keyframes blob-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(-2%, -1.5%, 0) scale(1.04); }
+}
+
+// 分区装饰取色：容器内子元素按位置循环 12 色相（--hue 供 hsl(var(--hue) ...) 使用）
+.hue-cycle > *:nth-child(12n + 1) { --hue: 0deg; }
+.hue-cycle > *:nth-child(12n + 2) { --hue: 30deg; }
+.hue-cycle > *:nth-child(12n + 3) { --hue: 60deg; }
+.hue-cycle > *:nth-child(12n + 4) { --hue: 90deg; }
+.hue-cycle > *:nth-child(12n + 5) { --hue: 120deg; }
+.hue-cycle > *:nth-child(12n + 6) { --hue: 150deg; }
+.hue-cycle > *:nth-child(12n + 7) { --hue: 180deg; }
+.hue-cycle > *:nth-child(12n + 8) { --hue: 210deg; }
+.hue-cycle > *:nth-child(12n + 9) { --hue: 240deg; }
+.hue-cycle > *:nth-child(12n + 10) { --hue: 270deg; }
+.hue-cycle > *:nth-child(12n + 11) { --hue: 300deg; }
+.hue-cycle > *:nth-child(12n + 12) { --hue: 330deg; }
+
+// 无 backdrop-filter 支持：玻璃层隐藏（表面半透明色本身不依赖 blur，无需回退）
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-layer { display: none; }
+}
+
+// data-fx='off'（视觉效果关闭 / 回退开关）：隐藏玻璃层、动效全关（表面色由 theme.scss 的 token 覆盖为实底）
+:root[data-fx='off'] {
+  .glass-layer { display: none; }
+  body::before { display: none; }
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+// 减弱动效偏好：关闭果冻/漂移（保留 opacity 淡入以保可用性）
+@media (prefers-reduced-motion: reduce) {
+  body::before { animation: none; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
