@@ -30,7 +30,9 @@ jobs:
       - run: pnpm dist
       - id: ver
         shell: bash
-        run: echo "v=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "v=$V" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
         with:
           name: v${{ steps.ver.outputs.v }}
