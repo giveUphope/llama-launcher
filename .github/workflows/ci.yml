@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
+    tags:
+      - "v*"
   pull_request:
     branches: [main]
 
@@ -15,6 +17,7 @@ concurrency:
 
 jobs:
   verify:
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,7 +86,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Get current version
+      - name: Get new version
         id: ver
         run: |
           VERSION=$(node -p "require('./package.json').version")
@@ -96,3 +99,49 @@ jobs:
           git tag -a "v${{ steps.ver.outputs.version }}" -m "Release v${{ steps.ver.outputs.version }}"
           git push origin HEAD:main
           git push origin "v${{ steps.ver.outputs.version }}"
+
+  # Windows 打包 + 自动 GitHub Release（仅在 tag push 时触发）
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+        env:
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Package Windows installer
+        run: pnpm dist
+
+      - name: Get version
+        id: ver
+        shell: bash
+        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload installer to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          files: release/llama Launcher ${{ steps.ver.outputs.version }}.exe
+        env:
+          GITHUB_TOKEN: *** github.token }}
