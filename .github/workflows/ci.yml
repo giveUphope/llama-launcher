@@ -1,12 +1,10 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
-    tags:
-      - "v*"
   pull_request:
-    branches: [main]
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -17,7 +15,6 @@ concurrency:
 
 jobs:
   verify:
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,20 +33,12 @@ jobs:
         env:
           ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm lint
+      - run: pnpm test
 
-      - name: Build workspace packages
-        run: pnpm build
-
-      - name: Typecheck + IPC/doc sync
-        run: pnpm lint
-
-      - name: Unit tests
-        run: pnpm test
-
-  # 版本号自动递增（仅 main 分支 push 触发；PR 不触发；bot 推送跳过以防无限循环）
-  version-bump:
+  bump:
     needs: verify
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
@@ -60,88 +49,32 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 10.12.1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
         env:
           ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Bump version (patch)
-        run: node scripts/bump-version.cjs patch
-
-      - name: Configure git user
-        run: |
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/bump-version.cjs patch
+      - run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Get new version
-        id: ver
+      - id: ver
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Commit, tag and push
-        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "v=$V" >> "$GITHUB_OUTPUT"
+      - run: |
           git add -A
-          git commit -m "chore(release): v${{ steps.ver.outputs.version }}"
-          git tag -a "v${{ steps.ver.outputs.version }}" -m "Release v${{ steps.ver.outputs.version }}"
+          git commit -m "chore(release): v${{ steps.ver.outputs.v }}"
+          git tag -a "v${{ steps.ver.outputs.v }}" -m "v${{ steps.ver.outputs.v }}"
           git push origin HEAD:main
-          git push origin "v${{ steps.ver.outputs.version }}"
-
-  # Windows 打包 + 自动 GitHub Release（仅在 tag push 时触发）
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: windows-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.12.1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+          git push origin "v${{ steps.ver.outputs.v }}"
+      - name: Trigger release build
         env:
-          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        run: pnpm build
-
-      - name: Package Windows installer
-        run: pnpm dist
-
-      - name: Get version
-        id: ver
-        shell: bash
-        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
-
-      - name: Upload installer to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: v${{ steps.ver.outputs.version }}
-          generate_release_notes: true
-          files: release/llama Launcher ${{ steps.ver.outputs.version }}.exe
-        env:
-          GITHUB_TOKEN: *** github.token }}
+          GH_TOKEN: *** github.token }}
+        run: gh workflow run release.yml -f version="${{ steps.ver.outputs.v }}"
