@@ -1,6 +1,6 @@
 {
   "name": "@llama-launcher/desktop",
-  "version": "0.0.02",
+  "version": "0.0.03",
   "private": true,
   "type": "module",
   "main": "./dist/main/index.js",
