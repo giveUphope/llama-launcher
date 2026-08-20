@@ -6,7 +6,7 @@
 - **appId**：`com.llama-launcher.app`
 - **productName**：`llama Launcher`
 - **输出目录**：`../../release`（临时改到 `release-fixed` 等目录绕过文件锁后，必须恢复并清理）
-- **目标格式**：Portable 单文件（`llama Launcher 0.0.03.exe`）
+- **目标格式**：Portable 单文件（`llama Launcher 0.0.04.exe`）
 - **asar**：启用，仅打包应用本身，不打包 llama.cpp 二进制
 
 ### 11.1 beforePack / afterPack 钩子
@@ -27,7 +27,7 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 
 [`scripts/clean-before-pack.cjs`](../scripts/clean-before-pack.cjs) 负责：
 
-- 终止所有运行中的 `llama Launcher` 进程。由于 electron-builder portable 输出的顶层可执行文件名为 `llama Launcher 0.0.03.exe`（含版本号），脚本使用 PowerShell 按 **名称通配符 `llama Launcher*.exe` + 可执行路径前缀** 双重匹配，确保能终止版本化文件名以及 `win-unpacked` 内的基础文件名；同时保留 `taskkill /IM "llama Launcher.exe"` 作为快速兜底。终止后等待 1 秒，让操作系统释放句柄，再进行目录清理。
+- 终止所有运行中的 `llama Launcher` 进程。由于 electron-builder portable 输出的顶层可执行文件名为 `llama Launcher 0.0.04.exe`（含版本号），脚本使用 PowerShell 按 **名称通配符 `llama Launcher*.exe` + 可执行路径前缀** 双重匹配，确保能终止版本化文件名以及 `win-unpacked` 内的基础文件名；同时保留 `taskkill /IM "llama Launcher.exe"` 作为快速兜底。终止后等待 1 秒，让操作系统释放句柄，再进行目录清理。
 - 关闭指向 `release/` 的文件资源管理器窗口（通过 COM `Shell.Application` 检测并 `Quit()`），防止 Explorer 将目录作为工作目录持有句柄。
 - 尝试删除 `release/` 目录。当目录被 Defender/索引器的文件系统过滤驱动锁定时，程序化重试无法突破，脚本采用 **2 次重试 × 3 秒间隔**（不浪费用户时间），并在 `fs.rmSync` 失败时通过 **重命名 + `cmd rd /s /q`** 绕过 `mmap` 句柄。
 - **终极容错**：若删除失败则尝试将 `release/` 重命名为 `release_stuck_<timestamp>` 并新建空目录。若重命名也失败（系统进程锁定），不报错而是以 info 日志提示将走 fallback，交由 `dist-with-fallback.cjs` 的临时目录机制处理。
@@ -46,14 +46,14 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 3. **临时配置**：生成临时的 `electron-builder.tmp-<timestamp>.yml`，仅修改 `directories.output`，其他配置保持不变；打包完成后立即删除临时配置。
 4. **产物回迁**：打包成功后尝试将临时目录中的产物移回 `release/`。普通 `fs.renameSync` 在目标目录被锁时会失败，Windows 下会按目标类型分别回退：
    - **目录**：使用 `robocopy /MIR` 直接覆盖目标目录内的文件（无需先删除目录），绕过 Defender/索引器持有的句柄；覆盖成功后删除源目录。
-   - **文件**：使用 `fs.copyFileSync` 尝试覆盖目标文件（例如版本化 `llama Launcher 0.0.03.exe` 被占用时）；覆盖成功后删除源文件。
+   - **文件**：使用 `fs.copyFileSync` 尝试覆盖目标文件（例如版本化 `llama Launcher 0.0.04.exe` 被占用时）；覆盖成功后删除源文件。
 5. **最终摘要**：无论使用主目录还是 fallback，成功时打印 `BUILD SUCCEEDED` 摘要（含输出路径与 portable exe 路径），失败时打印 `BUILD FAILED`。
 
 ### 11.4 图标注入与版本信息
 
 `signAndEditExecutable: false` 跳过 electron-builder 自带的签名/资源编辑，避免本机 app-builder 工具链解包符号链接失败。但这也导致主程序 exe 的 **VS_VERSION_INFO 版本资源保持 Electron 默认值**（ProductName/FileDescription=Electron、OriginalFilename=electron.exe、版本号为 Electron 版本），任务管理器"应用名称"列与 exe 属性会显示 Electron。`scripts/after-pack.cjs` 在 afterPack 阶段补齐：
 
-1. **版本信息**：用 [resedit](https://www.npmjs.com/package/resedit)（纯 JS PE 资源编辑器，不依赖 app-builder/签名，root devDependency）把 ProductName/FileDescription/CompanyName/OriginalFilename 及 FileVersion/ProductVersion（取自应用版本，当前 0.0.03）写入主 exe 的 `VS_VERSION_INFO`。
+1. **版本信息**：用 [resedit](https://www.npmjs.com/package/resedit)（纯 JS PE 资源编辑器，不依赖 app-builder/签名，root devDependency）把 ProductName/FileDescription/CompanyName/OriginalFilename 及 FileVersion/ProductVersion（取自应用版本，当前 0.0.04）写入主 exe 的 `VS_VERSION_INFO`。
 2. **图标**：调用 [`scripts/inject-icon.cjs`](../scripts/inject-icon.cjs)，以**同字节长度原地覆写**方式把 `apps/desktop/resources/icon.ico` 注入主程序 exe 的 `RT_ICON` 资源。
 
 顺序固定：先 resedit 重写版本资源（重建 PE），再 inject-icon 原地覆写图标（字节级解析，对 resedit 产出的标准 PE 同样适用）。
