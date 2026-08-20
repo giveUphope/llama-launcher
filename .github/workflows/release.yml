@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+
+      - name: Package Windows installer
+        run: pnpm dist
+
+      - name: Get version
+        id: ver
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Upload installer to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/llama Launcher ${{ steps.ver.outputs.version }}.exe
+          name: v${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: *** github.token }}

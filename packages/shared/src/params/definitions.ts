@@ -2,7 +2,7 @@ import type { ParamDef, ParamGroup } from '../types/index.js';
 
 export const MODEL_KEY = 'model';
 export const APP_NAME = 'llama Launcher';
-export const APP_VERSION = '1.4.5';
+export const APP_VERSION = '0.0.01';
 
 /**
  * 基线启用参数：应用推荐值，初始化即启用并下发到命令行（不计入"已修改"提示）。
