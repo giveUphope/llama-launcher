@@ -19,4 +19,10 @@ llama-*-bin-*/
 # ZCode 会话计划文件（按会话 UUID 生成，不应随代码提交）
 .zcode/
 
+# Trae 文档（开发中的设计笔记，已过时/不稳定，不随仓库分发）
+.trae/
+
+# 核心包探测结果（脚本生成，可重新产生）
+packages/core/live_result.json
+
 
