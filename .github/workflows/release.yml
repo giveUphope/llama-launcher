@@ -1,6 +1,6 @@
 name: Release
 
-on:
+"on":
   push:
     tags:
       - 'v*'
@@ -18,16 +18,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.12.1
+          cache-dependency-path: pnpm-lock.yaml
+        env:
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
