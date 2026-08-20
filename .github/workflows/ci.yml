@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+        env:
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm lint
+      - run: pnpm test
+
+  bump:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+        env:
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/bump-version.cjs patch
+
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - id: ver
+        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "v=$V" >> "$GITHUB_OUTPUT"
+
+      - run: |
+          git add -A
+          git commit -m "chore(release): v${{ steps.ver.outputs.v }}"
+          git tag -a "v${{ steps.ver.outputs.v }}" -m "v${{ steps.ver.outputs.v }}"
+          git push origin HEAD:main
+          git push origin "v${{ steps.ver.outputs.v }}"
+
+      - name: Trigger release
+        env:
+          GH_TOKEN: *** github.token }}
+        run: gh workflow run release.yml -f version="${{ steps.ver.outputs.v }}"
