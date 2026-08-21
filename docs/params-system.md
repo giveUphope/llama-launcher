@@ -18,7 +18,7 @@
 
 - `_enabled` key 编码为 **JSON 字符串**存入 `PresetValues`，记录每个参数是否被用户显式启用。
 - 用户修改参数值时，若与默认值不同则**自动勾选启用**。
-- **基线启用参数** `BASELINE_ENABLED_KEYS`（`cache_type_k` / `cache_type_v` / `load_mode` / `fit` / `kv_unified`）：初始化与 `resetAll` 时即启用并下发到命令行（实测推荐内存配置：KV 量化 q8_0、`--load-mode none`、`--fit off`、`--no-kv-unified`，依据 `docs/plan-kv-split-cli-test.md`），**不计入分组"已修改"蓝点**；用户可手动取消勾选，预设自带的 `_enabled` 会覆盖基线状态。
+- **基线启用参数** `BASELINE_ENABLED_KEYS`（`cache_type_k` / `cache_type_v` / `load_mode` / `fit` / `kv_unified`）：初始化与 `resetAll` 时即启用并下发到命令行（实测推荐内存配置：KV 量化 q8_0、`--load-mode none`、`--fit off`、`--no-kv-unified`，依据 `docs/experiments/plan-kv-split-cli-test.md`），**不计入分组"已修改"蓝点**；用户可手动取消勾选，预设自带的 `_enabled` 会覆盖基线状态。
 - `MODEL_KEY`（`model`）和 `mmproj` 为特殊 key，不参与自动勾选，始终传递。
 
 ### 5.3 参数控件组件 (ui/components/params/)
@@ -61,7 +61,7 @@
    node scripts/verify-help-drift.cjs docs/params/llama-server-help-out.txt
    ```
    flag 级漂移时退出码非 0（CI 可拦截）；默认值变化只提示不失败，需人工决策是否跟随。
-4. **更新 `packages/shared/src/params/definitions.ts`**：按审计结果新增/移除参数、同步下拉 `options`（allowed values）、调整默认值（默认值变更需结合实测结论决策，例如 b10429 将 `--load-mode` 默认改为 `auto` 时，应用按 `docs/plan-kv-split-cli-test.md` 实测结论保留 `none`）。
+4. **更新 `packages/shared/src/params/definitions.ts`**：按审计结果新增/移除参数、同步下拉 `options`（allowed values）、调整默认值（默认值变更需结合实测结论决策，例如 b10429 将 `--load-mode` 默认改为 `auto` 时，应用按 `docs/experiments/plan-kv-split-cli-test.md` 实测结论保留 `none`）。
 5. **重建 shared**：`pnpm --filter @llama-launcher/shared build`（core 测试依赖 `dist`，不重建会测试不一致）。
 6. **重新生成参数文档**：`node scripts/generate-params-doc.cjs`。
 7. **校验一致**：`node scripts/verify-params-sync.cjs`（应输出 `✅ 完全一致`）。

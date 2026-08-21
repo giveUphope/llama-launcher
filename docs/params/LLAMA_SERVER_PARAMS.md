@@ -80,10 +80,8 @@
 | `-m`, `--model` | model path to load (env: LLAMA_ARG_MODEL) | ⬜ 未支持 |
 | `-mu`, `--model-url` | model download url (default: unused) (env: LLAMA_ARG_MODEL_URL) | ⬜ 未支持 |
 | `-dr`, `--docker-repo` | [<repo>/]<model>[:quant] Docker Hub model repository. repo is optional, default to ai/. quant is optional, default to :latest. example: gemma3 (default: unused) (env: LLAMA_ARG_DOCKER_REPO) | ⬜ 未支持 |
-| `-hf`, `-hfr`, `--hf-repo` | <user>/<model>[:quant] Hugging Face model repository; quant is optional, case-insensitive, default to Q4_K_M, or falls back to the first file in the repo if Q4_K_M doesn't exist. mmproj is also downloaded automatically if available. to disable, add | ⬜ 未支持 |
-| `--no-mmproj` | example: ggml-org/GLM-4.7-Flash-GGUF:Q4_K_M (default: unused) (env: LLAMA_ARG_HF_REPO) | ⬜ 未支持 |
-| `-hff`, `--hf-file` | Hugging Face model file. If specified, it will override the quant in | ⬜ 未支持 |
-| `--hf-repo` | (default: unused) (env: LLAMA_ARG_HF_FILE) | ⬜ 未支持 |
+| `-hf`, `-hfr`, `--hf-repo` | <user>/<model>[:quant] Hugging Face model repository; quant is optional, case-insensitive, default to Q4_K_M, or falls back to the first file in the repo if Q4_K_M doesn't exist. mmproj is also downloaded automatically if available. to disable, add `--no-mmproj`. example: ggml-org/GLM-4.7-Flash-GGUF:Q4_K_M (default: unused) (env: LLAMA_ARG_HF_REPO) | ⬜ 未支持 |
+| `-hff`, `--hf-file` | Hugging Face model file. If specified, it will override the quant in `--hf-repo` (default: unused) (env: LLAMA_ARG_HF_FILE) | ⬜ 未支持 |
 | `-hft`, `--hf-token` | Hugging Face access token (default: value from HF_TOKEN environment variable) (env: HF_TOKEN) | ⬜ 未支持 |
 | `--log-disable` | Log disable | ⬜ 未支持 |
 | `--log-file` | Log to file (env: LLAMA_ARG_LOG_FILE) | ⬜ 未支持 |
@@ -103,8 +101,7 @@
 | `--samplers` | samplers that will be used for generation in the order, separated by ';' (default: penalties;dry;top_n_sigma;top_k;typ_p;top_p;min_p;xtc;temperature) | ⬜ 未支持 |
 | `-s`, `--seed` | RNG seed (default: -1, use random seed for -1) | ✅ 已支持 |
 | `--sampler-seq`, `--sampling-seq` | simplified sequence for samplers that will be used (default: edskypmxt) | ⬜ 未支持 |
-| `--ignore-eos` | ignore end of stream token and continue generating (implies | ⬜ 未支持 |
-| `--logit-bias` | EOS-inf) | ⬜ 未支持 |
+| `--ignore-eos` | ignore end of stream token and continue generating (implies `--logit-bias EOS-inf`) | ⬜ 未支持 |
 | `--temp`, `--temperature` | temperature (default: 0.80) | ✅ 已支持 |
 | `--top-k` | top-k sampling (default: 40, 0 = disabled) (env: LLAMA_ARG_TOP_K) | ✅ 已支持 |
 | `--top-p` | top-p sampling (default: 0.95, 1.0 = disabled) | ✅ 已支持 |
@@ -141,11 +138,11 @@
 | 参数 | 说明 | 状态 |
 |------|------|------|
 | `--spec-draft-hf`, `-hfd`, `-hfrd`, `--hf-repo-draft` | <user>/<model>[:quant] Same as --hf-repo, but for the draft model (default: unused) (env: LLAMA_ARG_SPEC_DRAFT_HF_REPO) | ⬜ 未支持 |
-| `--spec-draft-threads`, `-td`, `--threads-draft` | number of threads to use during generation (default: same as | ⬜ 未支持 |
+| `--spec-draft-threads`, `-td`, `--threads-draft` | number of threads to use during generation (default: same as `--threads`) | ⬜ 未支持 |
 | `--spec-draft-threads-batch`, `-tbd`, `--threads-batch-draft` | number of threads to use during batch and prompt processing (default: same as --threads-draft) | ⬜ 未支持 |
 | `--spec-draft-cpu-mask`, `-Cd`, `--cpu-mask-draft` | Draft model CPU affinity mask. Complements cpu-range-draft (default: same as --cpu-mask) | ⬜ 未支持 |
 | `--spec-draft-cpu-range`, `-Crd`, `--cpu-range-draft` | lo-hi Ranges of CPUs for affinity. Complements --cpu-mask-draft | ⬜ 未支持 |
-| `--spec-draft-cpu-strict`, `--cpu-strict-draft` | <0\|1> Use strict CPU placement for draft model (default: same as | ⬜ 未支持 |
+| `--spec-draft-cpu-strict`, `--cpu-strict-draft` | <0\|1> Use strict CPU placement for draft model (default: same as `--cpu-strict`) | ⬜ 未支持 |
 | `--spec-draft-prio`, `--prio-draft` | set draft process/thread priority : 0-normal, 1-medium, 2-high, 3-realtime (default: 0) | ⬜ 未支持 |
 | `--spec-draft-poll`, `--poll-draft` | <0\|1>   Use polling to wait for draft model work (default: same as --poll) | ⬜ 未支持 |
 | `--spec-draft-cpu-mask-batch`, `-Cbd`, `--cpu-mask-batch-draft` | Draft model CPU affinity mask. Complements cpu-range-draft (default: same as --cpu-mask) | ⬜ 未支持 |
@@ -176,13 +173,11 @@
 | `--spec-ngram-map-k4v-size-n` | ngram size N for ngram-map-k4v speculative decoding, length of lookup n-gram (default: 12) | ⬜ 未支持 |
 | `--spec-ngram-map-k4v-size-m` | ngram size M for ngram-map-k4v speculative decoding, length of draft m-gram (default: 48) | ⬜ 未支持 |
 | `--spec-ngram-map-k4v-min-hits` | minimum hits for ngram-map-k4v speculative decoding (default: 1) | ⬜ 未支持 |
-| `--draft`, `--draft-n`, `--draft-max` | the argument has been removed. use --spec-draft-n-max or | ⬜ 未支持 |
-| `--spec-ngram-mod-n-max` | (env: LLAMA_ARG_DRAFT_MAX) | ⬜ 未支持 |
-| `--draft-min`, `--draft-n-min` | the argument has been removed. use --spec-draft-n-min or | ⬜ 未支持 |
-| `--spec-ngram-mod-n-min` | (env: LLAMA_ARG_DRAFT_MIN) | ⬜ 未支持 |
-| `--spec-ngram-size-n` | the argument has been removed. use the respective | ⬜ 未支持 |
-| `--spec-ngram-size-m` | the argument has been removed. use the respective | ⬜ 未支持 |
-| `--spec-ngram-min-hits` | the argument has been removed. use the respective | ⬜ 未支持 |
+| `--draft`, `--draft-n`, `--draft-max` | the argument has been removed. use `--spec-draft-n-max` or `--spec-ngram-mod-n-max` (env: LLAMA_ARG_DRAFT_MAX) | ⬜ 未支持 |
+| `--draft-min`, `--draft-n-min` | the argument has been removed. use `--spec-draft-n-min` or `--spec-ngram-mod-n-min` (env: LLAMA_ARG_DRAFT_MIN) | ⬜ 未支持 |
+| `--spec-ngram-size-n` | the argument has been removed. use the respective `--spec-ngram-*-size-n` or `--spec-ngram-mod-n-match` | ⬜ 未支持 |
+| `--spec-ngram-size-m` | the argument has been removed. use the respective `--spec-ngram-*-size-m` | ⬜ 未支持 |
+| `--spec-ngram-min-hits` | the argument has been removed. use the respective `--spec-ngram-*-min-hits` | ⬜ 未支持 |
 
 ## example-specific params
 

@@ -144,7 +144,7 @@
 
 ### 变更
 
-- **内存参数基线启用（实测结论落地）**：`cache_type_k`/`cache_type_v`（KV 量化 q8_0）、`load_mode`（`--load-mode none`）、`fit`（`--fit off`）四个推荐内存参数由"定义了但未启用"改为**初始化与重置时即启用并下发到命令行**，且不计入参数分组"已修改"蓝点。依据 `docs/plan-kv-split-cli-test.md`（2026-08-15 实测）：f16 KV + mmap + fit on 的长上下文组合在 32GB 内存机器上可冻结系统；q8 KV 使 27B@262K 显存需求从 ~35GB 降至 ~25.7GB，`--load-mode none` 防权重页常驻内存，`--fit off` 规避显式 ctx/ngl 时 fit 中止导致的劣化（262K 下 25.7 vs 36.6 tok/s）。新装用户不再默认跑在 OOM 配置上。
+- **内存参数基线启用（实测结论落地）**：`cache_type_k`/`cache_type_v`（KV 量化 q8_0）、`load_mode`（`--load-mode none`）、`fit`（`--fit off`）四个推荐内存参数由"定义了但未启用"改为**初始化与重置时即启用并下发到命令行**，且不计入参数分组"已修改"蓝点。依据 `docs/experiments/plan-kv-split-cli-test.md`（2026-08-15 实测）：f16 KV + mmap + fit on 的长上下文组合在 32GB 内存机器上可冻结系统；q8 KV 使 27B@262K 显存需求从 ~35GB 降至 ~25.7GB，`--load-mode none` 防权重页常驻内存，`--fit off` 规避显式 ctx/ngl 时 fit 中止导致的劣化（262K 下 25.7 vs 36.6 tok/s）。新装用户不再默认跑在 OOM 配置上。
 
 ### 增强
 
