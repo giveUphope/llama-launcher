@@ -1,6 +1,6 @@
 {
   "name": "llama-launcher",
-  "version": "0.0.07",
+  "version": "0.0.8",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.12.1",
