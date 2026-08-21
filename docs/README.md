@@ -306,6 +306,16 @@ pnpm lint
 
 在"模型下载"页面粘贴 LM Studio / HuggingFace / HF Mirror / ModelScope 链接。HuggingFace/HF Mirror 链接走镜像直链列出文件，其余来源自动搜索 ModelScope 中的对应模型，展示 GGUF 文件列表供多选下载。下载完成后模型列表会自动刷新。
 
+### 安全下载
+
+首次从 GitHub 下载 `.exe` 时，Windows Defender SmartScreen 可能显示「未识别的应用程序」警告。这是因为本应用暂未使用付费数字签名证书，属于正常现象。
+
+按以下步骤即可安全运行：
+
+1. 双击 `.exe` 后，点击左下角「**更多信息**」
+2. 点击「**仍要运行**」
+3. 应用正常启动，此后不再提示
+
 ---
 
 ## IPC 通道
