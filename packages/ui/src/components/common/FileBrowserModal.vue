@@ -31,8 +31,8 @@ function joinPath(base: string, name: string): string {
 function resolveStart(req: PickerRequest): string {
   const dp = req.defaultPath?.trim();
   if (dp) {
-    if (req.mode === 'save') {
-      // save 模式 defaultPath 可能是完整路径，取其目录
+    // file/save 模式：defaultPath 可能是完整文件路径，取其目录作为起始目录
+    if (req.mode === 'save' || req.mode === 'file') {
       const idx = Math.max(dp.lastIndexOf('/'), dp.lastIndexOf('\\'));
       return idx > 0 ? dp.slice(0, idx) : dp;
     }

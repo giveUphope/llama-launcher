@@ -227,6 +227,12 @@ export const useParamsStore = defineStore('params', () => {
 
   function resetDep(p: ParamDef) {
     if (values[p.key] === p.default && !enabled[p.key]) return;
+    // 文件/目录路径参数：依赖不满足时仅禁用（不生成 flag），保留用户路径，
+    // 避免勾选取消/切换依赖源时丢失用户已选文件
+    if (p.type === 'file' || p.type === 'dir') {
+      enabled[p.key] = false;
+      return;
+    }
     values[p.key] = p.default;
     enabled[p.key] = false;
   }
@@ -368,6 +374,13 @@ export const useParamsStore = defineStore('params', () => {
       enabled['mmproj'] = false;
       return;
     }
+    // 用户已手动指定投影器路径（勾选/浏览填入）：尊重用户选择，不覆盖，
+    // 保证勾选取消或切换模型时路径不被清空
+    const currentMmproj = String(values['mmproj'] ?? '').trim();
+    if (currentMmproj) {
+      enabled['mmproj'] = true;
+      return;
+    }
     try {
       const mmprojPath = await window.api.models.detectMmproj(modelPathValue);
       if (mmprojPath) {
@@ -378,19 +391,15 @@ export const useParamsStore = defineStore('params', () => {
           data: `[mmproj] ${i18n.t('msg_mmproj_detected').replace('{0}', mmprojPath)}\n`,
           ts: Date.now(),
         });
-    } else {
-      // 未检测到：清空路径并禁用，避免残留上一个模型的投影器
-      values['mmproj'] = '';
-      enabled['mmproj'] = false;
-      server.pushOutput({
-        kind: 'info',
-        data: `[mmproj] ${i18n.t('msg_mmproj_not_detected')}\n`,
-        ts: Date.now(),
-      });
-    }
+      } else {
+        server.pushOutput({
+          kind: 'info',
+          data: `[mmproj] ${i18n.t('msg_mmproj_not_detected')}\n`,
+          ts: Date.now(),
+        });
+      }
     } catch {
-      // 检测失败时清空路径，不影响主流程
-      values['mmproj'] = '';
+      // 检测失败时保持当前状态（已设置的路径不受影响）
     }
   }
 
@@ -410,6 +419,12 @@ export const useParamsStore = defineStore('params', () => {
       enabled['spec_draft_model'] = false;
       return;
     }
+    // 用户已手动指定草稿模型路径：尊重用户选择，不覆盖，保证勾选取消/切换时路径保留
+    const currentDraft = String(values['spec_draft_model'] ?? '').trim();
+    if (currentDraft) {
+      enabled['spec_draft_model'] = true;
+      return;
+    }
     try {
       const draftPath = await window.api.models.detectDraft(modelPathValue);
       if (draftPath) {
@@ -418,8 +433,6 @@ export const useParamsStore = defineStore('params', () => {
         const st = String(values.spec_type ?? '');
         // 用户已选择不需要外部草稿模型的类型：不自动填充，保持联动一致性
         if (st !== '' && st !== 'none' && !EXTERNAL_DRAFT_TYPES.has(st)) {
-          values['spec_draft_model'] = '';
-          enabled['spec_draft_model'] = false;
           return;
         }
         const isDflash = draftPath.toLowerCase().includes('dflash');
@@ -428,7 +441,6 @@ export const useParamsStore = defineStore('params', () => {
         // 用户尚未选过推测解码类型（空 / none）时自动设置，保证 -md 与 --spec-type 配套
         if (st === '' || st === 'none') {
           if (isDflash) {
-            // DFlash 专用实现：需要 Flash Attention 开启，且 n_max=15 才达到加速效果
             values['spec_type'] = 'draft-dflash';
             enabled['spec_type'] = true;
             values['flash_attn'] = 'on';
@@ -450,15 +462,9 @@ export const useParamsStore = defineStore('params', () => {
             });
           }
         }
-      } else {
-        // 未检测到：清空路径并禁用，避免残留上一个模型的草稿模型
-        values['spec_draft_model'] = '';
-        enabled['spec_draft_model'] = false;
       }
     } catch {
-      // 检测失败时清空路径，不影响主流程
-      values['spec_draft_model'] = '';
-      enabled['spec_draft_model'] = false;
+      // 检测失败时保持当前状态
     }
   }
 

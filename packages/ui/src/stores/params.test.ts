@@ -93,16 +93,16 @@ describe('params store applyPreset（预设完全覆盖语义）', () => {
     expect(params.values[MODEL_KEY]).toBe('C:/models/other.gguf');
   });
 
-  it('应用后清理依赖不满足的下游参数（draft-mtp 下 -md 被清空禁用）', () => {
+  it('应用后清理依赖不满足的下游参数（draft-mtp 下 -md 禁用，路径保留）', () => {
     const params = useParamsStore();
-    // spec_draft_model 仅对外部草稿类型有效；draft-mtp 用主模型 MTP 头，不需要外部草稿
+    // spec_draft_model 仅对外部草稿类型有效；draft-mtp 下禁用但不清除路径
     const preset = freshPreset({ spec_type: 'draft-mtp', spec_draft_model: 'C:/models/draft.gguf' });
     enableInPreset(preset, 'spec_type');
     enableInPreset(preset, 'spec_draft_model');
 
     params.applyPreset(preset);
 
-    expect(params.values['spec_draft_model']).toBe('');
+    expect(params.values['spec_draft_model']).toBe('C:/models/draft.gguf');
     expect(params.enabled['spec_draft_model']).toBe(false);
   });
 
@@ -273,22 +273,24 @@ describe('依赖联动稳定态（先填下游、后选依赖源不被误清；�
     expect(params.enabled['spec_draft_model']).toBe(true);
   });
 
-  it('切到不需要外部草稿的类型（draft-mtp）清空下游并禁用', () => {
+  it('切到不需要外部草稿的类型（draft-mtp）：保留路径但禁用（用户文件不丢失）', () => {
     const params = useParamsStore();
     params.set('spec_draft_model', 'C:/models/draft.gguf');
     params.set('spec_type', 'draft-simple');
     params.set('spec_type', 'draft-mtp');
-    expect(params.values['spec_draft_model']).toBe('');
+    expect(params.values['spec_draft_model']).toBe('C:/models/draft.gguf');
     expect(params.enabled['spec_draft_model']).toBe(false);
   });
 
-  it('重复设置依赖源是幂等的（收敛到稳定态，无级联误清）', () => {
+  it('重复设置依赖源是幂等的（路径保留、禁用态稳定）', () => {
     const params = useParamsStore();
     params.set('spec_draft_model', 'C:/models/draft.gguf');
-    params.set('spec_type', 'draft-mtp'); // 第一次清理
-    expect(params.values['spec_draft_model']).toBe('');
+    params.set('spec_type', 'draft-mtp'); // 依赖不满足：路径保留、禁用
+    expect(params.values['spec_draft_model']).toBe('C:/models/draft.gguf');
+    expect(params.enabled['spec_draft_model']).toBe(false);
     params.set('spec_type', 'draft-mtp'); // 再次设置同一依赖源：状态不变
-    expect(params.values['spec_draft_model']).toBe('');
+    expect(params.values['spec_draft_model']).toBe('C:/models/draft.gguf');
+    expect(params.enabled['spec_draft_model']).toBe(false);
     // 无关参数不受级联影响
     expect(params.values['batch_size']).toBe(2048);
     expect(params.enabled['batch_size']).toBe(false);
