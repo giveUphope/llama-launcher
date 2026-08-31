@@ -38,6 +38,7 @@
 
 ### 修复
 
+- **隐藏组件导致的页面布局跳动（预留位置方案）**：服务页「失败/异常退出」提示条（`.failure-banner`，`v-if`）出现时把下方命令预览/参数摘要/清理三张卡片整体下推、消失时上移；服务页控制台头部「有新日志」胶囊（`.new-logs`，`v-if`）出现时右侧滚动提示在 `space-between` 下从左侧跳至右侧；日志页「有新日志」胶囊（`.new-logs-bar`，`v-if`）出现时把 `flex:1` 控制台上下挤压。三处统一改为**预留位置（reserve space）**：外层常驻槽位（`failure-banner-slot` / `new-logs-slot`）固定预留与内容等高的 `min-height`，内容用 `v-if` 条件渲染、槽位用 `visibility:hidden` 隐藏但不占位位移——出现/消失时下方卡片列与控制台高度、右侧提示位置保持完全稳定，零跳动。校验：`pnpm lint` 4 包全绿、`style-audit` 10/10、`pnpm test` 全过、UI 生产构建通过。
 - **`pnpm test` 在 Windows 上挂死**：ui 包全量测试通过后 vitest 进程静默不退出（turbo 管道随之挂死，测试本会话卡住 15 分钟才被手动终止）。排查定位：vitest 2.1.x 的 tinypool worker 销毁后 IPC 管道句柄残留主进程（实测 17 个 PipeWrap），ui 恰为 4 个测试文件时触发退出竞态——1~3 个文件正常、threads/forks、顺序执行、单 worker、isolate=false 均无法绕开；core 包同版本同规模句柄残留但正常退出。修复：`packages/ui/vitest.global-setup.mjs`（经 `vitest.config.ts` 的 `globalSetup` 引用）在运行结束、退出码确定后 `process.exit` 兜底退出，测试结果与退出码不变；仅 run 模式适用，详见 [docs/testing.md](testing.md)。验证：`pnpm test` 连续多次端到端全绿（core 300 + ui 48）。
 - **侧边栏收起态子标签与橙点消失**：收起时子树整体 `v-if` 隐藏，下级标签图标（参数预设/自定义参数/性能测试）与其上的橙色调整提示点一并消失（提示点被侧栏 overflow 遮罩裁切在导轨外）。现收起态子项以 icon-only 形式渲染（`.nav-sub.compact` 去缩进、子项按钮去 40px 左缩进防推出导轨），橙点改**图标右上角标**（absolute，56px 导轨内永不裁切）；所有导航按钮补 `title`/`aria-label`（收起态此前无可访问名称）。
 - **参数行 GGUF 提示角标与数值输入框重叠**：拥挤列宽（多列网格/窄窗口）下，滑块/整数行的数值输入框 `flex: 0 0 100px` 不可收缩，行内容超出列宽时输入框溢出 `param-control`，压在右侧 GGUF 提示角标/还原按钮下面（橙描边脏行三者齐全时最易触发）。`SliderParam`/`IntEntryParam` 的 `.num-input` 改 `flex: 0 1 100px; min-width: 56px`——拥挤时先压缩输入框再压滑块，不再溢出（1152px 收起态 340px 极限列宽实测全行零重叠；下拉/文本/文件控件本已可收缩，不受影响）。

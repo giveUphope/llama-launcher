@@ -167,9 +167,13 @@ function onScroll() {
         <Icon name="info" :size="11" />
         <span>{{ i18n.t('msg_app_logs_hint') }}</span>
       </div>
-      <div v-if="hasNewLogs" class="new-logs-bar" @click="void scrollConsoleToBottom()">
-        <Icon name="chevron_down" :size="12" />
-        <span>{{ i18n.t('msg_new_logs') }}</span>
+      <!-- new-logs 槽位常驻：预留胶囊等高的固定高度，无新日志时隐藏但占位——
+           控制台区域不因胶囊出现/消失而上下跳动（flex:1 的 console 高度稳定）。 -->
+      <div class="new-logs-slot" :class="{ 'has-new': hasNewLogs }" @click="hasNewLogs && void scrollConsoleToBottom()">
+        <div v-if="hasNewLogs" class="new-logs-bar">
+          <Icon name="chevron_down" :size="12" />
+          <span>{{ i18n.t('msg_new_logs') }}</span>
+        </div>
       </div>
       <div
         ref="consoleEl"
@@ -305,12 +309,23 @@ function onScroll() {
   color: var(--fg-muted);
 }
 
+/* new-logs 槽位常驻：预留胶囊等高的固定高度，无新日志时隐藏但占位（console 不跳动） */
+.new-logs-slot {
+  display: flex;
+  justify-content: center;
+  min-height: 26px; // 与胶囊高度一致（padding 3px×2 + fs-sm 12px 行高 ~1.4 ≈ 23px，向上取整）
+  align-items: flex-start;
+
+  &:not(.has-new) {
+    visibility: hidden; // 保留占位高度，隐藏胶囊
+  }
+}
+
 .new-logs-bar {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  margin: 0 auto;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--accent);
   border: 1px solid var(--accent);

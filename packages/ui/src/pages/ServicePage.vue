@@ -284,13 +284,17 @@ async function copyModelName() {
           <span :class="{ 'empty-val': !durationSec }">{{ durationSec ? formatDuration(durationSec) : '—' }}</span>
         </InfoStrip>
       </div>
-      <!-- 失败/异常退出提示（设计稿 §8.4：错误摘要 + 解决方案） -->
-      <div v-if="isFailed || isCrashed" class="failure-banner" role="alert">
-        <Icon name="alert" :size="14" />
-        <span>
-          {{ isCrashed ? i18n.t('msg_service_crashed') : i18n.t('msg_service_failed') }}
-          · {{ i18n.t('msg_check_console_below') }}
-        </span>
+      <!-- 失败/异常退出提示（设计稿 §8.4：错误摘要 + 解决方案）。
+           ⚠️ 布局防跳动：外层 slot 常驻并预留与 banner 等高的固定高度，
+           仅当失败时插入 banner——下方卡片列位置保持稳定，出现/消失不再下推。 -->
+      <div class="failure-banner-slot" :class="{ 'has-banner': isFailed || isCrashed }">
+        <div v-if="isFailed || isCrashed" class="failure-banner" role="alert">
+          <Icon name="alert" :size="14" />
+          <span>
+            {{ isCrashed ? i18n.t('msg_service_crashed') : i18n.t('msg_service_failed') }}
+            · {{ i18n.t('msg_check_console_below') }}
+          </span>
+        </div>
       </div>
     </Card>
 
@@ -318,9 +322,17 @@ async function copyModelName() {
         <span class="log-count">{{ logCount }} {{ i18n.t('col_lines') }}</span>
       </template>
       <div class="console-header">
-        <span v-if="hasNewLogs" class="new-logs" @click="void scrollConsoleToBottom()">
-          <Icon name="chevron_down" :size="12" />
-          <span>{{ i18n.t('msg_new_logs') }}</span>
+        <!-- 左槽位常驻：预留 new-logs 胶囊的宽度，无新日志时隐藏但占位，
+             保证右侧 scroll-hint 在 new-logs 出现/消失时水平位置稳定（不跳动）。 -->
+        <span
+          class="new-logs-slot"
+          :class="{ 'has-new': hasNewLogs }"
+          @click="hasNewLogs && void scrollConsoleToBottom()"
+        >
+          <span v-if="hasNewLogs" class="new-logs">
+            <Icon name="chevron_down" :size="12" />
+            <span>{{ i18n.t('msg_new_logs') }}</span>
+          </span>
         </span>
         <span class="scroll-hint">{{ autoScroll ? i18n.t('msg_autoscroll_on') : i18n.t('msg_autoscroll_off') }}</span>
       </div>
@@ -388,11 +400,21 @@ async function copyModelName() {
   margin-bottom: 8px;
 }
 
+/* 失败提示槽位：常驻预留 banner 等高的固定高度（防出现/消失时下推下方卡片）。
+   margin-top 归一到 slot 上；banner 本身仅负责内容呈现。 */
+.failure-banner-slot {
+  margin-top: 8px;
+  min-height: 30px; // = banner 高度（padding 6px×2 + fs-base 13px 行高 1.4 ≈ 30px），两种状态高度恒等
+
+  &:not(.has-banner) {
+    visibility: hidden; // 无失败时保留占位但隐藏，仍占满 slot 高度
+  }
+}
+
 .failure-banner {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
   padding: 6px 12px;
   background: color-mix(in srgb, var(--danger) 12%, transparent);
   color: var(--danger);
@@ -418,6 +440,17 @@ async function copyModelName() {
   margin-bottom: 4px;
   font-size: var(--fs-sm);
   color: var(--fg-muted);
+}
+
+/* new-logs 左槽位常驻：预留胶囊宽度，无新日志时隐藏但占位（scroll-hint 右缘稳定） */
+.new-logs-slot {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px; // 与胶囊行高一致，避免出现时撑高 header
+
+  &:not(.has-new) {
+    visibility: hidden; // 保留宽度占位，隐藏胶囊
+  }
 }
 
 .new-logs {
