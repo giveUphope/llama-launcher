@@ -78,6 +78,16 @@ describe('parseModelUrl', () => {
     expect(r!.filePath).toBe('text_encoders/qwen3vl_4b_fp8_scaled.safetensors');
   });
 
+  it('解析带 www 前缀的 ModelScope URL（含点号模型名）', () => {
+    const r = parseModelUrl('https://www.modelscope.cn/models/Qwen/Qwen3.8-27B');
+    expect(r).not.toBeNull();
+    expect(r!.source).toBe('modelscope');
+    expect(r!.author).toBe('Qwen');
+    expect(r!.modelName).toBe('Qwen3.8-27B');
+    expect(r!.modelId).toBe('Qwen/Qwen3.8-27B');
+    expect(r!.fileName).toBe('');
+  });
+
   it('忽略 tree 路径中的引用段与子目录', () => {
     const r = parseModelUrl(
       'https://modelscope.cn/models/Qwen/Qwen3-4B/tree/main/sub/qwen3-4b-fp16.bin',

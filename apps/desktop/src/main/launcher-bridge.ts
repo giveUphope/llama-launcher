@@ -1,5 +1,6 @@
 import { Launcher, basenameSafe } from '@llama-launcher/core';
 import { BrowserWindow } from 'electron';
+import { IPC } from '@llama-launcher/shared';
 import { processRegistry } from './process-registry.js';
 import type { AppSettings, PresetValues, OutputEntry, ServerStatus } from '@llama-launcher/shared';
 
@@ -23,7 +24,7 @@ class LauncherBridge {
     });
     this.launcher.on('status', (s: ServerStatus) => {
       if (this.win && !this.win.isDestroyed()) {
-        this.win.webContents.send('server:status', s);
+        this.win.webContents.send(IPC.SERVER_STATUS, s);
       }
     });
   }
@@ -49,7 +50,7 @@ class LauncherBridge {
     this.outputQueue = [];
     if (this.win && !this.win.isDestroyed()) {
       for (const e of batch) {
-        this.win.webContents.send('server:output', e);
+        this.win.webContents.send(IPC.SERVER_OUTPUT, e);
       }
     }
   }
@@ -59,7 +60,7 @@ class LauncherBridge {
     if (win && !win.isDestroyed() && win !== this.bufferedWin) {
       // Send any buffered output to the new window
       for (const e of this.outputBuffer) {
-        win.webContents.send('server:output', e);
+        win.webContents.send(IPC.SERVER_OUTPUT, e);
       }
       this.bufferedWin = win;
     } else if (!win) {

@@ -1,11 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
   <defs>
-    <!-- 彩虹渐变底（呼应 UI 点缀式彩虹 rainbow-grad 同色相；注释内禁用双连字符，XML 严格解析） -->
+    <!-- 蓝色系渐变底（品牌蓝 → 深蓝，2026-08-26 由蓝紫渐变调整为纯蓝系列） -->
     <linearGradient id="appTile" x1="0" y1="15" x2="256" y2="241" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ff6b6b"/>
-      <stop offset="0.35" stop-color="#ffa94d"/>
-      <stop offset="0.6" stop-color="#4dabf7"/>
-      <stop offset="1" stop-color="#9775fa"/>
+      <stop offset="0" stop-color="#60a5fa"/>
+      <stop offset="0.45" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
     </linearGradient>
   </defs>
   <!-- 圆角方牌 -->

@@ -9,8 +9,8 @@ import type { DownloadSource, DownloadErrorType } from '@llama-launcher/shared';
 
 /** 事件日志文件后缀（JSONL）。 */
 export const DOWNLOAD_LOG_SUFFIX = '.llama_dl.jsonl';
-/** 旧版周期快照文件后缀（迁移源）。 */
-const LEGACY_META_SUFFIX = '.llama_dl.json';
+/** 旧版周期快照文件后缀（迁移源；配置清理按此识别下载残留）。 */
+export const LEGACY_META_SUFFIX = '.llama_dl.json';
 
 /** start 事件中的段布局（不含进度，进度由后续 segment 事件累积）。 */
 export interface DownloadLogSegmentStart {

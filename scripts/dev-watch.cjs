@@ -19,7 +19,12 @@ const DEBOUNCE_MS = 250;
 const RESTART_GAP_MS = 400;
 // 启动 Electron 前等待 dist/main 构建产物静止的窗口：tsc 初始构建可能在入口文件
 // index.js 先出现后仍在写其余产物，过早启动会导致 fs.watch 立即触发"变更→重启"
-const BUILD_SETTLE_MS = 1000;
+// 初始构建耗时可达数秒，窗口过短会在首次打开时误触发重启
+const BUILD_SETTLE_MS = 3000;
+// 启动 Electron 后忽略的变更事件窗口：startElectron 内部会调用 regenPreload（写 src/preload），
+// 该写入发生在监视器已注册之后，会导致"启动即重启"；用静默窗口避免首次打开误重启
+const START_GRACE_MS = 2000;
+let inGracePeriod = false;
 // dist/main 最近一次变更事件时间戳（用于构建稳定检测）
 let lastDistEventAt = 0;
 
@@ -95,7 +100,6 @@ function regenPreload() {
 
 function startElectron() {
   if (electronProc) return;
-  regenPreload();
   let electronPath;
   try {
     // 在普通 node 进程中 require('electron') 返回可执行文件路径
@@ -166,6 +170,7 @@ function killAndRestart() {
 }
 
 function scheduleRestart() {
+  if (inGracePeriod) return;
   if (restartTimer) clearTimeout(restartTimer);
   restartTimer = setTimeout(() => {
     restartTimer = null;
@@ -204,6 +209,11 @@ function registerWatchers() {
     process.exit(1);
   }
 
+  // 在注册监视器之前重新生成 preload 常量（此时尚无 watcher，写入不会触发重启）。
+  // 此前 regenPreload 放在 startElectron 内部，执行时 watcher 已注册，写 src/preload 会
+  // 立即触发"变更→重启"，导致首次打开 Electron 就被关闭（启动即重启）
+  regenPreload();
+
   // 先注册监视（记录 dist/main 事件时间戳），再等待构建产物静止后启动 Electron
   registerWatchers();
 
@@ -215,6 +225,10 @@ function registerWatchers() {
     console.warn('[dev-watch] ' + e.message + '，直接启动 Electron');
   }
 
+  // 启动后进入静默窗口，忽略 START_GRACE_MS 内的一切变更事件：
+  // 避免因 startElectron 内部或 Electron 进程启动阶段的文件写入误触发重启
+  inGracePeriod = true;
   startElectron();
+  setTimeout(() => { inGracePeriod = false; }, START_GRACE_MS);
   console.log('[dev-watch] 热重载监视中（dist/main / preload / shared types）');
 })();

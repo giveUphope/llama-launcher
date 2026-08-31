@@ -177,20 +177,21 @@ watch(() => props.p.key, () => { open.value = false; });
 .param-row {
   display: flex;
   align-items: center;
-  min-height: 36px;
+  min-height: 24px;
   width: 100%;
+  gap: 4px;
 }
 
 // 标签列：允许收缩（避免长标签换行撑高行），溢出用省略号
 .label-col {
-  flex: 0 1 140px;
-  min-width: 80px;
+  flex: 0 1 110px;
+  min-width: 64px;
   text-align: right;
-  padding-right: 12px;
+  padding-right: 8px;
 }
 
 .label-text {
-  font-size: var(--fs-lg);
+  font-size: var(--fs-base);
   color: var(--fg-secondary);
   cursor: help;
   white-space: nowrap;
@@ -205,15 +206,15 @@ watch(() => props.p.key, () => { open.value = false; });
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
 // ----- 自定义下拉（与 TopBar 模型下拉设计语言统一） -----
 .dropdown {
   position: relative;
-  width: 220px;
-  flex: 0 1 220px;
+  width: 180px;
+  flex: 0 1 180px;
   min-width: 0;
 }
 
@@ -229,17 +230,15 @@ watch(() => props.p.key, () => { open.value = false; });
   border: 1px solid var(--border);
   cursor: pointer;
   user-select: none;
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
-    box-shadow var(--dur-fast) var(--ease-jelly), transform var(--dur-fast) var(--ease-jelly);
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
+    box-shadow var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
     background: var(--bg-hover);
     border-color: var(--accent);
   }
 
-  &:active {
-    transform: scale(0.97);
-  }
+
 }
 
 .dropdown.open .dropdown-trigger {
@@ -276,7 +275,7 @@ watch(() => props.p.key, () => { open.value = false; });
   right: 7px;
   pointer-events: none;
   color: var(--fg-muted);
-  transition: color var(--dur-fast) var(--ease-jelly), transform var(--dur-med) var(--ease-jelly);
+  transition: color var(--dur-fast) var(--ease-smooth), transform var(--dur-med) var(--ease-jelly);
 }
 
 .dropdown-trigger:hover .dropdown-chevron {
@@ -298,11 +297,11 @@ watch(() => props.p.key, () => { open.value = false; });
   overflow-x: hidden;
   padding: 4px;
   border-radius: var(--radius-row);
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border);
+  // 实底菜单（STYLE_TODO #41 / §7.5.6）：半透明底透出下层内容 + backdrop-filter 合成层
+  // 使文字发虚，功能菜单可读性优先
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-dropdown);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
   animation: dropdown-panel-in var(--dur-fast) var(--ease-jelly);
 
   &::-webkit-scrollbar {
@@ -352,19 +351,18 @@ watch(() => props.p.key, () => { open.value = false; });
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
-  transition: background var(--dur-fast) var(--ease-jelly), transform var(--dur-fast) var(--ease-jelly);
+  transition: background var(--dur-fast) var(--ease-smooth);
 
   &:hover {
     background: var(--bg-hover);
   }
 
-  &:active {
-    transform: scale(0.98);
-  }
+
 
   &.active {
+    // accent 淡底 + accent 文字（原 --bg-active 暗蓝底叠蓝字深色主题对比度不足，STYLE_TODO #13/#41）
     color: var(--accent);
-    background: var(--bg-active);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
   }
 
   .option-label {

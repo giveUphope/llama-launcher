@@ -28,7 +28,7 @@
 
 | 层 | 技术 |
 |----|------|
-| 桌面框架 | Electron 33 |
+| 桌面框架 | Electron 44 |
 | 前端框架 | Vue 3 + Pinia + Vue Router |
 | 构建工具 | Vite + TypeScript 5.8 |
 | Monorepo | pnpm workspace + Turborepo |

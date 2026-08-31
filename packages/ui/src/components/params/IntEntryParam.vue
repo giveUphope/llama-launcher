@@ -99,20 +99,19 @@ const label = computed(() => i18n.paramLabel(props.p.key));
 .param-row {
   display: flex;
   align-items: center;
-  min-height: 36px;
+  min-height: 24px;
   width: 100%;
 }
 
-// 标签列：允许收缩（避免长标签换行撑高行），溢出用省略号
 .label-col {
-  flex: 0 1 140px;
-  min-width: 80px;
+  flex: 0 1 110px;
+  min-width: 64px;
   text-align: right;
-  padding-right: 12px;
+  padding-right: 8px;
 }
 
 .label-text {
-  font-size: var(--fs-lg);
+  font-size: var(--fs-base);
   color: var(--fg-secondary);
   cursor: help;
   white-space: nowrap;
@@ -127,13 +126,15 @@ const label = computed(() => i18n.paramLabel(props.p.key));
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
 .num-input {
   width: 100px;
-  flex: 0 0 100px;
+  // 可收缩：同 SliderParam——防拥挤列宽下溢出压到 GGUF 提示角标/还原按钮
+  flex: 0 1 100px;
+  min-width: 56px;
   height: 28px;
   padding: 0 8px;
   background: var(--bg-input);

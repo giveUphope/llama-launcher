@@ -141,8 +141,7 @@ describe('Launcher', () => {
     expect(capturedCmd).toContain('8081');
     expect(capturedCmd).toContain('-cb');
     expect(capturedCmd).toContain('-fa');
-    expect(capturedCmd).toContain('--host');
-    expect(capturedCmd).toContain('127.0.0.1');
+    // host=127.0.0.1 为默认值，按"值非默认即发射"语义不生成 --host
   });
 
   it('emits command with only exe path when no model', async () => {

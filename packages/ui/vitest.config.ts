@@ -14,5 +14,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // Windows 退出竞态兜底，见 vitest.global-setup.mjs 头注释
+    globalSetup: ['./vitest.global-setup.mjs'],
   },
 });

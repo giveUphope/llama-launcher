@@ -9,7 +9,7 @@ import type { AppSettings, ThemeMode, Language, CloseBehavior } from '@llama-lau
  */
 const SETTINGS_VERSION = 1;
 
-const THEME_MODES: ThemeMode[] = ['dark', 'light'];
+const THEME_MODES: ThemeMode[] = ['dark', 'light', 'system'];
 const LANGUAGES: Language[] = ['zh', 'en'];
 const CLOSE_BEHAVIORS: CloseBehavior[] = ['ask', 'exit', 'tray'];
 
@@ -26,7 +26,6 @@ export function getDefaultSettings(): AppSettings {
     // 默认以最大化状态启动
     window_maximized: true,
     theme_mode: 'dark',
-    fx_mode: 'glass',
     close_behavior: 'ask',
     sidebar_collapsed: false,
     language: 'zh',
@@ -35,6 +34,11 @@ export function getDefaultSettings(): AppSettings {
     download_max_concurrent: 3,
     // HuggingFace 镜像源（空 = 默认 hf-mirror.com）
     hf_mirror_host: '',
+    // 扩展参数（追加到启动命令末尾的用户自定义参数，空 = 无）
+    custom_args: '',
+    // 参数会话（临时轨道）：null = 无会话，启动走 selected_model + last_preset 预设链
+    session_values: null,
+    session_baseline: null,
   };
 }
 
@@ -68,6 +72,22 @@ function normalizeSettings(raw: unknown): AppSettings {
   const r = raw as Record<string, unknown>;
   const theme = r.theme_mode as string;
   const lang = r.language as string;
+  // 会话字段形状校验：非法/缺失一律回退 null（启动走预设应用链）
+  const asValues = (v: unknown): AppSettings['session_values'] => {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    const clean: Record<string, string | number | boolean> = {};
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') clean[k] = val;
+    }
+    return Object.keys(clean).length > 0 ? clean : null;
+  };
+  const asBaseline = (v: unknown): AppSettings['session_baseline'] => {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    const b = v as Record<string, unknown>;
+    const values = asValues(b.values);
+    if (typeof b.preset_name !== 'string' || !values) return null;
+    return { preset_name: b.preset_name, values };
+  };
   return {
     settings_version: SETTINGS_VERSION,
     server_exe: asString(r.server_exe, d.server_exe),
@@ -78,13 +98,15 @@ function normalizeSettings(raw: unknown): AppSettings {
     window_geometry: asString(r.window_geometry, d.window_geometry),
     window_maximized: asBool(r.window_maximized, d.window_maximized),
     theme_mode: THEME_MODES.includes(theme as ThemeMode) ? (theme as ThemeMode) : d.theme_mode,
-    fx_mode: r.fx_mode === 'off' ? 'off' : 'glass',
     close_behavior: CLOSE_BEHAVIORS.includes(r.close_behavior as CloseBehavior) ? (r.close_behavior as CloseBehavior) : 'ask',
     sidebar_collapsed: asBool(r.sidebar_collapsed, d.sidebar_collapsed),
     language: LANGUAGES.includes(lang as Language) ? (lang as Language) : d.language,
     last_tab: asString(r.last_tab, d.last_tab),
     download_max_concurrent: asNumber(r.download_max_concurrent, d.download_max_concurrent, 1, 5),
     hf_mirror_host: asString(r.hf_mirror_host, d.hf_mirror_host ?? ''),
+    custom_args: asString(r.custom_args, d.custom_args ?? ''),
+    session_values: asValues(r.session_values),
+    session_baseline: asBaseline(r.session_baseline),
   };
 }
 

@@ -8,7 +8,7 @@ import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
 import { useI18nStore } from '@/stores/i18n';
 import { confirm } from '@/composables/useConfirm';
-import { useAutoPresetName } from '@/composables/useAutoPresetName';
+import { useAutoPresetName, isNameConsistentWithModel } from '@/composables/useAutoPresetName';
 
 const params = useParamsStore();
 const settings = useSettingsStore();
@@ -28,7 +28,8 @@ const appliedMsg = ref('');
 let appliedTimer: number | null = null;
 
 const modelLabel = (p: Preset): string => {
-  const m = p.values[MODEL_KEY];
+  // v2 结构：模型路径为顶层元数据字段（null = 未绑定模型）
+  const m = p.model;
   return m ? (String(m).split(/[/\\]/).pop() ?? '') : i18n.t('status_model_none');
 };
 
@@ -49,6 +50,23 @@ async function onRefreshList() {
   selectedRow.value = -1;
 }
 
+// 名称↔模型一致性守卫（仅针对真实的错绑风险，不打扰自定义命名）：
+// 当前绑定模型与保存名不对应，且同名预设已存在并绑定了另一模型时，本次保存
+// 会把新模型写进旧名预设（错绑来源：「应用」其他预设连带切换模型后沿用选中行名保存）——
+// 弹确认说明后果，取消即中止。无同名预设/同名预设未绑定模型 = 用户自主行为，静默放行。
+async function confirmNameModelMismatch(name: string): Promise<boolean> {
+  const binding = String(params.values[MODEL_KEY] ?? '');
+  if (!binding || isNameConsistentWithModel(name, binding)) return true;
+  const row = presets.value.find((p) => p.name === name);
+  if (!row || !row.model) return true;
+  const base = binding.split(/[/\\]/).pop() ?? binding;
+  return confirm({
+    title: i18n.t('msg_preset_model_mismatch_title'),
+    message: i18n.t('msg_preset_model_mismatch').replace('{0}', name).replace('{1}', base),
+    variant: 'warning',
+  });
+}
+
 async function onSavePreset() {
   const name = presetName.value.trim();
   if (!name) return;
@@ -62,7 +80,10 @@ async function onSavePreset() {
     });
     if (!ok) return;
   }
+  if (!(await confirmNameModelMismatch(name))) return;
   await window.api.presets.save(name, params.snapshot());
+  // 保存点 = 新基线（双轨逻辑：显式保存才写预设文件，并刷新基线归零脏标记）
+  params.markBaseline(name);
   presetName.value = '';
   await onRefreshList();
   if (settings.settings) {
@@ -81,7 +102,10 @@ async function onOverwriteSelected() {
     variant: 'warning',
   });
   if (!ok) return;
+  if (!(await confirmNameModelMismatch(target.name))) return;
   await window.api.presets.save(target.name, params.snapshot());
+  // 保存点 = 新基线
+  params.markBaseline(target.name);
   await onRefreshList();
   // 保持选中状态指向刚覆盖的预设
   const idx = presets.value.findIndex(p => p.name === target.name);
@@ -97,7 +121,9 @@ async function onApplySelected() {
   const target = presets.value[selectedRow.value];
   const loaded = await window.api.presets.load(target.name);
   if (loaded) {
-    const count = params.applyPreset(loaded.values);
+    // v2 结构：model 顶层字段注回 values 供 applyPreset 识别（null = 保留当前模型）
+    const applyValues = loaded.model ? { ...loaded.values, [MODEL_KEY]: loaded.model } : loaded.values;
+    const count = params.applyPreset(applyValues, loaded.name);
     if (settings.settings) {
       settings.settings.last_preset = loaded.name;
       void settings.save();
@@ -263,42 +289,6 @@ onRefreshList();
   border: 1px solid var(--success);
   color: var(--success);
   font-size: var(--fs-base);
-}
-
-.action-btn {
-  height: var(--btn-h);
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  color: var(--fg-primary);
-  font-size: var(--fs-md);
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
-    transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover:not(:disabled) {
-    background: var(--bg-hover);
-  }
-
-  &:active:not(:disabled) {
-    transform: scale(0.96);
-  }
-
-  &.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
-
-  &.danger {
-    color: var(--danger);
-    border-color: var(--danger);
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
 }
 
 .table-wrap {

@@ -8,7 +8,8 @@ const path = require('node:path');
 const appDir = process.cwd();
 const repoRoot = path.resolve(appDir, '..', '..');
 const scriptsDir = path.join(repoRoot, 'scripts');
-const builderYml = path.join(appDir, 'electron-builder.yml');
+// electron-builder 26 起改为 JS 配置（hooks 函数式注入），不再使用 electron-builder.yml
+const builderConfig = path.join(appDir, 'electron-builder.config.cjs');
 
 // 应用版本：portable 输出的顶层可执行文件名带版本号（如 "llama Launcher 1.4.5.exe"），
 // 从 package.json 动态读取，避免版本升级后提示信息与实际文件名不一致。
@@ -57,26 +58,22 @@ function isDirLocked(target) {
   }
 }
 
-function loadConfigText() {
-  return fs.readFileSync(builderYml, 'utf-8');
+function loadConfig() {
+  return require(builderConfig);
 }
 
-function getConfiguredOutput(configText) {
-  const match = configText.match(/^directories:\s*$([\s\S]*?)^(?=\S)/m);
-  if (!match) return null;
-  const outMatch = match[1].match(/^\s+output:\s*(.+)$/m);
-  return outMatch ? outMatch[1].trim() : null;
+function getConfiguredOutput(configObj) {
+  return configObj.directories?.output ?? null;
 }
 
-function buildWithOutput(output) {
+function buildWithOutput(configObj, output) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
-  const tmpConfigPath = path.join(appDir, `electron-builder.tmp-${stamp}.yml`);
-  const originalText = loadConfigText();
-  const newText = originalText.replace(
-    /^(\s+output:\s*)(.+)$/m,
-    `$1${output}`
-  );
-  fs.writeFileSync(tmpConfigPath, newText, 'utf-8');
+  const tmpConfigPath = path.join(appDir, `electron-builder.tmp-${stamp}.cjs`);
+  // 继承原配置并仅覆盖 output（保留 beforePack/afterPack 函数钩子，JSON 序列化会丢失函数）
+  const tmpConfigText =
+    `const base = require(${JSON.stringify(builderConfig)});\n` +
+    `module.exports = { ...base, directories: { ...(base.directories || {}), output: ${JSON.stringify(output)} } };\n`;
+  fs.writeFileSync(tmpConfigPath, tmpConfigText, 'utf-8');
   return { tmpConfigPath, stamp };
 }
 
@@ -160,8 +157,8 @@ function moveOutput(srcDir, destDir) {
 
 runCleanBeforePack();
 
-const configText = loadConfigText();
-const outputValue = getConfiguredOutput(configText) || '../../release';
+const configObj = loadConfig();
+const outputValue = getConfiguredOutput(configObj) || '../../release';
 const configuredOutput = path.resolve(appDir, outputValue);
 
 let configPath = null;
@@ -175,7 +172,7 @@ if (isDirLocked(configuredOutput)) {
   const fallbackOutput = path.join(repoRoot, fallbackOutputName);
   const relativeFallback = path.relative(appDir, fallbackOutput).replace(/\\/g, '/');
   console.log(`[dist-fallback] release/ is locked by system process, using fallback: ${fallbackOutputName}`);
-  const tmp = buildWithOutput(relativeFallback);
+  const tmp = buildWithOutput(configObj, relativeFallback);
   configPath = tmp.tmpConfigPath;
   actualOutput = fallbackOutput;
   usedFallback = true;
@@ -183,7 +180,7 @@ if (isDirLocked(configuredOutput)) {
   console.log(`[dist-fallback] Output directory is ready: ${configuredOutput}`);
 }
 
-const code = runBuilder(configPath);
+const code = runBuilder(configPath || builderConfig);
 
 // 清理临时配置文件
 if (configPath && fs.existsSync(configPath)) {

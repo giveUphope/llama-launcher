@@ -19,11 +19,19 @@ llama-*-bin-*/
 # ZCode 会话计划文件（按会话 UUID 生成，不应随代码提交）
 .zcode/
 
+# WorkBuddy 会话数据（本地项目记忆与任务状态，不随仓库提交）
+.workbuddy/
+
 # Trae 文档（开发中的设计笔记，已过时/不稳定，不随仓库分发）
 .trae/
 
 # 核心包探测结果（脚本生成，可重新产生）
 packages/core/live_result.json
 
+# 打包钩子中间产物（before-pack.cjs 生成，记录 pnpm junction 状态，打包后即失效）
+apps/desktop/.pack-link-map.json
+
+# 重构过程的视觉回归截图（过程性产物，未被文档实际引用，不入库）
+docs/refactor/screenshots/
 
 .tmp/

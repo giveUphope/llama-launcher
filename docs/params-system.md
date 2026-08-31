@@ -1,6 +1,6 @@
 # 参数系统
 
-> 范围：参数系统：参数定义（definitions.ts）、启用机制、依赖联动与推测解码自动检测、参数控件组件。
+> 范围：参数系统：参数定义（definitions.ts）、双轨机制（临时会话/预设）、依赖联动与推测解码自动检测、参数控件组件。
 > 索引：[README.md](README.md) · 相关：[core-modules.md](core-modules.md)（命令构建）· [frontend.md](frontend.md)（参数页）
 
 ### 5.1 参数定义 (shared/params/definitions.ts)
@@ -14,12 +14,15 @@
 - **8 种控件类型**：`text` / `int_slider` / `int_entry` / `float_slider` / `dropdown` / `checkbox` / `file` / `dir`。
 - **ggufField 映射**：参数可声明 `ggufField` 映射到 `GgufModelInfo` 的字段，参数行内联显示模型内置值；`buildSuggestions` 从元数据推导建议参数，点击可一键应用。
 
-### 5.2 参数启用机制
+### 5.2 参数双轨机制（临时会话 / 预设）
 
-- `_enabled` key 编码为 **JSON 字符串**存入 `PresetValues`，记录每个参数是否被用户显式启用。
-- 用户修改参数值时，若与默认值不同则**自动勾选启用**。
-- **基线启用参数** `BASELINE_ENABLED_KEYS`（`cache_type_k` / `cache_type_v` / `load_mode` / `fit` / `kv_unified`）：初始化与 `resetAll` 时即启用并下发到命令行（实测推荐内存配置：KV 量化 q8_0、`--load-mode none`、`--fit off`、`--no-kv-unified`，依据 `docs/experiments/plan-kv-split-cli-test.md`），**不计入分组"已修改"蓝点**；用户可手动取消勾选，预设自带的 `_enabled` 会覆盖基线状态。
-- `MODEL_KEY`（`model`）和 `mmproj` 为特殊 key，不参与自动勾选，始终传递。
+参数**没有独立启用/禁用状态**——命令行发射规则是「值 ≠ 默认值才发射」（checkbox 恒发射、空串跳过、依赖不满足跳过，详见 [core-modules.md](core-modules.md) §4.3）；旧版 `_enabled` JSON 启用机制已随双轨逻辑移除（`buildCommand` 读到 legacy `_enabled` 直接忽略）。
+
+- **临时轨道（会话）**：所有参数编辑自动持久化到 `~/.llama_launcher/settings.json` 的 `session_values` + `session_baseline`（`autoSave` watch 800ms 节流，**只写 settings、永不写预设文件**）；应用启动时经 `restoreSession` 恢复上次会话（参数值 + 基线一并还原）。
+- **预设轨道**：`<models_dir>/presets/*.json` 仅在用户显式「保存预设」时写入；应用预设（`applyPreset`）以「预设名 + 参数快照」建立新会话基线（`markBaseline`）。
+- **基线**：`SessionBaseline { preset_name, values }`——`hasChanges`（分组"已修改"蓝点 / 侧栏橙点）有基线时相对基线快照逐键对比，无基线时对比出厂默认；基线状态由 `BaselineBadge` 展示（参数页顶部 + 服务页状态卡），提供「恢复基线」（`restoreBaseline`，resetAll 后回写基线快照）与「清除会话」（`clearSession`，带确认）入口。
+- **防丢确认**：切换模型（`applyModel`）与应用 GGUF 建议参数（`applyModelWithSuggestions`）前检测 `hasChanges`，未保存修改时弹 `confirmDiscardDirty` 确认，确认后应用并重建临时基线；应用启动重挂上次模型走 `reattachModelRuntime`（直接赋值、不确认、不重建基线、别名不重派生）。
+- **`MODEL_KEY`（`model`）** 恒随命令携带 `-m`；`set(MODEL_KEY)` 自动派生 `alias`（`modelBaseName`，文件名去 `.gguf` 后缀）。
 
 ### 5.3 参数控件组件 (ui/components/params/)
 
@@ -35,11 +38,11 @@
 
 ### 5.4 依赖联动与推测解码自动检测 (ui/stores/params.ts)
 
-- **通用依赖联动清理** `syncDependencies()`：遍历所有声明 `dependsOn` 的参数，依赖不满足时重置为默认值并禁用（判定与 `ParamRow.dependencyMet` 一致：依赖参数须启用 + 值须满足 values/notValues）。仅在被修改的 key 是依赖源（`DEP_SOURCE_KEYS`）时触发，避免"先填下游值、后选依赖源"被误清。
+- **通用依赖联动清理** `syncDependencies()`：遍历所有声明 `dependsOn` 的参数，依赖不满足时重置为默认值并禁用（判定与 `ParamRow.dependencyMet` 一致：依赖参数须启用 + 值须满足 values/notValues）——**例外**：`file` / `dir` 类型保留用户已选路径不重置（避免误清大段路径输入）。仅在被修改的 key 是依赖源（`DEP_SOURCE_KEYS`）时触发，避免"先填下游值、后选依赖源"被误清。
 - **依赖分组**：
   - `spec_draft_model` / `spec_draft_ngl` / `spec_cache_type_k/v` → 依赖 `spec_type` 为外部草稿类型（`draft-simple`/`draft-eagle3`/`draft-dflash`/`draft-dspark`）
   - `spec_draft_n_max` / `n_min` → 依赖 `spec_type` 非空且非 `none`（MTP/ngram 也适用）
-  - `reasoning_budget` / `format` / `budget_message` → 依赖 `reasoning` 非 `off`
+  - `reasoning_effort` / `reasoning_budget` / `reasoning_format` / `reasoning_budget_message` → 依赖 `reasoning` 非 `off`
   - `cache_reuse` → 依赖 `cache_prompt` 为 `true`
 - **推测解码草稿数联动** `set('spec_type', ...)`：选择投机采样类型时自动应用该类型的推荐最大草稿数（`spec_draft_n_max`，映射 `SPEC_DRAFT_N_MAX_BY_TYPE`：draft-simple/eagle3/dspark=8、draft-dflash=15、draft-mtp=5、ngram-*=5）并启用——仅选类型不配草稿数无法达到该方式最佳效率；同时保持 `n_min ≤ n_max`（切换类型或手动调小 `n_max` 时钳制 `n_min`）。关闭（none/空）时经 `syncDependencies` 清空草稿数。
 - **DFlash/草稿模型自动检测** `detectDraftModel()`：模型切换时检测同目录 dflash/draft 文件——dflash 文件自动配置 `spec_type=draft-dflash` + `flash_attn=on` + `spec_draft_n_max=15`（Muse-Glimmer DFlash 每 block 预测 16 位置：1 条件位 + 15 草稿 token）；普通 draft 文件设 `draft-simple`；用户已选类型时尊重不覆盖。

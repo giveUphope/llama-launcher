@@ -17,7 +17,9 @@ const i18n = useI18nStore();
 // 是否位于 /webui 路由（决定帧显隐）
 const active = computed(() => route.path === '/webui');
 const running = computed(() => server.status === 'running');
-const webUrl = computed(() => server.url || (running.value ? `http://${server.host}:${server.port}` : ''));
+// API 地址统一取 server.apiUrl（单一来源）：running 返回实际地址（url 残留时回退推导）、
+// starting 推导、stopped 返回空——下方面板同时保留 running 门控，双保险
+const webUrl = computed(() => server.apiUrl);
 </script>
 
 <template>

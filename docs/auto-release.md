@@ -60,7 +60,7 @@ softprops/action-gh-release@v2 的 files 字段使用通配符 `release/*.exe`�
 ```yaml
 - uses: softprops/action-gh-release@v2
   with:
-    tag_name: v${{ inputs.version }}
+    tag_name: v${{ steps.ver.outputs.v }}
     generate_release_notes: true
     files: release/*.exe
   env:

@@ -1,22 +1,26 @@
 // 集成验证：模拟 `turbo run dev` 进程树，从 electron 子进程调用真正构建好的
-// dist/process.js 的 findDevSessionRoot + killProcessTree，验证整棵 dev 树被杀死。
+// packages/core/dist/process.js 的 findDevSessionRoot + killProcessTree，验证整棵 dev 树被杀死。
+// 用法：先 `pnpm build`（需 core/dist 产物），再 `node scripts/integ_devsession.mjs`。
 import { spawn } from 'node:child_process';
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const cwd = process.cwd();
+// core 产物路径基于脚本位置解析，与运行 cwd 无关
+const coreProcessJs = fileURLToPath(new URL('../packages/core/dist/process.js', import.meta.url));
 
 // probe 子进程（扮演 electron）：找到 turbo 根并杀树，结果写文件
 const probe = `
-import { findDevSessionRoot, killProcessTree } from '${cwd}/dist/process.js';
+import { findDevSessionRoot, killProcessTree } from '${coreProcessJs.replace(/\\/g, '/')}';
 import { writeFileSync } from 'node:fs';
 try {
   const root = findDevSessionRoot();
   let killed = false;
   if (root) killed = killProcessTree(root);
-  writeFileSync('${cwd}/probe_result.json', JSON.stringify({ root, killed, self: process.pid, ok: true }));
+  writeFileSync('${cwd.replace(/\\/g, '/')}/probe_result.json', JSON.stringify({ root, killed, self: process.pid, ok: true }));
 } catch (e) {
-  writeFileSync('${cwd}/probe_result.json', JSON.stringify({ error: String((e && e.stack) || e) }));
+  writeFileSync('${cwd.replace(/\\/g, '/')}/probe_result.json', JSON.stringify({ error: String((e && e.stack) || e) }));
 }
 `;
 writeFileSync('probe_child.mjs', probe);
@@ -26,7 +30,7 @@ const turboScript = `
 // marker: turbo run dev
 const cp = require('child_process');
 cp.spawn(process.execPath, ['-e', "setInterval(()=>{},1000)"], { windowsHide: true, stdio: 'ignore' });
-cp.spawn(process.execPath, ['${cwd}/probe_child.mjs'], { windowsHide: true, stdio: ['ignore','ignore','${cwd}/probe_err.log'] });
+cp.spawn(process.execPath, ['${cwd.replace(/\\/g, '/')}/probe_child.mjs'], { windowsHide: true, stdio: ['ignore','ignore','${cwd.replace(/\\/g, '/')}/probe_err.log'] });
 setInterval(()=>{}, 1000);
 `;
 const turbo = spawn(process.execPath, ['-e', turboScript], {

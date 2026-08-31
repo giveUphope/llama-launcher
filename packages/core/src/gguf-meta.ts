@@ -482,27 +482,7 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
     });
   }
 
-  // 5. 聊天模板 — 如果能匹配到已知模板则推荐
-  if (info.chat_template) {
-    const matched = matchChatTemplate(info.chat_template);
-    if (matched) {
-      suggestions.push({
-        key: 'chat_template',
-        value: matched,
-        source: 'tokenizer.chat_template',
-        description: `从模型内置聊天模板匹配到 "${matched}"`,
-      });
-    }
-    // 有内置聊天模板则启用 Jinja
-    suggestions.push({
-      key: 'jinja',
-      value: true,
-      source: 'tokenizer.chat_template',
-      description: '模型包含内置聊天模板，启用 Jinja 模板渲染',
-    });
-  }
-
-  // 6. 采样参数 — 模型内置的推荐采样参数
+  // 5. 采样参数 — 模型内置的推荐采样参数
   if (info.sampling_temp !== null && info.sampling_temp > 0) {
     suggestions.push({
       key: 'temperature',

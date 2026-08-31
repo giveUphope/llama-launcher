@@ -18,7 +18,7 @@
     "gen:icon": "node ../../scripts/icon-gen/gen-icon.cjs",
     "start": "pnpm build && cross-env NODE_ENV=production electron .",
     "start:hot": "concurrently -k --success first -n vite,electron -c magenta,blue \"pnpm --filter @llama-launcher/ui dev\" \"wait-on file:../../packages/ui/.vite-dev-port && pnpm start:hot:electron\"",
-    "start:hot:electron": "cross-env NODE_ENV=production LLAMA_DEV_SERVER_URL=http://localhost:5173 tsc -b && node ../../scripts/copy-preload.cjs && electron .",
+    "start:hot:electron": "cross-env NODE_ENV=production LLAMA_DEV_SERVER_URL=http://127.0.0.1:5173 tsc -b && node ../../scripts/copy-preload.cjs && electron .",
     "dist": "pnpm build && node ../../scripts/dist-with-fallback.cjs",
     "lint": "tsc --noEmit -p tsconfig.json"
   },
@@ -27,11 +27,11 @@
     "@llama-launcher/shared": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
+    "@types/node": "^26.4.0",
     "concurrently": "^9.1.0",
     "cross-env": "^7.0.3",
-    "electron": "^33.3.0",
-    "electron-builder": "^25.1.8",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.8.0",
     "wait-on": "^8.0.0"
   }

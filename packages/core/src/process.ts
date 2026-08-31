@@ -85,10 +85,20 @@ export class LlamaServerProcess extends EventEmitter {
     const pid = this.proc?.pid;
     if (pid !== undefined && pid !== null) {
       this.killTree(pid);
+      // 短轮询确认：仅当 PID 定向终止未能确认死亡时才按名兜底扫杀，
+      // 避免 taskkill /F /IM 误杀用户自启的同名 llama-server 实例。
+      const deadline = Date.now() + 400;
+      let alive = true;
+      while (Date.now() < deadline) {
+        try { process.kill(pid, 0); alive = true; } catch { alive = false; break; }
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 80);
+      }
+      if (alive && this.exeName) {
+        this.sweepByName(this.exeName);
+      }
     }
-    if (this.exeName) {
-      this.sweepByName(this.exeName);
-    }
+    // 无 PID 句柄（spawn 失败/句柄丢失）时不做全局按名扫杀：
+    // 无证据表明目标进程存在，taskkill /F /IM 只会误伤无关同名进程。
     this.proc = null;
   }
 
@@ -96,10 +106,11 @@ export class LlamaServerProcess extends EventEmitter {
    * 同步杀进程：用于应用退出场景，确保子进程（llama-server）在主进程退出前被彻底终止。
    * 流程：1) 杀进程树（含所有子进程）；2) 轮询确认已退出；3) 若仍存活则重试；
    * 4) 无论 PID 树是否确认死亡，最后都按可执行文件名兜底扫杀，确保无残留进程。
+   * @returns PID 是否被确认为已退出（pid 不存在时视为已退出，返回 true）
    */
   killSync(): boolean {
     const pid = this.proc?.pid;
-    let confirmedDead = false;
+    let confirmedDead = true;
     if (pid !== undefined && pid !== null) {
       this.killTree(pid);
       const deadline = Date.now() + 1200;
@@ -118,12 +129,14 @@ export class LlamaServerProcess extends EventEmitter {
       if (alive) this.killTree(pid); // 重试一次
       confirmedDead = !alive;
     }
-    // 兜底：按可执行文件名扫杀残留同名进程，确保无残留
-    if (this.exeName) {
+    // 兜底：仅当 PID 定向终止未能确认死亡时才按名扫杀残留同名进程。
+    // 无条件 taskkill /F /IM 会杀掉系统中所有同名进程，包括用户自行启动、
+    // 与本应用无关的 llama-server 实例，故只在确认失败时兜底。
+    if (this.exeName && !confirmedDead) {
       this.sweepByName(this.exeName);
     }
     this.proc = null;
-    return true;
+    return confirmedDead;
   }
 
   /**
@@ -163,6 +176,8 @@ export class LlamaServerProcess extends EventEmitter {
     }
 
     // 轮询确认优雅终止是否生效
+    // 注：Atomics.wait 是阻塞式休眠（挂起线程至超时），并非忙等/空转；
+    // 退出路径刻意保持同步（退出时序确定性优先于事件循环响应性）。
     const deadline = Date.now() + timeoutMs;
     let alive = true;
     while (Date.now() < deadline) {
@@ -184,12 +199,18 @@ export class LlamaServerProcess extends EventEmitter {
     } catch (e) {
       onStep?.('error', e);
     }
-    // 注意：此处不再按可执行文件名扫杀（sweepByName）。
-    // 两阶段终止已通过 PID 进程树精确命中目标；按名扫杀会误伤同名但无关的
-    // 进程（如测试用 node.exe、用户其他 llama-server 实例），仅在应用退出
-    // 的 forceStop() 场景下才针对明确的 llama-server 可执行名做兜底。
+    // 强制终止后短轮询确认（最多 ~400ms）。返回值表达真实确认结果：
+    // 仍存活时返回 false，由调用方决定是否做按名兜底扫杀。
+    // 此处不直接 sweepByName：无条件按名扫杀（taskkill /F /IM）会误伤
+    // 同名但无关的进程（如测试用 node.exe、用户自启的其他 llama-server 实例）。
+    const forcedDeadline = Date.now() + 400;
+    let aliveAfterForced = true;
+    while (Date.now() < forcedDeadline) {
+      try { process.kill(pid, 0); aliveAfterForced = true; } catch { aliveAfterForced = false; break; }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 80);
+    }
     this.proc = null;
-    return true;
+    return !aliveAfterForced;
   }
 
   isRunning(): boolean {

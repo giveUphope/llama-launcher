@@ -38,6 +38,7 @@ export class Launcher extends EventEmitter {
         exePath: opts.settings.server_exe,
         modelPath: String(opts.values.model ?? ''),
         values: opts.values,
+        customArgs: opts.settings.custom_args,
       });
     } catch (e) {
       this.setStatus('stopped');

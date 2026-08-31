@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue';
 import { useI18nStore } from '@/stores/i18n';
+import Icon from '@/components/common/Icon.vue';
 import { useFilePickerQueue, type PickerRequest } from '@/composables/useFilePicker';
 import type { FsDirResult } from '@/env';
 
@@ -179,7 +180,9 @@ function cancel() {
               @click="onEntryClick(entry)"
               @dblclick="onEntryDblClick(entry)"
             >
-              <span class="fb-row-icon">{{ entry.isDir ? '📁' : '📄' }}</span>
+              <span class="fb-row-icon">
+                <Icon :name="entry.isDir ? 'folder' : 'file'" :size="15" />
+              </span>
               <span class="fb-row-name">{{ entry.name }}</span>
             </div>
           </div>
@@ -250,10 +253,9 @@ function cancel() {
   border: 1px solid var(--border);
   color: var(--fg-primary);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-jelly), color var(--dur-fast) var(--ease-jelly),
+  transition: background var(--dur-fast) var(--ease-smooth), color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
   &:hover:not(:disabled) { background: var(--bg-hover); }
-  &:active:not(:disabled) { transform: scale(0.9); }
   &:disabled { opacity: 0.4; cursor: default; }
 }
 
@@ -312,7 +314,7 @@ function cancel() {
   &.is-selected { background: var(--bg-active); color: var(--fg-primary); }
 }
 
-.fb-row-icon { width: 18px; text-align: center; }
+.fb-row-icon { width: 18px; text-align: center; display: inline-flex; align-items: center; justify-content: center; color: var(--fg-muted); }
 .fb-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .fb-save-row {
@@ -364,19 +366,16 @@ function cancel() {
   font-size: var(--fs-base);
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background-color var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
+  transition: background-color var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
-  &:active {
-    transform: scale(0.96);
-  }
 }
 
 .fb-btn.primary {
-  background: var(--accent);
-  color: #fff;
-  &:hover { background: var(--accent-hover); }
-  &:active { background: var(--accent-pressed); }
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+  &:hover { background: var(--primary-hover); }
+  &:active { background: var(--primary-pressed); }
 }
 .fb-btn.ghost {
   background: transparent;
@@ -386,7 +385,7 @@ function cancel() {
 }
 
 .modal-fade-enter-active,
-.modal-fade-leave-active { transition: opacity var(--dur-med) var(--ease-jelly); }
+.modal-fade-leave-active { transition: opacity var(--dur-med) var(--ease-smooth); }
 .modal-fade-enter-from,
 .modal-fade-leave-to { opacity: 0; }
 .modal-fade-enter-active .fb-panel,

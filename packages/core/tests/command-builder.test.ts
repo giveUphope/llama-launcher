@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildCommand, quoteArg, formatCommand, previewCommand } from '../src/command-builder.js';
+import { buildCommand, quoteArg, formatCommand, previewCommand, tokenizeArgs } from '../src/command-builder.js';
 import type { AppSettings } from '@llama-launcher/shared';
 
 // 使用真实存在的可执行文件路径，以便通过 buildCommand 的存在性校验
@@ -12,11 +12,11 @@ const baseSettings: AppSettings = {
   last_preset: '',
   window_geometry: '1280x800',
   theme_mode: 'dark',
-  fx_mode: 'glass',
   close_behavior: 'ask',
   sidebar_collapsed: false,
   language: 'zh',
   last_tab: '',
+  custom_args: '',
 };
 
 describe('buildCommand', () => {
@@ -83,6 +83,8 @@ describe('buildCommand', () => {
       modelPath: '',
       values: { spec_type: 'draft-model', spec_draft_model: 'draft.gguf' },
     });
+    // spec_type 原始值 'draft-model' 被映射为 'draft-simple'；
+    // spec_draft_model 依赖 spec_type ∈ 外部草稿类型，使用映射后的 'draft-simple' 判定依赖满足
     expect(cmd).toEqual([EXE_PATH, '--spec-type', 'draft-simple', '--spec-draft-model', 'draft.gguf']);
   });
 
@@ -102,22 +104,22 @@ describe('buildCommand', () => {
     expect(cmd2).toEqual([EXE_PATH, '--spec-type', 'draft-mtp']);
   });
 
-  it('emits gpu_layers (-ngl) when non-default value', () => {
+  it('skips gpu_layers when value equals default ("auto")', () => {
+    const cmd = buildCommand({
+      exePath: EXE_PATH,
+      modelPath: '',
+      values: { gpu_layers: 'auto' },
+    });
+    expect(cmd).toEqual([EXE_PATH]);
+  });
+
+  it('emits gpu_layers when non-default', () => {
     const cmd = buildCommand({
       exePath: EXE_PATH,
       modelPath: '',
       values: { gpu_layers: '99' },
     });
     expect(cmd).toEqual([EXE_PATH, '-ngl', '99']);
-  });
-
-  it('emits gpu_layers "auto" (text type does not skip non-empty defaults)', () => {
-    const cmd = buildCommand({
-      exePath: EXE_PATH,
-      modelPath: '',
-      values: { gpu_layers: 'auto' },
-    });
-    expect(cmd).toEqual([EXE_PATH, '-ngl', 'auto']);
   });
 
   it('skips gpu_layers when empty string', () => {
@@ -156,109 +158,35 @@ describe('buildCommand', () => {
   });
 });
 
-describe('buildCommand - enabled mechanism', () => {
-  // 启用状态以 JSON 字符串形式编码到 values['_enabled'] 中
-  function withEnabled(values: Record<string, string | number | boolean>, enabledMap: Record<string, boolean>) {
-    return { ...values, _enabled: JSON.stringify(enabledMap) };
-  }
-
-  it('skips params when _enabled exists and param is not enabled', () => {
+describe('buildCommand - default-skip semantics', () => {
+  it('skips params whose value equals the param default', () => {
+    // spec_draft_n_max 默认=3、spec_draft_n_min 默认=0 → 均不发射
     const cmd = buildCommand({
       exePath: EXE_PATH,
       modelPath: '',
-      values: withEnabled({ ctx_size: 4096, port: 9090 }, { ctx_size: false, port: false }),
+      values: { spec_type: 'draft-mtp', spec_draft_n_max: 3, spec_draft_n_min: 0 },
     });
-    // 未启用 → 全部跳过，使用 llama-server 内置默认值
-    expect(cmd).toEqual([EXE_PATH]);
+    expect(cmd).toEqual([EXE_PATH, '--spec-type', 'draft-mtp']);
   });
 
-  it('includes params when _enabled exists and param is enabled', () => {
+  it('emits non-default values and skips defaults together', () => {
     const cmd = buildCommand({
       exePath: EXE_PATH,
       modelPath: '',
-      values: withEnabled({ ctx_size: 4096, port: 9090 }, { ctx_size: true, port: true }),
+      values: { ctx_size: 4096, port: 8080 },
     });
-    expect(cmd).toEqual([EXE_PATH, '--port', '9090', '-c', '4096']);
-  });
-
-  it('mixes enabled and disabled params', () => {
-    const cmd = buildCommand({
-      exePath: EXE_PATH,
-      modelPath: '',
-      values: withEnabled({ ctx_size: 4096, port: 9090 }, { ctx_size: true, port: false }),
-    });
-    // 仅 ctx_size 启用，port 未启用被跳过
+    // port 8080=默认不发射，ctx_size 4096 非默认发射
     expect(cmd).toEqual([EXE_PATH, '-c', '4096']);
   });
 
-  it('treats all params as enabled when _enabled missing (backward compat)', () => {
-    // 旧预设无 _enabled 字段，parseEnabled 返回 null，全部视为启用
+  it('ignores legacy _enabled field (backward compat)', () => {
+    // 旧预设文件可能残留 _enabled 字段；构建命令时忽略，行为等同于"值非默认即发射"
     const cmd = buildCommand({
       exePath: EXE_PATH,
       modelPath: '',
-      values: { ctx_size: 4096, port: 9090 },
+      values: { ctx_size: 4096, port: 9090, _enabled: JSON.stringify({ ctx_size: false, port: false }) },
     });
     expect(cmd).toEqual([EXE_PATH, '--port', '9090', '-c', '4096']);
-  });
-
-  it('ignores malformed _enabled JSON (treats as all enabled)', () => {
-    const cmd = buildCommand({
-      exePath: EXE_PATH,
-      modelPath: '',
-      values: { ctx_size: 4096, _enabled: 'not-json' },
-    });
-    expect(cmd).toEqual([EXE_PATH, '-c', '4096']);
-  });
-
-  it('emits explicitly enabled param even when value equals default', () => {
-    // 用户显式启用的参数即使值等于默认值也应生成到命令行
-    // 场景：spec_draft_n_max 默认值=3，用户启用并设为 3
-    const cmd = buildCommand({
-      exePath: EXE_PATH,
-      modelPath: '',
-      values: withEnabled(
-        { spec_type: 'draft-mtp', spec_draft_n_max: 3, spec_draft_n_min: 0 },
-        { spec_type: true, spec_draft_n_max: true, spec_draft_n_min: true },
-      ),
-    });
-    expect(cmd).toEqual([
-      EXE_PATH,
-      '--spec-type', 'draft-mtp',
-      '--spec-draft-n-max', '3',
-      '--spec-draft-n-min', '0',
-    ]);
-  });
-
-  it('skips empty dropdown/text/file values even when enabled', () => {
-    const cmd = buildCommand({
-      exePath: EXE_PATH,
-      modelPath: '',
-      values: withEnabled(
-        { spec_type: '', alias: '', mmproj: '' },
-        { spec_type: true, alias: true, mmproj: true },
-      ),
-    });
-    expect(cmd).toEqual([EXE_PATH]);
-  });
-
-  it('emits baseline memory params when enabled (cache_type q8_0 / load-mode none / fit off)', () => {
-    // 对应 store 初始化即启用的 BASELINE_ENABLED_KEYS：值等于默认也发射（显式启用）
-    const cmd = buildCommand({
-      exePath: EXE_PATH,
-      modelPath: 'model.gguf',
-      values: withEnabled(
-        { cache_type_k: 'q8_0', cache_type_v: 'q8_0', load_mode: 'none', fit: 'off' },
-        { cache_type_k: true, cache_type_v: true, load_mode: true, fit: true },
-      ),
-    });
-    // 发射顺序遵循 PARAMS 定义：basic memory 的 --load-mode/--fit 在前，advanced kv_cache 的 -ctk/-ctv 在后
-    expect(cmd).toEqual([
-      EXE_PATH, '-m', 'model.gguf',
-      '--load-mode', 'none',
-      '--fit', 'off',
-      '-ctk', 'q8_0',
-      '-ctv', 'q8_0',
-    ]);
   });
 });
 
@@ -289,5 +217,47 @@ describe('previewCommand', () => {
       settings: baseSettings,
     });
     expect(preview).toBe(`${quoteArg(EXE_PATH)} -m m.gguf --port 8081 -c 2048`);
+  });
+
+  it('includeCustomArgs:false 预览不含扩展参数（内置命令框用）', () => {
+    const preview = previewCommand({
+      values: { model: 'm.gguf' },
+      settings: { ...baseSettings, custom_args: '--no-warmup' },
+      includeCustomArgs: false,
+    });
+    expect(preview).toBe(`${quoteArg(EXE_PATH)} -m m.gguf`);
+  });
+});
+
+describe('tokenizeArgs / customArgs 扩展参数', () => {
+  it('tokenizeArgs 按空白切分并支持双引号含空格值', () => {
+    expect(tokenizeArgs('--a 1 --b "x y" -c')).toEqual(['--a', '1', '--b', 'x y', '-c']);
+    expect(tokenizeArgs('  ')).toEqual([]);
+    expect(tokenizeArgs('')).toEqual([]);
+  });
+
+  it('buildCommand 把 customArgs 追加到内置参数末尾', () => {
+    const cmd = buildCommand({
+      exePath: EXE_PATH,
+      modelPath: 'm.gguf',
+      values: { ctx_size: 2048 },
+      customArgs: '--override-kv tokenizer.ggml.add_bos_token=bool:false --no-warmup',
+    });
+    expect(cmd).toEqual([EXE_PATH, '-m', 'm.gguf', '-c', '2048', '--override-kv', 'tokenizer.ggml.add_bos_token=bool:false', '--no-warmup']);
+  });
+
+  it('customArgs 含带空格引号值时作为单个 argv 元素', () => {
+    const cmd = buildCommand({
+      exePath: EXE_PATH,
+      modelPath: '',
+      values: {},
+      customArgs: '--chat-template "a b"',
+    });
+    expect(cmd).toEqual([EXE_PATH, '--chat-template', 'a b']);
+  });
+
+  it('空/纯空白 customArgs 不追加', () => {
+    const cmd = buildCommand({ exePath: EXE_PATH, modelPath: 'm.gguf', values: {}, customArgs: '   ' });
+    expect(cmd).toEqual([EXE_PATH, '-m', 'm.gguf']);
   });
 });

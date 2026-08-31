@@ -26,8 +26,12 @@ jobs:
         env:
           ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
       - run: pnpm install --frozen-lockfile
+      # Windows runner 上 turbo/vite 8(rolldown) 存在子进程句柄偶发残留竞态，
+      # 构建产物已生成但壳进程不退出——加超时保险，挂死时快速失败而非空耗 6h job 超时
       - run: pnpm build
+        timeout-minutes: 20
       - run: pnpm dist
+        timeout-minutes: 20
       - name: List release artifacts
         run: Get-ChildItem -Recurse release/
       - id: ver

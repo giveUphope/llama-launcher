@@ -1,0 +1,181 @@
+// ============================================================
+// 全局按钮类（frontend.md §7.5.5 按钮类型学 · 唯一权威定义）
+// ------------------------------------------------------------
+// 原各组件 scoped 重复定义（7 处 action-btn、3 处 mini-btn）
+// 已收敛到此处，消除尺寸/变体漂移。
+// 规则：页面/卡片级主操作用 .action-btn（图标+文字内联）；
+// 行内小操作用 .mini-btn。图标-only 的 .ctrl-btn 已随「按钮文本内联」
+// 统一移除（2026-08-29，见 STYLE_TODO #27）。
+// ============================================================
+
+// ---------- .action-btn：页面/卡片级操作按钮（高 var(--btn-h) 30px） ----------
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--btn-h);
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--fg-primary);
+  font-size: var(--fs-md);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
+    color var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
+
+  &:hover:not(:disabled) {
+    background: var(--bg-hover);
+  }
+
+
+  // 主操作（主题化高对比：深色=白底黑字 / 浅色=黑底白字，见 --primary-* token）
+  &.primary {
+    background: var(--primary-bg);
+    border-color: var(--primary-bg);
+    color: var(--primary-fg);
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      background: var(--primary-hover);
+      border-color: var(--primary-hover);
+    }
+
+    &:active:not(:disabled) {
+      background: var(--primary-pressed);
+    }
+  }
+
+  // 危险（描边，hover 实底白字）
+  &.danger {
+    color: var(--danger);
+    border-color: var(--danger);
+
+    &:hover:not(:disabled) {
+      background: var(--danger);
+      color: #fff;
+    }
+  }
+
+  // 警告（描边，hover 实底深字）
+  &.warn {
+    color: var(--warn);
+    border-color: var(--warn);
+
+    &:hover:not(:disabled) {
+      background: var(--warn);
+      color: #1a1a1a; // warn 黄底 → 深色文字（§7.5.1）
+    }
+  }
+
+  // 强调（accent 描边）
+  &.accent {
+    color: var(--accent);
+    border-color: var(--accent);
+
+    &:hover:not(:disabled) {
+      background: var(--accent);
+      color: #fff;
+    }
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+// ---------- .mini-btn：行内小操作（高 20px，表格/卡片头） ----------
+.mini-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--fg-secondary);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  // 在 flex 按钮组内不被压缩（表格列宽变化时保持按钮完整可点击）
+  flex-shrink: 0;
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
+    color var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
+
+  &:hover:not(:disabled) {
+    background: var(--bg-hover);
+  }
+
+
+  // 强调（accent 描边）
+  &.accent {
+    color: var(--accent);
+    border-color: var(--accent);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--accent) 10%, var(--bg-input));
+      color: var(--accent);
+    }
+  }
+
+  // 危险（danger 描边）
+  &.danger {
+    color: var(--danger);
+    border-color: var(--danger);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--danger) 10%, var(--bg-input));
+      color: var(--danger);
+    }
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+// .ctrl-btn（图标工具按钮）已移除：内容区操作按钮统一文本内联（图标+文案），
+// 仅窗口控制（win-btn）/输入清除（✕）/导航（↑）/披露（chevron）保留图标形态。
+
+// ---------- .tab-strip / .tab-btn：页内标签页（Models / Settings 页共享） ----------
+.tab-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  align-self: flex-start;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border: none;
+  color: var(--fg-secondary);
+  font-size: var(--fs-md);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-smooth),
+    color var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
+
+  &:hover:not(.active) {
+    background: var(--bg-hover);
+    color: var(--fg-primary);
+  }
+
+  &.active {
+    background: var(--primary-bg);
+    color: var(--primary-fg);
+    font-weight: 600;
+  }
+
+}

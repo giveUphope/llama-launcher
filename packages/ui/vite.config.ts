@@ -29,6 +29,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // 显式绑定 IPv4 回环：默认 host=localhost 在 Node 20/Windows 会被解析成 ::1（IPv6-only 监听）。
+    // HTTP 走浏览器的 localhost 双栈回退能打开页面，但 HMR 的 WebSocket 连 IPv4 失败 → 表现为
+    // 「能打开内容但永远不热重载」。固定 127.0.0.1 后 HTTP + HMR WS 同栈监听，双端连通。
+    host: '127.0.0.1',
     // 不强制占用固定端口：端口被占用（如其他项目占用 5173）时自动顺延到下一个可用端口，
     // 实际端口通过 .vite-dev-port 文件传给 Electron，整条链路跟随。
     strictPort: false,

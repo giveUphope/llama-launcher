@@ -10,6 +10,7 @@ import { registerServerIpc } from './server.js';
 import { registerSystemIpc } from './system.js';
 import { registerWindowIpc } from './window.js';
 import { registerDownloadIpc } from './download.js';
+import { registerLogsIpc } from './logs.js';
 
 type IpcRegistrar = (ipcMain: IpcMain) => void;
 
@@ -21,6 +22,7 @@ const ipcRegistrars: IpcRegistrar[] = [
   registerSystemIpc,
   registerWindowIpc,
   registerDownloadIpc,
+  registerLogsIpc,
 ];
 
 /** 注册全部 IPC 处理器（按功能域依次装配）。 */

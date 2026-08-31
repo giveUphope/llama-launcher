@@ -57,7 +57,8 @@ function main() {
       console.error('[generate-preload] STALE: ' + path.relative(process.cwd(), outPath) + ' missing — run `pnpm generate:ipc`.');
       process.exit(1);
     }
-    const current = fs.readFileSync(outPath, 'utf8');
+    // 行尾归一化：脚本生成 LF，磁盘文件可能因 git autocrlf 是 CRLF，全等比较会误报 STALE。
+    const current = fs.readFileSync(outPath, 'utf8').replace(/\r\n/g, '\n');
     if (current !== rendered) {
       console.error('[generate-preload] STALE: preload IPC constants out of date — run `pnpm generate:ipc`.');
       process.exit(1);
@@ -68,7 +69,7 @@ function main() {
 
   // 幂等写入：内容相同跳过。本文件由 dev-watch 的 regenPreload 每次重启都调用，
   // 无条件重写会写入被监视的 src/preload/，自我触发重启循环（实测 80+ 次/60s）。
-  const current = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : null;
+  const current = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8').replace(/\r\n/g, '\n') : null;
   if (current === rendered) {
     console.log(`[generate-preload] up to date (${Object.keys(shared).length} channels).`);
     return;

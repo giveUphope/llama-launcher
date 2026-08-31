@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { ServerStatus, OutputEntry } from '@llama-launcher/shared';
 import { useIPC, invokeOk, toPlain } from '@/composables/useIPC';
 import type { AppSettings, PresetValues } from '@llama-launcher/shared';
@@ -90,8 +90,20 @@ export const useServerStore = defineStore('server', () => {
     outputs.value = [];
   }
 
+  /**
+   * 统一 API 地址语义（单一来源，Dashboard/ServicePage 共用）：
+   * 与真实服务状态绑定——运行中显示实际地址（store.url 残留时回退推导），启动中推导；
+   * 已停止时返回空（onStatus 事件只更新 status 不刷新 url，直接读 url 会残留旧值）。
+   * 显示层对空值以占位符呈现，保证运行前后显示项行结构稳定。
+   */
+  const apiUrl = computed(() => {
+    if (status.value === 'running') return url.value || `http://${host.value}:${port.value}`;
+    if (status.value === 'starting') return `http://${host.value}:${port.value}`;
+    return '';
+  });
+
   return {
-    status, pid, host, port, url, outputs, runningValues,
+    status, pid, host, port, url, apiUrl, outputs, runningValues,
     subscribe, refreshStatus, clearOutputs, pushOutput,
     start, stop, restart, previewCommand,
   };

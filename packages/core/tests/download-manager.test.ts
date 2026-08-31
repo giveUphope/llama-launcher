@@ -8,12 +8,17 @@ import type { ClientRequest, IncomingMessage } from 'node:http';
 import type { StartDownloadRequest } from '@llama-launcher/shared';
 
 vi.mock('node:https', () => {
+  // vitest 4：vi.fn() 不再可构造（new https.Agent() 会抛 "is not a constructor"），
+  // 直接提供可构造的类作为 Agent mock。
+  class MockAgent {
+    destroy() {}
+  }
   return {
     default: {
-      Agent: vi.fn(() => ({ destroy: vi.fn() })),
+      Agent: MockAgent,
       request: vi.fn(),
     },
-    Agent: vi.fn(() => ({ destroy: vi.fn() })),
+    Agent: MockAgent,
     request: vi.fn(),
   };
 });

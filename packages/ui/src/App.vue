@@ -88,40 +88,52 @@ async function stopServer() {
 
 onMounted(async () => {
   try {
-    await settings.load();
-    // 将持久化的模型路径同步到参数运行时状态
-    if (settings.settings?.selected_model) {
-      params.values[MODEL_KEY] = settings.settings.selected_model;
-    }
-    // 以下初始化彼此独立，并发执行以缩短启动耗时：
-    // - 恢复上次使用的预设（不阻塞其余初始化）
-    // - 订阅服务器状态事件
-    // - 拉取当前服务器运行状态
-    // - 恢复上次查看的页签
-    const restorePreset = (async () => {
-      if (!settings.settings?.last_preset) return;
-      try {
-        const preset = await window.api.presets.load(settings.settings.last_preset);
-        if (preset) {
-          params.applyPreset(preset.values);
-          // 恢复预设后重新设置模型路径（预设可能不包含模型，或包含的是旧路径）
-          if (settings.settings.selected_model) {
-            params.values[MODEL_KEY] = settings.settings.selected_model;
+    // 设置已在 main.ts 挂载前加载（含 last_tab 页签恢复，见该处启动序列说明）；
+    // 此处仅在异常兜底路径（挂载前加载超时/失败）补一次加载。
+    if (!settings.settings) await settings.load();
+    // 双轨参数逻辑启动链（会话优先）：
+    // ① 有会话（session_values）→ 恢复上次会话参数与基线（临时轨道，重启可续）
+    // ② 无会话 → selected_model + last_preset 预设应用链（预设完整轨道）
+    const st = settings.settings;
+    if (st) {
+      const sessionValues = st.session_values;
+      if (sessionValues && Object.keys(sessionValues).length > 0) {
+        await params.restoreSession(
+          sessionValues,
+          st.session_baseline ?? null,
+        );
+      } else {
+        if (st.selected_model) {
+          params.set(MODEL_KEY, st.selected_model);
+        }
+        if (st.last_preset) {
+          try {
+            const preset = await window.api.presets.load(st.last_preset);
+            if (preset) {
+              // v2 结构：model 存于顶层元数据字段，应用前注回 values 供 applyPreset 识别
+              params.applyPreset(
+                preset.model ? { ...preset.values, [MODEL_KEY]: preset.model } : preset.values,
+                preset.name,
+              );
+              // 预设可能不含模型（或含旧路径）：回写持久化的模型路径（经 set 派生别名）
+              if (st.selected_model) {
+                params.set(MODEL_KEY, st.selected_model);
+              }
+            }
+          } catch {
+            // 预设可能已被删除，忽略错误
           }
         }
-      } catch {
-        // 预设可能已被删除，忽略错误
+        // 无会话启动：以当前值建立隐式会话基线（临时参数轨道）。否则启动期
+        // 自动派生的 model/alias 会相对出厂默认被误判为"已修改"（重启即见脏标记）。
+        if (!params.baseline) {
+          params.markBaseline('');
+        }
       }
-    })();
+    }
 
     server.subscribe();
-    const refresh = server.refreshStatus();
-    // 恢复上次查看的页签（存 fullPath，保留参数页 active 标签）
-    const restoreTab = (settings.settings?.last_tab && settings.settings.last_tab !== '/')
-      ? router.push(settings.settings.last_tab)
-      : Promise.resolve();
-
-    await Promise.all([restorePreset, refresh, restoreTab]);
+    await server.refreshStatus();
   } catch (e) {
     console.error('[App] onMounted failed:', e);
   }

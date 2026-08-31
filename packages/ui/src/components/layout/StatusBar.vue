@@ -3,7 +3,7 @@ import { computed, onUnmounted, ref } from 'vue';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
-import { MODEL_KEY } from '@llama-launcher/shared';
+import { MODEL_KEY, modelBaseName } from '@llama-launcher/shared';
 
 const server = useServerStore();
 const params = useParamsStore();
@@ -26,13 +26,13 @@ const pidText = computed(() => {
   return '';
 });
 
-// 优先使用用户设置的模型别名（alias 参数），无别名时回退到文件名
+// 优先使用用户设置的模型别名（alias 参数），无别名时回退到文件名（去 .gguf 后缀）
 const modelName = computed(() => {
   const alias = String(params.values['alias'] ?? '').trim();
   if (alias) return alias;
   const m = params.get(MODEL_KEY);
   if (!m) return i18n.t('status_model_none');
-  return String(m).split(/[/\\]/).pop() ?? i18n.t('status_model_none');
+  return modelBaseName(String(m));
 });
 
 // 复制反馈状态
@@ -50,7 +50,7 @@ async function copyText(text: string, key: 'url' | 'model') {
 }
 
 async function onCopyUrl() {
-  if (server.url) await copyText(server.url, 'url');
+  if (server.apiUrl) await copyText(server.apiUrl, 'url');
 }
 
 async function onCopyModel() {
@@ -72,12 +72,12 @@ onUnmounted(() => {
       <span class="status-text">{{ statusText }}</span>
       <span v-if="pidText" class="pid">{{ pidText }}</span>
       <span
-        v-if="server.url"
+        v-if="server.apiUrl"
         class="url clickable"
         :title="i18n.t('copy_url')"
         @click="onCopyUrl"
       >
-        <span class="url-text">{{ server.url }}</span>
+        <span class="url-text">{{ server.apiUrl }}</span>
         <span v-if="copiedKey === 'url'" class="copied-tip">{{ i18n.t('msg_url_copied') }}</span>
       </span>
       <span
@@ -151,10 +151,10 @@ onUnmounted(() => {
   margin: -2px -6px;
   border-radius: var(--radius-pill);
   position: relative;
-  transition: background var(--dur-fast) var(--ease-jelly), opacity var(--dur-fast) var(--ease-jelly);
+  transition: background var(--dur-fast) var(--ease-smooth), opacity var(--dur-fast) var(--ease-smooth);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--statusbar-hover);
     opacity: 1;
   }
 }
@@ -163,7 +163,7 @@ onUnmounted(() => {
   color: #fff;
   font-weight: 600;
   background: var(--success);
-  padding: 1px 8px;
+  padding: 1px 6px;
   border-radius: var(--radius-pill);
   font-size: var(--fs-xs);
   white-space: nowrap;

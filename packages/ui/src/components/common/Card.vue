@@ -4,6 +4,7 @@ import { useI18nStore } from '@/stores/i18n';
 
 const props = defineProps<{
   titleKey?: string;
+  compact?: boolean;
 }>();
 
 const i18n = useI18nStore();
@@ -11,12 +12,11 @@ const title = computed(() => (props.titleKey ? i18n.t(props.titleKey) : ''));
 </script>
 
 <template>
-  <section class="card">
+  <section class="card" :class="{ compact }">
     <header v-if="titleKey || $slots.actions" class="card-header">
-      <div class="accent-bar"></div>
       <h2 v-if="titleKey" class="card-title">
+        <!-- 文本描述优先：标题文字在前，附加元素（帮助图标等）跟后 -->
         <span>{{ title }}</span>
-        <!-- 标题文字右侧的附加内容（如帮助图标）；flex 布局内联紧跟标题，不换行 -->
         <slot name="title-extra" />
       </h2>
       <div v-if="$slots.actions" class="card-actions">
@@ -30,48 +30,43 @@ const title = computed(() => (props.titleKey ? i18n.t(props.titleKey) : ''));
 </template>
 
 <style scoped lang="scss">
+// 分区风格：内容区块由实线分隔（而非玻璃卡片）。块间依赖相邻区块底边框，
+// 页面容器 gap 为 0（见 page-frame / 各页 .tab-content），最后一块去掉底边线。
 .card {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-card);
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
-  /* hover 用边框高亮而非 transform 上浮：transform 会提升合成层，鼠标扫过成排卡片时
-     文字重栅格化出现明显闪烁（"整体浮动"感） */
-  transition: border-color var(--dur-med) var(--ease-jelly);
-  /* 不设 overflow: hidden —— 否则卡片内的下拉面板(如并发选择器)超出卡片时会被裁切。
-     圆角裁切改由 .card-header 自身负责。 */
+  background: transparent;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  transition: none;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--glass-border));
+    border-color: var(--border); // 分区风格下无 hover 边框变化
+  }
+
+  &:last-child {
+    border-bottom: none;
   }
 }
 
 .card-header {
   height: 38px;
   display: flex;
-  align-items: stretch;
-  border-bottom: 1px solid var(--glass-border);
+  align-items: center;
   background: transparent;
-  /* 仅 header 裁切:让 accent-bar / 标题背景贴合卡片顶部圆角 */
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
-  overflow: hidden;
-}
-
-.accent-bar {
-  width: 3px;
-  flex: 0 0 3px;
-  /* 装饰条跟随 --hue（.hue-cycle 容器内循环彩虹；默认 --hue=220deg 即强调蓝） */
-  background: hsl(var(--hue, 220deg) 90% 60%);
+  border-radius: 0;
+  overflow: visible;
 }
 
 .card-title {
   margin: 0;
-  padding: 0 12px;
+  padding: 0 0 0 2px;
   display: flex;
   align-items: center;
+  flex: 1;
   font-size: var(--fs-lg);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--fg-primary);
+  min-width: 0;
+  letter-spacing: 0.2px;
 }
 
 .card-actions {
@@ -79,10 +74,33 @@ const title = computed(() => (props.titleKey ? i18n.t(props.titleKey) : ''));
   display: flex;
   align-items: center;
   gap: 6px;
-  padding-right: 8px;
 }
 
 .card-body {
-  padding: 14px 16px;
+  padding: 10px 0 14px;
+}
+
+// 紧凑模式：更小头、更紧内距；用于参数页等分组密集场景
+.card.compact {
+  .card-header {
+    height: 30px;
+  }
+
+  .card-title {
+    padding: 0 0 0 2px;
+    font-size: var(--fs-base);
+    font-weight: 600;
+    color: var(--fg-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .card-actions {
+    padding-right: 0;
+  }
+
+  .card-body {
+    padding: 4px 0 10px;
+  }
 }
 </style>

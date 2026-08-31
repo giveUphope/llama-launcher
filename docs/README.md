@@ -24,7 +24,7 @@
 |------|------|
 | [architecture.md](architecture.md) | 项目概述、目录结构、Monorepo 架构与依赖流（§1–3） |
 | [core-modules.md](core-modules.md) | 核心业务模块：进程、启动编排、命令构建、GGUF、下载、性能测试（§4） |
-| [params-system.md](params-system.md) | 参数定义、启用机制、依赖联动、控件组件（§5） |
+| [params-system.md](params-system.md) | 参数定义、双轨机制（临时会话/预设）、依赖联动、控件组件（§5） |
 | [data-persistence.md](data-persistence.md) | 类型定义与持久化（§9–10） |
 | [design-decisions.md](design-decisions.md) | 关键设计决策（§13） |
 
@@ -33,7 +33,7 @@
 | 文档 | 内容 |
 |------|------|
 | [desktop-main.md](desktop-main.md) | 主进程：窗口、IPC 注册、Launcher 桥接、Preload（§6） |
-| [ipc-channels.md](ipc-channels.md) | 48 个 IPC 通道完整清单（改 IPC 前必读，§8） |
+| [ipc-channels.md](ipc-channels.md) | 51 个 IPC 通道完整清单（改 IPC 前必读，§8） |
 | [frontend.md](frontend.md) | 前端架构 + **UI 风格规范 §7.5**（§7） |
 | [style/STYLE_TODO.md](style/STYLE_TODO.md) | UI 风格待修复清单（含修复效果验证方式） |
 
@@ -64,8 +64,8 @@
 
 ### 现代化桌面体验
 
-- 基于 **Electron 33 + Vue 3 + Vite**，界面响应迅速
-- **胶囊玻璃设计**（2026-08 重构）：交互元素胶囊化 + 全局半透明毛玻璃（单层模糊）+ 果冻弹性动效 + 彩虹点缀（启动按钮 / 下载进度条 / 分区装饰条）；视觉特效可在「应用设置 → 外观与语言 → 视觉效果」一键切换为实底性能模式
+- 基于 **Electron 44 + Vue 3 + Vite 8**，界面响应迅速
+- **胶囊玻璃设计**（2026-08 重构）：交互元素胶囊化 + 全局半透明毛玻璃（单层模糊）+ 果冻弹性动效 + 统一蓝色系点缀（accent 主按钮 / 下载进度条 / 分区装饰条）
 - 布局延续顶栏模型选择、可折叠侧边栏、底部状态栏的桌面范式
 - 支持 **浅色 / 深色主题** 切换（`Ctrl+D`）
 - 支持 **中文 / 英文** 界面语言切换
@@ -79,7 +79,7 @@
 - 参数与 llama-server 的完整对照见 [params/LLAMA_SERVER_PARAMS.md](params/LLAMA_SERVER_PARAMS.md)
 - 参数控件类型丰富：滑块、数字输入、下拉框、开关、文件选择、目录选择
 - 鼠标悬停参数标签即可查看中文/英文帮助说明
-- 每个参数可独立启用/禁用，禁用参数不生成到命令行（使用 llama-server 内置默认值）
+- 参数无独立启用开关：值与默认值不同的参数才生成到命令行，其余使用 llama-server 内置默认值（旧版逐参数启用机制已随双轨参数逻辑移除）
 - **参数依赖声明**：参数间通过 `dependsOn` 声明依赖关系，运行时检测并可视化提示
 - **GGUF 元数据联动**：参数行内显示模型内置值，一键应用
 
@@ -88,7 +88,7 @@
 - **统一入口**：引擎目录（`llama-server.exe` 内联检测）、模型目录、HuggingFace 镜像源、最大并发下载数、主题、语言全部收敛到「应用设置」页（侧边栏齿轮入口），更改即时保存；此前分散在模型管理页与下载页的设置控件已移除
 - **引擎内联检测**：选择 llama-server 所在目录（含一级子目录）自动检测可执行文件，行内图标提示检测状态（检测中/已检测/文件缺失/未找到），无需手动选择文件
 - **镜像源可配置**：受限网络可指向自建镜像或内网缓存（默认 hf-mirror.com），下载/列表/传输选择全部跟随
-- 主题、语言与**视觉效果**统一由本页「外观与语言」卡片调整（`Ctrl+D` 快捷键仍可切换主题；视觉效果可选「毛玻璃」/「实底（性能模式）」）
+- 主题与语言统一由本页「外观与语言」卡片调整（`Ctrl+D` 快捷键仍可切换主题；视觉效果固定为默认玻璃形态，无开关）
 
 ### 模型管理
 
@@ -97,14 +97,14 @@
 - **文件管理**：每行可「打开目录」在系统文件管理器中定位，或「移除」按模型子目录删除（含 mmproj/草稿等伴随文件，带确认与路径越界保护）；移除时同步清理关联该模型的预设文件（model 路径匹配，存于 `<models_dir>/presets/`）
 - **智能刷新机制**：目录变化时自动扫描、文件系统监听文件增删自动刷新，无需手动刷新按钮
 - **GGUF 元数据读取**：流式读取 59 个字段（架构、量化、上下文长度、采样参数、组织/许可证/数据集等），内存占用恒定
-- **智能建议参数**：从模型元数据自动推导 20+ 类建议参数（上下文长度、聊天模板、采样、Mirostat、Flash Attention 等）
+- **智能建议参数**：从模型元数据自动推导建议参数（上下文长度、采样、KV 缓存量化、Flash Attention、推测解码类型、别名等 12 条规则），一键应用
 - **多模态投影器自动检测**：模型路径变化时自动检测同目录下的 mmproj 文件并填入
 - 实时监听模型目录变化，文件增删时自动刷新
 
 ### 在线模型下载
 
 - 粘贴 LM Studio / HuggingFace / HF Mirror / ModelScope 链接，自动解析来源（HuggingFace/HF Mirror 走镜像直链，其余搜索 ModelScope 对应模型）
-- 展示模型仓库中的 GGUF 文件列表，支持多选下载
+- 展示模型仓库中的 GGUF 文件列表，支持多选下载；推荐文件带「推荐」徽标并排序置顶提示，但**不自动勾选**，下载文件完全由用户主动勾选决定
 - **多任务并发下载**（并发数在「应用设置」页配置，1–5），支持断点续传
 - **暂停 / 恢复 / 失败重试**：下载任务可随时暂停，恢复后从断点继续，失败后可一键重试
 - 下载目录结构：`模型目录/作者/模型仓库名/文件`（同一模型的多文件放同一子目录）
@@ -115,23 +115,23 @@
 
 - 在「参数设置」页的预设标签中保存当前参数配置为预设，**自动以模型别名生成预设名**（可手动修改）
 - 加载 / 覆盖 / 删除预设
-- 预设保留每个参数的启用状态，加载时完整恢复
+- 预设保存参数值快照，加载时完整恢复
 - **预设文件存储在模型目录下的 `presets/` 子目录**，与模型文件集中管理
 
 ### 性能测试
 
 - 在「参数设置」页的性能测试标签中，通过 `--metrics` 端点 + completion `timings` 在线实测真实吞吐（生成/提示 tok/s、DFlash 接受率），帮助找到最佳参数组合
-- 自动跟随参数配置页已勾选启用的参数（控件与参数配置页完全一致，值实时同步）
+- 自动跟随「自定义参数」子标签中值 ≠ 默认值的参数（控件与参数配置页完全一致，值实时同步）
 - **智能启动检测**：服务未运行自动启动、运行中参数一致则复用不重启、不一致则自动重启
 - **测试历史表格**：每次运行自动追加记录，调整参数前后并排对比（内存态，关闭应用清空）
 - 注：`llama-bench` 等 CLI 不支持 DFlash/推测解码评测，故采用运行中 llama-server 在线实测
 
 ### 启动与监控
 
-- 实时命令预览栏，所见即所得
+- 实时命令预览栏，所见即所得；内置参数命令（自动生成、只读展示）与扩展参数（自定义、持久化、追加到启动命令）分两个文本框，互不干扰
 - 启动前参数摘要预览，快速核对已启用参数
 - 实时服务器输出控制台（上限 5000 行），从其他页面切回自动滚动到最新日志
-- 一键启动 / 停止 / 重启;「打开 Web UI」跳转应用内嵌标签页(侧边栏「Web UI」,服务运行时直接内嵌查看,不再跳转外部浏览器)
+- 一键启动 / 停止 / 重启；顶栏「打开 Web UI」进入应用内嵌 Web UI（`/webui` 页，服务运行时直接内嵌查看，不再跳转外部浏览器）
 - 状态栏显示运行地址、模型名称，点击复制
 
 ### llama 版本兼容
@@ -148,9 +148,9 @@
 
 | 层 | 技术 | 说明 |
 |----|------|------|
-| 桌面框架 | Electron 33 | 跨平台桌面运行时 |
-| 前端框架 | Vue 3.5 + Pinia 2.3 + Vue Router 4 | 响应式 UI |
-| 构建工具 | Vite 6 + vue-tsc | 快速 HMR + 类型检查 |
+| 桌面框架 | Electron 44 | 跨平台桌面运行时 |
+| 前端框架 | Vue 3.5 + Pinia 4 + Vue Router 5 | 响应式 UI |
+| 构建工具 | Vite 8 + vue-tsc 3 | 快速 HMR + 类型检查 |
 | 语言 | TypeScript 5.8 | 全栈类型安全 |
 | Monorepo | pnpm workspace + Turborepo | 多包管理 |
 | 打包 | electron-builder | Portable 单文件输出 |
@@ -167,7 +167,7 @@ llama_launcher/
 │       ├── src/
 │       │   ├── main/                # 主进程（IPC、窗口、launcher 桥接）
 │       │   └── preload/             # preload 脚本（contextBridge）
-│       └── electron-builder.yml     # 打包配置（Portable 单文件）
+│       └── electron-builder.config.cjs     # 打包配置（Portable 单文件）
 ├── packages/
 │   ├── core/                        # 核心逻辑（进程管理、命令构建、GGUF、下载）
 │   ├── shared/                      # 共享类型、参数定义、i18n
@@ -215,8 +215,8 @@ llama_launcher/
 
 ### 环境要求
 
-- Node.js >= 18
-- pnpm >= 8
+- Node.js >= 20
+- pnpm 10.12.1
 - Windows / macOS / Linux
 
 ### 安装依赖
@@ -283,7 +283,7 @@ pnpm lint
 
 ### 4. 调整参数
 
-在"参数设置"页面（基础 / 高级 / 服务端三个标签）调整 49 个启动参数。每个参数可独立启用/禁用，未启用的参数不会出现在命令行中。
+在"参数设置"页面调整 49 个启动参数（3 个子标签：参数预设 / 自定义参数 / 性能测试；自定义参数内按基础 / 高级 / 服务端分组）。参数没有独立启用开关：值与默认值不同的参数才会出现在命令行中；参数默认值自动持久化为"会话参数"，重启应用后恢复。
 
 点击"应用建议参数"可一键应用从 GGUF 元数据推导的参数（会先重置当前参数）。
 
@@ -300,11 +300,11 @@ pnpm lint
 
 ### 7. 启动服务
 
-在"控制台"页面点击启动按钮，应用会启动 `llama-server` 子进程并实时显示输出。启动后可点击"打开 Web UI"或侧边栏「Web UI」标签，在应用内直接使用 llama-server 的 Web UI（内嵌 iframe，不再跳转外部浏览器）。
+在"服务"页面点击启动按钮，应用会启动 `llama-server` 子进程并实时显示输出。启动后可点击顶栏"打开 Web UI"，在应用内直接使用 llama-server 的 Web UI（内嵌 iframe，不再跳转外部浏览器）。
 
 ### 8. 下载模型
 
-在"模型下载"页面粘贴 LM Studio / HuggingFace / HF Mirror / ModelScope 链接。HuggingFace/HF Mirror 链接走镜像直链列出文件，其余来源自动搜索 ModelScope 中的对应模型，展示 GGUF 文件列表供多选下载。下载完成后模型列表会自动刷新。
+在"模型管理"页的"模型库"子标签粘贴 LM Studio / HuggingFace / HF Mirror / ModelScope 链接。HuggingFace/HF Mirror 链接走镜像直链列出文件，其余来源自动搜索 ModelScope 中的对应模型，展示 GGUF 文件列表：推荐文件带「推荐」徽标并排在最前（不自动勾选），勾选所需文件后点"下载所选"开始下载（下载进度在"下载任务"子标签查看）。下载完成后模型列表会自动刷新。
 
 ### 安全下载
 
@@ -320,7 +320,7 @@ pnpm lint
 
 ## IPC 通道
 
-应用通过 48 个 IPC 通道实现主进程与渲染进程通信，分为 9 类：
+应用通过 51 个 IPC 通道实现主进程与渲染进程通信，分为 10 类：
 
 | 类别 | 通道数 | 说明 |
 |------|--------|------|
@@ -328,6 +328,7 @@ pnpm lint
 | Models | 7 | 扫描、mmproj/草稿检测、GGUF 读取、目录监听、移除、变更通知 |
 | Presets | 4 | 预设 CRUD |
 | Server | 7 | 启动/停止/重启/状态/命令预览/输出推送/性能测试 |
+| Logs | 3 | 应用日志读取/清空/推送（区别于服务控制台） |
 | 通用 | 3 | 剪贴板、打开外链、打开目录 |
 | Window | 8 | 关闭、最小化、最大化切换、状态查询、最大化/还原通知 |
 | System | 5 | 端口检测、文件存在检测、llama-server 查找、回收站检测/清理 |
@@ -353,6 +354,7 @@ IPC 常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧由
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
+| `settings_version` | number | settings schema 版本（当前 1，字段变更走 `migrateSettings` 迁移） |
 | `server_exe` | string | llama-server 可执行文件路径（由 `llama_dir` 内联检测自动填充） |
 | `llama_dir` | string | llama.cpp 引擎目录（用户选择的包含 llama-server 的目录） |
 | `models_dir` | string | 模型存储目录 |
@@ -360,12 +362,16 @@ IPC 常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧由
 | `last_preset` | string | 上次加载的预设名 |
 | `window_geometry` | string | 窗口位置和大小（`x,y,width,height`） |
 | `window_maximized` | boolean | 窗口最大化状态记录（应用启动固定最大化；该字段仍保存以兼容旧数据/未来可恢复"记住还原"） |
-| `theme_mode` | 'dark' \| 'light' | 主题模式 |
-| `fx_mode` | 'glass' \| 'off' | 视觉效果（毛玻璃/实底性能模式） |
+| `theme_mode` | 'dark' \| 'light' \| 'system' | 主题模式（`system` 跟随系统 `prefers-color-scheme`） |
 | `close_behavior` | 'ask' \| 'exit' \| 'tray' | 关闭窗口时：询问/直接退出/最小化到托盘 |
 | `sidebar_collapsed` | boolean | 侧边栏是否折叠 |
 | `language` | 'zh' \| 'en' | 界面语言 |
 | `last_tab` | string | 上次访问的页面 |
+| `download_max_concurrent` | number | 最大并发下载数（1–5） |
+| `hf_mirror_host` | string | HuggingFace 镜像源（空 = 默认 hf-mirror.com） |
+| `custom_args` | string | 扩展参数（追加到启动命令末尾的自定义参数，命令预览独立框编辑、持久化；「还原」不影响它） |
+| `session_values` | object \| null | **参数会话**（临时轨道）：当前生效参数快照，随变化节流 800ms 写入，重启恢复会话；永不写入预设文件 |
+| `session_baseline` | object \| null | **参数会话基线**：`{ preset_name, values }`，会话加载的预设及应用时刻快照；null = 无预设基线 |
 
 ---
 

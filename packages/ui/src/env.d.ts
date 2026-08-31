@@ -8,6 +8,7 @@ import type {
   TrashItem, DetectResult, CleanResult,
   CloseDialogRequest, CloseDialogResult,
   BenchRequest, BenchResult, BenchRunResult,
+  AppLogEntry,
 } from '@llama-launcher/shared';
 
 export interface IpcResult<T = void> {
@@ -87,6 +88,11 @@ export interface ElectronAPI {
     onProgress: (cb: (payload: DownloadProgressPayload) => void) => () => void;
     onComplete: (cb: (payload: DownloadCompletePayload) => void) => () => void;
     onError: (cb: (payload: DownloadErrorPayload) => void) => () => void;
+  };
+  logs: {
+    list: () => Promise<AppLogEntry[]>;
+    clear: () => Promise<boolean>;
+    onLog: (cb: (entry: AppLogEntry) => void) => () => void;
   };
 }
 

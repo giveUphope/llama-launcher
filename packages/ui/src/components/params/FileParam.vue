@@ -54,20 +54,21 @@ async function onBrowse() {
 .param-row {
   display: flex;
   align-items: center;
-  min-height: 36px;
+  min-height: 24px;
   width: 100%;
+  gap: 4px;
 }
 
 // 标签列：允许收缩（避免长标签换行撑高行），溢出用省略号
 .label-col {
-  flex: 0 1 140px;
-  min-width: 80px;
+  flex: 0 1 110px;
+  min-width: 64px;
   text-align: right;
-  padding-right: 12px;
+  padding-right: 8px;
 }
 
 .label-text {
-  font-size: var(--fs-lg);
+  font-size: var(--fs-base);
   color: var(--fg-secondary);
   cursor: help;
   white-space: nowrap;
@@ -82,7 +83,7 @@ async function onBrowse() {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -113,15 +114,13 @@ async function onBrowse() {
   font-size: var(--fs-md);
   flex-shrink: 0;
   white-space: nowrap;
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
-    box-shadow var(--dur-fast) var(--ease-jelly), transform var(--dur-fast) var(--ease-jelly);
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
+    box-shadow var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
     background: var(--bg-hover);
   }
 
-  &:active {
-    transform: scale(0.96);
-  }
+
 }
 </style>

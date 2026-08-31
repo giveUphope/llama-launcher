@@ -1,9 +1,9 @@
 # IPC 通道清单
 
-> 范围：IPC 通道完整清单（共 48 个），按类别分组。改 IPC 前必读。常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧常量由 `scripts/generate-preload.cjs` 生成（改完运行 `pnpm generate:ipc`），`scripts/verify-ipc-sync.cjs` 在 lint 阶段检查产物未过期。
+> 范围：IPC 通道完整清单（共 51 个），按类别分组。改 IPC 前必读。常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧常量由 `scripts/generate-preload.cjs` 生成（改完运行 `pnpm generate:ipc`），`scripts/verify-ipc-sync.cjs` 在 lint 阶段检查产物未过期。
 > 索引：[README.md](README.md) · 相关：[desktop-main.md](desktop-main.md)
 
-共 48 个 IPC 通道，按类别分组如下：
+共 51 个 IPC 通道，按类别分组如下：
 
 ### Settings（2）
 | 通道 | 用途 |
@@ -41,6 +41,13 @@
 | `server:output` | 输出推送（主进程 → 渲染进程） |
 | `server:bench` | 性能测试：一次运行依次执行单并发与多并发两个场景，返回 timings 与 DFlash 指标 |
 
+### Logs（3）
+| 通道 | 用途 |
+|------|------|
+| `logs:list` | 读取应用日志（区别于服务控制台：记录应用自身生命周期/操作） |
+| `logs:clear` | 清空应用日志 |
+| `logs:onlog` | 应用日志推送（主进程 → 渲染进程） |
+
 ### 通用（3）
 | 通道 | 用途 |
 |------|------|
@@ -66,8 +73,8 @@
 | `system:checkPort` | 检查端口是否被占用 |
 | `system:fileExists` | 检查文件是否存在 |
 | `system:findLlamaExe` | 在目录中查找 llama-server 可执行文件（内联检测） |
-| `system:detectTrash` | 检测配置目录中的垃圾文件 |
-| `system:cleanTrash` | 清理配置目录中的垃圾文件 |
+| `system:detectTrash` | 检测应用生成文件中的可清理项（配置目录 + 模型目录双根扫描；活动/暂停/可重试下载任务路径自动保护） |
+| `system:cleanTrash` | 执行清理（逐项重校验根归属、kind 特征、保护集与符号链接） |
 
 ### FS（2）
 | 通道 | 用途 |

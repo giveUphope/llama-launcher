@@ -5,6 +5,7 @@ import Icon from '@/components/common/Icon.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useDownloadStore } from '@/stores/download';
 import { useI18nStore } from '@/stores/i18n';
+import { useUrlHistory } from '@/composables/useUrlHistory';
 import {
   type ParsedModelUrl,
   type ModelScopeSearchItem,
@@ -23,6 +24,9 @@ const settings = useSettingsStore();
 const download = useDownloadStore();
 const i18n = useI18nStore();
 
+// 模式：'library'（默认）= 模型库（URL 解析/搜索/文件列表 + 任务区）；'tasks' = 仅下载任务列表
+withDefaults(defineProps<{ mode?: 'library' | 'tasks' }>(), { mode: 'library' });
+
 // 每页数量
 const RESULTS_PER_PAGE = 6;
 const FILES_PER_PAGE = 8;
@@ -32,18 +36,10 @@ const urlInput = ref('');
 const parsing = ref(false);
 const parseError = ref('');
 
-// URL 历史（会话级）：仅在内存保存本次运行用户提交解析过的 URL，应用退出即清空；
-// 窗口隐藏到托盘（进程仍在）时保留。最新在前、去重、最多 HISTORY_MAX 条。
-const urlHistory = ref<string[]>([]);
-const HISTORY_MAX = 10;
-
-function rememberUrl(url: string) {
-  const v = url.trim();
-  if (!v) return;
-  const next = urlHistory.value.filter((u) => u !== v);
-  next.unshift(v);
-  urlHistory.value = next.slice(0, HISTORY_MAX);
-}
+// URL 历史（会话级）：状态提升至 useUrlHistory 模块级单例——本页面子标签 v-if
+// 切换会销毁重建 DownloadCard，实例级状态会丢失导致切换界面后历史不再弹出；
+// 应用退出（进程结束）才清空，隐藏到托盘（进程仍在）时保留。
+const { urlHistory, rememberUrl } = useUrlHistory();
 
 // 历史面板（点击空白输入框时在下方弹出）
 const historyOpen = ref(false);
@@ -284,7 +280,11 @@ async function onParseUrl() {
 }
 
 // 选择模型,加载文件列表
+// 过期响应守卫用自增序号而非对象引用比较：ref 存入对象后读出的会是
+// 响应式代理（!== 原始入参），引用比较会把正常响应误判为过期。
+let modelSelectionSeq = 0;
 async function onSelectModel(model: ModelScopeSearchItem) {
+  const seq = ++modelSelectionSeq;
   selectedModel.value = model;
   modelFiles.value = [];
   resetSelections();
@@ -294,6 +294,8 @@ async function onSelectModel(model: ModelScopeSearchItem) {
   try {
     // 根据解析出的来源选择文件列表 API(ModelScope 或 HF Mirror)
     const resp = await window.api.download.listFiles(model.path, model.name, currentSource.value);
+    // 加载期间用户已切换到其他模型：丢弃这次过期结果（避免列表落到错误仓库）
+    if (seq !== modelSelectionSeq) return;
     // 防御性检查：浏览器预览/mock 环境下 IPC 可能返回 null/undefined
     if (!resp || !resp.ok) {
       filesError.value = i18n.t('msg_files_load_failed', [resp?.error ?? 'unknown']);
@@ -306,17 +308,13 @@ async function onSelectModel(model: ModelScopeSearchItem) {
       return;
     }
     modelFiles.value = files;
-    // 默认选中推荐文件(链接尾部文件 / 与模型名最相关的文件)
-    // 传入完整 file 对象以启用多因子推荐评分
-    const recName = recommendFileName(modelFiles.value, recommendKeyword.value);
-    const recFile = recName
-      ? modelFiles.value.find((f) => f.name === recName)
-      : null;
-    selectedFiles.value = new Set(recFile ? [recFile.path] : []);
+    // 推荐文件只作「推荐」徽标/高亮与排序置顶展示（见 recommendedName / sortedFiles），
+    // 不默认勾选：下载哪些文件完全由用户主动勾选决定。
   } catch (err: any) {
     filesError.value = i18n.t('msg_files_load_failed', [err?.message ?? String(err)]);
   } finally {
-    loadingFiles.value = false;
+    // 仅当本次仍是最新选择时才清除加载状态（过期请求不干扰新加载的 spinner）
+    if (seq === modelSelectionSeq) loadingFiles.value = false;
   }
 }
 
@@ -377,25 +375,23 @@ function onDrop(e: DragEvent) {
   }
 }
 
-// 开始下载选中文件(任意类别:gguf / safetensors / bin / 其他)
-async function onDownloadSelected() {
-  if (!selectedModel.value) return;
-  if (!modelsDir.value) {
-    parseError.value = i18n.t('msg_no_models_dir');
-    return;
-  }
-  if (selectedFiles.value.size === 0) {
-    parseError.value = i18n.t('msg_select_files');
-    return;
-  }
+// 跳过原因 → 提示文案
+function skipReasonText(reason: 'in_queue' | 'completed' | 'exists'): string {
+  if (reason === 'in_queue') return i18n.t('msg_download_already_in_queue');
+  if (reason === 'completed') return i18n.t('msg_download_already_completed');
+  return i18n.t('msg_download_file_exists');
+}
 
-  parseError.value = '';
+/** 提交一组文件的下载任务：Store 去重 + 本地同名检测，跳过项自动取消勾选并返回原因列表。
+ *  手动「下载所选」与推荐文件自动下载共用此逻辑，保证校验规则一致。 */
+async function enqueueFiles(
+  filesToDownload: ModelScopeFile[],
+): Promise<Array<{ fileName: string; reason: 'in_queue' | 'completed' | 'exists' }>> {
+  const skipped: Array<{ fileName: string; reason: 'in_queue' | 'completed' | 'exists' }> = [];
+  if (!selectedModel.value) return skipped;
+
   download.ensureSubscribed();
-
   const source = currentSource.value;
-  const filesToDownload = modelFiles.value.filter((f) => selectedFiles.value.has(f.path));
-  const skipMessages: string[] = [];
-  let autoUnchecked = false;
 
   for (const file of filesToDownload) {
     const modelId = `${selectedModel.value.path}/${selectedModel.value.name}`;
@@ -406,9 +402,9 @@ async function onDownloadSelected() {
     );
     if (existing) {
       if (existing.status === 'completed') {
-        skipMessages.push(`${file.name} — ${i18n.t('msg_download_already_completed')}`);
+        skipped.push({ fileName: file.name, reason: 'completed' });
       } else if (existing.status === 'queued' || existing.status === 'downloading' || existing.status === 'paused') {
-        skipMessages.push(`${file.name} — ${i18n.t('msg_download_already_in_queue')}`);
+        skipped.push({ fileName: file.name, reason: 'in_queue' });
       } else {
         // canceled/error：允许重新下载，不跳过
       }
@@ -416,7 +412,6 @@ async function onDownloadSelected() {
       const next = new Set(selectedFiles.value);
       next.delete(file.path);
       selectedFiles.value = next;
-      autoUnchecked = true;
       continue;
     }
 
@@ -425,11 +420,10 @@ async function onDownloadSelected() {
     try {
       const exists = await window.api.system.fileExists(targetPath);
       if (exists) {
-        skipMessages.push(`${file.name} — ${i18n.t('msg_download_file_exists')}`);
+        skipped.push({ fileName: file.name, reason: 'exists' });
         const next = new Set(selectedFiles.value);
         next.delete(file.path);
         selectedFiles.value = next;
-        autoUnchecked = true;
         continue;
       }
     } catch {
@@ -496,10 +490,29 @@ async function onDownloadSelected() {
       }
     }
   }
+  return skipped;
+}
+
+// 开始下载选中文件(任意类别:gguf / safetensors / bin / 其他)
+async function onDownloadSelected() {
+  if (!selectedModel.value) return;
+  if (!modelsDir.value) {
+    parseError.value = i18n.t('msg_no_models_dir');
+    return;
+  }
+  if (selectedFiles.value.size === 0) {
+    parseError.value = i18n.t('msg_select_files');
+    return;
+  }
+
+  parseError.value = '';
+
+  const filesToDownload = modelFiles.value.filter((f) => selectedFiles.value.has(f.path));
+  const skipped = await enqueueFiles(filesToDownload);
 
   // 提示用户哪些文件被跳过以及原因
-  if (skipMessages.length > 0) {
-    parseError.value = skipMessages.join('\n');
+  if (skipped.length > 0) {
+    parseError.value = skipped.map((s) => `${s.fileName} — ${skipReasonText(s.reason)}`).join('\n');
   }
 }
 
@@ -632,9 +645,9 @@ function statusColor(status: string): string {
   return map[status] ?? 'var(--fg-primary)';
 }
 
-// 文件类别徽标文本
+// 文件类别徽标文本（category 缺失时回退「其他」，避免 cat_undefined 裸键）
 function categoryLabel(c: FileCategory): string {
-  return i18n.t(`cat_${c}`);
+  return i18n.t(`cat_${c ?? 'other'}`);
 }
 
 // 任务量化徽标:从文件名解析(任务对象不携带 quantization 字段,避免扩展 IPC)
@@ -657,6 +670,13 @@ function sourceLabel(source: DownloadSource): string {
     : i18n.t('lbl_source_modelscope');
 }
 
+// 解析结果来源徽标文本：ParsedModelUrl.source 可能为 'lmstudio'/'unknown'（品牌名不翻译，与按钮「HF Mirror/ModelScope」一致）
+function parseSourceLabel(source: NonNullable<ParsedModelUrl['source']>): string {
+  if (source === 'modelscope' || source === 'huggingface') return sourceLabel(source);
+  if (source === 'lmstudio') return 'LM Studio';
+  return '—';
+}
+
 // 量化徽标 tooltip：包含位宽信息
 function quantTooltip(q: QuantizationInfo | null): string {
   if (!q) return '';
@@ -668,8 +688,9 @@ function quantTooltip(q: QuantizationInfo | null): string {
 </script>
 
 <template>
-  <Card title-key="card_download_model">
+  <Card :title-key="mode === 'tasks' ? 'lbl_download_tasks' : 'card_download_model'">
     <div class="download-card">
+      <template v-if="mode === 'library'">
       <!-- URL 输入区(支持拖拽) -->
       <div
         class="url-row"
@@ -727,7 +748,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
       <!-- 解析信息 -->
       <div v-if="parsedInfo" class="parsed-info">
-        <span class="info-tag">{{ parsedInfo.source }}</span>
+        <span class="info-tag">{{ parseSourceLabel(parsedInfo.source) }}</span>
         <span class="info-id">{{ parsedInfo.modelId }}</span>
         <span v-if="parsedInfo.fileName" class="info-file">→ {{ parsedInfo.fileName }}</span>
       </div>
@@ -868,11 +889,12 @@ function quantTooltip(q: QuantizationInfo | null): string {
         </div>
         <div v-if="!modelsDir" class="warn-msg">{{ i18n.t('msg_no_models_dir') }}</div>
       </div>
+      </template>
 
       <!-- 下载任务列表 -->
       <div v-if="tasks.length > 0" class="tasks-section">
         <div class="tasks-header">
-          <span class="section-title">{{ i18n.t('lbl_download_tasks') }} ({{ tasks.length }})</span>
+          <span v-if="mode !== 'tasks'" class="section-title">{{ i18n.t('lbl_download_tasks') }} ({{ tasks.length }})</span>
           <div class="tasks-actions">
             <button
               v-if="modelsDir"
@@ -972,7 +994,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   gap: 8px;
   border: 1px solid transparent;
   border-radius: var(--radius-row);
-  transition: border-color var(--dur-fast) var(--ease-jelly), background var(--dur-fast) var(--ease-jelly),
+  transition: border-color var(--dur-fast) var(--ease-smooth), background var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
   &.dragging {
@@ -1016,16 +1038,13 @@ function quantTooltip(q: QuantizationInfo | null): string {
   font-size: var(--fs-md);
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
-    color var(--dur-fast) var(--ease-jelly), transform var(--dur-fast) var(--ease-jelly);
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
+    color var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
 
   &:hover:not(:disabled) {
     background: var(--bg-hover);
   }
 
-  &:active:not(:disabled) {
-    transform: scale(0.96);
-  }
 
   &.small {
     height: 24px;
@@ -1034,13 +1053,13 @@ function quantTooltip(q: QuantizationInfo | null): string {
   }
 
   &.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    background: var(--primary-bg);
+    border-color: var(--primary-bg);
+    color: var(--primary-fg);
 
     &:hover:not(:disabled) {
-      background: var(--accent-hover);
-      border-color: var(--accent-hover);
+      background: var(--primary-hover);
+      border-color: var(--primary-hover);
     }
   }
 
@@ -1079,7 +1098,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 .warn-msg {
   color: var(--warn);
   font-size: var(--fs-base);
-  padding: 2px 0;
+  padding: 4px 0;
 }
 
 .loading-msg,
@@ -1143,14 +1162,14 @@ function quantTooltip(q: QuantizationInfo | null): string {
 .result-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   padding: 8px 10px;
   border-radius: var(--radius-row);
   border: 1px solid var(--border);
   background: var(--bg-input);
   cursor: pointer;
   text-align: left;
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
@@ -1158,9 +1177,6 @@ function quantTooltip(q: QuantizationInfo | null): string {
     border-color: var(--accent);
   }
 
-  &:active {
-    transform: scale(0.98);
-  }
 
   &.active {
     background: var(--bg-active);
@@ -1187,7 +1203,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 2px 0;
+  padding: 4px 0;
 }
 
 .page-ind {
@@ -1212,6 +1228,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .tasks-actions {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1221,13 +1238,13 @@ function quantTooltip(q: QuantizationInfo | null): string {
 .cat-filter {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px; // 与页内选项胶囊组间距统一（tab-strip / level-chips 同为 4px）
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px; // 胶囊内 icon/计数间距与其他筛选 chip（level-chip）一致
   height: 24px;
   padding: 0 9px;
   border-radius: var(--radius-pill);
@@ -1236,35 +1253,34 @@ function quantTooltip(q: QuantizationInfo | null): string {
   color: var(--fg-secondary);
   font-size: var(--fs-sm);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
-    color var(--dur-fast) var(--ease-jelly), transform var(--dur-fast) var(--ease-jelly);
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
+    color var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
     background: var(--bg-hover);
   }
 
-  &:active {
-    transform: scale(0.96);
-  }
 
   &.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    background: var(--primary-bg);
+    border-color: var(--primary-bg);
+    color: var(--primary-fg);
   }
 }
 
 .chip-count {
   font-size: var(--fs-xs);
   opacity: 0.75;
-  background: rgba(0, 0, 0, 0.12);
+  /* 表面着色（跟随 chip 文本色相的半透明计数底），不纳入阴影 token */
+  background: color-mix(in srgb, var(--fg-secondary) 12%, transparent);
   border-radius: var(--radius-pill);
   padding: 0 5px;
 }
 
 .chip.active .chip-count {
   opacity: 0.85;
-  background: rgba(255, 255, 255, 0.22);
+  /* 激活态 chip 为 --primary-bg，计数底跟随主按钮文字色，双主题下均可见 */
+  background: color-mix(in srgb, var(--primary-fg) 22%, transparent);
 }
 
 .file-list {
@@ -1282,7 +1298,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   border: 1px solid var(--border);
   background: var(--bg-input);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
@@ -1296,8 +1312,8 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
   &.recommended {
     border-color: var(--accent);
-    // 推荐标记竖条：彩虹渐变，与进度条/启动 CTA 呼应（点缀式）
-    box-shadow: inset 3px 0 0 var(--rainbow-grad);
+    // 推荐标记竖条：accent 蓝（统一蓝色系，原为彩虹渐变）
+    box-shadow: inset 3px 0 0 var(--accent);
   }
 
   input[type='checkbox'] {
@@ -1326,7 +1342,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   color: #fff;
   background: var(--accent);
   border-radius: var(--radius-pill);
-  padding: 1px 5px;
+  padding: 1px 6px;
 }
 
 .file-cat {
@@ -1334,7 +1350,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   font-size: var(--fs-xs);
   font-weight: 600;
   border-radius: var(--radius-pill);
-  padding: 1px 5px;
+  padding: 1px 6px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 
@@ -1352,7 +1368,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   font-weight: 600;
   font-family: var(--font-mono);
   border-radius: var(--radius-pill);
-  padding: 1px 5px;
+  padding: 1px 6px;
   letter-spacing: 0.2px;
   line-height: 1.4;
 
@@ -1378,7 +1394,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   font-size: var(--fs-xs);
   font-weight: 600;
   border-radius: var(--radius-pill);
-  padding: 1px 5px;
+  padding: 1px 6px;
   letter-spacing: 0.2px;
   line-height: 1.4;
 
@@ -1404,7 +1420,13 @@ function quantTooltip(q: QuantizationInfo | null): string {
   flex-direction: column;
   gap: 8px;
   border-top: 1px solid var(--border);
-  padding-top: 12px;
+  padding-top: 14px;
+
+  // 分隔线上方 14px（容器 flex gap 8px + 6px margin），与线下方 14px 对齐；
+  // 任务模式（mode='tasks'）下本块是 card-body 首个子块，不额外加间距
+  &:not(:first-child) {
+    margin-top: 6px;
+  }
 }
 
 .task-list {
@@ -1460,10 +1482,10 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 .task-progress-fill {
   height: 100%;
-  /* 彩虹填充（点缀式；任务状态色仍显示在状态文字上） */
-  background: var(--rainbow-grad);
+  /* accent 蓝填充（统一蓝色系，原为彩虹渐变）；宽度过渡为进度跟随展示（与 Progress.vue 一致） */
+  background: var(--accent);
   border-radius: var(--radius-pill);
-  transition: width 0.3s ease;
+  transition: width var(--dur-med) var(--ease-smooth);
 }
 
 .task-stats {
@@ -1521,11 +1543,10 @@ function quantTooltip(q: QuantizationInfo | null): string {
   overflow-x: hidden;
   padding: 4px;
   border-radius: var(--radius-row);
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border);
+  // 实底浮层（STYLE_TODO #41 / §7.5.6）：可读性优先，不用半透明玻璃 + backdrop-filter
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-dropdown);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
   animation: url-history-panel-in var(--dur-fast) var(--ease-jelly);
 
   &::-webkit-scrollbar {
@@ -1581,15 +1602,12 @@ function quantTooltip(q: QuantizationInfo | null): string {
   font-size: var(--fs-base);
   text-align: left;
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-jelly), transform var(--dur-fast) var(--ease-jelly);
+  transition: background var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
     background: var(--bg-hover);
   }
 
-  &:active {
-    transform: scale(0.98);
-  }
 }
 
 .url-history-icon {
