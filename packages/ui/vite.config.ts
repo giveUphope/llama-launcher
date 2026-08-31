@@ -3,6 +3,10 @@ import vue from '@vitejs/plugin-vue';
 import { resolve } from 'node:path';
 import { writeFileSync } from 'node:fs';
 
+// 注意：不要用 __dirname——vite 8 的 configLoader 将默认 native（原生 ESM 执行 config），
+// CJS 全局 __dirname 在 ESM 语境下不存在；import.meta.dirname 需 Node 20.11+（项目要求 20.19+/22.12+）。
+const here = import.meta.dirname;
+
 // 把 Vite 实际监听的端口写到 packages/ui/.vite-dev-port，
 // 供 Electron 主进程（dev:vite / turbo dev）读取，避免端口被占用后
 // 前端顺延到别的端口、而 Electron 仍连 5173 导致白屏/连不上。
@@ -13,7 +17,7 @@ function writeDevPortPlugin() {
       server.httpServer?.once('listening', () => {
         const addr = server.httpServer.address();
         const port = typeof addr === 'object' && addr ? addr.port : 5173;
-        writeFileSync(resolve(__dirname, '.vite-dev-port'), String(port));
+        writeFileSync(resolve(here, '.vite-dev-port'), String(port));
       });
     },
   };
@@ -23,8 +27,8 @@ export default defineConfig({
   plugins: [vue(), writeDevPortPlugin()],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
-      '@llama-launcher/shared': resolve(__dirname, '../shared/src'),
+      '@': resolve(here, 'src'),
+      '@llama-launcher/shared': resolve(here, '../shared/src'),
     },
   },
   server: {

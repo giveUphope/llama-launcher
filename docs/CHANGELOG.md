@@ -6,6 +6,14 @@
 
 ### 新增
 
+- **依赖升级专项审计（vite 8 / vitest 4 / vue-router 5 / pinia 4 / vue-tsc 3 / electron 44 / electron-builder 26）**：逐一对照官方迁移指南确认破坏面，结论——vue-router 5 对本项目（未用 file-based routing）零破坏；vitest 4 重写 pool（移除 tinypool，Windows 测试挂死根因在上游根治，`vitest.global-setup.mjs` 兜底保留防御性）；electron 44 的 API 使用面（net/shell/app/screen/ipcMain/BrowserWindow）无破坏性变更，剪贴板走 preload 桥 → main 进程的架构符合 44 起 renderer 不再暴露 clipboard 的约束；electron-builder 26 函数式 hook（`before-pack.cjs` 的 `exports.default`）签名匹配；Node 要求 20.19+ / 22.12+ 均满足。
+- **vite 8 `configLoader` native 兼容**：`vite.config.ts` / `vitest.config.ts` 的 `__dirname` 全部迁移为 `import.meta.dirname`（vite 8 将默认 native config loader，CJS 全局在 ESM 语境下不存在），构建/测试输出中 `configLoader` 弃用警告消除。
+- **pinia 4 peer 显式化**：pinia 4 为 ESM-only 且 `@vue/devtools-api` 变为必需 peer——已显式声明到 ui 包 devDependencies（此前靠 pnpm 宽松模式侥幸解析，严格环境会缺），运行时 ESM import 验证通过。
+
+### 修复
+
+- **Windows 下 `pnpm build` 挂死（根因定位 + 固化）**：turbo 2.10.3 的 daemon（后台服务）在 Windows 上与 vite 8（rolldown native 多线程）的 stdout 管道存在句柄竞态——构建产物完整但 turbo 壳进程不退出（曾误判为 vite 8 问题）。定位过程：直连 `vite build` 961ms 正常、`pnpm --filter ui build` 872ms 正常、turbo 单包必挂，`TURBO_DAEMON=false` / `--no-daemon` 后 4.4s 正常退出。修复：root `build`/`lint`/`test` 脚本统一加 `--no-daemon`（本地开发一键恢复），release.yml 的 build/dist 步骤加 `TURBO_DAEMON: "false"` 环境变量 + 20 分钟超时双保险（Windows runner 免挂死）。
+
 - **双轨参数逻辑**：参数编辑分「临时轨道」与「预设轨道」两套体系——临时轨道的参数变化自动节流（800ms）持久化到 `settings.json` 的 `session_values` + `session_baseline`，重启应用后完整恢复上次会话；预设轨道仅在显式保存时写入预设文件。新增 `SessionBaseline`（会话基线：预设名 + 应用时刻参数快照），「已修改」蓝点与侧栏橙点改为相对基线逐键计算。
 - **参数基线徽章 `BaselineBadge`**：参数设置页顶部与服务页状态卡双入口展示当前基线状态（预设名·已修改 / 自定义参数集 / 临时参数 / 默认参数），支持就地「恢复基线」与「清除会话」。
 - **切模型防丢确认**：切换模型 / 应用 GGUF 建议参数前，检测到未保存修改时弹确认框，防止参数静默丢失；应用启动重挂上次模型不再触发确认。
