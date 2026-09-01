@@ -2,7 +2,7 @@ import type { ParamDef, ParamGroup } from '../types/index.js';
 
 export const MODEL_KEY = 'model';
 export const APP_NAME = 'llama Launcher';
-export const APP_VERSION = '0.0.16';
+export const APP_VERSION = '0.0.17';
 
 /**
  * 基线推荐值（实测依据，2026-08-15，docs/archive/experiments/plan-kv-split-cli-test.md）——
