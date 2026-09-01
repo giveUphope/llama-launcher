@@ -101,4 +101,16 @@ describe('parseModelUrl', () => {
     expect(parseModelUrl('not a url')).toBeNull();
     expect(parseModelUrl('https://example.com/foo')).toBeNull();
   });
+
+  it('空/空白输入返回 null（不抛错）', () => {
+    expect(parseModelUrl('')).toBeNull();
+    expect(parseModelUrl('   ')).toBeNull();
+    expect(parseModelUrl(null as unknown as string)).toBeNull();
+  });
+
+  it('大写模型文件扩展名（.GGUF）同样识别为尾部文件', () => {
+    const result = parseModelUrl('https://huggingface.co/org/model/resolve/main/Model.FP8.GGUF');
+    expect(result?.fileName).toBe('Model.FP8.GGUF');
+    expect(result?.filePath).toBe('Model.FP8.GGUF');
+  });
 });
