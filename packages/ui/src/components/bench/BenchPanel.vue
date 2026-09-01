@@ -7,15 +7,12 @@ import { computed, onUnmounted, ref } from 'vue';
 import type { BenchResult, ParamDef } from '@llama-launcher/shared';
 import { PARAMS } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
-import SliderParam from '@/components/params/SliderParam.vue';
-import IntEntryParam from '@/components/params/IntEntryParam.vue';
-import DropdownParam from '@/components/params/DropdownParam.vue';
-import CheckboxParam from '@/components/params/CheckboxParam.vue';
-import TextParam from '@/components/params/TextParam.vue';
+import ParamRow from '@/components/params/ParamRow.vue';
 import { useParamsStore } from '@/stores/params';
 import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
 import { useI18nStore } from '@/stores/i18n';
+import { waitForRunning } from '@/composables/useWaitRunning';
 
 const params = useParamsStore();
 const settings = useSettingsStore();
@@ -26,11 +23,11 @@ const i18n = useI18nStore();
 // 在参数配置页已可调整，性能测试页聚焦可对比的参数组合）
 const TUNE_EXCLUDE = new Set(['model', 'mmproj', 'spec_draft_model']);
 
-// 动态参数项：跟随参数配置页中「已启用」的参数（与参数配置页勾选状态实时同步）。
-// 用户勾选/取消某个参数后，性能测试页自动增减对应控件，交互方式与参数配置页完全一致
-// （滑块/下拉/开关/文本等控件组件直接复用）。
+// 动态参数项：跟随参数配置页中值 ≠ 默认值的参数（与参数配置页实时同步）。
+// 参数调整后，性能测试页自动增减对应行——行组件直接复用 ParamRow，
+// 控件类型（滑块/下拉/开关/文本/文件等）与行效果由 ParamRow 内部分支承载
 const activeTuneParams = computed<ParamDef[]>(() => {
-  return PARAMS.filter((p) => !TUNE_EXCLUDE.has(p.key) && params.isEnabled(p.key));
+  return PARAMS.filter((p) => !TUNE_EXCLUDE.has(p.key) && params.values[p.key] !== p.default);
 });
 
 // 测试历史记录（内存态，关闭应用即清空；每次运行测试追加一条，便于调整前后对比）
@@ -49,7 +46,7 @@ const maxTokens = ref(512);
 let seq = 0;
 
 const isRunning = computed(() => server.status === 'running' || server.status === 'starting');
-const metricsEnabled = computed(() => params.isEnabled('metrics') && String(params.values.metrics) !== 'false');
+const metricsEnabled = computed(() => params.values['metrics'] === true);
 
 function onDeleteCombo(id: string) {
   combos.value = combos.value.filter((c) => c.id !== id);
@@ -61,8 +58,8 @@ function onClearHistory() {
 }
 
 // 应用测试记录对应的参数到当前设置。
-// 复用预设的完全覆盖应用逻辑：组合快照（含 _enabled）与 PresetValues 结构一致，
-// 附带智能归一化（类型/范围/选项适配）与依赖联动清理，返回启用参数数量。
+// 复用预设的完全覆盖应用逻辑：组合快照与被测实例启动参数一致（值即真相，无勾选状态），
+// 附带智能归一化（类型/范围/选项适配）与依赖联动清理，返回非默认参数数量。
 // 应用后面板内短暂提示 + 写入控制台，确认参数确实生效。
 const appliedMsg = ref('');
 let appliedTimer: number | null = null;
@@ -79,72 +76,21 @@ function onApplyCombo(c: BenchCombo) {
   appliedTimer = window.setTimeout(() => { appliedMsg.value = ''; }, 3000);
 }
 
-// 组合参数摘要：展示该测试记录中「已启用」的参数（依赖快照内的 _enabled），
-// 未勾选启用的参数不会展示（与 command-builder 用 _enabled 过滤发射参数的行为一致）
+// 组合参数摘要：展示该测试记录中非默认的参数（值即真相，勾选框已移除）
 function snapshotSummary(snapshot: Record<string, string | number | boolean>): string {
-  let enabledKeys: string[] = [];
-  const enRaw = snapshot._enabled;
-  if (typeof enRaw === 'string') {
-    try {
-      const en = JSON.parse(enRaw) as Record<string, boolean>;
-      enabledKeys = Object.keys(en).filter((k) => en[k]);
-    } catch { /* 忽略损坏的 enabled 数据 */ }
-  }
-  return enabledKeys
-    .filter((k) => k !== '_enabled' && !TUNE_EXCLUDE.has(k))
-    .filter((k) => snapshot[k] !== undefined && String(snapshot[k]) !== '')
+  const keys = Object.keys(snapshot).filter((k) => k !== '_enabled' && !TUNE_EXCLUDE.has(k));
+  return keys
+    .filter((k) => {
+      const p = PARAMS.find((x) => x.key === k);
+      if (!p) return false;
+      return snapshot[k] !== p.default;
+    })
+    .filter((k) => String(snapshot[k]) !== '')
     .map((k) => `${k}=${String(snapshot[k])}`)
     .join('  ');
 }
 
-// 等待服务进入 running 状态（带超时）。
-// restart 场景：launcher.restart() 是异步的（等旧进程 exit 后再启动新进程），
-// 且旧进程退出前 server.status 仍是旧 running——若立即按 running 返回，会在新进程
-// 模型尚未加载完成时就发测试请求，导致端点无法访问。因此：
-// - restarting=true 时，先等待状态离开 running（旧进程退出），再等待重新进入 running（新进程就绪）
-// - restarting=false 时（首次启动），直接等待 running
-// 启动失败检测：模型配置错误等导致 llama-server 启动失败时，进程 exit → 状态停在 stopped 且
-// pid 为 null，不会重新 running。此时连续多次轮询确认后立即判定失败（而非等到超时），
-// 避免界面一直停留在"等待服务就绪"。返回 'ok' | 'timeout' | 'failed'。
-function waitRunning(timeoutMs: number, restarting = false): Promise<'ok' | 'timeout' | 'failed'> {
-  return new Promise((resolve) => {
-    const started = Date.now();
-    // 阶段标记：restart 时先等旧进程退出（状态 != running），再等新进程 running
-    let phase: 'wait-exit' | 'wait-running' = restarting ? 'wait-exit' : 'wait-running';
-    // 启动失败判定：连续 N 次轮询看到 stopped + pid null（进程已退出且未重启）→ 判定失败
-    let stoppedStreak = 0;
-    const FAIL_STREAK = 4; // ~1.2s（300ms × 4），区分 restart 的短暂 stopped 中间态
-    const timer = setInterval(async () => {
-      // 每次轮询刷新 pid/status（restart 后主进程状态变化）
-      try { await server.refreshStatus(); } catch { /* 忽略轮询失败 */ }
-      const s = server.status;
-      if (phase === 'wait-exit') {
-        // 旧进程退出：状态离开 running（stopped/starting 都算退出完成）
-        if (s !== 'running') phase = 'wait-running';
-        stoppedStreak = 0;
-      } else if (s === 'running') {
-        clearInterval(timer);
-        resolve('ok');
-        return;
-      } else if (s === 'stopped' && server.pid === null) {
-        // 进程已退出（启动失败或意外退出）：连续确认后判定失败
-        stoppedStreak++;
-        if (stoppedStreak >= FAIL_STREAK) {
-          clearInterval(timer);
-          resolve('failed');
-          return;
-        }
-      } else {
-        // starting 等中间态：重置连续计数
-        stoppedStreak = 0;
-      }
-      if (Date.now() - started > timeoutMs) {
-        clearInterval(timer);
-        resolve('timeout');
-      }
-    }, 300);
-  });
-}
+// 启动/重启后的就绪等待（两阶段 + 启动失败检测）已抽取为公共 composable useWaitRunning（waitForRunning）
 
 // 判断运行中服务是否与当前参数快照完全一致（含启用状态）。
 // 一致时无需重启（避免重复加载模型，30B 模型加载耗时数十秒），直接对现有实例发测试请求。
@@ -161,23 +107,26 @@ function sameParamsAsRunning(snapshot: Record<string, string | number | boolean>
   return true;
 }
 
-// 多并发场景并发数：跟随参数页 -np（parallel）值（>1 时），否则默认 4；上限 8。
-// 不新增任何 UI 控件——与单并发一起在一次「运行测试」中自动完成
-function benchConcurrency(): number {
-  const v = Number(params.values.parallel);
-  if (Number.isFinite(v) && v > 1) return Math.min(v, 8);
-  return 4;
+// 多并发场景并发数：依据被测服务实例的并行槽位数 -np（parallel）决定
+// （读测试开始时刻的快照，而非当前编辑值——测试等待/运行期间用户可能改动参数，
+// 被测实例的实际槽位由启动时刻参数决定）。
+// - np ≥ 2：并发数 = min(np, 8)，真正行使全部并行槽位的聚合吞吐（可按实际槽位对比单并发）
+// - np ≤ 1（含默认 -1 自动）：服务器无多并行槽位，多并发不适用，返回 1 表示本次不执行多并发
+// 不新增任何 UI 控件——由主进程根据该值决定多并发是否执行；与单并发一起在一次「运行测试」中自动完成
+function benchConcurrency(s: Record<string, string | number | boolean>): number {
+  const v = Number(s.parallel);
+  if (Number.isFinite(v) && v >= 2) return Math.min(v, 8);
+  return 1;
 }
 
 async function onRunTest() {
   if (running.value) return;
   running.value = true;
   try {
-    // 1. 确保 --metrics 已启用：未启用时临时开启（测试需要 /metrics 与推测解码接受率）
+    // 1. 确保 --metrics 已开启：测试需要 /metrics 与推测解码接受率
     let metricsWasEnabled = metricsEnabled.value;
-    if (!metricsEnabled.value) {
+    if (!metricsWasEnabled) {
       params.set('metrics', true);
-      params.setEnabled('metrics', true);
     }
     // 2. 刷新服务状态，拿到最近一次启动的参数快照
     await server.refreshStatus();
@@ -203,7 +152,7 @@ async function onRunTest() {
     statusText.value = i18n.t('bench_status_wait');
     // 重启场景：先等旧进程退出（状态离开 running），再等新进程加载完成重新 running，
     // 避免旧 running 状态残留导致新进程模型未加载完就发请求（端点无法访问）
-    const waitResult = await waitRunning(180000, restarted);
+    const waitResult = await waitForRunning(180000, restarted);
     if (waitResult !== 'ok') {
       if (waitResult === 'failed') {
         // 启动失败（模型配置错误等）：提示用户查看控制台日志（含具体报错）
@@ -215,41 +164,49 @@ async function onRunTest() {
     }
     statusText.value = i18n.t('bench_status_running');
     // 4. 发测试请求：一次运行依次执行单并发（1 个请求）与多并发（benchConcurrency 个并行请求）两个场景
+    //    并发数与 api_key 取被测实例快照（snapshot），不受测试期间用户编辑影响
     const req = {
       prompt: prompt.value,
       maxTokens: maxTokens.value,
-      concurrency: benchConcurrency(),
-      apiKey: String(params.values.api_key ?? ''),
+      concurrency: benchConcurrency(snapshot),
+      apiKey: String(snapshot.api_key ?? ''),
     };
     const res = await window.api.server.bench(req);
     if (!res || !res.ok) {
-      statusText.value = `Error: ${res?.error ?? 'bench failed'}`;
+      statusText.value = i18n.t('bench_error').replace('{0}', res?.error ?? 'bench failed');
       return;
     }
     const { single, concurrent } = res.data;
-    // 5. 追加两条测试历史记录（单并发 + 多并发，同一次测试、同一参数快照）。
-    //    单并发行沿用原名，多并发行带 ×N 后缀；部分并发请求失败时标注失败数。
-    //    数据仅内存保存，关闭应用即清空。
+    // 5. 追加测试历史记录：单并发行始终追加；多并发仅在服务器有并行槽位（np≥2，concurrent 非空）时追加。
+    //    单并发行沿用原名，多并发行带 ×N 后缀；部分并发请求失败时标注失败数。数据仅内存保存。
+    //    快照必须取测试开始时刻的 snapshot（= 被测实例的启动参数 / 复用实例的核对参数），
+    //    不能用测试结束时刻的 params.snapshot()——等待与运行期间用户可能编辑参数，
+    //    届时当前值已不等于被测服务实际运行的命令参数（历史记录与服务页命令不一致的根因）。
     const comboName = `${i18n.t('bench_combo')} ${seq}`;
-    const concName = `${comboName} · ${i18n.t('bench_concurrent_suffix').replace('{0}', String(concurrent.concurrency))}`;
-    const comboSnapshot = { ...params.snapshot() };
+    const comboSnapshot = { ...snapshot };
     combos.value.push({
       id: `${Date.now()}-${++seq}`,
       name: comboName,
       result: single,
       snapshot: comboSnapshot,
     });
-    combos.value.push({
-      id: `${Date.now()}-${++seq}`,
-      name: concurrent.failed
-        ? `${concName}${i18n.t('bench_concurrent_failed').replace('{0}', String(concurrent.failed))}`
-        : concName,
-      result: concurrent,
-      snapshot: comboSnapshot,
-    });
-    statusText.value = '';
+    if (concurrent) {
+      const concName = `${comboName} · ${i18n.t('bench_concurrent_suffix').replace('{0}', String(concurrent.concurrency))}`;
+      combos.value.push({
+        id: `${Date.now()}-${++seq}`,
+        name: concurrent.failed
+          ? `${concName}${i18n.t('bench_concurrent_failed').replace('{0}', String(concurrent.failed))}`
+          : concName,
+        result: concurrent,
+        snapshot: comboSnapshot,
+      });
+      statusText.value = '';
+    } else {
+      const np = snapshot.parallel ?? -1;
+      statusText.value = i18n.t('bench_multi_skipped').replace('{0}', String(np));
+    }
   } catch (e: any) {
-    statusText.value = `Error: ${e?.message ?? String(e)}`;
+    statusText.value = i18n.t('bench_error').replace('{0}', e?.message ?? String(e));
   } finally {
     running.value = false;
   }
@@ -291,16 +248,12 @@ onUnmounted(() => {
 
 <template>
   <div class="bench-panel">
-    <!-- 参数快速调整：动态跟随参数配置页已启用项，控件与参数配置页完全一致 -->
-    <Card title-key="bench_tune_title">
+    <!-- 参数快速调整：动态跟随参数配置页非默认值项，逐行复用 ParamRow——
+         与自定义参数页同布局同效果（param-grid 同款 auto-fit 网格；行悬停背景/描边、
+         非默认橙描边、依赖警示、GGUF 提示、还原按钮均由 ParamRow 统一承载） -->
+    <Card title-key="bench_tune_title" compact>
       <div class="tune-grid">
-        <div v-for="p in activeTuneParams" :key="p.key" class="tune-row">
-          <SliderParam v-if="p.type === 'int_slider' || p.type === 'float_slider'" :p="p" />
-          <IntEntryParam v-else-if="p.type === 'int_entry'" :p="p" />
-          <DropdownParam v-else-if="p.type === 'dropdown'" :p="p" />
-          <CheckboxParam v-else-if="p.type === 'checkbox'" :p="p" />
-          <TextParam v-else :p="p" />
-        </div>
+        <ParamRow v-for="p in activeTuneParams" :key="p.key" :p="p" />
       </div>
       <div class="tune-hint">{{ i18n.t('bench_tune_hint') }}</div>
     </Card>
@@ -338,7 +291,11 @@ onUnmounted(() => {
           {{ i18n.t('bench_clear_history') }}
         </button>
       </template>
-      <div v-if="appliedMsg" class="applied-msg">{{ appliedMsg }}</div>
+      <!-- 应用提示防跳动：外层槽位常驻并与提示行等高（padding 6×2 + fs-base 行高 ≈ 32px），
+            无提示时隐藏但占满高度——提示条出现/消失时下方历史表不再下移（#42 预留位置模式）。 -->
+      <div class="applied-msg-slot" :class="{ 'has-msg': !!appliedMsg }">
+        <div v-if="appliedMsg" class="applied-msg">{{ appliedMsg }}</div>
+      </div>
       <div class="combo-table-wrap">
         <table class="combo-table">
           <thead>
@@ -386,35 +343,26 @@ onUnmounted(() => {
   gap: 14px;
 }
 
+// 参数网格：与参数设置页 .param-grid 同配方（auto-fit、gap 4×14、窄屏单列），
+// 行由 ParamRow 承载——与自定义参数页一致呈现行效果（非默认橙描边/hover/还原按钮，2026-08-31）
 .tune-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 16px;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 4px 14px;
 
-  @media (max-width: 920px) {
+  @media (max-width: 720px) {
     grid-template-columns: 1fr;
   }
 }
 
-// 参数控件行：视觉隔离边框（与参数配置页 ParamRow 卡片化分隔一致）
-.tune-row {
-  min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-row);
-  padding: 4px 8px;
-  transition: border-color var(--dur-fast) var(--ease-jelly), transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover {
-    border-color: var(--accent);
-  }
-}
-
 // 测试执行的标签与输入（保留原 tune-label/tune-input 用于 run-row）
+// 标签等列：固定 110px 右对齐（参考参数行 label-col 逻辑），输入框起点对齐
 .tune-label {
   font-size: var(--fs-md);
   color: var(--fg-secondary);
-  flex-shrink: 0;
-  width: 110px;
+  flex: 0 1 110px;
+  min-width: 64px;
+  text-align: right;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -481,102 +429,21 @@ onUnmounted(() => {
   }
 }
 
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: var(--btn-h);
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  color: var(--fg-primary);
-  font-size: var(--fs-md);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
-    transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover:not(:disabled) {
-    background: var(--bg-hover);
-  }
-
-  &:active:not(:disabled) {
-    transform: scale(0.96);
-  }
-
-  &.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-    font-weight: 600;
-
-    &:hover:not(:disabled) {
-      background: var(--accent-hover);
-      border-color: var(--accent-hover);
-    }
-  }
-
-  &.danger {
-    color: var(--danger);
-    border-color: var(--danger);
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-}
-
-.mini-btn {
-  height: 20px;
-  padding: 0 8px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  color: var(--fg-secondary);
-  font-size: var(--fs-sm);
-  cursor: pointer;
-  // 在 flex 按钮组内不被压缩（表格列宽变化时保持按钮完整可点击）
-  flex-shrink: 0;
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
-    color var(--dur-fast) var(--ease-jelly), transform var(--dur-fast) var(--ease-jelly);
-
-  // 应用按钮：accent 描边强调（与应用内 accent 强调色按钮一致，如 TopBar 的 web 按钮）
-  &.accent {
-    color: var(--accent);
-    border-color: var(--accent);
-
-    &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--accent) 10%, var(--bg-input));
-    }
-  }
-
-  &.danger {
-    color: var(--danger);
-    border-color: var(--danger);
-  }
-
-  &:hover {
-    background: var(--bg-hover);
-  }
-
-  &:active:not(:disabled) {
-    transform: scale(0.96);
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-}
-
 .combo-table-wrap {
   margin-top: 10px;
   overflow-x: auto;
 }
 
-.applied-msg {
+.applied-msg-slot {
   margin-top: 10px;
+  min-height: 32px; // = 提示行实际高度（padding 6px×2 + fs-base 13 × 行高 1.5 ≈ 31.5px）
+
+  &:not(.has-msg) {
+    visibility: hidden;
+  }
+}
+
+.applied-msg {
   padding: 6px 10px;
   border-radius: var(--radius-row);
   background: color-mix(in srgb, var(--success) 12%, transparent);

@@ -19,12 +19,18 @@ const defaultLabel = computed(() => {
 });
 
 const label = computed(() => i18n.paramLabel(props.p.key));
+
+// 悬停提示 = 标签 + 帮助描述（paramHelp 为空时仅标签），与其余参数控件一致
+const tip = computed(() => {
+  const h = i18n.paramHelp(props.p.key);
+  return h ? `${label.value}\n${h}` : label.value;
+});
 </script>
 
 <template>
   <div class="param-row">
     <div class="label-col">
-      <ToolTip :text="label">
+      <ToolTip :text="tip">
         <span class="label-text">{{ label }}</span>
       </ToolTip>
     </div>
@@ -47,20 +53,19 @@ const label = computed(() => i18n.paramLabel(props.p.key));
 .param-row {
   display: flex;
   align-items: center;
-  min-height: 36px;
+  min-height: 24px;
   width: 100%;
 }
 
-// 标签列：允许收缩（避免长标签换行撑高行），溢出用省略号
 .label-col {
-  flex: 0 1 140px;
-  min-width: 80px;
+  flex: 0 1 110px;
+  min-width: 64px;
   text-align: right;
-  padding-right: 12px;
+  padding-right: 8px;
 }
 
 .label-text {
-  font-size: var(--fs-lg);
+  font-size: var(--fs-base);
   color: var(--fg-secondary);
   cursor: help;
   white-space: nowrap;
@@ -75,7 +80,7 @@ const label = computed(() => i18n.paramLabel(props.p.key));
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -87,7 +92,7 @@ const label = computed(() => i18n.paramLabel(props.p.key));
   background: var(--switch-track);
   border: 1px solid var(--border);
   padding: 0;
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
   flex-shrink: 0;
 

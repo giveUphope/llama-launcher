@@ -70,6 +70,17 @@ export const PARAM_LABELS: Record<string, ParamI18nEntry> = {
 
   // ---------------- model (special) ----------------
   model: { zh: '模型文件', en: 'Model File' },
+
+  // ---------------- b10734 新增 ----------------
+  lazy_mode: { zh: '惰性张量读取', en: 'Lazy Tensor Read' },
+  n_cpu_ffn: { zh: 'CPU FFN 层数', en: 'CPU FFN Layers' },
+  kv_unified_per_slot: { zh: '每槽位统一 KV 上限', en: 'Unified KV Per Slot' },
+  mmproj_device: { zh: '投影器设备', en: 'Projector Device' },
+  video_fps: { zh: '视频帧率', en: 'Video FPS' },
+  video_timestamp_interval: { zh: '视频时间戳间隔', en: 'Video Timestamp Interval' },
+  video_ffmpeg_dir: { zh: 'FFmpeg 目录', en: 'FFmpeg Dir' },
+  spec_synth_len: { zh: '合成接受长度（基准）', en: 'Synthetic Accept Len' },
+  spec_synth_rates: { zh: '合成接受率（基准）', en: 'Synthetic Accept Rates' },
 };
 
 export const PARAM_HELP: Record<string, ParamI18nEntry> = {
@@ -139,4 +150,15 @@ export const PARAM_HELP: Record<string, ParamI18nEntry> = {
 
   // ---------------- model (special) ----------------
   model: { zh: 'GGUF 模型文件路径', en: 'GGUF model file path' },
+
+  // ---------------- b10734 新增 ----------------
+  lazy_mode: { zh: '按需从磁盘读取部分张量（如逐层嵌入）。auto = 仅对大于 4GiB 的张量惰性读取（需 mmap）；off = 始终常驻；on = 行的按需读取', en: 'On-demand reading of tensors (e.g. per-layer embeddings). auto = lazy only for tensors > 4 GiB (needs mmap); off = always resident; on = on-demand row reads' },
+  n_cpu_ffn: { zh: '将前 N 层的稠密 FFN 权重保留在 CPU（稠密模型；MoE 专家权重请用 CPU MoE 层数）', en: 'Keep dense FFN weights of first N layers on CPU (dense models; use CPU MoE Layers for MoE experts)' },
+  kv_unified_per_slot: { zh: '并行槽位上下文上限；不与上下文长度同用时共享 KV 池按此设置，0 = 不设置（保持原行为）', en: 'Context limit per parallel slot; when unset with ctx-size, shared KV pool is sized per this. 0 = unset' },
+  mmproj_device: { zh: '多模态投影器所用设备；none = 不卸载，默认 auto（可用 llama-server --list-devices 查看设备名）', en: 'Device for multimodal projector; none = don\'t offload, default auto (see llama-server --list-devices)' },
+  video_fps: { zh: '目标视频帧率', en: 'Target video frame rate' },
+  video_timestamp_interval: { zh: '文本时间戳之间的毫秒间隔', en: 'Interval in ms between text timestamps' },
+  video_ffmpeg_dir: { zh: '包含 ffmpeg 与 ffprobe 的目录；留空 = 在 PATH 中搜索', en: 'Dir containing ffmpeg and ffprobe; empty = search in PATH' },
+  spec_synth_len: { zh: '目标平均合成接受长度（含目标 token，仅基准测试）', en: 'Target mean synthetic acceptance length incl. target token (benchmarking only)' },
+  spec_synth_rates: { zh: '逗号分隔的无条件逐位置合成接受概率（仅基准测试）', en: 'Comma-separated per-position synthetic acceptance probabilities (benchmarking only)' },
 };

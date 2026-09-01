@@ -8,7 +8,7 @@ import { useI18nStore } from '@/stores/i18n';
 import { MODEL_KEY, APP_NAME } from '@llama-launcher/shared';
 import type { ModelInfo } from '@llama-launcher/shared';
 import Icon from '@/components/common/Icon.vue';
-import appIcon from '@/assets/app-icon.svg';
+import AppLogo from '@/components/common/AppLogo.vue';
 import { useStartServer } from '@/composables/useStartServer';
 import { useModelPreset } from '@/composables/useModelPreset';
 
@@ -74,9 +74,11 @@ async function onSelectModel(path: string) {
     return;
   }
   // 统一走 params.applyModel：保留参数值 + 自动检测 mmproj + 加载 GGUF 元数据，
-  // 切换模型时自动清空控制台（旧日志属于上一个模型）
-  await params.applyModel(path);
-  // 智能预设：该模型存在已保存预设时弹窗询问应用（应用会覆盖当前参数配置）
+  // 切换模型时自动清空控制台（旧日志属于上一个模型）；
+  // 有未固化的临时调整时 applyModel 会先弹确认，用户取消则中止后续预设应用
+  const ok = await params.applyModel(path);
+  if (!ok) return;
+  // 智能预设：该模型存在已保存预设时静默应用（建立预设基线）
   await applyModelPresetIfAny(path);
 }
 
@@ -158,7 +160,7 @@ async function onRestart() {
 }
 
 async function onOpenWeb() {
-  // 内嵌 Web UI：跳转侧边栏「Web UI」标签页，不再跳转外部浏览器
+  // 内嵌 Web UI：跳转 /webui 内嵌页（路由存在但侧边栏不显示，入口仅此处）
   void router.push('/webui');
 }
 </script>
@@ -166,8 +168,8 @@ async function onOpenWeb() {
 <template>
   <header class="topbar" @dblclick="onTitleBarDblClick">
     <div class="left">
-      <!-- 应用图标（与打包/任务栏图标一致） -->
-      <img class="app-icon" :src="appIcon" alt="" draggable="false" />
+      <!-- 应用图标（与打包/任务栏图标一致，统一 AppLogo 组件） -->
+      <AppLogo :size="20" />
       <!-- 应用名 -->
       <span class="app-name">{{ APP_NAME }}</span>
     </div>
@@ -284,20 +286,15 @@ async function onOpenWeb() {
   font-weight: 700;
   color: var(--fg-primary);
   white-space: nowrap;
+  // 极窄窗口时应用名省略号让位（此前被模型按钮直接裁切出半个字）
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   letter-spacing: 0.3px;
   // 标题文本可拖动窗口，但不可被选中（否则拖动会变成文本选择）
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
-}
-
-.app-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-pill);
-  flex-shrink: 0;
-  -webkit-user-drag: none;
-  user-select: none;
 }
 
 .right {
@@ -327,7 +324,7 @@ async function onOpenWeb() {
   color: var(--fg-secondary);
   cursor: pointer;
   border-radius: var(--radius-control);
-  transition: background var(--dur-fast) var(--ease-jelly), color var(--dur-fast) var(--ease-jelly),
+  transition: background var(--dur-fast) var(--ease-smooth), color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
@@ -335,38 +332,12 @@ async function onOpenWeb() {
     color: var(--fg-primary);
   }
 
-  &:active {
-    transform: scale(0.92);
-  }
+  // 按压反馈 = 背景/边框色变化（文本按钮不再整体缩放，避免文字挤压拉伸）
 }
 
 .win-close:hover {
   background: var(--danger);
   color: #fff;
-}
-
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-pill);
-  color: var(--fg-secondary);
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-jelly), color var(--dur-fast) var(--ease-jelly),
-    transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover {
-    background: var(--bg-hover);
-    color: var(--fg-primary);
-  }
-
-  &:active {
-    transform: scale(0.9);
-  }
 }
 
 .btn {
@@ -381,7 +352,11 @@ async function onOpenWeb() {
   background: var(--bg-input);
   border: 1px solid var(--border);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
+  // 窄窗口下按钮文字禁止换行（此前"启动/停止/重启"被压成两行、与相邻控件重叠挤压）；
+  // 空间不足时由可收缩的模型按钮先让位
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
   &:hover:not(:disabled) {
@@ -389,7 +364,7 @@ async function onOpenWeb() {
   }
 
   &:active:not(:disabled) {
-    transform: scale(0.96);
+    background: var(--bg-hover);
   }
 
   &:disabled {
@@ -399,21 +374,19 @@ async function onOpenWeb() {
 }
 
 .btn-start {
-  // 主 CTA：彩虹毛玻璃按钮 —— 仅边框带彩虹主题色（border-box 层），
-  // 内部为玻璃表面（padding-box 层，不设高亮底色）；hover/active 只动 opacity/transform
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(var(--glass-bg-strong), var(--glass-bg-strong)) padding-box,
-    var(--rainbow-grad) border-box;
-  color: var(--fg-primary);
+  // 主 CTA：主题化高对比按钮（深色=白底黑字 / 浅色=黑底白字，--primary-* token）
+  background: var(--primary-bg);
+  border-color: var(--primary-bg);
+  color: var(--primary-fg);
   font-weight: 600;
 
   &:hover:not(:disabled) {
-    opacity: 0.92;
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
   }
 
   &:active:not(:disabled) {
-    opacity: 0.85;
+    background: var(--primary-pressed);
   }
 }
 
@@ -452,6 +425,8 @@ async function onOpenWeb() {
   position: relative;
   display: flex;
   align-items: center;
+  // 空间不足时模型按钮先收缩（名称已有省略号），保护右侧操作按钮不换行
+  min-width: 0;
 }
 
 .model-btn {
@@ -467,20 +442,20 @@ async function onOpenWeb() {
   font-size: var(--fs-base);
   cursor: pointer;
   max-width: 220px;
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
+  min-width: 0;
+  flex-shrink: 1;
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
     background: var(--bg-hover);
     border-color: var(--accent);
   }
-
-  &:active {
-    transform: scale(0.97);
-  }
 }
 
 .model-name {
+  // 同 dropdown-name：允许在 220px 按钮内收缩省略（否则长名撑出按钮描边外）
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -496,12 +471,14 @@ async function onOpenWeb() {
   max-width: 480px;
   max-height: 360px;
   overflow-y: auto;
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border);
+  // 浮层菜单可读性优先：实底表面。不用玻璃半透明 + backdrop-filter——
+  // ① 半透明底会让面板下方的页面/控制台内容透出，削弱文字对比度（"被遮罩影响"）；
+  // ② backdrop-filter 使面板进入独立合成层，层内文字失去亚像素抗锯齿、观感发虚。
+  // 边框/阴影保持浮层语义（STYLE_TODO #41 / §7.5.6）。
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: var(--radius-row);
   box-shadow: var(--shadow-dropdown);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
   z-index: 100;
   padding: 4px;
 }
@@ -520,18 +497,16 @@ async function onOpenWeb() {
   text-align: left;
   cursor: pointer;
   border-radius: var(--radius-pill);
-  transition: background var(--dur-fast) var(--ease-jelly), transform var(--dur-fast) var(--ease-jelly);
+  transition: background var(--dur-fast) var(--ease-smooth);
 
   &:hover {
     background: var(--bg-hover);
   }
 
-  &:active {
-    transform: scale(0.98);
-  }
-
   &.active {
-    background: var(--bg-active);
+    // 选中行：accent 淡色底 + accent 文字。原 --bg-active（深色主题 #26308F 暗蓝底）
+    // 叠 accent 蓝字对比度不足（同 STYLE_TODO #13「文字被吞」）；color-mix 淡底双主题均可读。
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
     color: var(--accent);
   }
 
@@ -548,6 +523,10 @@ async function onOpenWeb() {
 }
 
 .dropdown-name {
+  // flex 子项默认 min-width:auto 不收缩：长模型名会撑破面板被 overflow 裁切（尺寸列被推出面板），
+  // min-width:0 + flex:1 让省略号生效、名称列在面板内截断
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

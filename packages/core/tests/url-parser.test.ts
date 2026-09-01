@@ -78,6 +78,16 @@ describe('parseModelUrl', () => {
     expect(r!.filePath).toBe('text_encoders/qwen3vl_4b_fp8_scaled.safetensors');
   });
 
+  it('解析带 www 前缀的 ModelScope URL（含点号模型名）', () => {
+    const r = parseModelUrl('https://www.modelscope.cn/models/Qwen/Qwen3.8-27B');
+    expect(r).not.toBeNull();
+    expect(r!.source).toBe('modelscope');
+    expect(r!.author).toBe('Qwen');
+    expect(r!.modelName).toBe('Qwen3.8-27B');
+    expect(r!.modelId).toBe('Qwen/Qwen3.8-27B');
+    expect(r!.fileName).toBe('');
+  });
+
   it('忽略 tree 路径中的引用段与子目录', () => {
     const r = parseModelUrl(
       'https://modelscope.cn/models/Qwen/Qwen3-4B/tree/main/sub/qwen3-4b-fp16.bin',
@@ -90,5 +100,17 @@ describe('parseModelUrl', () => {
   it('无法识别的链接返回 null', () => {
     expect(parseModelUrl('not a url')).toBeNull();
     expect(parseModelUrl('https://example.com/foo')).toBeNull();
+  });
+
+  it('空/空白输入返回 null（不抛错）', () => {
+    expect(parseModelUrl('')).toBeNull();
+    expect(parseModelUrl('   ')).toBeNull();
+    expect(parseModelUrl(null as unknown as string)).toBeNull();
+  });
+
+  it('大写模型文件扩展名（.GGUF）同样识别为尾部文件', () => {
+    const result = parseModelUrl('https://huggingface.co/org/model/resolve/main/Model.FP8.GGUF');
+    expect(result?.fileName).toBe('Model.FP8.GGUF');
+    expect(result?.filePath).toBe('Model.FP8.GGUF');
   });
 });

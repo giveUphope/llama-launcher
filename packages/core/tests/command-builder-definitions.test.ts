@@ -26,8 +26,14 @@ function nonDefaultValue(p: ParamDef): string | number | boolean {
   }
   if (p.type === 'dropdown') {
     const options = (p.options ?? []).map((o) => String(o));
-    const alt = options.find((o) => o !== String(p.default));
-    return alt ?? String(p.default);
+    // 跳过空串：buildCommand 的 shouldSkip 会因 `v === ''` 跳过发射，
+    // 取空串会导致「期望发射」与「实际不发射」不一致（典型例子：chat_template 默认 none，
+    // options 含 '' 占位但生产代码不发射）。优先选「非默认且非空串」选项。
+    const alt = options.find((o) => o !== String(p.default) && o !== '');
+    if (alt !== undefined) return alt;
+    // 兜底：default 本身就是空串、或除空串外只有一个选项时，用 default；
+    // 测试只断言「flag 必须出现」或「不发射任何 flag」两种语义之一，default 走第二条。
+    return String(p.default);
   }
   if (p.type === 'file') return 'C:/models/test.gguf';
   if (p.type === 'dir') return 'C:/models';
@@ -94,29 +100,73 @@ describe('PARAMS 定义表结构（表驱动）', () => {
   });
 });
 
+/**
+ * 为带 dependsOn 的参数构造一个"依赖满足"的 values 对象。
+ * dependsOn.values 存在时取第一个选项；notValues 存在时取依赖源默认值之外的字符串；
+ * 无约束时直接给一个非默认值。同时设置被测参数本身。
+ */
+function buildValuesWithDeps(p: ParamDef): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = { [p.key]: nonDefaultValue(p) };
+  if (!p.dependsOn) return out;
+  const depDef = PARAMS.find((x) => x.key === p.dependsOn!.key);
+  if (!depDef) return out;
+  let depValue: string | number | boolean;
+  if (p.dependsOn.values && p.dependsOn.values.length > 0) {
+    depValue = p.dependsOn.values[0];
+  } else if (depDef.type === 'dropdown' && depDef.options && depDef.options.length > 0) {
+    // 避开 notValues 与默认值，选一个合法的选项
+    const exclude = new Set([
+      String(depDef.default),
+      ...(p.dependsOn.notValues ?? []).map(String),
+    ]);
+    const alt = depDef.options.find((o) => !exclude.has(String(o)));
+    depValue = alt ?? depDef.options[0];
+  } else {
+    depValue = 'yes';
+  }
+  out[p.dependsOn.key] = depValue;
+  return out;
+}
+
 describe('按参数类型发射行为（表驱动）', () => {
-  it('每个参数显式启用时按其类型发射 flag（及值）', () => {
+  it('每个参数在依赖满足时按其类型发射 flag（及值）', () => {
     for (const p of PARAMS) {
-      const v = nonDefaultValue(p);
       const cmd = buildCommand({
         exePath: EXE_PATH,
         modelPath: '',
-        values: { [p.key]: v, _enabled: JSON.stringify({ [p.key]: true }) },
+        values: buildValuesWithDeps(p),
       });
-      const expected = expectedArgs(p, v);
-      expect(cmd, p.key).toEqual([EXE_PATH, ...expected]);
+      const expected = expectedArgs(p, nonDefaultValue(p));
+      for (const arg of expected) {
+        expect(cmd, `${p.key}: missing ${arg}`).toContain(arg);
+      }
     }
   });
 
-  it('每个参数未启用（_enabled=false）时不发射任何 flag', () => {
+  it('每个参数值等于默认值时不发射任何 flag（checkbox 除外：始终发射 flag/invert_flag）', () => {
     for (const p of PARAMS) {
-      const v = nonDefaultValue(p);
+      if (p.type === 'checkbox') continue;
       const cmd = buildCommand({
         exePath: EXE_PATH,
         modelPath: '',
-        values: { [p.key]: v, _enabled: JSON.stringify({ [p.key]: false }) },
+        values: { [p.key]: p.default },
       });
       expect(cmd, p.key).toEqual([EXE_PATH]);
+    }
+  });
+
+  it('checkbox 即使值等于默认也按 flag/invert_flag 规则发射', () => {
+    for (const p of PARAMS) {
+      if (p.type !== 'checkbox') continue;
+      const cmd = buildCommand({
+        exePath: EXE_PATH,
+        modelPath: '',
+        values: { [p.key]: p.default },
+      });
+      // 默认 true → 发射 flag；默认 false 且有 invert_flag → 发射 invert_flag；
+      // 默认 false 且无 invert_flag → 不发射（与现有语义一致）
+      const expected = p.default ? [EXE_PATH, p.flag] : (!p.invert_flag ? [EXE_PATH] : [EXE_PATH, p.invert_flag]);
+      expect(cmd, p.key).toEqual(expected);
     }
   });
 

@@ -1,8 +1,16 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { ServerStatus, OutputEntry } from '@llama-launcher/shared';
 import { useIPC, invokeOk, toPlain } from '@/composables/useIPC';
 import type { AppSettings, PresetValues } from '@llama-launcher/shared';
+
+/** 有效状态：在 ServerStatus（stopped/starting/running/stopping）基础上叠加
+ *  failed（启动失败/残留失败）与 crashed（运行中崩溃）两个增强态。 */
+export type EffectiveStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'failed' | 'crashed';
+
+// 失败/崩溃关键词（服务页状态卡原实现下沉至此，三处状态显示共用单一判定）
+const FAIL_RE = /\b(error|failed|fatal|exception|cannot|unable|abort|crash|segfault|exit code|killed|killed by signal)\b/i;
+const TAIL_LINES = 80;
 
 export const useServerStore = defineStore('server', () => {
   const api = useIPC();
@@ -90,8 +98,37 @@ export const useServerStore = defineStore('server', () => {
     outputs.value = [];
   }
 
+  /**
+   * 统一 API 地址语义（单一来源，Dashboard/ServicePage 共用）：
+   * 与真实服务状态绑定——运行中显示实际地址（store.url 残留时回退推导），启动中推导；
+   * 已停止时返回空（onStatus 事件只更新 status 不刷新 url，直接读 url 会残留旧值）。
+   * 显示层对空值以占位符呈现，保证运行前后显示项行结构稳定。
+   */
+  const apiUrl = computed(() => {
+    if (status.value === 'running') return url.value || `http://${host.value}:${port.value}`;
+    if (status.value === 'starting') return `http://${host.value}:${port.value}`;
+    return '';
+  });
+
+  // ---- 增强状态机（单一事实源，ServicePage / Dashboard Q1 / StatusBar 共用）----
+  // 最近 80 行输出拼接（限长，避免正则性能问题）
+  const outputTail = computed(() => outputs.value.slice(-TAIL_LINES).map((o) => o.data).join(''));
+
+  /**
+   * 有效状态：在原始 ServerStatus 之上按最近输出增强判定——
+   * running + 失败关键词 → crashed；starting + 失败关键词 → failed；
+   * stopped 但残留失败输出 → failed。UI 层临时态（stopping）由调用方按需覆盖。
+   */
+  const effectiveStatus = computed<EffectiveStatus>(() => {
+    if (status.value === 'running') return FAIL_RE.test(outputTail.value) ? 'crashed' : 'running';
+    if (status.value === 'starting') return FAIL_RE.test(outputTail.value) ? 'failed' : 'starting';
+    if (status.value === 'stopped' && FAIL_RE.test(outputTail.value)) return 'failed';
+    return status.value;
+  });
+
   return {
-    status, pid, host, port, url, outputs, runningValues,
+    status, pid, host, port, url, apiUrl, outputs, runningValues,
+    effectiveStatus,
     subscribe, refreshStatus, clearOutputs, pushOutput,
     start, stop, restart, previewCommand,
   };

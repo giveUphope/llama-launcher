@@ -141,8 +141,8 @@ describe('readGgufMetadata', () => {
     expect(ctxSuggestion?.value).toBe(8192);
   });
 
-  it('matches chatml chat template and suggests jinja', async () => {
-    const chatTemplate = '{% for message in messages %}<|im_start|>{{ message.role }}\n{{ message.content }}<|im_end|>\n{% endfor %}';
+  it('does not auto-suggest chat_template or jinja (default=none, user-managed)', async () => {
+    const chatTemplate = '{% for message in messages %}##{{ message.role }}\n{{ message.content }}\n{% endfor %}';
     const kvPairs = [
       ggufKV('general.architecture', VT.STRING, ggufString('qwen2')),
       ggufKV('tokenizer.chat_template', VT.STRING, ggufString(chatTemplate)),
@@ -151,11 +151,10 @@ describe('readGgufMetadata', () => {
     writeFileSync(filePath, buildGgufV3(0, kvPairs));
 
     const result = await readGgufMetadata(filePath);
+    // 对话模板检测机制已移除：不再自动建议 chat_template / jinja，默认 none，用户手动选择
     const keys = result.suggestions.map((s) => s.key);
-    expect(keys).toContain('chat_template');
-    expect(keys).toContain('jinja');
-    const templateSuggestion = result.suggestions.find((s) => s.key === 'chat_template');
-    expect(templateSuggestion?.value).toBe('chatml');
+    expect(keys).not.toContain('chat_template');
+    expect(keys).not.toContain('jinja');
   });
 
   it('returns minimal suggestions when only architecture is present', async () => {

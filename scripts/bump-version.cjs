@@ -12,7 +12,7 @@
  *   - packages/shared/src/params/definitions.ts（APP_VERSION）
  *   - docs/CHANGELOG.md（[Unreleased] 标题 → 新版本）
  *   - docs/packaging.md（所有旧版本号引用）
- *   - docs/README.md（旧版本号引用）
+ *   - README.md（旧版本号引用）
  *   - AGENTS.md（旧版本号引用）
  */
 const fs = require('node:fs');
@@ -83,8 +83,8 @@ function run() {
   }
   writeText('docs/CHANGELOG.md', changelog);
 
-  // 5. docs/packaging.md, docs/README.md, AGENTS.md 中所有旧版本号引用
-  for (const rel of ['docs/packaging.md', 'docs/README.md', 'AGENTS.md']) {
+  // 5. docs/packaging.md, README.md, AGENTS.md 中所有旧版本号引用
+  for (const rel of ['docs/packaging.md', 'README.md', 'AGENTS.md']) {
     if (!fs.existsSync(path.join(ROOT, rel))) continue;
     let text = readText(rel);
     text = text.replace(new RegExp(currentVersion.replace(/\./g, '\\.'), 'g'), newVersion);

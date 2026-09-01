@@ -1,7 +1,7 @@
 # CI/CD 工作流
 
 > 范围：GitHub Actions 流水线：PR/push 验证、main 分支自动版本递增与发版触发。
-> 索引：[README.md](README.md) · 相关：[auto-release.md](auto-release.md) · [packaging.md](packaging.md)
+> 索引：[README.md](../README.md) · 相关：[auto-release.md](auto-release.md) · [packaging.md](packaging.md)
 
 仓库使用两个工作流文件（.github/workflows/），共同组成完整的 CI/CD 流水线：
 

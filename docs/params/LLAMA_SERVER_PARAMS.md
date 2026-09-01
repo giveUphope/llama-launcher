@@ -1,6 +1,6 @@
 # llama-server 启动参数对照文档
 
-> 来源：捆绑二进制 ".\llama-b10502-bin-win-vulkan-x64\llama-server.exe --help"
+> 来源：捆绑二进制 ".\llama-b10734-bin-win-vulkan-x64\llama-server.exe --help"
 > 用途：对照当前启动器已支持参数，识别可新增/调整项
 
 ## 当前启动器已支持参数
@@ -56,12 +56,14 @@
 | `--mmap`, `--no-mmap` | in favor of `--load-mode`: whether to memory-map model. (if mmap disabled, slower load but may reduce pageouts if not using mlock) (env: LLAMA_ARG_MMAP) | ⬜ 未支持 |
 | `-dio`, `--direct-io`, `-ndio`, `--no-direct-io` | in favor of `--load-mode`: use DirectIO if available (env: LLAMA_ARG_DIO) | ⬜ 未支持 |
 | `-lm`, `--load-mode` | model loading mode (default: auto) - auto: mmap, unless a device does not support it - none: no special loading mode - mmap: memory-map model (if mmap disabled, slower load but may reduce pageouts if not using mlock) - mlock: force system to keep model in RAM rather than swapping or compressing - mmap+mlock: mmap + force system to keep model in RAM rather than swapping or compressing - dio: use DirectIO if available | ✅ 已支持 |
+| `-lzm`, `--lazy-mode` | on-demand reading of certain tensors, for example per-layer embeddings (default: auto) - on: read the rows of such tensors from disk on demand instead of keeping them resident (requires mmap) - auto: on, but only for tensors larger than 4 GiB - off: always keep them resident (env: LLAMA_ARG_LAZY_MODE) | ✅ 已支持 |
 | `--numa` | attempt optimizations that help on some NUMA systems - distribute: spread execution evenly over all nodes - isolate: only spawn threads on CPUs on the node that execution started on - numactl: use the CPU map provided by numactl if run without this previously, it is recommended to drop the system page cache before using this see https://github.com/ggml-org/llama.cpp/issues/1437 (env: LLAMA_ARG_NUMA) | ⬜ 未支持 |
 | `-dev`, `--device` | <dev1,dev2,..>          comma-separated list of devices to use for offloading (none = don't offload) use --list-devices to see a list of available devices (env: LLAMA_ARG_DEVICE) | ⬜ 未支持 |
 | `--list-devices` | print list of available devices and exit | ⬜ 未支持 |
 | `-ot`, `--override-tensor` | <tensor name pattern>=<buffer type>,... override tensor buffer type (env: LLAMA_ARG_OVERRIDE_TENSOR) | ⬜ 未支持 |
 | `-cmoe`, `--cpu-moe` | keep all Mixture of Experts (MoE) weights in the CPU (env: LLAMA_ARG_CPU_MOE) | ⬜ 未支持 |
 | `-ncmoe`, `--n-cpu-moe` | keep the Mixture of Experts (MoE) weights of the first N layers in the CPU (env: LLAMA_ARG_N_CPU_MOE) | ✅ 已支持 |
+| `-ncffn`, `--n-cpu-ffn` | keep the dense FFN weights of the first N layers in the CPU (dense models; for MoE expert weights use --n-cpu-moe) (env: LLAMA_ARG_N_CPU_FFN) | ✅ 已支持 |
 | `-ngl`, `--gpu-layers`, `--n-gpu-layers` | max. number of layers to store in VRAM, either an exact number, 'auto', or 'all' (default: auto) (env: LLAMA_ARG_N_GPU_LAYERS) | ✅ 已支持 |
 | `-sm`, `--split-mode` | {none,layer,row,tensor} how to split the model across multiple GPUs, one of: - none: use one GPU only - layer (default): split layers and KV across GPUs (pipelined) - row: split weight across GPUs by rows (parallelized) - tensor: split weights and KV across GPUs (parallelized, EXPERIMENTAL) (env: LLAMA_ARG_SPLIT_MODE) | ⬜ 未支持 |
 | `-ts`, `--tensor-split` | N0,N1,N2,...      fraction of the model to offload to each GPU, comma-separated list of proportions, e.g. 3,1 (env: LLAMA_ARG_TENSOR_SPLIT) | ⬜ 未支持 |
@@ -80,8 +82,10 @@
 | `-m`, `--model` | model path to load (env: LLAMA_ARG_MODEL) | ⬜ 未支持 |
 | `-mu`, `--model-url` | model download url (default: unused) (env: LLAMA_ARG_MODEL_URL) | ⬜ 未支持 |
 | `-dr`, `--docker-repo` | [<repo>/]<model>[:quant] Docker Hub model repository. repo is optional, default to ai/. quant is optional, default to :latest. example: gemma3 (default: unused) (env: LLAMA_ARG_DOCKER_REPO) | ⬜ 未支持 |
-| `-hf`, `-hfr`, `--hf-repo` | <user>/<model>[:quant] Hugging Face model repository; quant is optional, case-insensitive, default to Q4_K_M, or falls back to the first file in the repo if Q4_K_M doesn't exist. mmproj is also downloaded automatically if available. to disable, add `--no-mmproj`. example: ggml-org/GLM-4.7-Flash-GGUF:Q4_K_M (default: unused) (env: LLAMA_ARG_HF_REPO) | ⬜ 未支持 |
-| `-hff`, `--hf-file` | Hugging Face model file. If specified, it will override the quant in `--hf-repo` (default: unused) (env: LLAMA_ARG_HF_FILE) | ⬜ 未支持 |
+| `-hf`, `-hfr`, `--hf-repo` | <user>/<model>[:quant] Hugging Face model repository; quant is optional, case-insensitive, default to Q4_K_M, or falls back to the first file in the repo if Q4_K_M doesn't exist. mmproj is also downloaded automatically if available. to disable, add | ⬜ 未支持 |
+| `--no-mmproj` | example: ggml-org/GLM-4.7-Flash-GGUF:Q4_K_M (default: unused) (env: LLAMA_ARG_HF_REPO) | ⬜ 未支持 |
+| `-hff`, `--hf-file` | Hugging Face model file. If specified, it will override the quant in | ⬜ 未支持 |
+| `--hf-repo` | (default: unused) (env: LLAMA_ARG_HF_FILE) | ⬜ 未支持 |
 | `-hft`, `--hf-token` | Hugging Face access token (default: value from HF_TOKEN environment variable) (env: HF_TOKEN) | ⬜ 未支持 |
 | `--log-disable` | Log disable | ⬜ 未支持 |
 | `--log-file` | Log to file (env: LLAMA_ARG_LOG_FILE) | ⬜ 未支持 |
@@ -101,7 +105,8 @@
 | `--samplers` | samplers that will be used for generation in the order, separated by ';' (default: penalties;dry;top_n_sigma;top_k;typ_p;top_p;min_p;xtc;temperature) | ⬜ 未支持 |
 | `-s`, `--seed` | RNG seed (default: -1, use random seed for -1) | ✅ 已支持 |
 | `--sampler-seq`, `--sampling-seq` | simplified sequence for samplers that will be used (default: edskypmxt) | ⬜ 未支持 |
-| `--ignore-eos` | ignore end of stream token and continue generating (implies `--logit-bias EOS-inf`) | ⬜ 未支持 |
+| `--ignore-eos` | ignore end of stream token and continue generating (implies | ⬜ 未支持 |
+| `--logit-bias` | EOS-inf) | ⬜ 未支持 |
 | `--temp`, `--temperature` | temperature (default: 0.80) | ✅ 已支持 |
 | `--top-k` | top-k sampling (default: 40, 0 = disabled) (env: LLAMA_ARG_TOP_K) | ✅ 已支持 |
 | `--top-p` | top-p sampling (default: 0.95, 1.0 = disabled) | ✅ 已支持 |
@@ -138,11 +143,11 @@
 | 参数 | 说明 | 状态 |
 |------|------|------|
 | `--spec-draft-hf`, `-hfd`, `-hfrd`, `--hf-repo-draft` | <user>/<model>[:quant] Same as --hf-repo, but for the draft model (default: unused) (env: LLAMA_ARG_SPEC_DRAFT_HF_REPO) | ⬜ 未支持 |
-| `--spec-draft-threads`, `-td`, `--threads-draft` | number of threads to use during generation (default: same as `--threads`) | ⬜ 未支持 |
+| `--spec-draft-threads`, `-td`, `--threads-draft` | number of threads to use during generation (default: same as | ⬜ 未支持 |
 | `--spec-draft-threads-batch`, `-tbd`, `--threads-batch-draft` | number of threads to use during batch and prompt processing (default: same as --threads-draft) | ⬜ 未支持 |
 | `--spec-draft-cpu-mask`, `-Cd`, `--cpu-mask-draft` | Draft model CPU affinity mask. Complements cpu-range-draft (default: same as --cpu-mask) | ⬜ 未支持 |
 | `--spec-draft-cpu-range`, `-Crd`, `--cpu-range-draft` | lo-hi Ranges of CPUs for affinity. Complements --cpu-mask-draft | ⬜ 未支持 |
-| `--spec-draft-cpu-strict`, `--cpu-strict-draft` | <0\|1> Use strict CPU placement for draft model (default: same as `--cpu-strict`) | ⬜ 未支持 |
+| `--spec-draft-cpu-strict`, `--cpu-strict-draft` | <0\|1> Use strict CPU placement for draft model (default: same as | ⬜ 未支持 |
 | `--spec-draft-prio`, `--prio-draft` | set draft process/thread priority : 0-normal, 1-medium, 2-high, 3-realtime (default: 0) | ⬜ 未支持 |
 | `--spec-draft-poll`, `--poll-draft` | <0\|1>   Use polling to wait for draft model work (default: same as --poll) | ⬜ 未支持 |
 | `--spec-draft-cpu-mask-batch`, `-Cbd`, `--cpu-mask-batch-draft` | Draft model CPU affinity mask. Complements cpu-range-draft (default: same as --cpu-mask) | ⬜ 未支持 |
@@ -154,6 +159,8 @@
 | `--spec-draft-n-cpu-moe`, `--spec-draft-ncmoe`, `-ncmoed`, `--n-cpu-moe-draft` | keep the Mixture of Experts (MoE) weights of the first N layers in the CPU for the draft model (env: LLAMA_ARG_SPEC_DRAFT_N_CPU_MOE) | ⬜ 未支持 |
 | `--spec-draft-n-max` | number of tokens to draft for speculative decoding (default: 3) (env: LLAMA_ARG_SPEC_DRAFT_N_MAX) | ✅ 已支持 |
 | `--spec-draft-n-min` | minimum number of draft tokens to use for speculative decoding (default: 0) (env: LLAMA_ARG_SPEC_DRAFT_N_MIN) | ✅ 已支持 |
+| `--spec-synth-len` | target mean synthetic acceptance length, including the target token (benchmarking only) (env: LLAMA_ARG_SPEC_SYNTH_LEN) | ✅ 已支持 |
+| `--spec-synth-rates` | P0,P1,...            comma-separated unconditional per-position synthetic acceptance probabilities (benchmarking only) (env: LLAMA_ARG_SPEC_SYNTH_RATES) | ✅ 已支持 |
 | `--spec-draft-p-split`, `--draft-p-split` | speculative decoding split probability (default: 0.10) (env: LLAMA_ARG_SPEC_DRAFT_P_SPLIT) | ⬜ 未支持 |
 | `--spec-draft-p-min`, `--draft-p-min` | minimum speculative decoding probability (greedy) (default: 0.00) (env: LLAMA_ARG_SPEC_DRAFT_P_MIN) | ⬜ 未支持 |
 | `--spec-draft-backend-sampling`, `--no-spec-draft-backend-sampling` | offload draft sampling to the backend (default: enabled) (env: LLAMA_ARG_SPEC_DRAFT_BACKEND_SAMPLING) | ⬜ 未支持 |
@@ -173,11 +180,13 @@
 | `--spec-ngram-map-k4v-size-n` | ngram size N for ngram-map-k4v speculative decoding, length of lookup n-gram (default: 12) | ⬜ 未支持 |
 | `--spec-ngram-map-k4v-size-m` | ngram size M for ngram-map-k4v speculative decoding, length of draft m-gram (default: 48) | ⬜ 未支持 |
 | `--spec-ngram-map-k4v-min-hits` | minimum hits for ngram-map-k4v speculative decoding (default: 1) | ⬜ 未支持 |
-| `--draft`, `--draft-n`, `--draft-max` | the argument has been removed. use `--spec-draft-n-max` or `--spec-ngram-mod-n-max` (env: LLAMA_ARG_DRAFT_MAX) | ⬜ 未支持 |
-| `--draft-min`, `--draft-n-min` | the argument has been removed. use `--spec-draft-n-min` or `--spec-ngram-mod-n-min` (env: LLAMA_ARG_DRAFT_MIN) | ⬜ 未支持 |
-| `--spec-ngram-size-n` | the argument has been removed. use the respective `--spec-ngram-*-size-n` or `--spec-ngram-mod-n-match` | ⬜ 未支持 |
-| `--spec-ngram-size-m` | the argument has been removed. use the respective `--spec-ngram-*-size-m` | ⬜ 未支持 |
-| `--spec-ngram-min-hits` | the argument has been removed. use the respective `--spec-ngram-*-min-hits` | ⬜ 未支持 |
+| `--draft`, `--draft-n`, `--draft-max` | the argument has been removed. use --spec-draft-n-max or | ⬜ 未支持 |
+| `--spec-ngram-mod-n-max` | (env: LLAMA_ARG_DRAFT_MAX) | ⬜ 未支持 |
+| `--draft-min`, `--draft-n-min` | the argument has been removed. use --spec-draft-n-min or | ⬜ 未支持 |
+| `--spec-ngram-mod-n-min` | (env: LLAMA_ARG_DRAFT_MIN) | ⬜ 未支持 |
+| `--spec-ngram-size-n` | the argument has been removed. use the respective | ⬜ 未支持 |
+| `--spec-ngram-size-m` | the argument has been removed. use the respective | ⬜ 未支持 |
+| `--spec-ngram-min-hits` | the argument has been removed. use the respective | ⬜ 未支持 |
 
 ## example-specific params
 
@@ -185,6 +194,7 @@
 |------|------|------|
 | `-lcs`, `--lookup-cache-static` | path to static lookup cache to use for lookup decoding (not updated by generation) | ⬜ 未支持 |
 | `-lcd`, `--lookup-cache-dynamic` | path to dynamic lookup cache to use for lookup decoding (updated by generation) | ⬜ 未支持 |
+| `--kv-unified-per-slot` | context limit per parallel slot (default: unset, behavior unchanged). when set without -c/--ctx-size, the shared KV pool is sized to n_parallel*N (env: LLAMA_ARG_KV_UNIFIED_PER_SLOT) | ✅ 已支持 |
 | `-ctxcp`, `--ctx-checkpoints`, `--swa-checkpoints` | max number of context checkpoints to create per slot (default: 32)[(more info)](https://github.com/ggml-org/llama.cpp/pull/15293) (env: LLAMA_ARG_CTX_CHECKPOINTS) | ⬜ 未支持 |
 | `-cms`, `--checkpoint-min-step` | minimum spacing between context checkpoints in tokens (default: 8192, 0 = no minimum) (env: LLAMA_ARG_CHECKPOINT_MIN_SPACING_NT) | ⬜ 未支持 |
 | `-cram`, `--cache-ram` | set the maximum cache size in MiB (default: 8192, -1 - no limit, 0 - disable)[(more info)](https://github.com/ggml-org/llama.cpp/pull/16391) (env: LLAMA_ARG_CACHE_RAM) | ⬜ 未支持 |
@@ -202,9 +212,13 @@
 | `-mmu`, `--mmproj-url` | URL to a multimodal projector file. see tools/mtmd/README.md (env: LLAMA_ARG_MMPROJ_URL) | ⬜ 未支持 |
 | `--mmproj-auto`, `--no-mmproj`, `--no-mmproj-auto` | whether to use multimodal projector file (if available), useful when using -hf (default: enabled) (env: LLAMA_ARG_MMPROJ_AUTO) | ⬜ 未支持 |
 | `--mmproj-offload`, `--no-mmproj-offload` | whether to enable GPU offloading for multimodal projector (default: enabled) (env: LLAMA_ARG_MMPROJ_OFFLOAD) | ⬜ 未支持 |
+| `-mmdev`, `--mmproj-device` | device to use for multimodal projector (none = don't offload, default: auto) use --list-devices to see a list of available devices (env: MTMD_BACKEND_DEVICE) | ✅ 已支持 |
 | `--image-min-tokens` | minimum number of tokens each image can take, only used by vision models with dynamic resolution (default: read from model) (env: LLAMA_ARG_IMAGE_MIN_TOKENS) | ⬜ 未支持 |
 | `--image-max-tokens` | maximum number of tokens each image can take, only used by vision models with dynamic resolution (default: read from model) (env: LLAMA_ARG_IMAGE_MAX_TOKENS) | ⬜ 未支持 |
 | `--mtmd-batch-max-tokens` | maximum number of image tokens per batch when encoding images (default: 1024) (env: LLAMA_ARG_MTMD_BATCH_MAX_TOKENS) | ⬜ 未支持 |
+| `--video-fps` | target video frame rate (default: 4.0) (env: LLAMA_ARG_VIDEO_FPS) | ✅ 已支持 |
+| `--video-timestamp-interval` | interval in milliseconds between text timestamps (default: 5000) (env: LLAMA_ARG_VIDEO_TIMESTAMP_INTERVAL) | ✅ 已支持 |
+| `--video-ffmpeg-dir` | path to the directory containing ffmpeg and ffprobe (default: search in PATH) (env: LLAMA_ARG_VIDEO_FFMPEG_DIR) | ✅ 已支持 |
 | `-a`, `--alias` | set model name aliases, comma-separated (to be used by API) (env: LLAMA_ARG_ALIAS) | ✅ 已支持 |
 | `--tags` | set model tags, comma-separated (informational, not used for routing) (env: LLAMA_ARG_TAGS) | ⬜ 未支持 |
 | `--embd-normalize` | normalisation for embeddings (default: 2) (-1=none, 0=max absolute int16, 1=taxicab, 2=euclidean, >2=p-norm) | ⬜ 未支持 |
@@ -276,6 +290,6 @@
 
 ## 汇总
 
-- 官方参数总数：252
-- 已支持：49
+- 官方参数总数：261
+- 已支持：58
 - 未支持：203

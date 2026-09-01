@@ -3,7 +3,7 @@ import { clipboard, shell, type IpcMain } from 'electron';
 import { existsSync, readdirSync, statSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join, dirname } from 'node:path';
-import { detectTrash, cleanTrash } from '@llama-launcher/core';
+import { detectTrash, cleanTrash, getDownloadManager, loadSettings } from '@llama-launcher/core';
 import { IPC } from '@llama-launcher/shared';
 import type { TrashItem } from '@llama-launcher/shared';
 
@@ -120,14 +120,21 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
     return '';
   });
 
-  // 检测配置目录（~/.llama_launcher/）内的可清理项
-  // 强校验：仅返回明确识别的无效/过时文件，settings.json 永不清理
+  // 检测应用生成文件中的可清理项（配置目录 + 模型目录全清单）
+  // 强校验：仅返回明确识别的无效/过时文件，settings.json 与有效预设永不清理；
+  // 进行中/暂停/可重试下载任务占用的 .part/续传日志自动保护
   ipcMain.handle(IPC.SYSTEM_DETECT_TRASH, () => {
-    return detectTrash();
+    return detectTrash({
+      modelsDir: loadSettings().models_dir ?? '',
+      protectedPaths: getDownloadManager().getProtectedPaths(),
+    });
   });
 
-  // 执行清理：对每个待清理项重新校验路径安全、白名单、符号链接
+  // 执行清理：对每个待清理项重新校验根归属、kind 特征、保护集与符号链接
   ipcMain.handle(IPC.SYSTEM_CLEAN_TRASH, (_e, items: TrashItem[]) => {
-    return cleanTrash(items ?? []);
+    return cleanTrash(items ?? [], {
+      modelsDir: loadSettings().models_dir ?? '',
+      protectedPaths: getDownloadManager().getProtectedPaths(),
+    });
   });
 }

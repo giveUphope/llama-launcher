@@ -10,6 +10,7 @@ import {
 } from '@llama-launcher/core';
 import { IPC } from '@llama-launcher/shared';
 import type { StartDownloadRequest, DownloadSource } from '@llama-launcher/shared';
+import { logApp } from '../app-log.js';
 import { notifyModelsChanged } from './models-watcher.js';
 
 export function registerDownloadIpc(ipcMain: IpcMain): void {
@@ -27,6 +28,7 @@ export function registerDownloadIpc(ipcMain: IpcMain): void {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IPC.DOWNLOAD_COMPLETE, payload);
     }
+    logApp('success', `Download completed: ${payload.fileName}`);
     // 下载完成后通知模型列表刷新
     notifyModelsChanged();
   });
@@ -34,6 +36,7 @@ export function registerDownloadIpc(ipcMain: IpcMain): void {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IPC.DOWNLOAD_ERROR, payload);
     }
+    logApp('error', `Download error: ${payload.error}`);
   });
 
   // 解析模型 URL
@@ -73,24 +76,32 @@ export function registerDownloadIpc(ipcMain: IpcMain): void {
   ipcMain.handle(IPC.DOWNLOAD_START, async (_e, req: StartDownloadRequest) => {
     try {
       const id = await downloadManager.startDownload(req);
+      logApp('info', `Download started: ${req.filePath}`);
       return { ok: true, data: id };
     } catch (err: any) {
+      logApp('error', `Download start failed: ${req.filePath} — ${err?.message ?? String(err)}`);
       return { ok: false, error: err?.message ?? String(err) };
     }
   });
 
   // 取消下载
   ipcMain.handle(IPC.DOWNLOAD_CANCEL, (_e, id: string) => {
-    return { ok: true, data: downloadManager.cancelDownload(id) };
+    const ok = downloadManager.cancelDownload(id);
+    logApp(ok ? 'warn' : 'error', ok ? `Download cancelled: ${id}` : `Cancel download failed: ${id}`);
+    return { ok: true, data: ok };
   });
 
   // 暂停下载
   ipcMain.handle(IPC.DOWNLOAD_PAUSE, (_e, id: string) => {
-    return { ok: true, data: downloadManager.pauseDownload(id) };
+    const ok = downloadManager.pauseDownload(id);
+    logApp(ok ? 'info' : 'warn', ok ? `Download paused: ${id}` : `Pause download failed: ${id}`);
+    return { ok: true, data: ok };
   });
 
   // 恢复下载（含失败重试）
   ipcMain.handle(IPC.DOWNLOAD_RESUME, (_e, id: string) => {
-    return { ok: true, data: downloadManager.resumeDownload(id) };
+    const ok = downloadManager.resumeDownload(id);
+    logApp(ok ? 'info' : 'error', ok ? `Download resumed: ${id}` : `Resume download failed: ${id}`);
+    return { ok: true, data: ok };
   });
 }

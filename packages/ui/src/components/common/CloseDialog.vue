@@ -181,19 +181,16 @@ const isAsk = () => request.value?.mode === 'ask';
   font-size: var(--fs-base);
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background-color var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
+  transition: background-color var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
-  &:active {
-    transform: scale(0.96);
-  }
 }
 
 .modal-btn.primary {
-  background: var(--accent);
-  color: #fff;
-  &:hover { background: var(--accent-hover); }
-  &:active { background: var(--accent-pressed); }
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+  &:hover { background: var(--primary-hover); }
+  &:active { background: var(--primary-pressed); }
 }
 .modal-btn.primary.warning {
   background: var(--warn);
@@ -210,7 +207,7 @@ const isAsk = () => request.value?.mode === 'ask';
 
 .modal-fade-enter-active,
 .modal-fade-leave-active {
-  transition: opacity var(--dur-med) var(--ease-jelly);
+  transition: opacity var(--dur-med) var(--ease-smooth);
 }
 .modal-fade-enter-from,
 .modal-fade-leave-to {

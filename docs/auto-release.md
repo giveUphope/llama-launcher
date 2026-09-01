@@ -1,7 +1,7 @@
 # 自动发版工作流
 
 > 范围：Windows runner 远程打包 .exe + 自动创建 GitHub Release。
-> 索引：[README.md](README.md) · 相关：[ci-cd.md](ci-cd.md) · [packaging.md](packaging.md)
+> 索引：[README.md](../README.md) · 相关：[ci-cd.md](ci-cd.md) · [packaging.md](packaging.md)
 
 release.yml 由 ci.yml 的 bump job 通过 `gh workflow run release.yml -f version="vX"` 触发，也可在 GitHub 上手动 workflow_dispatch 输入版本号。
 
@@ -29,6 +29,8 @@ release.yml 由 ci.yml 的 bump job 通过 `gh workflow run release.yml -f versi
 | 6 | Get-ChildItem -Recurse release/ | 诊断步骤，打印产物列表 |
 | 7 | 读取 package.json 中的版本 | `V=$(node -p "...")` |
 | 8 | softprops/action-gh-release@v2 | 创建 GitHub Release + 上传 .exe |
+
+> Windows runner 上 turbo daemon 与 vite 8（rolldown）的 stdout 管道存在挂死竞态（构建产物已生成但进程不退出），`pnpm build` / `pnpm dist` 均设置 `TURBO_DAEMON: "false"` 并加 20 分钟超时兜底，挂死时快速失败而非空耗。
 
 ---
 
@@ -60,7 +62,7 @@ softprops/action-gh-release@v2 的 files 字段使用通配符 `release/*.exe`�
 ```yaml
 - uses: softprops/action-gh-release@v2
   with:
-    tag_name: v${{ inputs.version }}
+    tag_name: v${{ steps.ver.outputs.v }}
     generate_release_notes: true
     files: release/*.exe
   env:

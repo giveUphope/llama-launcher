@@ -25,6 +25,15 @@ export interface OutputEntry {
   ts: number;
 }
 
+// 应用日志：应用自身生命周期/操作记录（服务启停、下载等），区别于服务控制台（后端 llama 输出）
+export type AppLogKind = 'info' | 'success' | 'warn' | 'error';
+
+export interface AppLogEntry {
+  kind: AppLogKind;
+  data: string;
+  ts: number;
+}
+
 export interface ModelInfo {
   name: string;
   path: string;
@@ -37,14 +46,16 @@ export interface ModelInfo {
 
 /**
  * 性能测试请求：对运行中的 llama-server 发生成请求。
- * 一次「运行测试」执行两个场景：单并发（1 个请求）与多并发（concurrency 个并行请求）。
+ * 一次「运行测试」始终执行单并发（1 个请求）；多并发场景依据服务器实际并行槽位数
+ * （-np / parallel 参数）决定：np ≥ 2 时以 np 为并发数（钳制上限 8），np ≤ 1（含默认 -1 自动）
+ * 时服务器无多并行槽位可测，仅执行单并发，多并发结果置 null。
  */
 export interface BenchRequest {
   prompt: string;
   maxTokens: number;
   /** 服务器 API key（参数表中的 api_key），设置后请求带 Bearer 鉴权 */
   apiKey?: string;
-  /** 多并发场景的并发请求数（≥2）；缺省由主进程决定（4） */
+  /** 多并发场景的并发请求数：应为服务器实际 np 值；≤1 时主进程跳过多并发测试 */
   concurrency?: number;
 }
 
@@ -74,11 +85,13 @@ export interface BenchResult {
 }
 
 /**
- * 一次「运行测试」的完整结果：单并发场景 + 多并发场景。
+ * 一次「运行测试」的完整结果：单并发场景 +（可选）多并发场景。
+ * 多并发结果仅在服务器 np ≥ 2（有并行槽位）时存在；否则为 null。
  */
 export interface BenchRunResult {
   single: BenchResult;
-  concurrent: BenchResult;
+  /** np ≥ 2 时为多并发聚合结果；np ≤ 1 时为 null（无并行槽位可测） */
+  concurrent: BenchResult | null;
 }
 
 /**

@@ -54,6 +54,7 @@ function splitFilePath(rest: string[]): { filePath: string; fileName: string } {
  * `{author}/{model}[/.../{file}]`（如 .../qwen_3_4b_fp8_mixed.safetensors）。
  */
 export function parseModelUrl(raw: string): ParsedModelUrl | null {
+  if (!raw) return null; // 防御：外部输入边界（空/非 string 均按未识别处理，不抛错）
   const input = raw.trim();
   if (!input) return null;
 

@@ -5,15 +5,15 @@ export const APP_NAME = 'llama Launcher';
 export const APP_VERSION = '0.0.10';
 
 /**
- * 基线启用参数：应用推荐值，初始化即启用并下发到命令行（不计入"已修改"提示）。
- * 依据 docs/plan-kv-split-cli-test.md 实测结论（2026-08-15）：
+ * 基线推荐值（实测依据，2026-08-15，docs/archive/experiments/plan-kv-split-cli-test.md）——
+ * 以下默认值即命令行发射基线（值 ≠ 默认值才发射，见 core 的 buildCommand）：
  * - cache_type_k/v：KV 量化 q8_0。f16 在长上下文下使 27B@262K 显存需求达 ~35GB，是 OOM 根因之一
  * - load_mode：none。--mmap/--mlock 已废弃；mmap 权重页常驻系统内存会吃满 32GB 冻结系统
  * - fit：off。显式 ctx/ngl 时 fit on 会中止并留下劣化状态（实测 262K 下 25.7 vs 36.6 tok/s）
  * - kv_unified：off。--kv-unified 在槽位数 auto 时默认启用单一大缓存跨序列共享，实测推荐关闭
  *   （下发 --no-kv-unified 规避整块共享缓冲的内存占用；需要时可在参数页手动开启）
+ * （历史注：旧版 `_enabled` 启用机制与 BASELINE_ENABLED_KEYS 常量已随双轨参数逻辑移除。）
  */
-export const BASELINE_ENABLED_KEYS: string[] = ['cache_type_k', 'cache_type_v', 'load_mode', 'fit', 'kv_unified'];
 
 export const PARAM_GROUPS: ParamGroup[] = [
   { key: 'basic', labelKey: 'param_basic' },
@@ -43,18 +43,24 @@ export const PARAMS: ParamDef[] = [
   {
     key: 'load_mode', group: 'basic', type: 'dropdown', flag: '--load-mode',
     // 选项与 llama-server b10429 一致（auto 为 b10429 新增：默认 mmap，设备不支持时回退）；
-    // 默认仍为 none（实测推荐：防权重页常驻内存，见 BASELINE_ENABLED_KEYS 注释）
+    // 默认仍为 none（实测推荐：防权重页常驻内存，见文件头基线推荐值注释）
     default: 'none', options: ['auto', 'none', 'mmap', 'mlock', 'mmap+mlock', 'dio'], subcategory: 'memory',
   },
-  // 显式 ctx/ngl 时 fit on 会中止并留劣化状态，故默认 off（见 BASELINE_ENABLED_KEYS 注释）
+  // 显式 ctx/ngl 时 fit on 会中止并留劣化状态，故默认 off（见文件头基线推荐值注释）
   {
     key: 'fit', group: 'basic', type: 'dropdown', flag: '--fit',
     default: 'off', options: ['on', 'off'], subcategory: 'memory',
   },
+  // 惰性张量读取（b10734 引入）：auto=仅 >4GiB 张量惰性读取（需 mmap）/ off=全量常驻 / on=按需读行
+  {
+    key: 'lazy_mode', group: 'basic', type: 'dropdown', flag: '--lazy-mode',
+    default: 'auto', options: ['auto', 'off', 'on'], subcategory: 'memory',
+  },
   { key: 'gpu_layers', group: 'basic', type: 'text', flag: '-ngl', default: 'auto', subcategory: 'memory' },
   { key: 'n_cpu_moe', group: 'basic', type: 'int_entry', flag: '-ncmoe', default: 0, min: 0, max: 256, subcategory: 'memory' },
+  { key: 'n_cpu_ffn', group: 'basic', type: 'int_entry', flag: '-ncffn', default: 0, min: 0, max: 512, subcategory: 'memory' },
 
-  // ---------------- advanced (19) ----------------
+  // ---------------- advanced (26) ----------------
   // 子分组 kv_cache：KV 缓存
   {
     key: 'cache_type_k', group: 'advanced', type: 'dropdown', flag: '-ctk', default: 'q8_0',
@@ -65,10 +71,15 @@ export const PARAMS: ParamDef[] = [
     options: ['f16', 'f32', 'bf16', 'q8_0', 'q4_0', 'q4_1', 'iq4_nl', 'q5_0', 'q5_1'], subcategory: 'kv_cache', ggufField: 'quantization',
   },
   { key: 'kv_offload', group: 'advanced', type: 'checkbox', flag: '-kvo', default: true, invert_flag: '-nkvo', subcategory: 'kv_cache' },
-  // 统一 KV 缓存（b10502 引入）：单一大缓存跨序列共享，槽位数 auto 时默认启用；基线默认关闭（见 BASELINE_ENABLED_KEYS 注释）
+  // 统一 KV 缓存（b10502 引入）：单一大缓存跨序列共享，槽位数 auto 时默认启用；基线默认关闭（见文件头基线推荐值注释）
   {
     key: 'kv_unified', group: 'advanced', type: 'checkbox', flag: '--kv-unified', default: false,
     invert_flag: '--no-kv-unified', subcategory: 'kv_cache',
+  },
+  // 每槽位统一 KV 上下文上限（b10734 引入）；不与 -c 同用时共享 KV 池按此设置；0 = 不设置（保持原行为）
+  {
+    key: 'kv_unified_per_slot', group: 'advanced', type: 'int_entry', flag: '--kv-unified-per-slot',
+    default: 0, min: 0, max: 4194304, subcategory: 'kv_cache',
   },
   // 子分组 multimodal：多模态
   {
@@ -78,11 +89,24 @@ export const PARAMS: ParamDef[] = [
       { name: 'All Files', extensions: ['*.*'] },
     ],
   },
+  // 投影器设备（b10734 引入）：none = 不卸载，默认 auto；设备名动态（见 llama-server --list-devices）
+  { key: 'mmproj_device', group: 'advanced', type: 'text', flag: '-mmdev', default: '', subcategory: 'multimodal' },
+  // 视频多模态（b10734 引入）
+  {
+    key: 'video_fps', group: 'advanced', type: 'float_slider', flag: '--video-fps',
+    default: 4.0, min: 0.1, max: 120, step: 0.5, subcategory: 'multimodal',
+  },
+  {
+    key: 'video_timestamp_interval', group: 'advanced', type: 'int_entry', flag: '--video-timestamp-interval',
+    default: 5000, min: 0, max: 600000, subcategory: 'multimodal',
+  },
+  { key: 'video_ffmpeg_dir', group: 'advanced', type: 'text', flag: '--video-ffmpeg-dir', default: '', subcategory: 'multimodal' },
   // 子分组 template：对话模板
   {
-    key: 'chat_template', group: 'advanced', type: 'dropdown', flag: '--chat-template', default: '', editable: true,
+    key: 'chat_template', group: 'advanced', type: 'dropdown', flag: '--chat-template', default: 'none', editable: true,
     subcategory: 'template', ggufField: 'chat_template',
     options: [
+      'none',
       '', 'chatml', 'llama2', 'llama2-sys', 'llama3',
       'mistral-v1', 'mistral-v3', 'deepseek', 'deepseek2', 'deepseek3',
       'gemma', 'phi3', 'phi4', 'chatglm3', 'chatglm4',
@@ -134,6 +158,12 @@ export const PARAMS: ParamDef[] = [
     options: ['f16', 'f32', 'bf16', 'q8_0', 'q4_0', 'q4_1', 'iq4_nl', 'q5_0', 'q5_1'], subcategory: 'speculative',
     dependsOn: { key: 'spec_type', values: ['draft-simple', 'draft-eagle3', 'draft-dflash', 'draft-dspark'] },
   },
+  // 投机合成基准（b10734 引入，benchmarking only）
+  {
+    key: 'spec_synth_len', group: 'advanced', type: 'int_entry', flag: '--spec-synth-len',
+    default: 0, min: 0, max: 2048, subcategory: 'speculative',
+  },
+  { key: 'spec_synth_rates', group: 'advanced', type: 'text', flag: '--spec-synth-rates', default: '', subcategory: 'speculative' },
   // 子分组 thinking：思考/推理控制（Qwen3、DeepSeek-R1 等思考模型）
   {
     key: 'reasoning', group: 'advanced', type: 'dropdown', flag: '--reasoning',

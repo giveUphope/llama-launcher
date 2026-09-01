@@ -10,6 +10,7 @@ export interface StartCheckResult {
   needExe?: boolean;
   needModelsDir?: boolean;
   needModel?: boolean;
+  needPort?: boolean;
 }
 
 /**
@@ -41,10 +42,10 @@ export function useStartServer() {
     }
     const modelPath = String(params.values.model ?? '');
     if (!modelPath.trim()) return { ok: false, message: i18n.t('msg_no_model'), needModel: true };
-    // 端口范围校验
+    // 端口范围校验（提示走 i18n，复用参数页已有 key）
     const port = Number(params.values.port ?? 8080);
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      return { ok: false, message: `Invalid port: ${port} (1-65535)` };
+      return { ok: false, message: i18n.t('err_invalid_port'), needPort: true };
     }
     return { ok: true };
   }
@@ -65,7 +66,8 @@ export function useStartServer() {
       const portCheck = await window.api.system.checkPort(port);
       // 防御性检查：浏览器预览/mock 环境下 checkPort 可能返回 null
       if (portCheck && portCheck.inUse) {
-        return { ok: false, message: `Port ${port} is already in use` };
+        // 设计稿 §13.2：先说明发生了什么，再说明如何解决
+        return { ok: false, message: i18n.t('msg_port_in_use').replace('{0}', String(port)), needPort: true };
       }
     }
     return { ok: true };

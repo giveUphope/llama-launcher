@@ -14,7 +14,7 @@ import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { ClientRequest, RequestOptions, IncomingHttpHeaders } from 'node:http';
+import type { RequestOptions, IncomingHttpHeaders } from 'node:http';
 import type { Readable } from 'node:stream';
 import type {
   StartDownloadRequest,
@@ -31,6 +31,7 @@ import { buildHfDownloadUrl, isHfMirrorHostname } from './huggingface-client.js'
 import {
   appendDownloadEvent,
   deleteDownloadLog,
+  downloadLogPath,
   migrateLegacyMeta,
   replayDownloadLog,
 } from './download-log.js';
@@ -176,6 +177,8 @@ const SEGMENT_MAX_COUNT = 32;
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 1000;
 const MAX_RETRY_DELAY_MS = 30000;
+/** 段内重定向上限:防止重定向环导致无限递归(浏览器普遍取 20,此处收紧为 5 足够正常 CDN 链路) */
+const MAX_SEGMENT_REDIRECTS = 5;
 /** 速度统计/进度推送间隔(节流:从 1s 降至 500ms 更顺滑) */
 const PROGRESS_INTERVAL_MS = 500;
 
@@ -258,7 +261,6 @@ function computeFileSha256(filePath: string): Promise<string | null> {
 /** 下载管理器:单例,管理所有下载任务 */
 export class DownloadManager extends EventEmitter {
   private tasks = new Map<string, DownloadTask>();
-  private activeRequests = new Map<string, ClientRequest>();
   private writeStreams = new Map<string, fs.WriteStream>();
   private speedTrackers = new Map<
     string,
@@ -310,6 +312,33 @@ export class DownloadManager extends EventEmitter {
   /** 获取所有任务列表 */
   getAllTasks(): DownloadTask[] {
     return Array.from(this.tasks.values()).sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  /**
+   * 非终态任务占用的文件路径集合（resolve 绝对路径）：配置目录清理据此保护
+   * .part 临时文件与续传日志，避免删除进行中/暂停/可重试任务的断点数据。
+   * 含 error（可一键重试续传）；completed/canceled 的残留由下载器自行清理。
+   */
+  getProtectedPaths(): Set<string> {
+    const out = new Set<string>();
+    for (const [, task] of this.tasks) {
+      if (
+        task.status !== 'queued' &&
+        task.status !== 'downloading' &&
+        task.status !== 'paused' &&
+        task.status !== 'error'
+      ) {
+        continue;
+      }
+      if (task.localPath) {
+        out.add(path.resolve(task.localPath));
+        out.add(path.resolve(downloadLogPath(task.localPath)));
+      }
+      if (task.partPath) {
+        out.add(path.resolve(task.partPath));
+      }
+    }
+    return out;
   }
 
   /** 获取单个任务 */
@@ -871,7 +900,6 @@ export class DownloadManager extends EventEmitter {
       for (const segment of segments) {
         if (segment.req) {
           segment.req.destroy();
-          this.activeRequests.delete(id);
           segment.req = undefined;
         }
         if (segment.stream) {
@@ -882,12 +910,7 @@ export class DownloadManager extends EventEmitter {
       }
     }
 
-    // 同时清理旧版单请求/单流记录（防御性）
-    const req = this.activeRequests.get(id);
-    if (req) {
-      req.destroy();
-      this.activeRequests.delete(id);
-    }
+    // 同时清理旧版单流记录（防御性）
     const stream = this.writeStreams.get(id);
     if (stream) {
       stream.destroy();
@@ -1225,14 +1248,19 @@ export class DownloadManager extends EventEmitter {
     });
   }
 
-  /** 跟随段内重定向(按目标域名分流 传输/https) */
+  /** 跟随段内重定向(按目标域名分流 传输/https),depth 防止重定向环无限递归 */
   private followSegmentRedirect(
     id: string,
     segment: Segment,
     redirectUrl: URL,
     resolve: () => void,
     reject: (err: unknown) => void,
+    depth = 0,
   ) {
+    if (depth > MAX_SEGMENT_REDIRECTS) {
+      reject(new Error(`Too many redirects (>${MAX_SEGMENT_REDIRECTS}): ${redirectUrl.href}`));
+      return;
+    }
     const start = segment.start + segment.downloaded;
     const end = segment.end;
     const range = end === Infinity ? `bytes=${start}-` : `bytes=${start}-${end}`;
@@ -1246,7 +1274,7 @@ export class DownloadManager extends EventEmitter {
             const nextUrl = new URL(headers.location as string, redirectUrl);
             body.resume();
             segment.req = undefined;
-            this.followSegmentRedirect(id, segment, nextUrl, resolve, reject);
+            this.followSegmentRedirect(id, segment, nextUrl, resolve, reject, depth + 1);
             return;
           }
           this.attachSegmentWriter(id, segment, body, statusCode, headers, resolve, reject, ' after redirect');
@@ -1268,7 +1296,7 @@ export class DownloadManager extends EventEmitter {
             const nextUrl = new URL(res.headers.location as string, redirectUrl);
             res.resume();
             segment.req = undefined;
-            this.followSegmentRedirect(id, segment, nextUrl, resolve, reject);
+            this.followSegmentRedirect(id, segment, nextUrl, resolve, reject, depth + 1);
             return;
           }
           this.attachSegmentWriter(id, segment, res, statusCode, res.headers, resolve, reject, ' after redirect');
@@ -1342,12 +1370,6 @@ export class DownloadManager extends EventEmitter {
     this.logCurrentProgress(id);
     this.logDone(id, 'error', error, forcedType ?? classifyError(error, httpStatus));
     this.stopSpeedTracker(id);
-
-    const req = this.activeRequests.get(id);
-    if (req) {
-      req.destroy();
-      this.activeRequests.delete(id);
-    }
 
     const stream = this.writeStreams.get(id);
     if (stream) {

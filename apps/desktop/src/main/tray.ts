@@ -38,6 +38,8 @@ function estimateMenuHeight(template: MenuItemConstructorOptions[]): number {
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requestExit } from './app-exit.js';
+import { loadSettings } from '@llama-launcher/core';
+import { setLang, tr } from '@llama-launcher/shared';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -72,9 +74,12 @@ export function createTray(win: BrowserWindow): Tray {
   const tray = new Tray(icon);
   tray.setToolTip('llama Launcher');
 
+  // 菜单文案跟随设置语言（i18n 约定：用户可见字符串走 shared i18n）
+  setLang(loadSettings().language);
+
   const menuTemplate: MenuItemConstructorOptions[] = [
     {
-      label: '显示主窗口',
+      label: tr('tray_show'),
       click: () => {
         win.show();
         win.focus();
@@ -82,7 +87,7 @@ export function createTray(win: BrowserWindow): Tray {
     },
     { type: 'separator' },
     {
-      label: '退出',
+      label: tr('tray_quit'),
       click: () => {
         void requestExit(win);
       },

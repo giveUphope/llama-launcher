@@ -65,7 +65,7 @@ onUnmounted(() => {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity var(--dur-med) var(--ease-jelly), transform var(--dur-med) var(--ease-jelly);
+  transition: opacity var(--dur-med) var(--ease-smooth), transform var(--dur-med) var(--ease-jelly);
 }
 
 .fade-enter-from,

@@ -9,7 +9,8 @@ import type {
   ModelScopeFileListResult,
   ModelScopeFile,
 } from '@llama-launcher/shared';
-import { categorizeFile, parseQuantization, scoreRelevance } from '@llama-launcher/shared';
+import { categorizeFile, parseQuantization, scoreRelevance, formatBytes } from '@llama-launcher/shared';
+import { isRetryableError, retryDelayMs } from './retry.js';
 
 const API_BASE = 'www.modelscope.cn';
 const TIMEOUT_MS = 15000;
@@ -72,18 +73,28 @@ function request(
   });
 }
 
-/** 格式化文件大小为人类可读字符串 */
-export function formatFileSize(bytes: number): string {
-  if (bytes <= 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let idx = 0;
-  let size = bytes;
-  while (size >= 1024 && idx < units.length - 1) {
-    size /= 1024;
-    idx++;
+/** 重试上限（对齐 huggingface-client：指数退避，最多 3 次） */
+const MAX_ATTEMPTS = 3;
+
+/** request + 指数退避重试（瞬时网络错误/可重试 HTTP 码命中 isRetryableError；
+ *  搜索与文件列表均为幂等读，安全重试） */
+async function requestWithRetry(method: 'GET' | 'PUT', path: string, body?: unknown): Promise<any> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      return await request(method, path, body);
+    } catch (err) {
+      lastErr = err;
+      if (!isRetryableError(err) || attempt === MAX_ATTEMPTS - 1) throw err;
+      await new Promise((r) => setTimeout(r, retryDelayMs(attempt)));
+    }
   }
-  return `${size.toFixed(idx === 0 ? 0 : 2)} ${units[idx]}`;
+  throw lastErr;
 }
+
+/** 格式化文件大小为人类可读字符串（统一收敛到 shared formatBytes，保留原导出名） */
+const formatFileSize = formatBytes;
+export { formatFileSize };
 
 /**
  * 搜索 ModelScope 模型
@@ -103,7 +114,7 @@ export async function searchModels(
     Name: modelName,
   };
 
-  const resp = await request('PUT', '/api/v1/dolphin/models', body);
+  const resp = await requestWithRetry('PUT', '/api/v1/dolphin/models', body);
 
   if (!resp || !resp.Success || !resp.Data || !resp.Data.Model) {
     return { models: [], totalCount: 0 };
@@ -149,7 +160,7 @@ export async function listModelFiles(
   name: string,
 ): Promise<ModelScopeFileListResult> {
   const path = `/api/v1/models/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/repo/files?Revision=master&Recursive=true`;
-  const resp = await request('GET', path);
+  const resp = await requestWithRetry('GET', path);
 
   if (!resp || !resp.Success || !resp.Data || !resp.Data.Files) {
     return { files: [], namespace, name };

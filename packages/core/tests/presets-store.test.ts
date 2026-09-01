@@ -122,16 +122,79 @@ describe('presets-store', () => {
     deletePreset(PRESETS_DIR, 'a\\b');
   });
 
-  it('savePreset stamps preset_version and loadPreset fills it for legacy files', () => {
-    savePreset(PRESETS_DIR, 'versioned', { ctx_size: 4096 });
-    const data = JSON.parse(readFileSync(`${PRESETS_DIR}/versioned.json`, 'utf-8'));
-    expect(data.preset_version).toBe(1);
+  it('savePreset stamps v2 schema (model 分离顶层、created_at/app_version 齐全)', () => {
+    const preset = savePreset(PRESETS_DIR, 'versioned', { [MODEL_KEY]: 'C:/models/foo.gguf', ctx_size: 4096 });
+    expect(preset.preset_version).toBe(2);
+    expect(preset.model).toBe('C:/models/foo.gguf');
+    expect(preset.created_at).toBeTruthy();
+    expect(preset.app_version).toBeTruthy();
 
-    // 旧版预设无 preset_version 字段:加载时补齐默认 1
+    const data = JSON.parse(readFileSync(`${PRESETS_DIR}/versioned.json`, 'utf-8'));
+    expect(data.preset_version).toBe(2);
+    expect(data.model).toBe('C:/models/foo.gguf');
+    // v2 values 为纯参数：不含 model
+    expect(data.values).toEqual({ ctx_size: 4096 });
+    expect(data.values[MODEL_KEY]).toBeUndefined();
+  });
+
+  it('savePreset 保留原 created_at 并刷新 saved_at（覆盖保存）', () => {
+    const first = savePreset(PRESETS_DIR, 'times', { ctx_size: 4096 });
+    const data1 = JSON.parse(readFileSync(`${PRESETS_DIR}/times.json`, 'utf-8'));
+    data1.saved_at = '2020-01-01T00:00:00.000Z';
+    require('node:fs').writeFileSync(`${PRESETS_DIR}/times.json`, JSON.stringify(data1));
+
+    const second = savePreset(PRESETS_DIR, 'times', { ctx_size: 8192 });
+    expect(second.created_at).toBe(first.created_at);
+    expect(second.saved_at).not.toBe('2020-01-01T00:00:00.000Z');
+    expect(new Date(second.saved_at).getTime()).toBeGreaterThan(Date.parse('2020-01-01T00:00:00.000Z'));
+  });
+
+  it('values 按 PARAMS 定义顺序稳定序列化（重复保存键序一致）', () => {
+    savePreset(PRESETS_DIR, 'order', { port: 8080, ctx_size: 4096, flash_attn: 'on' });
+    const keys1 = Object.keys(JSON.parse(readFileSync(`${PRESETS_DIR}/order.json`, 'utf-8')).values);
+    savePreset(PRESETS_DIR, 'order', { flash_attn: 'on', port: 8080, ctx_size: 4096 });
+    const keys2 = Object.keys(JSON.parse(readFileSync(`${PRESETS_DIR}/order.json`, 'utf-8')).values);
+    expect(keys2).toEqual(keys1);
+    // 未知键不剔除，排在已知键之后（相对顺序保持）
+    savePreset(PRESETS_DIR, 'order-unknown', { zzz_custom: 'x', ctx_size: 4096 });
+    expect(JSON.parse(readFileSync(`${PRESETS_DIR}/order-unknown.json`, 'utf-8')).values.zzz_custom).toBe('x');
+  });
+
+  it('savePreset 剔除 legacy _enabled 键', () => {
+    savePreset(PRESETS_DIR, 'legacy-clean', { ctx_size: 4096, _enabled: 'ctx_size' });
+    const data = JSON.parse(readFileSync(`${PRESETS_DIR}/legacy-clean.json`, 'utf-8'));
+    expect(data.values).toEqual({ ctx_size: 4096 });
+    expect(data.values['_enabled']).toBeUndefined();
+  });
+
+  it('savePreset 空/纯空白 model 值落为顶层 null', () => {
+    const preset = savePreset(PRESETS_DIR, 'no-model', { [MODEL_KEY]: '', ctx_size: 4096 });
+    expect(preset.model).toBeNull();
+    expect(JSON.parse(readFileSync(`${PRESETS_DIR}/no-model.json`, 'utf-8')).model).toBeNull();
+  });
+
+  it('v1 旧文件（model 在 values 内）加载时迁移到 v2 内存形状', () => {
+    const legacy = path.join(PRESETS_DIR, 'legacy-v1.json');
+    require('node:fs').writeFileSync(legacy, JSON.stringify({
+      preset_version: 1,
+      name: 'legacy-v1',
+      saved_at: '2025-01-01T00:00:00.000Z',
+      values: { [MODEL_KEY]: 'C:/models/foo.gguf', ctx_size: 2048, _enabled: 'ctx_size' },
+    }));
+    const loaded = loadPreset(PRESETS_DIR, 'legacy-v1');
+    expect(loaded!.preset_version).toBe(2);
+    expect(loaded!.model).toBe('C:/models/foo.gguf');
+    expect(loaded!.created_at).toBe('2025-01-01T00:00:00.000Z');
+    expect(loaded!.values).toEqual({ ctx_size: 2048 });
+  });
+
+  it('无版本字段的史前文件补齐迁移（同 v1 处理）', () => {
+    // 旧版预设无 preset_version 字段:加载时按 v1 迁移
     const legacy = path.join(PRESETS_DIR, 'legacy.json');
     require('node:fs').writeFileSync(legacy, JSON.stringify({ name: 'legacy', values: { ctx_size: 2048 } }));
     const loaded = loadPreset(PRESETS_DIR, 'legacy');
-    expect(loaded!.preset_version).toBe(1);
+    expect(loaded!.preset_version).toBe(2);
+    expect(loaded!.model).toBeNull();
     expect(loaded!.values).toEqual({ ctx_size: 2048 });
   });
 

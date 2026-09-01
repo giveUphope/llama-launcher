@@ -51,7 +51,7 @@ function resolveIsDev(): boolean {
 function resolveDevServerUrl(): string {
   const url = process.env.LLAMA_DEV_SERVER_URL;
   if (url && /^https?:\/\//.test(url)) return url;
-  return `http://localhost:${resolveDevServerPort()}`;
+  return `http://127.0.0.1:${resolveDevServerPort()}`;
 }
 
 // 默认窗口尺寸
@@ -152,7 +152,7 @@ export function createMainWindow(opts?: WindowOptions): BrowserWindow {
     height: initHeight,
     ...(initX !== undefined && initY !== undefined ? { x: initX, y: initY } : {}),
     minWidth: 1024,
-    minHeight: 600,
+    minHeight: 680,
     show: false,
     autoHideMenuBar: true,
     frame: false, // 无边框：原生标题栏由应用内 TopBar 自定义按钮替代

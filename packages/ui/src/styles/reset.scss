@@ -75,11 +75,10 @@ textarea,
 [role='button'],
 .btn,
 .action-btn,
-.mini-btn,
-.icon-btn {
-  transition: background var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
-    color var(--dur-fast) var(--ease-jelly), box-shadow var(--dur-fast) var(--ease-jelly),
-    transform var(--dur-fast) var(--ease-jelly), opacity var(--dur-fast) var(--ease-jelly);
+.mini-btn {
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
+    color var(--dur-fast) var(--ease-smooth), box-shadow var(--dur-fast) var(--ease-smooth),
+    transform var(--dur-fast) var(--ease-jelly), opacity var(--dur-fast) var(--ease-smooth);
 }
 
 // 键盘焦点环：用 box-shadow（可动画过渡）替代 outline（瞬时弹出造成闪烁）。

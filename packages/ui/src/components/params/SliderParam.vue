@@ -49,7 +49,11 @@ function commit(n: number) {
 function applyTextValue(el: HTMLInputElement) {
   // 校验输入：小数最多 2 位，整数仅数字
   const raw = el.value.trim();
-  if (raw === '') return;
+  // 清空视为放弃编辑：恢复为已提交值显示，避免显示空白与 model 脱节
+  if (raw === '') {
+    el.value = textValue.value;
+    return;
+  }
   // 小数格式校验：可选负号 + 整数部分 + 可选（. + 1~2 位小数）
   const pattern = isFloat.value ? /^-?\d+(\.\d{0,2})?$/ : /^-?\d+$/;
   if (!pattern.test(raw)) {
@@ -87,12 +91,18 @@ function onTextEnter(e: KeyboardEvent) {
 }
 
 const label = computed(() => i18n.paramLabel(props.p.key));
+
+// 悬停提示 = 标签 + 帮助描述（paramHelp 为空时仅标签），与其余参数控件一致
+const tip = computed(() => {
+  const h = i18n.paramHelp(props.p.key);
+  return h ? `${label.value}\n${h}` : label.value;
+});
 </script>
 
 <template>
   <div class="param-row">
     <div class="label-col">
-      <ToolTip :text="label">
+      <ToolTip :text="tip">
         <span class="label-text">{{ label }}</span>
       </ToolTip>
     </div>
@@ -121,20 +131,19 @@ const label = computed(() => i18n.paramLabel(props.p.key));
 .param-row {
   display: flex;
   align-items: center;
-  min-height: 36px;
+  min-height: 24px;
   width: 100%;
 }
 
-// 标签列：允许收缩（避免长标签换行撑高行），溢出用省略号
 .label-col {
-  flex: 0 1 140px;
-  min-width: 80px;
+  flex: 0 1 110px;
+  min-width: 64px;
   text-align: right;
-  padding-right: 12px;
+  padding-right: 8px;
 }
 
 .label-text {
-  font-size: var(--fs-lg);
+  font-size: var(--fs-base);
   color: var(--fg-secondary);
   cursor: help;
   white-space: nowrap;
@@ -149,7 +158,7 @@ const label = computed(() => i18n.paramLabel(props.p.key));
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -177,7 +186,10 @@ const label = computed(() => i18n.paramLabel(props.p.key));
 
 .num-input {
   width: 100px;
-  flex: 0 0 100px;
+  // 可收缩（拥挤列宽下先压缩输入框，再压滑块）：原 flex:0 0 100px 不收缩，
+  // 行内容超列宽时数值框溢出 param-control、压在 GGUF 提示角标/还原按钮下面
+  flex: 0 1 100px;
+  min-width: 56px;
   height: 28px;
   padding: 0 8px;
   background: var(--bg-input);

@@ -8,17 +8,18 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "turbo run dev --filter=@llama-launcher/desktop",
+    "dev": "turbo run dev --no-daemon --filter=@llama-launcher/desktop",
     "dev:console": "pnpm --filter @llama-launcher/desktop dev:console",
-    "build": "turbo run build",
-    "lint": "turbo run lint && node scripts/verify-ipc-sync.cjs && node scripts/check-docs-links.cjs",
+    "build": "turbo run build --no-daemon",
+    "lint": "turbo run lint --no-daemon && node scripts/verify-ipc-sync.cjs && node scripts/check-docs-links.cjs",
     "docs:check": "node scripts/check-docs-links.cjs",
+    "style:audit": "node scripts/style-audit.cjs",
     "generate:ipc": "node scripts/generate-preload.cjs",
-    "test": "turbo run test",
+    "test": "turbo run test --no-daemon",
     "dist": "pnpm --filter @llama-launcher/desktop dist"
   },
   "devDependencies": {
-    "resedit": "^3.0.2",
-    "turbo": "^2.10.3"
+    "resedit": "^3.1.0",
+    "turbo": "^2.10.12"
   }
 }

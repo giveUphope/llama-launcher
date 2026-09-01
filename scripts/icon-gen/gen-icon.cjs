@@ -1,5 +1,6 @@
 // 程序化生成应用图标（羊驼启动器 llama Launcher），零外部依赖。
-// 圆角方牌(彩虹渐变，与 UI --rainbow-grad 同色相) + 白色羊驼头部剪影(双耳+圆头+吻部)。
+// 圆角方牌(纯蓝系渐变，与 UI app-icon.svg 的 #appTile 渐变同色：#60a5fa→#2563eb→#1d4ed8，
+// 2026-08-26 全站「移除彩虹、统一蓝色系」时随动) + 白色羊驼头部剪影(双耳+圆头+吻部)。
 // 说明：不再绘制内耳——采样判定中外耳三角完全包含内耳，先判外耳会导致内耳永不渲染
 // （旧版窗口图标实际无内耳，而 SVG 因画家算法会显示，造成两处图标不一致；小尺寸下内耳成脏点）。
 // 输出多尺寸 PNG 与合成 icon.ico / icon.png，写入 apps/desktop/resources。
@@ -18,20 +19,19 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const lerpRGB = (c1, c2, t) => [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)];
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const WHITE = [255, 255, 255];
-// 彩虹渐变（与 --rainbow-grad 同色相，按 x 方向）
-const RAINBOW = [
-  [255, 107, 107],  // #ff6b6b
-  [255, 169, 77],   // #ffa94d
-  [77, 171, 247],   // #4dabf7
-  [151, 117, 250],  // #9775fa
+// 品牌蓝渐变（与 UI app-icon.svg 的 appTile 完全同色，按 x 方向）
+const BLUE = [
+  [96, 165, 250],   // #60a5fa
+  [37, 99, 235],    // #2563eb
+  [29, 78, 216],    // #1d4ed8
 ];
-const RAINBOW_STOPS = [0, 0.35, 0.6, 1];
-function rainbowAt(t) {
-  for (let i = 0; i < RAINBOW_STOPS.length - 1; i++) {
-    const s0 = RAINBOW_STOPS[i], s1 = RAINBOW_STOPS[i + 1];
-    if (t <= s1) return lerpRGB(RAINBOW[i], RAINBOW[i + 1], (t - s0) / (s1 - s0));
+const BLUE_STOPS = [0, 0.45, 1];
+function blueAt(t) {
+  for (let i = 0; i < BLUE_STOPS.length - 1; i++) {
+    const s0 = BLUE_STOPS[i], s1 = BLUE_STOPS[i + 1];
+    if (t <= s1) return lerpRGB(BLUE[i], BLUE[i + 1], (t - s0) / (s1 - s0));
   }
-  return RAINBOW[RAINBOW.length - 1];
+  return BLUE[BLUE.length - 1];
 }
 
 function inEllipse(x, y, cx, cy, rx, ry) {
@@ -82,7 +82,7 @@ function render(size) {
           let col = null, a = 0;
           if (inRoundedRect(x, y, m * (256 / S), m * (256 / S), tile * (256 / S), tile * (256 / S), radius * (256 / S))) {
             const t = (x - m * (256 / S)) / (tile * (256 / S));
-            col = rainbowAt(clamp01(t));
+            col = blueAt(clamp01(t));
             a = 1;
           }
           const lc = llamaColor(x, y);

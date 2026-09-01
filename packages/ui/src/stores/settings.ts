@@ -1,13 +1,12 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { AppSettings, ThemeMode, Language, FxMode } from '@llama-launcher/shared';
+import type { AppSettings, ThemeMode, Language } from '@llama-launcher/shared';
 import { toPlain } from '@/composables/useIPC';
 
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<AppSettings | null>(null);
   const themeMode = ref<ThemeMode>('dark');
   const language = ref<Language>('zh');
-  const fxMode = ref<FxMode>('glass');
 
   async function load() {
     const s = await window.api.settings.load();
@@ -15,9 +14,7 @@ export const useSettingsStore = defineStore('settings', () => {
     settings.value = s;
     themeMode.value = s.theme_mode;
     language.value = s.language;
-    fxMode.value = s.fx_mode ?? 'glass';
     applyTheme();
-    applyFx();
   }
 
   // 保存防抖：路径输入/主题/语言等高频变更合并为一次 IPC + 落盘，
@@ -35,7 +32,6 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!settings.value) return;
     settings.value.theme_mode = themeMode.value;
     settings.value.language = language.value;
-    settings.value.fx_mode = fxMode.value;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       saveTimer = null;
@@ -63,20 +59,25 @@ export const useSettingsStore = defineStore('settings', () => {
     void save();
   }
 
+  // system 主题：注册系统主题变化监听，跟随 OS 实时切换（仅注册一次）
+  let systemThemeQuery: MediaQueryList | null = null;
+  function ensureSystemThemeWatcher() {
+    if (!window.matchMedia || systemThemeQuery) return;
+    systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    systemThemeQuery.addEventListener('change', () => {
+      if (themeMode.value === 'system') applyTheme();
+    });
+  }
+
   function applyTheme() {
-    document.documentElement.setAttribute('data-theme', themeMode.value);
+    // system：跟随操作系统主题偏好（Electron 渲染进程支持 prefers-color-scheme）
+    const resolved: ThemeMode =
+      themeMode.value === 'system'
+        ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : themeMode.value;
+    document.documentElement.setAttribute('data-theme', resolved);
+    ensureSystemThemeWatcher();
   }
 
-  function applyFx() {
-    document.documentElement.setAttribute('data-fx', fxMode.value);
-  }
-
-  /** 切换视觉效果（glass/off）；off 即纯实底回退开关 */
-  function setFx(mode: FxMode) {
-    fxMode.value = mode;
-    applyFx();
-    void save();
-  }
-
-  return { settings, themeMode, language, fxMode, load, save, flushSave, toggleTheme, toggleLanguage, applyTheme, applyFx, setFx };
+  return { settings, themeMode, language, load, save, flushSave, toggleTheme, toggleLanguage, applyTheme };
 });

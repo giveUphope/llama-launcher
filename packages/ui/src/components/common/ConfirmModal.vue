@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useI18nStore } from '@/stores/i18n';
 import { useConfirmQueue, type ConfirmVariant } from '@/composables/useConfirm';
+import Icon from './Icon.vue';
 
 const i18n = useI18nStore();
 const { queue, resolve } = useConfirmQueue();
@@ -9,10 +10,11 @@ const { queue, resolve } = useConfirmQueue();
 // 仅展示队首弹窗（其余排队等待）
 const current = computed(() => queue.value[0] ?? null);
 
+// 弹窗类型 → Icon 图标名（§7「不使用 Emoji 作为正式功能图标」）
 const iconMap: Record<ConfirmVariant, string> = {
-  info: 'ℹ',
-  warning: '⚠',
-  danger: '⛔',
+  info: 'info',
+  warning: 'alert',
+  danger: 'error',
 };
 
 function confirmText(key?: string): string {
@@ -29,7 +31,9 @@ function cancelText(key?: string): string {
       <div v-if="current" class="modal-backdrop" @click.self="current.showCancel !== false && resolve(current.id, false)">
         <div class="modal-panel" :class="`variant-${current.variant ?? 'info'}`" role="dialog" aria-modal="true">
           <div class="modal-head">
-            <span class="modal-icon">{{ iconMap[(current.variant ?? 'info') as ConfirmVariant] }}</span>
+            <span class="modal-icon">
+              <Icon :name="iconMap[(current.variant ?? 'info') as ConfirmVariant]" :size="20" />
+            </span>
             <h3 class="modal-title">{{ current.title }}</h3>
           </div>
           <div class="modal-body">
@@ -85,8 +89,9 @@ function cancelText(key?: string): string {
 }
 
 .modal-icon {
-  font-size: var(--fs-xl);
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--accent);
 }
 .variant-warning .modal-icon { color: var(--warn); }
@@ -123,19 +128,16 @@ function cancelText(key?: string): string {
   font-size: var(--fs-base);
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background-color var(--dur-fast) var(--ease-jelly), border-color var(--dur-fast) var(--ease-jelly),
+  transition: background-color var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
-  &:active {
-    transform: scale(0.96);
-  }
 }
 
 .modal-btn.primary {
-  background: var(--accent);
-  color: #fff;
-  &:hover { background: var(--accent-hover); }
-  &:active { background: var(--accent-pressed); }
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+  &:hover { background: var(--primary-hover); }
+  &:active { background: var(--primary-pressed); }
 }
 .modal-btn.primary.warning {
   background: var(--warn);
@@ -157,7 +159,7 @@ function cancelText(key?: string): string {
 
 .modal-fade-enter-active,
 .modal-fade-leave-active {
-  transition: opacity var(--dur-med) var(--ease-jelly);
+  transition: opacity var(--dur-med) var(--ease-smooth);
 }
 .modal-fade-enter-from,
 .modal-fade-leave-to {

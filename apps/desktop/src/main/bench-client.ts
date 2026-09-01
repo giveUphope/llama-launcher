@@ -100,7 +100,7 @@ export async function fetchMetrics(opts: BenchHttpOptions): Promise<BenchMetrics
 
   // Prometheus 文本：每行 "llamacpp:name value"，注释以 # 开头
   const valueOf = (name: string): number => {
-    const re = new RegExp(`^llamacpp:${name}\s+([-+0-9.eE]+)`, 'm');
+    const re = new RegExp(`^llamacpp:${name}\\s+([-+0-9.eE]+)`, 'm');
     const m = text.match(re);
     return m ? Number(m[1]) : 0;
   };

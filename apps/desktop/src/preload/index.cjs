@@ -12,6 +12,7 @@ let modelsChangedListeners = [];
 let downloadProgressListeners = [];
 let downloadCompleteListeners = [];
 let downloadErrorListeners = [];
+let appLogListeners = [];
 
 ipcRenderer.on(IPC.SERVER_OUTPUT, (_e, entry) => {
   outputListeners.forEach(cb => { try { cb(entry); } catch (_) {} });
@@ -30,6 +31,11 @@ ipcRenderer.on(IPC.DOWNLOAD_COMPLETE, (_e, payload) => {
 });
 ipcRenderer.on(IPC.DOWNLOAD_ERROR, (_e, payload) => {
   downloadErrorListeners.forEach(cb => { try { cb(payload); } catch (_) {} });
+});
+
+// 应用日志推送（日志页：应用生命周期/操作记录）
+ipcRenderer.on(IPC.LOGS_ONLOG, (_e, entry) => {
+  appLogListeners.forEach(cb => { try { cb(entry); } catch (_) {} });
 });
 
 let windowMaximizedListeners = [];
@@ -165,6 +171,16 @@ const api = {
       downloadErrorListeners.push(cb);
       return () => {
         downloadErrorListeners = downloadErrorListeners.filter(l => l !== cb);
+      };
+    },
+  },
+  logs: {
+    list: () => invoke(IPC.LOGS_LIST),
+    clear: () => invoke(IPC.LOGS_CLEAR),
+    onLog: (cb) => {
+      appLogListeners.push(cb);
+      return () => {
+        appLogListeners = appLogListeners.filter(l => l !== cb);
       };
     },
   },
