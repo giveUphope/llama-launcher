@@ -5,10 +5,10 @@ import Card from '@/components/common/Card.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
 import InfoStrip from '@/components/common/InfoStrip.vue';
 import Icon from '@/components/common/Icon.vue';
-import { useServerStore } from '@/stores/server';
+import { useServerStore, type EffectiveStatus } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
-import { MODEL_KEY, modelBaseName } from '@llama-launcher/shared';
+import { MODEL_KEY, modelBaseName, formatDuration } from '@llama-launcher/shared';
 import type { OutputEntry } from '@llama-launcher/shared';
 import BaselineBadge from '@/components/common/BaselineBadge.vue';
 import CommandPreviewCard from '@/components/service/CommandPreviewCard.vue';
@@ -29,47 +29,24 @@ const isRunning = computed(() => server.status === 'running');
 // ---- 阶段四：6 态前端兜底（设计稿 §10.1 / 补充指南 §4.2） ----
 // 后端 ServerStatus 仅 3 态（stopped/starting/running）；UI 层根据「最近输出关键词」+「停止按钮调用中」
 // 推断 stopping / failed / crashed。仅用于状态标签，不修改后端类型或 IPC。
-type EffectiveStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'failed' | 'crashed';
 const stopping = ref(false); // 用户点了 stop 但后端 status 尚未切到 stopped 的过渡
 
-// 启动失败/异常退出关键词（与控制台 lineClass 共用）
-const FAIL_RE = /\b(error|failed|fatal|exception|cannot|unable|abort|crash|segfault|exit code|killed|killed by signal)\b/i;
-// 启动成功关键词（status='running' 后用此判断是否「稳定运行」）
-const READY_RE = /\b(listening|loaded model|ready|initialized|server listening)\b/i;
+// 有效状态：增强判定（running+失败→crashed、starting+失败→failed、stopped+残留失败→failed）
+// 已下沉至 server store（ServicePage/Dashboard/StatusBar 共用单一事实源）；
+// 此处仅叠加 UI 层临时态 stopping。
+const displayStatus = computed<EffectiveStatus>(() =>
+  stopping.value && server.status === 'running' ? 'stopping' : server.effectiveStatus,
+);
 
-// 提取最近若干行输出的拼接文本（最多 80 行，避免正则性能问题）
-const recentTail = computed(() => {
-  const arr = server.outputs;
-  const start = Math.max(0, arr.length - 80);
-  return arr.slice(start).map((o) => o.data).join('');
-});
-
-const effectiveStatus = computed<EffectiveStatus>(() => {
-  if (stopping.value && server.status === 'running') return 'stopping';
-  if (server.status === 'running') {
-    // 运行中但最近输出出现失败/崩溃关键词 → crashed
-    if (FAIL_RE.test(recentTail.value)) return 'crashed';
-    return 'running';
-  }
-  if (server.status === 'starting') {
-    // 启动中但最近输出出现失败关键词 → failed
-    if (FAIL_RE.test(recentTail.value)) return 'failed';
-    return 'starting';
-  }
-  // status='stopped' 但上一次启动尝试后留下失败日志且最近 5 分钟内 → 仍标记 failed
-  if (FAIL_RE.test(recentTail.value)) return 'failed';
-  return 'stopped';
-});
-
-const isFailed = computed(() => effectiveStatus.value === 'failed');
-const isCrashed = computed(() => effectiveStatus.value === 'crashed');
+const isFailed = computed(() => displayStatus.value === 'failed');
+const isCrashed = computed(() => displayStatus.value === 'crashed');
 
 const statusInfo = computed(() => {
-  if (effectiveStatus.value === 'running') return { status: 'ok', label: i18n.t('svc_status_running') };
-  if (effectiveStatus.value === 'starting') return { status: 'loading', label: i18n.t('svc_status_starting') };
-  if (effectiveStatus.value === 'stopping') return { status: 'loading', label: i18n.t('svc_status_stopping') };
-  if (effectiveStatus.value === 'failed') return { status: 'error', label: i18n.t('svc_status_failed') };
-  if (effectiveStatus.value === 'crashed') return { status: 'error', label: i18n.t('svc_status_crashed') };
+  if (displayStatus.value === 'running') return { status: 'ok', label: i18n.t('svc_status_running') };
+  if (displayStatus.value === 'starting') return { status: 'loading', label: i18n.t('svc_status_starting') };
+  if (displayStatus.value === 'stopping') return { status: 'loading', label: i18n.t('svc_status_stopping') };
+  if (displayStatus.value === 'failed') return { status: 'error', label: i18n.t('svc_status_failed') };
+  if (displayStatus.value === 'crashed') return { status: 'error', label: i18n.t('svc_status_crashed') };
   return { status: 'idle', label: i18n.t('svc_status_stopped') };
 });
 
@@ -111,14 +88,6 @@ const durationSec = computed(() => {
   if (!startTimeMs.value) return 0;
   return Math.floor((now.value - startTimeMs.value) / 1000);
 });
-
-function formatDuration(s: number): string {
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ${s % 60}s`;
-  const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
-}
 
 // ---- 服务状态变化时刷新 ----
 watch(() => server.status, (s) => {

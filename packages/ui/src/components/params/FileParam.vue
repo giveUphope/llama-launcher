@@ -20,6 +20,12 @@ const isSaveAs = computed(() => !!props.p.save_as);
 
 const label = computed(() => i18n.paramLabel(props.p.key));
 
+// 悬停提示 = 标签 + 帮助描述（paramHelp 为空时仅标签），与其余参数控件一致
+const tip = computed(() => {
+  const h = i18n.paramHelp(props.p.key);
+  return h ? `${label.value}\n${h}` : label.value;
+});
+
 async function onBrowse() {
   if (isDir.value) {
     const dir = await pickDir({ title: i18n.t('msg_select_dir'), defaultPath: model.value || undefined });
@@ -39,7 +45,7 @@ async function onBrowse() {
 <template>
   <div class="param-row">
     <div class="label-col">
-      <ToolTip :text="label">
+      <ToolTip :text="tip">
         <span class="label-text">{{ label }}</span>
       </ToolTip>
     </div>

@@ -49,7 +49,11 @@ function commit(n: number) {
 function applyTextValue(el: HTMLInputElement) {
   // 校验输入：小数最多 2 位，整数仅数字
   const raw = el.value.trim();
-  if (raw === '') return;
+  // 清空视为放弃编辑：恢复为已提交值显示，避免显示空白与 model 脱节
+  if (raw === '') {
+    el.value = textValue.value;
+    return;
+  }
   // 小数格式校验：可选负号 + 整数部分 + 可选（. + 1~2 位小数）
   const pattern = isFloat.value ? /^-?\d+(\.\d{0,2})?$/ : /^-?\d+$/;
   if (!pattern.test(raw)) {
@@ -87,12 +91,18 @@ function onTextEnter(e: KeyboardEvent) {
 }
 
 const label = computed(() => i18n.paramLabel(props.p.key));
+
+// 悬停提示 = 标签 + 帮助描述（paramHelp 为空时仅标签），与其余参数控件一致
+const tip = computed(() => {
+  const h = i18n.paramHelp(props.p.key);
+  return h ? `${label.value}\n${h}` : label.value;
+});
 </script>
 
 <template>
   <div class="param-row">
     <div class="label-col">
-      <ToolTip :text="label">
+      <ToolTip :text="tip">
         <span class="label-text">{{ label }}</span>
       </ToolTip>
     </div>

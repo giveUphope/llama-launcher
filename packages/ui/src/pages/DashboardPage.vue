@@ -19,12 +19,16 @@ const i18n = useI18nStore();
 const router = useRouter();
 
 const isRunning = computed(() => server.status === 'running');
-const isStarting = computed(() => server.status === 'starting');
 
-// Q1: 服务是否运行？
+// Q1: 服务是否运行？（有效状态含增强判定：启动失败 → failed、运行中崩溃 → crashed，
+// 与「服务」页状态卡一致，统一走 server store 的 effectiveStatus）
 const statusBadge = computed(() => {
-  if (isRunning.value) return { status: 'ok', label: i18n.t('svc_status_running') };
-  if (isStarting.value) return { status: 'loading', label: i18n.t('svc_status_starting') };
+  const s = server.effectiveStatus;
+  if (s === 'running') return { status: 'ok', label: i18n.t('svc_status_running') };
+  if (s === 'starting') return { status: 'loading', label: i18n.t('svc_status_starting') };
+  if (s === 'stopping') return { status: 'loading', label: i18n.t('svc_status_stopping') };
+  if (s === 'failed') return { status: 'error', label: i18n.t('svc_status_failed') };
+  if (s === 'crashed') return { status: 'error', label: i18n.t('svc_status_crashed') };
   return { status: 'idle', label: i18n.t('svc_status_stopped') };
 });
 
@@ -87,10 +91,11 @@ onMounted(() => { appLog.subscribe(); });
       <!-- 监听地址指示器：主机/端口 分列展示；完整 API 地址统一在下方「API 地址」卡片（Q3） -->
       <div class="q-grid">
         <InfoStrip :label="i18n.t('lbl_host')" mono>
-          <span class="val-box">{{ server.host }}</span>
+          <!-- 空值用 — 占位（与服务页状态卡值盒一致）：settings 加载前不闪空白 -->
+          <span class="val-box">{{ server.host || '—' }}</span>
         </InfoStrip>
         <InfoStrip :label="i18n.t('lbl_dash_port')" mono>
-          <span class="val-box">{{ server.port }}</span>
+          <span class="val-box">{{ server.port || '—' }}</span>
         </InfoStrip>
       </div>
     </div>
@@ -162,15 +167,17 @@ onMounted(() => { appLog.subscribe(); });
             :class="['log-line', lineClass(line)]"
           >{{ line.data }}</div>
         </div>
-      <div v-if="hasError" class="issues-actions">
-        <button class="action-btn" @click="void router.push('/logs')">
-          <Icon name="console" :size="13" />
-          <span>{{ i18n.t('nav_logs') }}</span>
-        </button>
-        <button class="action-btn" @click="void router.push('/service')">
-          <Icon name="server" :size="13" />
-          <span>{{ i18n.t('nav_service') }}</span>
-        </button>
+      <div class="issues-actions-slot" :class="{ 'has-actions': hasError }">
+        <div v-if="hasError" class="issues-actions">
+          <button class="action-btn" @click="void router.push('/logs')">
+            <Icon name="console" :size="13" />
+            <span>{{ i18n.t('nav_logs') }}</span>
+          </button>
+          <button class="action-btn" @click="void router.push('/service')">
+            <Icon name="server" :size="13" />
+            <span>{{ i18n.t('nav_service') }}</span>
+          </button>
+        </div>
       </div>
     </div>
   </PageFrame>
@@ -270,6 +277,10 @@ onMounted(() => { appLog.subscribe(); });
 /* 迷你日志/问题区域 */
 .issues-console {
   max-height: 160px;
+  /* 防跳动：问题条目固定上限 3 行（recentIssues.slice(-3)）——预留 3 行最小高度
+     （padding 6×2 + 3×fs-base 行高 1.5 ≈ 72px），空态/少行时高度恒定，不再出现
+     空态 ↔ 多行时的 Q4 区块高度变化（#46 预留位置模式）。 */
+  min-height: 72px;
   overflow: auto;
   padding: 6px 10px;
   background: var(--console-bg);
@@ -292,9 +303,12 @@ onMounted(() => { appLog.subscribe(); });
   }
 
   .empty-text {
+    /* 空态占位组件：line-height 对齐 72px 预留区，垂直居中占满（min-height 恒定），
+       与 1–3 行问题条目同高，空态 ↔ 有内容高度零变化（#46/#47 预留位置模式） */
     color: var(--fg-muted);
     text-align: center;
-    padding: 12px 0;
+    line-height: 72px;
+    padding: 0;
     font-family: var(--font-family);
   }
 }
@@ -302,5 +316,16 @@ onMounted(() => { appLog.subscribe(); });
 .issues-actions {
   display: flex;
   gap: 8px;
+}
+
+/* 问题操作行防跳动：外层槽位常驻并与按钮行等高（--btn-h），无问题时隐藏但占满
+   高度——操作行出现/消失时 Q4 区块高度恒定，下方内容不再被下推（#42 预留位置模式）。 */
+.issues-actions-slot {
+  margin-top: 8px;
+  min-height: var(--btn-h);
+
+  &:not(.has-actions) {
+    visibility: hidden;
+  }
 }
 </style>

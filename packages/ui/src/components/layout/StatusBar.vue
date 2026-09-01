@@ -10,14 +10,19 @@ const params = useParamsStore();
 const i18n = useI18nStore();
 
 const statusText = computed(() => {
-  if (server.status === 'running') return i18n.t('status_running');
-  if (server.status === 'starting') return i18n.t('status_starting');
+  const s = server.effectiveStatus;
+  if (s === 'crashed') return i18n.t('svc_status_crashed');
+  if (s === 'failed') return i18n.t('svc_status_failed');
+  if (s === 'running') return i18n.t('status_running');
+  if (s === 'starting' || s === 'stopping') return i18n.t('status_starting');
   return i18n.t('status_stopped');
 });
 
 const statusColor = computed(() => {
-  if (server.status === 'running') return 'var(--success)';
-  if (server.status === 'starting') return 'var(--warn)';
+  const s = server.effectiveStatus;
+  if (s === 'failed' || s === 'crashed') return 'var(--danger)';
+  if (s === 'running') return 'var(--success)';
+  if (s === 'starting' || s === 'stopping') return 'var(--warn)';
   return 'var(--fg-muted)';
 });
 

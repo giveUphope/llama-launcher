@@ -12,6 +12,7 @@ import { useParamsStore } from '@/stores/params';
 import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
 import { useI18nStore } from '@/stores/i18n';
+import { waitForRunning } from '@/composables/useWaitRunning';
 
 const params = useParamsStore();
 const settings = useSettingsStore();
@@ -89,54 +90,7 @@ function snapshotSummary(snapshot: Record<string, string | number | boolean>): s
     .join('  ');
 }
 
-// 等待服务进入 running 状态（带超时）。
-// restart 场景：launcher.restart() 是异步的（等旧进程 exit 后再启动新进程），
-// 且旧进程退出前 server.status 仍是旧 running——若立即按 running 返回，会在新进程
-// 模型尚未加载完成时就发测试请求，导致端点无法访问。因此：
-// - restarting=true 时，先等待状态离开 running（旧进程退出），再等待重新进入 running（新进程就绪）
-// - restarting=false 时（首次启动），直接等待 running
-// 启动失败检测：模型配置错误等导致 llama-server 启动失败时，进程 exit → 状态停在 stopped 且
-// pid 为 null，不会重新 running。此时连续多次轮询确认后立即判定失败（而非等到超时），
-// 避免界面一直停留在"等待服务就绪"。返回 'ok' | 'timeout' | 'failed'。
-function waitRunning(timeoutMs: number, restarting = false): Promise<'ok' | 'timeout' | 'failed'> {
-  return new Promise((resolve) => {
-    const started = Date.now();
-    // 阶段标记：restart 时先等旧进程退出（状态 != running），再等新进程 running
-    let phase: 'wait-exit' | 'wait-running' = restarting ? 'wait-exit' : 'wait-running';
-    // 启动失败判定：连续 N 次轮询看到 stopped + pid null（进程已退出且未重启）→ 判定失败
-    let stoppedStreak = 0;
-    const FAIL_STREAK = 4; // ~1.2s（300ms × 4），区分 restart 的短暂 stopped 中间态
-    const timer = setInterval(async () => {
-      // 每次轮询刷新 pid/status（restart 后主进程状态变化）
-      try { await server.refreshStatus(); } catch { /* 忽略轮询失败 */ }
-      const s = server.status;
-      if (phase === 'wait-exit') {
-        // 旧进程退出：状态离开 running（stopped/starting 都算退出完成）
-        if (s !== 'running') phase = 'wait-running';
-        stoppedStreak = 0;
-      } else if (s === 'running') {
-        clearInterval(timer);
-        resolve('ok');
-        return;
-      } else if (s === 'stopped' && server.pid === null) {
-        // 进程已退出（启动失败或意外退出）：连续确认后判定失败
-        stoppedStreak++;
-        if (stoppedStreak >= FAIL_STREAK) {
-          clearInterval(timer);
-          resolve('failed');
-          return;
-        }
-      } else {
-        // starting 等中间态：重置连续计数
-        stoppedStreak = 0;
-      }
-      if (Date.now() - started > timeoutMs) {
-        clearInterval(timer);
-        resolve('timeout');
-      }
-    }, 300);
-  });
-}
+// 启动/重启后的就绪等待（两阶段 + 启动失败检测）已抽取为公共 composable useWaitRunning（waitForRunning）
 
 // 判断运行中服务是否与当前参数快照完全一致（含启用状态）。
 // 一致时无需重启（避免重复加载模型，30B 模型加载耗时数十秒），直接对现有实例发测试请求。
@@ -198,7 +152,7 @@ async function onRunTest() {
     statusText.value = i18n.t('bench_status_wait');
     // 重启场景：先等旧进程退出（状态离开 running），再等新进程加载完成重新 running，
     // 避免旧 running 状态残留导致新进程模型未加载完就发请求（端点无法访问）
-    const waitResult = await waitRunning(180000, restarted);
+    const waitResult = await waitForRunning(180000, restarted);
     if (waitResult !== 'ok') {
       if (waitResult === 'failed') {
         // 启动失败（模型配置错误等）：提示用户查看控制台日志（含具体报错）
@@ -337,7 +291,11 @@ onUnmounted(() => {
           {{ i18n.t('bench_clear_history') }}
         </button>
       </template>
-      <div v-if="appliedMsg" class="applied-msg">{{ appliedMsg }}</div>
+      <!-- 应用提示防跳动：外层槽位常驻并与提示行等高（padding 6×2 + fs-base 行高 ≈ 32px），
+            无提示时隐藏但占满高度——提示条出现/消失时下方历史表不再下移（#42 预留位置模式）。 -->
+      <div class="applied-msg-slot" :class="{ 'has-msg': !!appliedMsg }">
+        <div v-if="appliedMsg" class="applied-msg">{{ appliedMsg }}</div>
+      </div>
       <div class="combo-table-wrap">
         <table class="combo-table">
           <thead>
@@ -476,8 +434,16 @@ onUnmounted(() => {
   overflow-x: auto;
 }
 
-.applied-msg {
+.applied-msg-slot {
   margin-top: 10px;
+  min-height: 32px; // = 提示行实际高度（padding 6px×2 + fs-base 13 × 行高 1.5 ≈ 31.5px）
+
+  &:not(.has-msg) {
+    visibility: hidden;
+  }
+}
+
+.applied-msg {
   padding: 6px 10px;
   border-radius: var(--radius-row);
   background: color-mix(in srgb, var(--success) 12%, transparent);

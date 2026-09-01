@@ -19,12 +19,18 @@ const defaultLabel = computed(() => {
 });
 
 const label = computed(() => i18n.paramLabel(props.p.key));
+
+// 悬停提示 = 标签 + 帮助描述（paramHelp 为空时仅标签），与其余参数控件一致
+const tip = computed(() => {
+  const h = i18n.paramHelp(props.p.key);
+  return h ? `${label.value}\n${h}` : label.value;
+});
 </script>
 
 <template>
   <div class="param-row">
     <div class="label-col">
-      <ToolTip :text="label">
+      <ToolTip :text="tip">
         <span class="label-text">{{ label }}</span>
       </ToolTip>
     </div>

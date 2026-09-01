@@ -18,6 +18,7 @@ import {
   recommendFileName,
   sortFilesByRelevance,
   parseQuantization,
+  formatBytes,
 } from '@llama-launcher/shared';
 
 const settings = useSettingsStore();
@@ -609,14 +610,6 @@ function formatDownloaded(task: DownloadTask): string {
   const downloaded = formatBytes(task.downloadedSize);
   const total = task.totalSize > 0 ? formatBytes(task.totalSize) : '?';
   return `${downloaded} / ${total}`;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes <= 0) return '0 B';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
 // 任务状态文本

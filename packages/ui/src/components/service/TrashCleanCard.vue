@@ -7,6 +7,7 @@ import Icon from '@/components/common/Icon.vue';
 import { useServerStore } from '@/stores/server';
 import { useI18nStore } from '@/stores/i18n';
 import { confirm } from '@/composables/useConfirm';
+import { formatBytes } from '@llama-launcher/shared';
 import type { TrashKind } from '@llama-launcher/shared';
 
 const server = useServerStore();
@@ -23,13 +24,6 @@ const TRASH_KIND_LABEL_KEY: Record<TrashKind, string> = {
   download_orphan: 'lbl_trash_download_orphan',
   orphan_preset: 'lbl_trash_orphan_preset',
 };
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
 
 function pushError(message: string) {
   server.pushOutput({ kind: 'error', data: `[Clean] ${message}\n`, ts: Date.now() });
@@ -68,11 +62,11 @@ async function onCleanTrash() {
     }
     const summary = Array.from(kindCount.entries())
       .map(([kind, { count, size }]) =>
-        `${i18n.t(TRASH_KIND_LABEL_KEY[kind])}×${count} (${formatSize(size)})`)
+        `${i18n.t(TRASH_KIND_LABEL_KEY[kind])}×${count} (${formatBytes(size)})`)
       .join(', ');
     const msg = i18n.t('msg_trash_confirm')
       .replace('{0}', String(detected.items.length))
-      .replace('{1}', formatSize(detected.totalSize))
+      .replace('{1}', formatBytes(detected.totalSize))
       + '\n\n' + summary;
 
     const confirmed = await confirm({
@@ -105,7 +99,7 @@ async function onCleanTrash() {
         kind: 'success',
         data: `[Clean] ${i18n.t('msg_trash_cleaned')
           .replace('{0}', String(result.cleaned))
-          .replace('{1}', formatSize(result.totalSize))}\n`,
+          .replace('{1}', formatBytes(result.totalSize))}\n`,
         ts: Date.now(),
       });
     }

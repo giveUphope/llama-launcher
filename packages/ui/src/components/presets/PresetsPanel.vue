@@ -197,7 +197,11 @@ onRefreshList();
         </button>
         <button class="action-btn" @click="onRefreshList">{{ i18n.t('refresh_list') }}</button>
       </div>
-      <div v-if="appliedMsg" class="applied-msg">{{ appliedMsg }}</div>
+      <!-- 应用提示防跳动：外层槽位常驻并与提示行等高（padding 6×2 + fs-base 行高 ≈ 32px），
+           无提示时隐藏但占满高度——提示条出现/消失时下方表格不再下移（#42 预留位置模式）。 -->
+      <div class="applied-msg-slot" :class="{ 'has-msg': !!appliedMsg }">
+        <div v-if="appliedMsg" class="applied-msg">{{ appliedMsg }}</div>
+      </div>
       <div class="table-wrap">
         <table class="data-table">
           <thead>
@@ -281,8 +285,16 @@ onRefreshList();
   flex-wrap: wrap;
 }
 
-.applied-msg {
+.applied-msg-slot {
   margin-bottom: 8px;
+  min-height: 32px; // = 提示行实际高度（padding 6px×2 + fs-base 13 × 行高 1.5 ≈ 31.5px）
+
+  &:not(.has-msg) {
+    visibility: hidden;
+  }
+}
+
+.applied-msg {
   padding: 6px 10px;
   border-radius: var(--radius-row);
   background: color-mix(in srgb, var(--success) 12%, transparent);
