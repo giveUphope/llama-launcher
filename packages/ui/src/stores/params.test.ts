@@ -69,6 +69,18 @@ describe('params store applyPreset（预设完全覆盖语义）', () => {
     expect(params.values['port']).toBe(8080); // 默认值
   });
 
+  it('预设加载保留 editable 下拉的自定义值（chat_template 不在内置 options）', () => {
+    const params = useParamsStore();
+    params.applyPreset({ chat_template: 'qwen2.5-custom' });
+
+    // 自定义模板不属内置 options，editable 语义应保留而非回退默认 'none'（此前回归点）
+    expect(params.values['chat_template']).toBe('qwen2.5-custom');
+
+    // 内置选项与空串照常收束
+    params.applyPreset({ chat_template: 'llama3' });
+    expect(params.values['chat_template']).toBe('llama3');
+  });
+
   it('预设无模型时保留当前模型；有模型时以预设为准', () => {
     const params = useParamsStore();
     params.values[MODEL_KEY] = 'C:/models/current.gguf';
@@ -226,6 +238,28 @@ describe('依赖规则纯函数（isDependencySatisfied / computeViolatedParams�
   it('notValues 命中则不满足', () => {
     expect(isDependencySatisfied(notValuesRule, { reasoning: 'off' })).toBe(false);
     expect(isDependencySatisfied(notValuesRule, { reasoning: 'on' })).toBe(true);
+  });
+
+  it('checkbox 依赖源按布尔语义判定（默认值为 true 的 cache_prompt 勾选即满足）', () => {
+    // cache_reuse dependsOn cache_prompt（checkbox, default true, values: ['true']）
+    const checkboxRule = { key: 'cache_prompt', values: ['true'] };
+    expect(isDependencySatisfied(checkboxRule, {})).toBe(false);
+    expect(isDependencySatisfied(checkboxRule, { cache_prompt: false })).toBe(false);
+    expect(isDependencySatisfied(checkboxRule, { cache_prompt: 'false' })).toBe(false);
+    expect(isDependencySatisfied(checkboxRule, { cache_prompt: true })).toBe(true);
+    expect(isDependencySatisfied(checkboxRule, { cache_prompt: 'true' })).toBe(true);
+    // 数值 1 虽按布尔语义"生效"，但 String(1)="1" 不匹配 values:['true'] → 不满足（与命令构建器一致）
+    expect(isDependencySatisfied(checkboxRule, { cache_prompt: 1 })).toBe(false);
+  });
+
+  it('checkbox 依赖源未勾选时不满足（与命令构建器 isDependencyMet 语义一致）', () => {
+    const checkboxRule = { key: 'cache_prompt', values: ['true'] };
+    expect(computeViolatedParams({ cache_prompt: false })).toContainEqual(
+      expect.objectContaining({ key: 'cache_reuse' }),
+    );
+    expect(computeViolatedParams({ cache_prompt: true })).not.toContainEqual(
+      expect.objectContaining({ key: 'cache_reuse' }),
+    );
   });
 
   it('computeViolatedParams 返回依赖不满足的参数，依赖满足的保留', () => {

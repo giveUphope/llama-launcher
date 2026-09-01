@@ -40,6 +40,8 @@
 
 ### 修复
 
+- **参数配置与实际启动命令一致性修复（2026-09-02）**：参数一致性全链路审计（definitions → UI 控件/持久化 → store 归一化与依赖联动 → `buildCommand` 发射）发现并修复两处"UI 状态 ≠ 命令发射"偏差——① **checkbox 依赖源误判**：UI 侧依赖判定（`stores/params.ts` `isDependencySatisfied` 与 `ParamRow.dependencyMet`）对 checkbox 依赖源套用"值 ≠ 默认值"语义，默认值为 true 的 `cache_prompt` 勾选（生效）被误判"不满足"→ `syncDependencies` 误清 `cache_reuse`、控件误禁用并标警告，与命令构建器（checkbox 布尔语义：勾选即满足、未勾选才不满足）完全相反；统一为布尔语义（true/'true'/1/'1'），三处判定（UI store / UI 组件 / core 构建器）语义一致。② **editable 下拉自定义值预设回退**：`chat_template` 的自定义输入（∉ 内置 options）在 `normalizePresetValue` 预设加载时被回退默认 `'none'`，预设"保存→重载"丢配置；editable 非空自定义值改为保留（内置选项与空串照常收束）。新增 3 组 UI 单测（checkbox 依赖源布尔判定 / 未勾选违规 / editable 自定义保留），core 315 + ui 51 全绿，vue-tsc 通过。审计确认无误项：默认值省略、checkbox 恒发射 flag/invert_flag、float 2 位小数、draft-model→draft-simple 归一、文件/目录依赖保留、custom_args 追加、会话/预设双轨持久化。
+
 - **进程终止僵尸误判修复（2026-09-01）**：`LlamaServerProcess` 全部 4 处存活轮询（`terminate` 优雅/强制、`forceKill`、`killSync`）改用新 `isPidAlive`——轮询为同步（`Atomics.wait` 阻塞事件循环），POSIX 子进程退出后未被父进程收割、以僵尸态停留，而 `process.kill(pid, 0)` 对僵尸进程仍返回成功，导致 Linux 上 `terminate()` 误判"仍存活"：优雅终止 800ms 超时 → 误入强制路径 → 强制后仍误判存活 → 返回 false（PR CI ubuntu 实测 2 例失败，Windows 无僵尸态不受影响）。`isPidAlive` 在 `kill(pid, 0)` 之上叠加僵尸态检测（Linux 读 `/proc/<pid>/stat` 状态位 Z，macOS/BSD 用 `ps` 状态列含 Z）；无法探测时保守视为存活（避免误判死进程触发按名扫杀误伤无关同名进程）。Windows 语义不变，本地 315 例全绿。
 
 - **参数输入限制一致性修复（2026-09-01）**：参数输入框限制逻辑全量审查后修复「清空输入框后失焦显示空白、但参数值未变」的显示/逻辑脱节——IntEntryParam 与 SliderParam 的 `applyTextValue` 对空输入由"静默忽略"改为"恢复为已提交值显示"（清空视为放弃编辑）。审查确认其余限制链强健：IntEntry 整数格式过滤 + 阈值 clamp + Math.round；Slider 无私 value 范围/step + 浮点最大 2 位小数（输入中格式即时过滤）；Dropdown 白名单 + `editable` 自定义输入；File 按 `filetypes` 扩展名过滤；Text 对 host/port 正则与范围校验（空值 = 恢复默认不发射）；store 层 `normalizePresetValue` 对外部 set 做夹取兜底。

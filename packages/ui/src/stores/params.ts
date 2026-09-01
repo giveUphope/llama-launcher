@@ -37,7 +37,12 @@ function findParamDef(key: string): ParamDef | undefined {
 
 /**
  * 声明式依赖判定（纯函数）：依赖是否满足。
- * 满足条件：依赖参数的值"已生效"（非默认），且其值不在 notValues、且在 values（若声明）中。
+ * 满足条件：依赖参数的值"已生效"，且其值不在 notValues、且在 values（若声明）中。
+ * "已生效"语义与命令构建器（core `isDependencyMet`）保持一致：
+ * - checkbox 依赖源按布尔语义判定（true = 生效，false = 未生效）——默认值为 true 的
+ *   checkbox（如 cache_prompt）无法用"值 ≠ 默认值"判定，若照搬会误判为"不满足"，
+ *   导致依赖参数（cache_reuse）被误清空/误禁用，与命令实际发射相反；
+ * - 其余类型以"值 ≠ 其默认值"判定（默认值 = 未启用）。
  */
 export function isDependencySatisfied(
   dep: ParamDef['dependsOn'],
@@ -46,10 +51,16 @@ export function isDependencySatisfied(
   if (!dep) return true;
   const depDef = PARAMS.find((p) => p.key === dep.key);
   if (!depDef) return false;
-  const depValue = String(values[dep.key] ?? '');
-  if (depValue === String(depDef.default)) return false;
-  if (dep.notValues && dep.notValues.includes(depValue)) return false;
-  if (dep.values && dep.values.length > 0 && !dep.values.includes(depValue)) return false;
+  const depValue = values[dep.key] ?? '';
+  if (depDef.type === 'checkbox') {
+    const b = depValue === true || depValue === 'true' || depValue === 1 || depValue === '1';
+    if (!b) return false;
+  } else {
+    if (depValue === depDef.default) return false;
+  }
+  const depValueStr = String(depValue);
+  if (dep.notValues && dep.notValues.includes(depValueStr)) return false;
+  if (dep.values && dep.values.length > 0 && !dep.values.includes(depValueStr)) return false;
   return true;
 }
 
@@ -82,6 +93,10 @@ function normalizePresetValue(p: ParamDef, raw: string | number | boolean): stri
     if (p.options && p.options.length > 0) {
       if (p.options.includes(s)) return s;
       if (p.key === 'spec_type' && s === 'draft-model') return 'draft-simple';
+      // editable 下拉（chat_template 等）：合法的自定义输入值得保留
+      // （值 ∉ 内置 options 不代表非法，这正是 editable 的用途），
+      // 否则预设保存后重新加载会把自定义模板回退成默认值，造成配置丢失
+      if (p.editable && s !== '') return s;
       return p.default;
     }
     return s;

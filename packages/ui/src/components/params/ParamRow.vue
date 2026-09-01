@@ -29,7 +29,16 @@ const dependencyMet = computed(() => {
   const depDef = PARAMS.find((x) => x.key === dep.key);
   if (!depDef) return false;
   const depValue = params.values[dep.key] ?? '';
-  if (depValue === depDef.default) return false;
+  // 依赖源"生效"语义与命令构建器保持一致：
+  // checkbox 依赖源按布尔语义判定（默认值为 true 的 cache_prompt 勾选即生效），
+  // 其余类型以"值 ≠ 其默认值"判定。否则 cache_reuse 会被误标依赖不满足并禁用，
+  // 与命令实际发射相反（详见 stores/params.ts isDependencySatisfied 注释）。
+  if (depDef.type === 'checkbox') {
+    const b = depValue === true || depValue === 'true' || depValue === 1 || depValue === '1';
+    if (!b) return false;
+  } else {
+    if (depValue === depDef.default) return false;
+  }
   if (dep.notValues && dep.notValues.includes(String(depValue))) return false;
   if (dep.values && dep.values.length > 0 && !dep.values.includes(String(depValue))) return false;
   return true;

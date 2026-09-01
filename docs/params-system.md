@@ -38,7 +38,7 @@
 
 ### 5.4 依赖联动与推测解码自动检测 (ui/stores/params.ts)
 
-- **通用依赖联动清理** `syncDependencies()`：遍历所有声明 `dependsOn` 的参数，依赖不满足时重置为默认值并禁用（判定与 `ParamRow.dependencyMet` 一致：依赖参数须启用 + 值须满足 values/notValues）——**例外**：`file` / `dir` 类型保留用户已选路径不重置（避免误清大段路径输入）。仅在被修改的 key 是依赖源（`DEP_SOURCE_KEYS`）时触发，避免"先填下游值、后选依赖源"被误清。
+- **通用依赖联动清理** `syncDependencies()`：遍历所有声明 `dependsOn` 的参数，依赖不满足时重置为默认值并禁用（判定与 `ParamRow.dependencyMet` 一致：依赖参数须"生效" + 值须满足 values/notValues）——**"生效"语义与命令构建器 `isDependencyMet` 统一**：checkbox 依赖源按布尔判定（勾选即生效，默认值为 true 的 `cache_prompt` 也因此正确判定，不因"值=默认"误判不满足），其余类型按"值 ≠ 默认值"判定（默认值 = 未启用）；**例外**：`file` / `dir` 类型保留用户已选路径不重置（避免误清大段路径输入）。仅在被修改的 key 是依赖源（`DEP_SOURCE_KEYS`）时触发，避免"先填下游值、后选依赖源"被误清。
 - **依赖分组**：
   - `spec_draft_model` / `spec_draft_ngl` / `spec_cache_type_k/v` → 依赖 `spec_type` 为外部草稿类型（`draft-simple`/`draft-eagle3`/`draft-dflash`/`draft-dspark`）
   - `spec_draft_n_max` / `n_min` → 依赖 `spec_type` 非空且非 `none`（MTP/ngram 也适用）
