@@ -1,5 +1,6 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import type { OutputEntry, OutputKind } from '@llama-launcher/shared';
 
@@ -12,6 +13,44 @@ export interface ProcessOptions {
   exePath: string;
   args: string[];
   cwd?: string;
+}
+
+/**
+ * 判断进程是否仍存活（跨平台）。
+ *
+ * `process.kill(pid, 0)` 仅探测"该 PID 是否为有效进程"，对已退出但尚未被父进程收割（reap）
+ * 的**僵尸进程**（Linux/macOS 上的 POSIX 语义）仍返回成功；僵尸进程已不可调度，等同死亡。
+ *
+ * 本模块所有存活轮询均为同步（`Atomics.wait` 阻塞事件循环），子进程退出后 SIGCHLD 无法被
+ * libuv 处理、不会被收割，若仅依赖 `kill(pid, 0)` 会把僵尸进程误判为存活，导致优雅终止超时、
+ * 误入强制路径并返回 false（CI Linux 实测失败）。故类 Unix 下补充僵尸态检测：
+ * - Linux：读 `/proc/<pid>/stat` 的状态位（Z = zombie）；
+ * - macOS/BSD：`ps -o state=` 输出含 `Z`。
+ *
+ * @returns true 表示进程存活且可调度；无法探测时保守视为存活（避免误判死进程而触发按名扫杀）。
+ */
+function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+  } catch {
+    return false;
+  }
+  if (process.platform !== 'linux' && process.platform !== 'darwin') return true;
+  try {
+    let state = '';
+    if (process.platform === 'linux') {
+      // /proc/<pid>/stat 形如 "pid (comm) state ..."；comm 可含空格与括号，以最后一个 ')' 为界取状态位
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      const idx = stat.lastIndexOf(')');
+      state = idx >= 0 ? stat.charAt(idx + 2) : '';
+    } else {
+      const out = spawnSync('ps', ['-o', 'state=', '-p', String(pid)], { encoding: 'utf8' });
+      state = (out.stdout ?? '').trim();
+    }
+    return !state.includes('Z');
+  } catch {
+    return true;
+  }
 }
 
 export class LlamaServerProcess extends EventEmitter {
@@ -90,7 +129,7 @@ export class LlamaServerProcess extends EventEmitter {
       const deadline = Date.now() + 400;
       let alive = true;
       while (Date.now() < deadline) {
-        try { process.kill(pid, 0); alive = true; } catch { alive = false; break; }
+        if (!isPidAlive(pid)) { alive = false; break; }
         Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 80);
       }
       if (alive && this.exeName) {
@@ -116,13 +155,7 @@ export class LlamaServerProcess extends EventEmitter {
       const deadline = Date.now() + 1200;
       let alive = true;
       while (Date.now() < deadline) {
-        try {
-          process.kill(pid, 0); // 抛出表示进程不存在
-          alive = true;
-        } catch {
-          alive = false;
-          break;
-        }
+        if (!isPidAlive(pid)) { alive = false; break; }
         // 阻塞式微睡眠，避免空转占用 CPU（Node 标准做法）
         Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 120);
       }
@@ -178,11 +211,12 @@ export class LlamaServerProcess extends EventEmitter {
     // 轮询确认优雅终止是否生效
     // 注：Atomics.wait 是阻塞式休眠（挂起线程至超时），并非忙等/空转；
     // 退出路径刻意保持同步（退出时序确定性优先于事件循环响应性）。
+    // 存活判定走 isPidAlive：同步轮询期间事件循环被阻塞、子进程退出后不会被收割，
+    // kill(pid, 0) 对 Linux/macOS 的僵尸进程仍返回成功，需叠加僵尸态检测（见其注释）。
     const deadline = Date.now() + timeoutMs;
     let alive = true;
     while (Date.now() < deadline) {
-      try { process.kill(pid, 0); alive = true; }
-      catch { alive = false; break; }
+      if (!isPidAlive(pid)) { alive = false; break; }
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
     }
 
@@ -206,7 +240,7 @@ export class LlamaServerProcess extends EventEmitter {
     const forcedDeadline = Date.now() + 400;
     let aliveAfterForced = true;
     while (Date.now() < forcedDeadline) {
-      try { process.kill(pid, 0); aliveAfterForced = true; } catch { aliveAfterForced = false; break; }
+      if (!isPidAlive(pid)) { aliveAfterForced = false; break; }
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 80);
     }
     this.proc = null;
