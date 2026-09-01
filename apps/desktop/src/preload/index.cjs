@@ -140,6 +140,8 @@ const api = {
   },
   system: {
     checkPort: (port, host) => invoke(IPC.SYSTEM_CHECK_PORT, port, host),
+    killProcess: (pid) => invoke(IPC.SYSTEM_KILL_PROCESS, pid),
+    findFreePort: (port, host) => invoke(IPC.SYSTEM_FIND_FREE_PORT, port, host),
     fileExists: (path) => invoke(IPC.SYSTEM_FILE_EXISTS, path),
     findLlamaExe: (dir) => invoke(IPC.SYSTEM_FIND_LLAMA_EXE, dir),
     detectTrash: () => invoke(IPC.SYSTEM_DETECT_TRASH),

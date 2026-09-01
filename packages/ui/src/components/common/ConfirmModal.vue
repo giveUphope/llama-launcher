@@ -28,7 +28,7 @@ function cancelText(key?: string): string {
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="current" class="modal-backdrop" @click.self="current.showCancel !== false && resolve(current.id, false)">
+      <div v-if="current" class="modal-backdrop" @click.self="resolve(current.id, current.actions?.length ? '' : false)">
         <div class="modal-panel" :class="`variant-${current.variant ?? 'info'}`" role="dialog" aria-modal="true">
           <div class="modal-head">
             <span class="modal-icon">
@@ -39,17 +39,28 @@ function cancelText(key?: string): string {
           <div class="modal-body">
             <p class="modal-message">{{ current.message }}</p>
           </div>
-          <div class="modal-actions">
-            <button
-              v-if="current.showCancel !== false"
-              class="modal-btn ghost"
-              @click="resolve(current.id, false)"
-            >{{ cancelText(current.cancelKey) }}</button>
-            <button
-              class="modal-btn primary"
-              :class="{ danger: current.variant === 'danger', warning: current.variant === 'warning' }"
-              @click="resolve(current.id, true)"
-            >{{ confirmText(current.confirmKey) }}</button>
+          <div class="modal-actions" :class="{ multi: current.actions?.length }">
+            <template v-if="current.actions?.length">
+              <button
+                v-for="act in current.actions"
+                :key="act.key"
+                class="modal-btn"
+                :class="[act.variant ?? 'primary', act.variant === 'danger' ? 'danger' : '', act.variant === 'warning' ? 'warning' : '']"
+                @click="resolve(current.id, act.key)"
+              >{{ i18n.t(act.labelKey) }}</button>
+            </template>
+            <template v-else>
+              <button
+                v-if="current.showCancel !== false"
+                class="modal-btn ghost"
+                @click="resolve(current.id, false)"
+              >{{ cancelText(current.cancelKey) }}</button>
+              <button
+                class="modal-btn primary"
+                :class="{ danger: current.variant === 'danger', warning: current.variant === 'warning' }"
+                @click="resolve(current.id, true)"
+              >{{ confirmText(current.confirmKey) }}</button>
+            </template>
           </div>
         </div>
       </div>
@@ -117,6 +128,7 @@ function cancelText(key?: string): string {
   margin-top: 18px;
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
 }
 

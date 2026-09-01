@@ -420,6 +420,13 @@ export const en: Dict = {
   cmd_extra_placeholder: 'Custom flags appended to the command, e.g. --no-warmup --special',
   cmd_extra_hint: 'The built-in command is read-only and regenerates live (edit params on the Parameters page); extra args are appended verbatim to the actual launch command and persisted',
   msg_port_in_use: 'Port {0} is already in use. Choose another port, or stop the program using it.',
+  msg_port_conflict_title: 'Port is in use',
+  msg_port_conflict: 'Port {0} is used by {1} (PID {2}). Stop that process and retry, or switch to an available port automatically.',
+  msg_port_conflict_no_name: 'Port {0} is used by another program. Stop it and retry, or switch to an available port automatically.',
+  act_kill_process: 'Stop process & retry',
+  act_use_free_port: 'Use free port',
+  msg_kill_failed: 'Failed to stop the process: {0}',
+  msg_free_port_not_found: 'No free port found (all ports from {0} to {1} are busy). Close the program using the port first.',
   svc_port_busy_hint: 'Cannot bind to port {0}: it may be used by another program. Stop the program using it, or change the port in Settings > Server and restart.',
   bench_error: 'Benchmark failed: {0}',
 };

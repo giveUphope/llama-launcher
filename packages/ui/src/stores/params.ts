@@ -307,11 +307,11 @@ export const useParamsStore = defineStore('params', () => {
         ? i18n.t('baseline_preset').replace('{0}', baseline.value.preset_name)
         : i18n.t('baseline_custom')
       : i18n.t('baseline_default');
-    return confirm({
+    return (await confirm({
       title: i18n.t('msg_discard_dirty_title'),
       message: i18n.t('msg_discard_dirty').replace('{0}', from),
       variant: 'warning',
-    });
+    })) === true;
   }
 
   function setGgufInfo(info: GgufModelInfo | null, suggestions: GgufSuggestedParam[]) {

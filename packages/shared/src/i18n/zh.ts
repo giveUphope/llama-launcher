@@ -419,6 +419,13 @@ export const zh = {
   cmd_extra_placeholder: '追加到命令末尾的自定义参数，如：--no-warmup --special',
   cmd_extra_hint: '内置命令只读、随参数实时生成（改参数请去参数设置页）；扩展参数原样追加到实际启动命令末尾并持久保存',
   msg_port_in_use: '端口 {0} 已被占用。请选择其他端口，或停止占用该端口的程序。',
+  msg_port_conflict_title: '端口被占用',
+  msg_port_conflict: '端口 {0} 已被 {1}（PID {2}）占用。可选择结束该进程后重试，或自动换用未占用的端口继续启动。',
+  msg_port_conflict_no_name: '端口 {0} 已被其他程序占用。可选择结束其进程后重试，或自动换用未占用的端口继续启动。',
+  act_kill_process: '结束进程并重试',
+  act_use_free_port: '换用空闲端口',
+  msg_kill_failed: '结束进程失败：{0}',
+  msg_free_port_not_found: '未找到空闲端口（{0}~{1} 范围内均被占用）。请先关闭占用端口的程序。',
   svc_port_busy_hint: '端口 {0} 无法绑定：可能已被其他程序占用。请停止占用该端口的程序，或在「参数设置-服务」更换端口后重启。',
   bench_error: '性能测试执行失败：{0}',
 };

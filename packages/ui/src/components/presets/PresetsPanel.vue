@@ -60,11 +60,11 @@ async function confirmNameModelMismatch(name: string): Promise<boolean> {
   const row = presets.value.find((p) => p.name === name);
   if (!row || !row.model) return true;
   const base = binding.split(/[/\\]/).pop() ?? binding;
-  return confirm({
+  return (await confirm({
     title: i18n.t('msg_preset_model_mismatch_title'),
     message: i18n.t('msg_preset_model_mismatch').replace('{0}', name).replace('{1}', base),
     variant: 'warning',
-  });
+  })) === true;
 }
 
 async function onSavePreset() {

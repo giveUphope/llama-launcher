@@ -3,6 +3,7 @@ import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
+import { confirm } from '@/composables/useConfirm';
 
 export interface StartCheckResult {
   ok: boolean;
@@ -85,12 +86,86 @@ export function useStartServer() {
       if (sync.needExe || sync.needModelsDir || sync.needModel) void router.push('/models');
       return false;
     }
-    const asyncCheck = await checkAsync();
+    // 端口占用预处理：占用时不只报错，提供「结束占用进程 / 换用空闲端口」可操作处理
+    const hostVal = String(params.values.host ?? '').trim() || undefined;
+    const port = Number(params.values.port ?? 8080);
+    const pc = await window.api.system.checkPort(port, hostVal);
+    if (pc && pc.inUse) {
+      pushError(i18n.t('msg_port_in_use').replace('{0}', String(port)));
+      const resolved = await resolvePortConflict(port, pc, hostVal);
+      if (!resolved) return false;
+    }
+    return launch(false);
+  }
+
+  /**
+   * 端口冲突处理：弹出动作选择并执行——
+   * - 「结束进程并重试」：结束占用者（仅当能识别 PID），重新检查端口，空闲则继续启动；
+   * - 「换用空闲端口」：自动扫描并写回空闲端口参数（会话持久化），继续启动；
+   * - 「取消」：停止，冲突提示保留在控制台。
+   * 返回是否已解决（可继续启动）。
+   */
+  async function resolvePortConflict(
+    port: number,
+    owner: { pid?: number; name?: string },
+    hostVal?: string,
+  ): Promise<boolean> {
+    const message = owner.name && owner.pid !== undefined
+      ? i18n.t('msg_port_conflict').replace('{0}', String(port)).replace('{1}', owner.name).replace('{2}', String(owner.pid))
+      : i18n.t('msg_port_conflict_no_name').replace('{0}', String(port));
+    const actions: { key: string; labelKey: string; variant?: 'primary' | 'danger' | 'warning' | 'ghost' }[] = [];
+    if (owner.pid !== undefined) {
+      actions.push({ key: 'kill', labelKey: 'act_kill_process', variant: 'danger' });
+    }
+    actions.push({ key: 'change', labelKey: 'act_use_free_port' });
+    actions.push({ key: '', labelKey: 'dlg_cancel', variant: 'ghost' });
+
+    const choice = await confirm({
+      title: i18n.t('msg_port_conflict_title'),
+      message,
+      variant: 'warning',
+      actions,
+    });
+
+    if (choice === 'kill' && owner.pid !== undefined) {
+      const res = await window.api.system.killProcess(owner.pid);
+      if (!res.ok) {
+        pushError(i18n.t('msg_kill_failed').replace('{0}', res.error ?? ''));
+        return false;
+      }
+      server.pushOutput({
+        kind: 'info',
+        data: `[Launcher] ${owner.name ?? `PID ${owner.pid}`} 已结束，重新检查端口…\n`,
+        ts: Date.now(),
+      });
+      const recheck = await window.api.system.checkPort(port, hostVal);
+      return !(recheck && recheck.inUse);
+    }
+    if (choice === 'change') {
+      const free = await window.api.system.findFreePort(port + 1, hostVal);
+      if (free === null) {
+        pushError(i18n.t('msg_free_port_not_found').replace('{0}', String(port + 1)).replace('{1}', '65535'));
+        return false;
+      }
+      params.set('port', free); // 写回参数（会话自动持久化），后续校验与命令预览同步
+      server.pushOutput({ kind: 'info', data: `[Launcher] 已切换到空闲端口 ${free}\n`, ts: Date.now() });
+      return true;
+    }
+    return false;
+  }
+
+  /** 执行启动/重启（restart 跳过端口检查：当前进程正占用端口，属预期） */
+  async function launch(isRestart: boolean): Promise<boolean> {
+    const asyncCheck = await checkAsync({ skipPortCheck: isRestart });
     if (!asyncCheck.ok) {
       pushError(asyncCheck.message!);
       return false;
     }
-    await server.start(params.snapshot(), settings.settings!);
+    if (isRestart) {
+      await server.restart(params.snapshot(), settings.settings!);
+    } else {
+      await server.start(params.snapshot(), settings.settings!);
+    }
     return true;
   }
 
@@ -102,14 +177,7 @@ export function useStartServer() {
       if (sync.needExe || sync.needModelsDir || sync.needModel) void router.push('/models');
       return false;
     }
-    // 重启跳过端口占用检查：当前进程正占用目标端口，检查会误报并阻断重启
-    const asyncCheck = await checkAsync({ skipPortCheck: true });
-    if (!asyncCheck.ok) {
-      pushError(asyncCheck.message!);
-      return false;
-    }
-    await server.restart(params.snapshot(), settings.settings!);
-    return true;
+    return launch(true);
   }
 
   return { checkSync, checkAsync, start, restart };

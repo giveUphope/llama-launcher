@@ -328,6 +328,8 @@ export function createDemoApi() {
     },
     system: {
       checkPort: () => Promise.resolve({ inUse: false }),
+      killProcess: () => Promise.resolve({ ok: true }),
+      findFreePort: () => Promise.resolve(8081),
       fileExists: () => Promise.resolve(false),
       findLlamaExe: () => Promise.resolve(`${ENGINE_DIR}/llama-server.exe`),
       detectTrash: () => Promise.resolve({ trashCount: 0, trashFiles: [], detectDurationMs: 12 } as never),

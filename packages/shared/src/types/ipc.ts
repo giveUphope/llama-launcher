@@ -40,6 +40,8 @@ export const IPC = {
   SYSTEM_FIND_LLAMA_EXE: 'system:findLlamaExe',
   SYSTEM_DETECT_TRASH: 'system:detectTrash',
   SYSTEM_CLEAN_TRASH: 'system:cleanTrash',
+  SYSTEM_KILL_PROCESS: 'system:killProcess',
+  SYSTEM_FIND_FREE_PORT: 'system:findFreePort',
   FS_LIST_DIR: 'fs:listDir',
   FS_MKDIR: 'fs:mkdir',
   DOWNLOAD_PARSE_URL: 'download:parseUrl',

@@ -69,7 +69,9 @@ export interface ElectronAPI {
     respondCloseDialog: (id: number, action: CloseDialogResult['action'], remember: boolean) => void;
   };
   system: {
-    checkPort: (port: number, host?: string) => Promise<{ inUse: boolean; pid?: number }>;
+    checkPort: (port: number, host?: string) => Promise<{ inUse: boolean; pid?: number; name?: string }>;
+    killProcess: (pid: number) => Promise<{ ok: boolean; error?: string }>;
+    findFreePort: (port: number, host?: string) => Promise<number | null>;
     fileExists: (path: string) => Promise<boolean>;
     findLlamaExe: (dir: string) => Promise<string>;
     detectTrash: () => Promise<DetectResult>;
