@@ -419,6 +419,7 @@ export const zh = {
   cmd_extra_placeholder: '追加到命令末尾的自定义参数，如：--no-warmup --special',
   cmd_extra_hint: '内置命令只读、随参数实时生成（改参数请去参数设置页）；扩展参数原样追加到实际启动命令末尾并持久保存',
   msg_port_in_use: '端口 {0} 已被占用。请选择其他端口，或停止占用该端口的程序。',
+  svc_port_busy_hint: '端口 {0} 无法绑定：可能已被其他程序占用。请停止占用该端口的程序，或在「参数设置-服务」更换端口后重启。',
   bench_error: '性能测试执行失败：{0}',
 };
 

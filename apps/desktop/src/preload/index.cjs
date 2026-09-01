@@ -139,7 +139,7 @@ const api = {
       send(IPC.WINDOW_CLOSE_DIALOG_RESULT, { id, action, remember }),
   },
   system: {
-    checkPort: (port) => invoke(IPC.SYSTEM_CHECK_PORT, port),
+    checkPort: (port, host) => invoke(IPC.SYSTEM_CHECK_PORT, port, host),
     fileExists: (path) => invoke(IPC.SYSTEM_FILE_EXISTS, path),
     findLlamaExe: (dir) => invoke(IPC.SYSTEM_FIND_LLAMA_EXE, dir),
     detectTrash: () => invoke(IPC.SYSTEM_DETECT_TRASH),

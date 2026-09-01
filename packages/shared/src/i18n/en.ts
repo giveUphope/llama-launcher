@@ -420,5 +420,6 @@ export const en: Dict = {
   cmd_extra_placeholder: 'Custom flags appended to the command, e.g. --no-warmup --special',
   cmd_extra_hint: 'The built-in command is read-only and regenerates live (edit params on the Parameters page); extra args are appended verbatim to the actual launch command and persisted',
   msg_port_in_use: 'Port {0} is already in use. Choose another port, or stop the program using it.',
+  svc_port_busy_hint: 'Cannot bind to port {0}: it may be used by another program. Stop the program using it, or change the port in Settings > Server and restart.',
   bench_error: 'Benchmark failed: {0}',
 };

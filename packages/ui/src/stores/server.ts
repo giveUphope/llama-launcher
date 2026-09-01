@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type { ServerStatus, OutputEntry } from '@llama-launcher/shared';
 import { useIPC, invokeOk, toPlain } from '@/composables/useIPC';
+import { useI18nStore } from '@/stores/i18n';
 import type { AppSettings, PresetValues } from '@llama-launcher/shared';
 
 /** 有效状态：在 ServerStatus（stopped/starting/running/stopping）基础上叠加
@@ -10,6 +11,10 @@ export type EffectiveStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 
 
 // 失败/崩溃关键词（服务页状态卡原实现下沉至此，三处状态显示共用单一判定）
 const FAIL_RE = /\b(error|failed|fatal|exception|cannot|unable|abort|crash|segfault|exit code|killed|killed by signal)\b/i;
+// 端口绑定失败（llama-server 启动被端口占用时的原始输出，跨版本匹配：
+// "bind() failed: Address already in use" / "address already in use" / "EADDRINUSE" / "OS Error: 10048" /
+// "cannot assign requested address" / "errno 98" / "http: bind"）
+export const PORT_BUSY_RE = /address already in use|bind\(\) failed|EADDRINUSE|errno\s+98|error:\s*10048|cannot assign requested address/i;
 const TAIL_LINES = 80;
 
 export const useServerStore = defineStore('server', () => {
@@ -32,6 +37,24 @@ export const useServerStore = defineStore('server', () => {
     }
   }
 
+  // 端口占用友好提示：同一端口 5s 内只提示一次，避免重复输出刷屏
+  let lastPortHintKey = '';
+  let lastPortHintTs = 0;
+  function portBusyHint(entry: OutputEntry) {
+    if (status.value !== 'starting' && status.value !== 'running') return;
+    if (!PORT_BUSY_RE.test(entry.data)) return;
+    const now = Date.now();
+    const key = `${port.value}`;
+    if (key === lastPortHintKey && now - lastPortHintTs < 5000) return;
+    lastPortHintKey = key;
+    lastPortHintTs = now;
+    pushOutput({
+      kind: 'error',
+      data: `[Launcher] ${useI18nStore().t('svc_port_busy_hint').replace('{0}', key)}\n`,
+      ts: now,
+    });
+  }
+
   // 防重入：subscribe 可能被多次调用（如 dev HMR 下 App 重新挂载），
   // 若每次都注册新监听器，preload 的 outputListeners 会累积，
   // 导致同一输出条目被 push 多次（控制台重复输出）。对齐 download store 的防重入模式。
@@ -42,6 +65,7 @@ export const useServerStore = defineStore('server', () => {
     try {
       api.server.onOutput((e) => {
         pushOutput(e);
+        portBusyHint(e);
       });
       api.server.onStatus((s) => {
         status.value = s;

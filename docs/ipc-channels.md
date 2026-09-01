@@ -70,7 +70,7 @@
 ### System（5）
 | 通道 | 用途 |
 |------|------|
-| `system:checkPort` | 检查端口是否被占用 |
+| `system:checkPort` | 检查端口是否被占用（按 llama-server 将绑定的 `--host` 地址探测；默认 127.0.0.1，0.0.0.0/局域网 IP 时按对应地址，覆盖占用者绑定在其他网卡 IP 的漏报） |
 | `system:fileExists` | 检查文件是否存在 |
 | `system:findLlamaExe` | 在目录中查找 llama-server 可执行文件（内联检测） |
 | `system:detectTrash` | 检测应用生成文件中的可清理项（配置目录 + 模型目录双根扫描；活动/暂停/可重试下载任务路径自动保护） |

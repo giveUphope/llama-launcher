@@ -70,8 +70,14 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
   });
 
   // System - 启动前校验辅助
-  // 检查端口是否被占用：尝试创建 TCP server 监听该端口，能绑定则端口空闲
-  ipcMain.handle(IPC.SYSTEM_CHECK_PORT, async (_e, port: number) => {
+  // 检查端口是否被占用：尝试创建 TCP server 监听该端口，能绑定则端口空闲。
+  // host 传入 llama-server 将要绑定的地址（参数页 --host 值）：
+  //   - 空/127.0.0.1 → 按 127.0.0.1 探测（回环精确）；
+  //   - 0.0.0.0 / :: / 局域网 IP → 按该地址探测（通配监听会与一切地址占用冲突，
+  //     覆盖"占用者绑定在其他网卡 IP"的漏报场景；若占用者只绑 127 而 llama 绑 0.0.0.0——
+  //     仅当 host 明确为 0.0.0.0 时才建议用户考虑，默认回环场景不受影响）
+  ipcMain.handle(IPC.SYSTEM_CHECK_PORT, async (_e, port: number, host?: string) => {
+    const bindHost = host && host.trim() ? host.trim() : '127.0.0.1';
     return new Promise<{ inUse: boolean; pid?: number }>((resolve) => {
       const tester = createServer();
       tester.once('error', () => {
@@ -80,7 +86,7 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
       tester.once('listening', () => {
         tester.close(() => resolve({ inUse: false }));
       });
-      tester.listen(port, '127.0.0.1');
+      tester.listen(port, bindHost);
     });
   });
 

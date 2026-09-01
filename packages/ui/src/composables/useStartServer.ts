@@ -63,7 +63,10 @@ export function useStartServer() {
     // 重启语义是先杀旧进程再启动，端口被自身占用属于预期情况，须跳过。
     if (!opts?.skipPortCheck) {
       const port = Number(params.values.port ?? 8080);
-      const portCheck = await window.api.system.checkPort(port);
+      // 按 llama-server 将绑定的地址探测（--host）：回环默认 127.0.0.1，
+      // 0.0.0.0/局域网 IP 时按对应地址探测，避免"占用者绑定在其他网卡 IP"漏报
+      const hostVal = String(params.values.host ?? '').trim();
+      const portCheck = await window.api.system.checkPort(port, hostVal || undefined);
       // 防御性检查：浏览器预览/mock 环境下 checkPort 可能返回 null
       if (portCheck && portCheck.inUse) {
         // 设计稿 §13.2：先说明发生了什么，再说明如何解决
