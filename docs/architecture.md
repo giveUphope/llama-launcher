@@ -119,7 +119,7 @@ llama_launcher/
 
 | 包名                        | 版本    | 职责                          |
 | ------------------------- | ----- | --------------------------- |
-| `@llama-launcher/desktop` | 0.0.9 | Electron 主进程 + preload + 打包 |
+| `@llama-launcher/desktop` | 0.0.12 | Electron 主进程 + preload + 打包 |
 | `@llama-launcher/core`    | 1.0.0 | 核心业务逻辑（进程/命令/扫描/下载/GGUF）    |
 | `@llama-launcher/shared`  | 1.0.0 | 类型定义、参数表、i18n 的唯一来源         |
 | `@llama-launcher/ui`      | 1.0.0 | Vue 3 + Vite + Pinia 前端     |
