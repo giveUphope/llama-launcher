@@ -32,19 +32,27 @@ jobs:
   # 判定本次 push 是否仅涉及文档（docs/** 与仓库根 README.md / AGENTS.md）。
   # 纯文档提交跳过 bump job —— 文档更新不会递增版本、不会发布 Release；
   # 仅非文档变更（代码/配置/依赖等）才触发自动发版。
+  # 实现：checkout 后以 push 前基线（github.event.before）为基准，git diff 解析真实文件清单
+  # （不依赖 webhook commits[].modified 字段——Actions 环境中该字段不可靠）。
   changes:
     runs-on: ubuntu-latest
     outputs:
       non-doc: ${{ steps.changes.outputs.non-doc }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - id: changes
-        env:
-          EVENT: ${{ toJson(github.event) }}
         run: |
-          FILES=$(printf '%s' "$EVENT" | jq -r '[.commits[].modified[], .commits[].added[], .commits[].removed[]] | unique[]' 2>/dev/null || true)
+          BASE="${{ github.event.before }}"
           NON_DOC="false"
-          if [ -n "$FILES" ]; then
+          if [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            # 仓库首次 push（无基线）：保守视为非文档变更，走正常发版
+            NON_DOC="true"
+          else
+            FILES=$(git diff --name-only "$BASE" HEAD)
             while IFS= read -r f; do
+              [ -z "$f" ] && continue
               case "$f" in
                 docs/*|README.md|AGENTS.md) ;;
                 *) NON_DOC="true"; break ;;

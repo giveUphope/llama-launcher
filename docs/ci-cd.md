@@ -50,7 +50,7 @@ pull_request 和 push 事件都走 verify。
 
 ### 1.3 changes job（纯文档变更判定）
 
-- 无需 checkout：直接解析 `github.event` 的 `commits[].modified/added/removed` 数组（runner 自带 `jq`），汇总本次 push 的全部变更文件。
+- `checkout`（fetch-depth: 0）后以 `github.event.before` 为基线执行 `git diff --name-only <before> HEAD`，汇总本次 push 的真实文件清单（不依赖 webhook `commits[].modified` 字段——Actions 环境中该字段不可靠）。
 - 任一文件不属于 `docs/*` / `README.md` / `AGENTS.md` → 输出 `non-doc=true`（允许 bump）；全部文件均为文档 → `non-doc=false`（跳过 bump）。
 - 用途：文档更新不产生版本噪音、不触发 Release；`.github/`、`package.json`、`packages/`、`scripts/` 等工程/代码变更仍照常发版。
 
