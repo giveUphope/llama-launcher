@@ -60,7 +60,7 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 - **Workspace root** **`package.json`** **is not** **`apps/desktop/package.json`.** It must contain the root `scripts` (`dev`/`build`/`lint`/`test`), `packageManager: pnpm@10.12.1`, and `turbo` devDependency. Do not overwrite it with a package-level manifest.
 
-- **Version bumps are automated.** Pushing to `main` triggers `scripts/bump-version.cjs` (patch increment) which updates `package.json` (root + desktop), `APP_VERSION` in `definitions.ts`, `CHANGELOG.md` header, and text references in `docs/packaging.md` / `README.md` / `AGENTS.md`. Manual bumps use `node scripts/bump-version.cjs [patch|minor|major]`. Only `CHANGELOG.md [Unreleased]` content and `docs/params/` baseline updates require manual editing (see [docs/ci-cd.md](docs/ci-cd.md) / [docs/auto-release.md](docs/auto-release.md)).
+- **Version bumps are automated.** Pushing to `main` with **non-doc changes** triggers `scripts/bump-version.cjs` (patch increment) which updates `package.json` (root + desktop), `APP_VERSION` in `definitions.ts`, `CHANGELOG.md` header, and text references in `docs/packaging.md` / `README.md` / `AGENTS.md`. **Pure doc pushes**（仅 `docs/**`、根 `README.md`、`AGENTS.md`）**跳过 bump 与 Release**（`changes` job 判定，见 [docs/ci-cd.md](docs/ci-cd.md) §1.3）。Manual bumps use `node scripts/bump-version.cjs [patch|minor|major]`. Only `CHANGELOG.md [Unreleased]` content and `docs/params/` baseline updates require manual editing (see [docs/ci-cd.md](docs/ci-cd.md) / [docs/auto-release.md](docs/auto-release.md)).
 
 ## Conventions & gotchas
 

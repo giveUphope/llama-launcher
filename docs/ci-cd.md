@@ -30,12 +30,13 @@
 
 pull_request 和 push 事件都走 verify。
 
-### 1.2 bump job（仅 push main + 非 bot）
+### 1.2 bump job（仅 push main + 非 bot + 非纯文档变更）
 
-- **依赖**：needs: verify（验证失败则跳过）
-- **守卫条件**：github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
+- **依赖**：needs: [verify, changes]（verify 失败则跳过；changes 判定为纯文档变更时跳过）
+- **守卫条件**：`github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && needs.changes.outputs.non-doc == 'true'`
   - 只处理 push 到 main 的事件，PR 合并后的触发自动命中
   - `github.actor != 'github-actions[bot]'` **防止无限循环**：bot 自己推入的版本 bump 提交不再触发第二次 bump
+  - **`non-doc == 'true'`（2026-09-02 新增）**：`changes` job 解析本次 push 各提交的文件清单，仅当存在非文档文件变更（`docs/**`、根 `README.md`、`AGENTS.md` 之外）时才 bump——**纯文档更新不递增版本、不触发 Release**，避免每次都发版
 - **步骤**：
   1. `actions/checkout@v7`（fetch-depth: 0, persist-credentials: true）
   2. `pnpm/action-setup@v5` + `actions/setup-node@v7` + `pnpm install --frozen-lockfile`
@@ -45,7 +46,13 @@ pull_request 和 push 事件都走 verify。
   6. `git add -A` → `git commit -m "chore(release): vX"` → `git tag -a vX` → `git push origin HEAD:main` + `git push origin vX`
   7. `gh workflow run release.yml -f version="vX"`（通过 GH_TOKEN 触发发版工作流）
 
-每次 push 到 main（含手动 git push、PR merge 事件），流水线自动递增版本、打 tag、触发 Windows 打包。
+每次 push 到 main，流水线：verify 校验全绿 → `changes` job 判定变更性质 —— **非纯文档变更**才自动递增版本、打 tag、触发 Windows 打包；纯文档变更（仅 `docs/**` / 根 `README.md` / `AGENTS.md`）则 **bump 与 Release 均跳过**（verify 照常执行，保证文档/链路完整性）。
+
+### 1.3 changes job（纯文档变更判定）
+
+- 无需 checkout：直接解析 `github.event` 的 `commits[].modified/added/removed` 数组（runner 自带 `jq`），汇总本次 push 的全部变更文件。
+- 任一文件不属于 `docs/*` / `README.md` / `AGENTS.md` → 输出 `non-doc=true`（允许 bump）；全部文件均为文档 → `non-doc=false`（跳过 bump）。
+- 用途：文档更新不产生版本噪音、不触发 Release；`.github/`、`package.json`、`packages/`、`scripts/` 等工程/代码变更仍照常发版。
 
 ---
 

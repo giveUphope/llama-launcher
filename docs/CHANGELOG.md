@@ -6,6 +6,8 @@
 
 ### 依赖
 
+- **文档更新不再自动发版（2026-09-02）**：`ci.yml` 新增 `changes` job（解析 push 事件文件清单，无需 checkout/三方 action），`bump` job 增加 `needs.changes.outputs.non-doc == 'true'` 守卫——**纯文档变更**（仅 `docs/**`、根 `README.md`、`AGENTS.md`）跳过 bump 与 Release（版本不再为空文档更新递增），verify 照常执行；`.github/`、`package.json`、`packages/`、`scripts/` 等代码/工程变更仍自动发版。配套更新 `docs/ci-cd.md` §1.2/§1.3 与 `AGENTS.md` 自动发版说明。
+
 - **CI Actions 升级至 Node 24 运行时（2026-09-01）**：GitHub Actions 2026-09-23 将从 runner 移除 Node 20（2026-06-16 起强制默认 Node 24）——`actions/checkout@v4` → `@v7`、`actions/setup-node@v4` → `@v7`（工作流 node-version 20 → 24，移除 `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION` opt-out env）、`pnpm/action-setup@v4` → `@v5`（node24 稳定线；不用 @v6：v6 存在指定 `version` 装错 pnpm 版本的 bug，pnpm/action-setup#225）、`softprops/action-gh-release@v2` → `@v3`（release.yml）。全部为 node24 runtime，弃用告警消除；配套更新 `docs/ci-cd.md` §2.1 与 `docs/auto-release.md` 版本表。README 参数/CI 描述同步对齐 b10734 基线。
 
 - **依赖升级（2026-09-01）**：vue 3.5.39 → 3.5.42、turbo 2.10.3 → 2.10.12、resedit 3.0.2 → 3.1.0、sass 1.101.0 → 1.103.1、concurrently 9 → 10、cross-env 7 → 10、wait-on 8 → 9、electron 44.0.0 → 44.1.0、@vue/devtools-api 8.1.5 → 8.2.1；**TypeScript 5.9.3 → 6.0.3**（`^6.0.3`，最后一条官方 JS 线）。TS6 默认值翻转适配：`core/tsconfig.json` 显式 `types:["node"]`（TS6 起 `@types` 不再自动注入）、`ui/tsconfig.json` 移除 `baseUrl`（TS6 弃用，7.0 移除，paths 改相对解析）。**TypeScript 7.0（Go 原生）暂缓**：无稳定程序化 API（计划 7.1 提供），`vue-tsc` 最新 3.3.11 运行时崩溃（`./lib/tsc` 子路径不再导出；上游修复 vuejs/language-tools#6123 已合并但未发布）。解除条件：npm 发布含 #6123 的 `vue-tsc`，或 TypeScript 7.1 稳定 API 落地。
