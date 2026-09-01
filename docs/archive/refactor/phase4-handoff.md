@@ -146,7 +146,7 @@ minHeight: 680,   // 阶段四：原 600 → 680（对齐设计稿基准）
 - **浏览器预览容错**：`packages/ui/src/main.ts:12-25` 注入 `window.api` Proxy（IPC 返回 `Promise.resolve(null)`，事件订阅返回 noop），使所有页面能在无 Electron preload 时正常挂载。
 - **截图工具**：`chrome --headless=new --disable-gpu --no-sandbox --user-data-dir=<tmp> --window-size=W,H --screenshot=<out.png> --virtual-time-budget=4500`，3 个 viewport × 6 个页面 = 18 张。
 - **视觉核对**：`local-model` 子智能体（MiniMax-M3 视觉端点）逐张读取 PNG 并按结构化模板返回布局/元素/截断/状态评估。
-- **输出**：`docs/refactor/screenshots/t1_{size}_{page}.png` × 18。
+- **输出**：`docs/archive/refactor/screenshots/t1_{size}_{page}.png` × 18。
 
 ### 1. 测试范围
 
@@ -292,4 +292,4 @@ UI 重构 4 阶段全部完成。建议下一轮工作（非 UI 重构）：
 2. **DownloadCard 拆分**：按 URL 解析 / 搜索 / 文件选择 / 已选文件四块拆为四个子组件 + 状态机。
 3. **首次使用分步向导**：按设计稿 §6.1 实现 6 步首次使用流程。
 4. **图标字典补充**：补 `cpu`/`eye`/`sliders` 等 1024×680 紧凑窗口下需要的额外图标。
-5. **真实浏览器实测**：在 1024×680 / 1280×800 / 1440×900 三个断点下手动复验 `docs/refactor/phase4-handoff.md` 中"人工复验"一节的全部场景。
+5. **真实浏览器实测**：在 1024×680 / 1280×800 / 1440×900 三个断点下手动复验 `docs/archive/refactor/phase4-handoff.md` 中"人工复验"一节的全部场景。

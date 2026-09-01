@@ -1,12 +1,12 @@
 # Electron 主进程
 
 > 范围：Electron 主进程：入口、窗口管理、IPC 注册、Launcher 桥接、Preload。
-> 索引：[README.md](README.md) · 相关：[ipc-channels.md](ipc-channels.md) · [core-modules.md](core-modules.md)
+> 索引：[README.md](../README.md) · 相关：[ipc-channels.md](ipc-channels.md) · [core-modules.md](core-modules.md)
 
 ### 6.1 入口 (main/index.ts)
 
 - **单实例锁**：`requestSingleInstanceLock`，防止多开；二次启动时聚焦已有窗口。
-- **`whenReady`**：注册 IPC → 创建窗口 → 设置 `launcherBridge`。
+- **`whenReady`**：注入网络传输（`installHfTransport()` + `installDownloadTransport()`，Electron `net` 栈规避 BoringSSL TLS 指纹被 hf-mirror.com 拒绝，见 [core-modules.md](core-modules.md) §4.6）→ 注册 IPC → 创建窗口 → 设置 `launcherBridge`。
 - **`before-quit`**：`launcherBridge.disposeSync()`（同步强杀：`forceStop` + 进程树清扫）确保子进程停止，避免残留（退出路径不能 await 异步清理）。
 - **外部链接**：在系统浏览器打开（`http://` / `https://`）。
 
@@ -46,3 +46,29 @@ IPC 按功能域声明式注册：`ipc/` 目录下 settings/models/presets/serve
 - **`contextBridge.exposeInMainWorld('api', api)`**：向渲染进程暴露安全 API。
 - **IPC 常量生成化**：preload 无法 import shared，IPC 通道常量由 `scripts/generate-preload.cjs` 从 `shared/src/types/ipc.ts` 生成到同级 `ipc-constants.cjs`（`pnpm generate:ipc`），`index.cjs` require 该生成物；`verify-ipc-sync.cjs` 校验生成物未过期，并禁止把常量手工内联回 `index.cjs`。
 - **`clonePlain` 序列化**：所有参数经 clonePlain 序列化后再传递，确保跨上下文安全。
+
+### 6.6 退出行为 (app-exit.ts)
+
+关闭窗口 / 退出的统一入口，按设置 `close_behavior`（`ask`/`exit`/`tray`）分流：
+
+- **`handleWindowClose(win)`**：`tray` → `minimizeToTray(win)`（隐藏窗口、进程保活）；`exit` → `requestExit(win)`；`ask` → 弹应用内 CloseDialog（一问一答），可选「记住选择」写入设置，超时/取消失败兜底最小化到托盘。
+- **`requestExit(win)`**：模型服务运行中先弹二次确认（`exit-confirm`，超时默认取消不误停服务）；确认后 `app.quit()`，`before-quit` 阶段同步清理子进程。
+- **一问一答机制**：主进程 `close` 事件被拦截后经 `IPC.WINDOW_SHOW_CLOSE_DIALOG` 发请求（`CloseDialogRequest { id, mode }`），渲染进程展示弹窗并经 `WINDOW_CLOSE_DIALOG_RESULT` 回传（`handleCloseDialogResult` 转发）；窗口不可用/渲染无响应时 10 秒超时兜底，不回退原生 dialog。`quitting` 标志位防止退出请求被 close 拦截循环。
+
+### 6.7 窗口↔进程关联注册表 (process-registry.ts)
+
+`ProcessRegistry`（单例 `processRegistry`）维护 `windowId → 该窗口关联子进程集合` 映射，供窗口关闭/应用退出时精确清理本窗口的 llama-server 进程：
+
+- **`associate(win, proc, exeName)`**：建立关联（同一进程实例去重，避免重复 taskkill）。
+- **`cleanupWindow(win)`**：对关联进程执行**两阶段终止**（先 `terminate()` 优雅退出 SIGTERM / taskkill 不带 /F，超时未退出升级强杀）；进程 PID 定向终止无法确认死亡时才按 exe 名兜底扫杀（`sweepByName`，避免误杀用户自启的同名 llama-server）。幂等，清理后移除映射。
+- **`cleanupAll()`**：退出兜底，清理所有窗口关联进程。
+- 跨窗口可扩展：当前产品单窗口，注册表天然支持多窗口各管各的进程。每步清理经 `cleanupLogger` 记录（见 [core-modules.md](core-modules.md) §4.12）。
+
+### 6.8 系统托盘 (tray.ts)
+
+窗口隐藏后应用驻留托盘的保活实现（`close_behavior='tray'` 或退出询问选「最小化到托盘」时生效）：
+
+- **`createTray(win)`**：菜单两项（显示主窗口 / 退出——退出走 `requestExit`，服务运行中二次确认）；文案跟随设置语言。
+- **图标**：优先 32px PNG（Windows 托盘各 DPI 渲染可靠），失败逐级兜底 16px PNG / icon.ico；dev 与打包（`extraResources`）两套路径。
+- **右键菜单定位**：Windows 原生 `setContextMenu` 从鼠标位置向下展开（不会自动向上），改为 right-click 手动 `popUpContextMenu`——菜单底缘对齐图标上缘、右缘对齐图标右缘，按显示器工作区钳制，上方放不下时回退到图标下方；高度按模板逐项估算（项 33px / 分隔线 7px / 边框 4px）。
+- 单击托盘图标：显示并聚焦主窗口。

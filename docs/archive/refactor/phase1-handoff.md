@@ -9,7 +9,7 @@
 
 ## 已完成内容
 
-### 1. 审计报告与页面映射（`docs/refactor/phase1-audit.md`）
+### 1. 审计报告与页面映射（`docs/archive/refactor/phase1-audit.md`）
 - 当前 7 项一级导航 → 设计稿 6 项（概览/模型/服务/参数/日志/设置）的映射
 - 10 项业务功能与目标页面的对应关系（含 Web UI、日志中心缺口）
 - Store 与 IPC 调用链审计
@@ -92,7 +92,7 @@
 | `packages/ui/src/components/common/Toast.vue` | 新增通知条组件 |
 | `packages/shared/src/i18n/en.ts` | 新增 24 个通用状态/空状态 i18n 键 |
 | `packages/shared/src/i18n/zh.ts` | 新增 24 个中文 i18n 键 |
-| `docs/refactor/phase1-audit.md` | 审计报告与页面映射 |
+| `docs/archive/refactor/phase1-audit.md` | 审计报告与页面映射 |
 
 ---
 

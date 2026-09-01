@@ -32,6 +32,6 @@ packages/core/live_result.json
 apps/desktop/.pack-link-map.json
 
 # 重构过程的视觉回归截图（过程性产物，未被文档实际引用，不入库）
-docs/refactor/screenshots/
+docs/archive/refactor/screenshots/
 
 .tmp/

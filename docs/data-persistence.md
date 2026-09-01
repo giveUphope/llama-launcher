@@ -1,7 +1,7 @@
 # 类型定义与持久化
 
 > 范围：类型定义（shared/src/types）与持久化（settings / presets / trash 清理）。
-> 索引：[README.md](README.md) · 相关：[architecture.md](architecture.md)
+> 索引：[README.md](../README.md) · 相关：[architecture.md](architecture.md)
 
 ## 9. 类型定义
 

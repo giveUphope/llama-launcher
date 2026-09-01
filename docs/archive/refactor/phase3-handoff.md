@@ -17,7 +17,7 @@
 |------|------|
 | `packages/core/tests/command-builder-definitions.test.ts` | `nonDefaultValue` 的 dropdown 分支跳过空串选项 |
 
-### 2. 后端能力矩阵（`docs/refactor/phase3-capability-matrix.md`）
+### 2. 后端能力矩阵（`docs/archive/refactor/phase3-capability-matrix.md`）
 
 按提示词 §5.4 要求逐项核对：远程模型筛选维度、暂停/恢复/取消/校验、参数元数据、日志筛选/导出/历史加载等。明确"展示"与"隐藏"清单（无 API 字段不伪造）。
 
@@ -117,7 +117,7 @@
 | `packages/ui/src/components/settings/AppearancePanel.vue` | 新建 |
 | `packages/ui/src/components/settings/AdvancedPanel.vue` | 新建 |
 | `packages/ui/src/components/settings/AboutPanel.vue` | 新建 |
-| `docs/refactor/phase3-capability-matrix.md` | 新建（后端能力矩阵） |
+| `docs/archive/refactor/phase3-capability-matrix.md` | 新建（后端能力矩阵） |
 
 ---
 

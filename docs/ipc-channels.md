@@ -1,7 +1,7 @@
 # IPC 通道清单
 
 > 范围：IPC 通道完整清单（共 51 个），按类别分组。改 IPC 前必读。常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧常量由 `scripts/generate-preload.cjs` 生成（改完运行 `pnpm generate:ipc`），`scripts/verify-ipc-sync.cjs` 在 lint 阶段检查产物未过期。
-> 索引：[README.md](README.md) · 相关：[desktop-main.md](desktop-main.md)
+> 索引：[README.md](../README.md) · 相关：[desktop-main.md](desktop-main.md)
 
 共 51 个 IPC 通道，按类别分组如下：
 

@@ -1,7 +1,7 @@
 # 打包配置 (electron-builder.config.cjs)
 
 > 范围：electron-builder 打包配置：钩子机制、输出目录锁定回退、图标注入、常见故障、版本一致性检查清单。
-> 索引：[README.md](README.md) · 相关：[workflow.md](workflow.md) · [core-modules.md](core-modules.md)
+> 索引：[README.md](../README.md) · 相关：[workflow.md](workflow.md) · [core-modules.md](core-modules.md)
 
 - **appId**：`com.llama-launcher.app`
 - **productName**：`llama Launcher`
@@ -67,7 +67,7 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 
 ### 11.7 版本一致性（自动化）
 
-版本号同步由 [`scripts/bump-version.cjs`](../scripts/bump-version.cjs) 自动处理：`node scripts/bump-version.cjs [patch|minor|major]` 会同时更新 `package.json`（root + desktop）、`APP_VERSION`（`definitions.ts`）、`CHANGELOG.md` 版本节，以及 `docs/packaging.md` / `docs/README.md` / `AGENTS.md` 中提到的输出文件名与版本号。
+版本号同步由 [`scripts/bump-version.cjs`](../scripts/bump-version.cjs) 自动处理：`node scripts/bump-version.cjs [patch|minor|major]` 会同时更新 `package.json`（root + desktop）、`APP_VERSION`（`definitions.ts`）、`CHANGELOG.md` 版本节，以及 `docs/packaging.md` / `README.md`（仓库根唯一 README）/ `AGENTS.md` 中提到的输出文件名与版本号。
 
 每次 `push` 到 `main`（含 PR 合并事件）由 GitHub Actions `ci.yml` 的 `bump` job 自动执行 patch 递增 + 打 tag + 触发 `release.yml` 打包 `.exe` 并创建 GitHub Release（详见 [ci-cd.md](ci-cd.md) / [auto-release.md](auto-release.md)）。
 
