@@ -77,7 +77,7 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 - `docs/params/` 下的基线文件与参数对照表（二进制升级后按 §5.5 流程重走）
 - 本地手动 bump 时确认版本号符合 SemVer 语义
 
-**electron-builder 输出文件名注意**：electron-builder 会规范化版本号，剥离 SemVer trailing zeros（如 `0.0.9` → `0.0.5`）。Release tag 保持完整版本号（`v0.0.9`），`.exe` 文件名（`llama Launcher 0.0.5.exe`）与 tag 不严格对应，这是预期行为。
+**electron-builder 输出文件名注意**：electron-builder 会规范化版本号，剥离 SemVer trailing zeros（如 `0.0.10` → `0.0.5`）。Release tag 保持完整版本号（`v0.0.10`），`.exe` 文件名（`llama Launcher 0.0.5.exe`）与 tag 不严格对应，这是预期行为。
 
 ### 11.6 版本一致性检查清单
 
