@@ -1,7 +1,7 @@
 # 前端架构
 
 > 范围：前端架构：路由、Pinia stores、页面、通用组件；§7.5 为 UI 风格规范（唯一权威来源）。
-> 索引：[README.md](README.md) · 相关：[ipc-channels.md](ipc-channels.md) · [params-system.md](params-system.md) · [style/STYLE_TODO.md](style/STYLE_TODO.md)
+> 索引：[README.md](../README.md) · 相关：[ipc-channels.md](ipc-channels.md) · [params-system.md](params-system.md) · [style/STYLE_TODO.md](style/STYLE_TODO.md)
 
 ### 7.1 路由与功能注册表 (router/index.ts + features/)
 
@@ -45,7 +45,7 @@
 | `DashboardPage` | 概览：4 问布局（服务是否运行 / 当前加载什么模型 / API 地址 / 是否有需要处理的问题），`.q-section` 顶边实线分隔 |
 | `ModelsPage` | 3 子标签：本地模型（`LocalModelsPanel`）/ 模型库（`LibraryPanel`，DownloadCard library 模式）/ 下载任务（`DownloadsPanel`，DownloadCard tasks 模式） |
 | `ServicePage` | 运行状态与控制按钮（状态卡头 `BaselineBadge` 基线徽章，五行 InfoStrip boxed 值盒）、控制台、命令预览（`CommandPreviewCard`：**双文本框**——「内置参数命令」**只读**展示、随参数实时自动生成（改内置参数走参数设置页控件，无编辑/还原逻辑）；「扩展参数」为唯一可编辑区，绑定 `settings.custom_args` 持久化、原样追加到启动命令末尾；复制 = 内置+扩展合并）、参数摘要（`ParamSummaryCard`）、配置目录清理（`TrashCleanCard`）；前端 `effectiveStatus` 6 态兜底（stopped/starting/running/stopping/failed/crashed） |
-| `ParamsPage` | 3 子标签：参数预设（`PresetsPanel`）/ 自定义参数（13 个子分类分区，`param-grid` `repeat(auto-fit, minmax(340px, 1fr))` 响应式网格）/ 性能测试（`BenchPanel`，自服务页迁入，KeepAlive 缓存保留测试历史）；49 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；顶部 `BaselineBadge` 基线徽章 + 恢复基线/清除会话入口 |
+| `ParamsPage` | 3 子标签：参数预设（`PresetsPanel`）/ 自定义参数（13 个子分类分区，`param-grid` `repeat(auto-fit, minmax(340px, 1fr))` 响应式网格）/ 性能测试（`BenchPanel`，自服务页迁入，KeepAlive 缓存保留测试历史）；58 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；顶部 `BaselineBadge` 基线徽章 + 恢复基线/清除会话入口 |
 | `LogsPage` | 应用日志中心：级别筛选 chips、搜索、控制台渲染上限 3000 行、自动滚动 |
 | `SettingsPage` | 4 子标签：常规（`GeneralPanel`，引擎/模型目录内联检测）/ 外观（`AppearancePanel`）/ 高级（`AdvancedPanel`）/ 关于（`AboutPanel`）；原 llama.cpp 标签已并入常规；全部即时保存 |
 | `WebUiPage` | Web UI 路由占位；实际渲染由布局层 `WebUiFrame`（iframe 常驻文档，`v-show` 切换显隐，切页不重载）承担：服务运行时展示 llama-server Web UI，未运行时显示占位提示 |

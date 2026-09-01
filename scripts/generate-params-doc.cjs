@@ -86,7 +86,7 @@ for (const line of mergedLines) {
 // Build markdown
 let md = `# llama-server 启动参数对照文档
 
-> 来源：捆绑二进制 ".\\llama-b10502-bin-win-vulkan-x64\\llama-server.exe --help"
+> 来源：捆绑二进制 ".\\llama-b10734-bin-win-vulkan-x64\\llama-server.exe --help"
 > 用途：对照当前启动器已支持参数，识别可新增/调整项
 
 ## 当前启动器已支持参数

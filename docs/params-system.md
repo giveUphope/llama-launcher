@@ -1,14 +1,14 @@
 # 参数系统
 
 > 范围：参数系统：参数定义（definitions.ts）、双轨机制（临时会话/预设）、依赖联动与推测解码自动检测、参数控件组件。
-> 索引：[README.md](README.md) · 相关：[core-modules.md](core-modules.md)（命令构建）· [frontend.md](frontend.md)（参数页）
+> 索引：[README.md](../README.md) · 相关：[core-modules.md](core-modules.md)（命令构建）· [frontend.md](frontend.md)（参数页）
 
 ### 5.1 参数定义 (shared/params/definitions.ts)
 
 - **`PARAM_GROUPS`**：3 组 — `basic`（基础）/ `advanced`（高级）/ `server`（服务）。
-- **`PARAMS`**：共 49 个参数，分布如下：
-  - basic：20 个（13 核心 + 7 采样）
-  - advanced：19 个（含 5 个思考控制参数 + 6 个推测解码参数）
+- **`PARAMS`**：共 58 个参数，分布如下：
+  - basic：22 个（15 核心 + 7 采样）
+  - advanced：26 个（含 5 个思考控制 + 6 个推测解码 + 多模态/视频/KV 扩展）
   - server：10 个
 - 每个参数定义包含：`key, group, type, flag, default, subcategory, dependsOn, ggufField, invert_flag` 等字段。
 - **8 种控件类型**：`text` / `int_slider` / `int_entry` / `float_slider` / `dropdown` / `checkbox` / `file` / `dir`。
@@ -56,15 +56,17 @@
 
 1. **替换基线 help**：新二进制导出帮助 → 覆盖 `docs/params/llama-server-help-out.txt`
    ```
-   <新二进制目录>/llama-server.exe --help > docs/params/llama-server-help-out.txt
+   node -e "const{execFileSync}=require('child_process');const fs=require('fs');const out=execFileSync('.\\llama-bXXX-bin-win-vulkan-x64\\llama-server.exe',['--help'],{encoding:'utf8',maxBuffer:1024*1024*64});fs.writeFileSync('docs/params/llama-server-help-out.txt',out)"
    ```
-2. **更新版本标注**：`scripts/generate-params-doc.cjs` 中硬编码的来源版本串（如 `b10502`）改为新版本号（文档头"来源"行）。
+   ⚠ 勿用 PowerShell `>` 重定向：PS5.1/部分环境会写 **UTF-16**（含 BOM/空字节），
+   文档生成器按 UTF-8 读取会整段漏解析（b10734 升级踩坑，2026-09-01 改为 Node spawn 落盘）。
+2. **更新版本标注**：`scripts/generate-params-doc.cjs` 中硬编码的来源版本串（如 `b10734`）改为新版本号（文档头"来源"行）。
 3. **漂移审计**（flag 增删 / 默认值变化 / 应用参数缺失）：
    ```
    node scripts/verify-help-drift.cjs docs/params/llama-server-help-out.txt
    ```
    flag 级漂移时退出码非 0（CI 可拦截）；默认值变化只提示不失败，需人工决策是否跟随。
-4. **更新 `packages/shared/src/params/definitions.ts`**：按审计结果新增/移除参数、同步下拉 `options`（allowed values）、调整默认值（默认值变更需结合实测结论决策，例如 b10429 将 `--load-mode` 默认改为 `auto` 时，应用按 `docs/experiments/plan-kv-split-cli-test.md` 实测结论保留 `none`）。
+4. **更新 `packages/shared/src/params/definitions.ts`**：按审计结果新增/移除参数、同步下拉 `options`（allowed values）、调整默认值（默认值变更需结合实测结论决策，例如 b10429 将 `--load-mode` 默认改为 `auto` 时，应用按 `docs/archive/experiments/plan-kv-split-cli-test.md` 实测结论保留 `none`）。
 5. **重建 shared**：`pnpm --filter @llama-launcher/shared build`（core 测试依赖 `dist`，不重建会测试不一致）。
 6. **重新生成参数文档**：`node scripts/generate-params-doc.cjs`。
 7. **校验一致**：`node scripts/verify-params-sync.cjs`（应输出 `✅ 完全一致`）。
