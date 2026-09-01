@@ -102,9 +102,15 @@ export const PARAMS: ParamDef[] = [
   },
   { key: 'video_ffmpeg_dir', group: 'advanced', type: 'text', flag: '--video-ffmpeg-dir', default: '', subcategory: 'multimodal' },
   // 子分组 template：对话模板
+  // --jinja 必须位于 --chat-template 之前发射（llama.cpp 约定：除非先前已用 --jinja，
+  // 否则 --chat-template 只接受内置模板名）；定义顺序即命令行发射顺序（见 core buildCommand）。
+  { key: 'jinja', group: 'advanced', type: 'checkbox', flag: '--jinja', default: true, invert_flag: '--no-jinja', subcategory: 'template', ggufField: 'chat_template' },
   {
     key: 'chat_template', group: 'advanced', type: 'dropdown', flag: '--chat-template', default: 'none', editable: true,
     subcategory: 'template', ggufField: 'chat_template',
+    // 内置选项全部为 llama-server b10734 内置模板名（--chat-template help 列表子集）；
+    // 默认 'none'（值=默认不发射 → 后端用模型元数据模板）；editable 允许输入任意 jinja 模板文本/名
+    // （--jinja 在前置保证下后端接受自定义模板）
     options: [
       'none',
       '', 'chatml', 'llama2', 'llama2-sys', 'llama3',
@@ -114,7 +120,6 @@ export const PARAMS: ParamDef[] = [
       'gpt-oss', 'grok-2', 'hunyuan-moe', 'kimi-k2',
     ],
   },
-  { key: 'jinja', group: 'advanced', type: 'checkbox', flag: '--jinja', default: true, invert_flag: '--no-jinja', subcategory: 'template', ggufField: 'chat_template' },
   // 子分组 speculative：推测解码
   {
     key: 'spec_type', group: 'advanced', type: 'dropdown', flag: '--spec-type', default: '',

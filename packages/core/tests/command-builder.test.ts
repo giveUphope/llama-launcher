@@ -188,6 +188,19 @@ describe('buildCommand - default-skip semantics', () => {
     });
     expect(cmd).toEqual([EXE_PATH, '--port', '9090', '-c', '4096']);
   });
+
+  it('emits --jinja before --chat-template (llama.cpp 接受自定义模板的前提）', () => {
+    // llama.cpp 约定：--chat-template 仅在先前已设置 --jinja 时接受自定义模板
+    // （见 help："only commonly used templates are accepted (unless --jinja is set before this flag)"）。
+    // 定义顺序即发射顺序（jinja ∈ PARAMS 且位于 chat_template 之前）——回归守卫。
+    const cmd = buildCommand({
+      exePath: EXE_PATH,
+      modelPath: '',
+      values: { chat_template: 'qwen2.5-custom', jinja: true },
+    });
+    expect(cmd).toEqual([EXE_PATH, '--jinja', '--chat-template', 'qwen2.5-custom']);
+    expect(cmd.indexOf('--jinja')).toBeLessThan(cmd.indexOf('--chat-template'));
+  });
 });
 
 describe('quoteArg', () => {
