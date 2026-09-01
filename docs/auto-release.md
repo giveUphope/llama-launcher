@@ -21,14 +21,14 @@ release.yml 由 ci.yml 的 bump job 通过 `gh workflow run release.yml -f versi
 
 | # | 步骤 | 说明 |
 |---|------|------|
-| 1 | actions/checkout@v4 (ref: vX) | 检出对应版本的 tag |
-| 2 | pnpm/action-setup@v4 + actions/setup-node@v4 | 环境准备（Node 20, pnpm 10.12.1） |
+| 1 | actions/checkout@v7 (ref: vX) | 检出对应版本的 tag |
+| 2 | pnpm/action-setup@v5 + actions/setup-node@v7 | 环境准备（Node 24, pnpm 10.12.1） |
 | 3 | pnpm install --frozen-lockfile | 安装依赖 |
 | 4 | pnpm build | 构建所有包 |
 | 5 | pnpm dist | electron-builder portable 打包，输出到 release/ |
 | 6 | Get-ChildItem -Recurse release/ | 诊断步骤，打印产物列表 |
 | 7 | 读取 package.json 中的版本 | `V=$(node -p "...")` |
-| 8 | softprops/action-gh-release@v2 | 创建 GitHub Release + 上传 .exe |
+| 8 | softprops/action-gh-release@v3 | 创建 GitHub Release + 上传 .exe |
 
 > Windows runner 上 turbo daemon 与 vite 8（rolldown）的 stdout 管道存在挂死竞态（构建产物已生成但进程不退出），`pnpm build` / `pnpm dist` 均设置 `TURBO_DAEMON: "false"` 并加 20 分钟超时兜底，挂死时快速失败而非空耗。
 
@@ -51,7 +51,7 @@ Release tag 保持完整版本号（如 v0.0.05），与 .exe 文件名不严格
 
 ## 4. Release 资产上传
 
-softprops/action-gh-release@v2 的 files 字段使用通配符 `release/*.exe`，而非精确路径 `release/llama Launcher X.Y.Z.exe`。
+softprops/action-gh-release@v3 的 files 字段使用通配符 `release/*.exe`，而非精确路径 `release/llama Launcher X.Y.Z.exe`。
 
 原因：
 1. .exe 文件名中的空格会导致 glob 匹配失败
@@ -60,7 +60,7 @@ softprops/action-gh-release@v2 的 files 字段使用通配符 `release/*.exe`�
 **正确配置**：
 
 ```yaml
-- uses: softprops/action-gh-release@v2
+- uses: softprops/action-gh-release@v3
   with:
     tag_name: v${{ steps.ver.outputs.v }}
     generate_release_notes: true

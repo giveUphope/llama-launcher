@@ -14,19 +14,17 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           version: 10.12.1
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-        env:
-          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm lint
@@ -39,20 +37,18 @@ jobs:
       contents: write
       actions: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: true
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
           version: 10.12.1
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-        env:
-          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
       - run: pnpm install --frozen-lockfile
       - run: node scripts/bump-version.cjs patch
       - run: |

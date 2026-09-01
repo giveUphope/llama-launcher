@@ -12,19 +12,17 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: v${{ inputs.version }}
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
           version: 10.12.1
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-        env:
-          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
       - run: pnpm install --frozen-lockfile
       # Windows runner 上 turbo daemon 与 vite 8(rolldown) 的 stdout 管道存在挂死竞态
       # （构建产物已生成但进程不退出）——禁用 daemon + 超时保险，挂死快速失败而非空耗 6h
@@ -43,7 +41,7 @@ jobs:
         run: |
           V=$(node -p "require('./package.json').version")
           echo "v=$V" >> "$GITHUB_OUTPUT"
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           name: v${{ steps.ver.outputs.v }}
           tag_name: v${{ steps.ver.outputs.v }}

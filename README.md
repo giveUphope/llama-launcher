@@ -13,10 +13,10 @@
 
 ### 入门与使用
 
-| 文档                                                                    | 内容                                  |
-| --------------------------------------------------------------------- | ----------------------------------- |
-| [README.md](README.md)（本文件）                                           | 功能总览、文档地图、快速开始、使用指南                 |
-| [params/LLAMA_SERVER_PARAMS.md](docs/params/LLAMA_SERVER_PARAMS.md) | 58 个参数与 llama-server `--help` 完整对照表 |
+| 文档                                                                    | 内容                                         |
+| --------------------------------------------------------------------- | ------------------------------------------ |
+| [README.md](README.md)（本文件）                                           | 功能总览、文档地图、快速开始、使用指南                        |
+| [params/LLAMA\_SERVER\_PARAMS.md](docs/params/LLAMA_SERVER_PARAMS.md) | 58 个参数与 llama-server b10734 `--help` 完整对照表 |
 
 ### 架构与核心
 
@@ -90,6 +90,8 @@
 
 - 内置 **58 个** **`llama-server`** **参数**，分 3 组管理（基础 / 高级 / 服务）
 
+- **参数基线对齐 llama.cpp b10734**：参数定义与 `--help` 输出经 `scripts/verify-params-sync.cjs` / `verify-help-drift.cjs` 双向审计（基线帮助固定于 `docs/params/llama-server-help-out.txt`，二进制升级走 re-pin 流程）；覆盖 b10734 新能力——惰性张量读取（`--lazy-mode`）、CPU FFN 层数（`-ncffn`）、每槽位统一 KV 上限（`--kv-unified-per-slot`）、投影器设备（`-mmdev`）、视频多模态（`--video-fps` 等）与投机合成基准（`--spec-synth-*`）
+
 - 参数与 llama-server 的完整对照见 [params/LLAMA\_SERVER\_PARAMS.md](docs/params/LLAMA_SERVER_PARAMS.md)
 
 - 参数控件类型丰富：滑块、数字输入、下拉框、开关、文件选择、目录选择
@@ -126,7 +128,7 @@
 
 - **智能建议参数**：从模型元数据自动推导建议参数（上下文长度、采样、KV 缓存量化、Flash Attention、推测解码类型、别名等 12 条规则），一键应用
 
-- **多模态投影器自动检测**：模型路径变化时自动检测同目录下的 mmproj 文件并填入
+- **多模态投影器自动检测**：模型路径变化时自动检测同目录下的 mmproj 文件并填入；另支持视频多模态参数（`--video-fps` / `--video-timestamp-interval` / `--video-ffmpeg-dir`，b10734+）与投影器设备（`-mmdev`，自动/按 `--list-devices` 动态设备名）
 
 - 实时监听模型目录变化，文件增删时自动刷新
 
@@ -162,7 +164,7 @@
 
 - 自动跟随「自定义参数」子标签中值 ≠ 默认值的参数（控件与参数配置页完全一致，值实时同步）
 
-- **智能启动检测**：服务未运行自动启动、运行中参数一致则复用不重启、不一致则自动重启
+- **智能启动检测**：服务未运行自动启动、运行中参数一致则复用不重启、不一致则自动重启；一次性「运行测试」始终执行单并发，多并发仅在服务器并行槽位 `-np ≥ 2` 时执行（并发数 = min(np, 8)）
 
 - **测试历史表格**：每次运行自动追加记录，调整参数前后并排对比（内存态，关闭应用清空）
 
@@ -295,11 +297,13 @@ pnpm dist
 pnpm test
 ```
 
-### 类型检查 + IPC / 文档同步校验
+### 类型检查 + 同步校验
 
 ```bash
 pnpm lint
 ```
+
+运行各包类型检查（`tsc --noEmit`），并校验 IPC 预生成常量未过期（`verify-ipc-sync.cjs`）与文档链接/锚点完整（`check-docs-links.cjs`）。
 
 ***
 

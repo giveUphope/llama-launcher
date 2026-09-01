@@ -20,9 +20,9 @@
 
 - **Runner**：ubuntu-latest
 - **步骤**：
-  1. `actions/checkout@v4`
-  2. `pnpm/action-setup@v4`（version: 10.12.1）— **必须在 `setup-node` 之前**（否则 `cache: pnpm` 时找不到 pnpm）
-  3. `actions/setup-node@v4`（node-version: 20, cache: pnpm）
+  1. `actions/checkout@v7`
+  2. `pnpm/action-setup@v5`（version: 10.12.1）— **必须在 `setup-node` 之前**（否则 `cache: pnpm` 时找不到 pnpm）
+  3. `actions/setup-node@v7`（node-version: 24, cache: pnpm）
   4. `pnpm install --frozen-lockfile`
   5. `pnpm build` — **必须先于 `pnpm lint``**（tsc project references 依赖 shared/dist / core/dist）
   6. `pnpm lint`（turbo run lint + verify-ipc-sync.cjs + check-docs-links.cjs）
@@ -37,8 +37,8 @@ pull_request 和 push 事件都走 verify。
   - 只处理 push 到 main 的事件，PR 合并后的触发自动命中
   - `github.actor != 'github-actions[bot]'` **防止无限循环**：bot 自己推入的版本 bump 提交不再触发第二次 bump
 - **步骤**：
-  1. `actions/checkout@v4`（fetch-depth: 0, persist-credentials: true）
-  2. `pnpm/action-setup@v4` + `actions/setup-node@v4` + `pnpm install --frozen-lockfile`
+  1. `actions/checkout@v7`（fetch-depth: 0, persist-credentials: true）
+  2. `pnpm/action-setup@v5` + `actions/setup-node@v7` + `pnpm install --frozen-lockfile`
   3. `node scripts/bump-version.cjs patch` — patch 递增
   4. 配置 git user.name / git user.email 为 github-actions[bot]
   5. 读取新版本：`V=$(node -p "require('./package.json').version")`
@@ -51,14 +51,18 @@ pull_request 和 push 事件都走 verify。
 
 ## 2. 关键配置要点
 
-### 2.1 Node 20 deprecation
+### 2.1 Actions Node 24 运行时
 
-GitHub Actions runner 默认 Node 24，但项目要求 Node 20。必须在 `setup-node` 的 env 中添加：
+GitHub Actions 于 2026-06-16 起默认以 Node 24 运行 JS actions，2026-09-23 从 runner 移除 Node 20。所有 actions 已升级到 node24 runtime 版本以消除弃用告警：
 
-```yaml
-env:
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
-```
+| Action | 之前的版本 | 当前版本 |
+|--------|-----------|---------|
+| `actions/checkout` | @v4（node20） | @v7（node24） |
+| `actions/setup-node` | @v4（node20） | @v7（node24），工作流 node-version 20 → 24 |
+| `pnpm/action-setup` | @v4（node20） | @v5（node24）— 不用 @v6：v6 存在指定 `version` 装错版本的问题（pnpm/action-setup#225） |
+| `softprops/action-gh-release` | @v2（node20） | @v3（node24） |
+
+原 `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION` opt-out env 已移除（该 env 是为 Node 20 时代临时续命用的，Node 24 下不再需要）。
 
 ### 2.2 pnpm/action-setup 必须位于 setup-node 之前
 
