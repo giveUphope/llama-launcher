@@ -9,6 +9,8 @@ import type {
   CloseDialogRequest, CloseDialogResult,
   BenchRequest, BenchResult, BenchRunResult,
   AppLogEntry,
+  VramEstimateResult, ModelFitResult, OccupancyConfig,
+  LlamaBenchJobState,
 } from '@llama-launcher/shared';
 
 export interface IpcResult<T = void> {
@@ -78,6 +80,10 @@ export interface ElectronAPI {
     cleanTrash: (items: TrashItem[]) => Promise<CleanResult>;
     listDir: (path: string) => Promise<FsDirResult>;
     mkdir: (path: string) => Promise<boolean>;
+    estimateVram: (modelPath: string, dtype?: string, target?: string, occ?: Partial<OccupancyConfig>) => Promise<VramEstimateResult>;
+    benchLlamaRun: (modelPath: string) => Promise<IpcResponse<LlamaBenchJobState>>;
+    benchLlamaStatus: (modelPath: string) => Promise<LlamaBenchJobState | null>;
+    estimateModelFit: (paths: string[], dtype?: string) => Promise<Record<string, ModelFitResult>>;
   };
   download: {
     parseUrl: (url: string) => Promise<IpcResponse<ParsedModelUrl | null>>;

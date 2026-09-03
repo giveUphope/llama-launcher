@@ -6,11 +6,11 @@ Desktop launcher for llama.cpp `llama-server`. Electron 44 + Vue 3 + Vite 8 + Pi
 
 - `apps/desktop/` — Electron app: `src/main/` (main process: IPC handlers, window, launcher bridge, bench-client), `src/preload/index.cjs` (CommonJS preload, `contextBridge`；IPC 常量由 `scripts/generate-preload.cjs` 生成到同级 `ipc-constants.cjs`，勿手工内联), `electron-builder.config.cjs`.
 
-- `packages/shared/` — **single source of truth** for types, the 58-param table (`src/params/definitions.ts`), and i18n (zh/en). All other packages depend on it.
+- `packages/shared/` — **single source of truth** for types, the 59-param table (`src/params/definitions.ts`), and i18n (zh/en). All other packages depend on it.
 
 - `packages/core/` — business logic: process spawn, command building, GGUF streaming read, model scan, download manager, ModelScope client, HuggingFace mirror client (hf-mirror.com, injectable Electron `net` transport).
 
-- `packages/ui/` — Vue 3 + Vite frontend (router, Pinia stores, 7 pages with 6-item sidebar nav: Dashboard/Models/Service/Params/Logs/Settings + embedded Web UI; old routes `/download` `/launch` redirect, param controls).
+- `packages/ui/` — Vue 3 + Vite frontend (router, Pinia stores, 7 pages with 7-item sidebar nav: Dashboard/Models/Service/Params/Logs/Built-in Web UI/Settings; old routes `/download` `/launch` redirect, param controls).
 
 - `scripts/` — build helpers: `verify-ipc-sync.cjs` (IPC 常量同步检查：生成物 `ipc-constants.cjs` 未过期 + 防止 `index.cjs` 回退为内联常量), `generate-preload.cjs` (从 `shared/src/types/ipc.ts` 生成 preload IPC 常量，`pnpm generate:ipc`), `verify-params-sync.cjs` (flags in `definitions.ts` vs `docs/params/LLAMA_SERVER_PARAMS.md` vs `docs/params/llama-server-help-out.txt`), `verify-help-drift.cjs` (二进制升级后的参数漂移审计：新 help vs 固定基线 flag 增删 / 默认值变化 / 应用参数缺失，re-pin 流程见 `docs/params-system.md` §5.5), `generate-params-doc.cjs` (regenerates `docs/params/LLAMA_SERVER_PARAMS.md` from help output), `check-docs-links.cjs` (docs/ + AGENTS.md/README.md 相对链接与锚点完整性检查，已接入 `pnpm lint`，可单独 `pnpm docs:check`), `style-audit.cjs` (UI 风格审计，`pnpm style:audit`), `dev-watch.cjs` (dev 模式 Electron 增量重启：监视 main dist / preload 源 / shared 类型), `copy-preload.cjs`, `copy-ui.cjs`, `before-pack.cjs`, `after-pack.cjs`, `clean-before-pack.cjs`, `dist-with-fallback.cjs`, `inject-icon.cjs`, `icon-gen/` (图标生成，desktop `pnpm gen:icon`), `bump-version.cjs` (版本号自动递增), `verify-server-start.mjs` (manual smoke test of `Launcher`; needs `core/dist` built first), `verify-bench-client.mjs` (manual smoke test of performance-test metrics/timings parsing; needs a real model).
 
@@ -32,7 +32,7 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 | Package distribution build     | `pnpm dist` (build + `dist-with-fallback.cjs`)                                                                                           |
 | Per-package typecheck          | `pnpm --filter @llama-launcher/core lint` etc.                                                                                           |
 
-`lint` will fail if the 51 IPC channel constants in `packages/shared/src/types/ipc.ts` drift from the generated preload copy `apps/desktop/src/preload/ipc-constants.cjs` (regenerate via `pnpm generate:ipc`), or if any docs link/anchor breaks — always re-run it after touching IPC or docs.
+`lint` will fail if the 57 IPC channel constants in `packages/shared/src/types/ipc.ts` drift from the generated preload copy `apps/desktop/src/preload/ipc-constants.cjs` (regenerate via `pnpm generate:ipc`), or if any docs link/anchor breaks — always re-run it after touching IPC or docs.
 
 ## Architecture / editing rules
 
@@ -42,7 +42,7 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 - **Preload must stay CommonJS** (`index.cjs`) — Electron sandbox cannot use ESM there. All IPC payloads are passed through `clonePlain` serialization (no class instances / functions across the bridge).
 
-- **Dual-track param logic (no** **`_enabled`).** `PresetValues` is a plain value map; the old `_enabled` JSON string was removed — `buildCommand` emits a flag when the value differs from its default (checkboxes always emit `flag`/`invert_flag`), and `model` is always passed (`-m`). The two tracks are: **临时轨道 (session)** — every edit auto-persists (800ms throttle) to `settings.session_values` + `session_baseline` in `~/.llama_launcher/settings.json`, restored on launch; **预设轨道 (presets)** — `<models_dir>/presets/*.json`, written only on explicit save. `hasChanges` is computed against the session baseline (`SessionBaseline { preset_name, values }`); switching models or applying a GGUF-suggested preset with unsaved changes triggers `confirmDiscardDirty()`; baseline state is surfaced by `BaselineBadge` on the Params page and the Service page status card.
+- **Dual-track param logic (no** **`_enabled`).** `PresetValues` is a plain value map; the old `_enabled` JSON string was removed — `buildCommand` emits a flag when the value differs from its default (checkboxes always emit `flag`/`invert_flag`), and `model` is always passed (`-m`). The two tracks are: **临时轨道 (session)** — every edit auto-persists (800ms throttle) to `settings.session_values` + `session_baseline` in `~/.llama_launcher/settings.json`, restored on launch; **预设轨道 (presets)** — `<models_dir>/presets/*.json`, written only on explicit save. `hasChanges` is computed against the session baseline (`SessionBaseline { preset_name, values }`); switching models or applying a GGUF-suggested preset with unsaved changes triggers `confirmDiscardDirty()`; baseline state is surfaced by `BaselineBadge` on the Params page and the Overview service status card (`ServiceStatusCard`).
 
 - **Command building** lives in `packages/core/src/command-builder.ts` (`buildCommand`). `float_slider` keeps 2 decimals; `checkbox` always emits `flag`/`invert_flag`; `draft-model` is normalized to `draft-simple`.
 

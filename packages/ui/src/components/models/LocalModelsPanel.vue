@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch, onMounted, onUnmounted } from 'vue';
-import type { ModelInfo } from '@llama-launcher/shared';
+import type { ModelInfo, ModelFitResult, LlamaBenchJobState } from '@llama-launcher/shared';
 import { MODEL_KEY, formatRelativeTime } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
 import PageFrame from '@/components/common/PageFrame.vue';
@@ -235,6 +235,122 @@ function selectRow(idx: number) {
     })();
   }
 }
+
+// ---- 显存适配徽章：批量估算每个模型文件的显存适配判定（fit/partial/no）+ 上下文上限 ----
+const fitMap = ref<Record<string, ModelFitResult>>({});
+
+watch(() => models.value.map((m) => m.path).join('|'), (joined) => {
+  if (!joined) return;
+  void refreshFit(joined.split('|'));
+});
+
+async function refreshFit(paths: string[]) {
+  try {
+    const res = await window.api.system.estimateModelFit(paths);
+    if (res && typeof res === 'object') fitMap.value = res;
+  } catch {
+    // 浏览器预览/主进程异常：无徽章（静默降级）
+  }
+}
+
+function fitOf(m: ModelInfo): ModelFitResult | undefined {
+  return fitMap.value[m.path];
+}
+
+function fitBadge(m: ModelInfo): string | null {
+  const v = fitOf(m)?.verdict;
+  if (v === 'fit') return `✓ ${i18n.t('fit_full')}`;
+  if (v === 'partial') return `△ ${i18n.t('fit_partial')}`;
+  if (v === 'no') return `✗ ${i18n.t('fit_no')}`;
+  return null;
+}
+
+function fitTitle(m: ModelInfo): string {
+  const f = fitOf(m);
+  if (!f) return '';
+  if (f.verdict === 'no') return i18n.t('msg_fit_no_tip');
+  if (f.verdict === 'partial') {
+    return i18n.t('msg_fit_partial_tip').replace('{0}', f.maxContext ? f.maxContext.toLocaleString() : '—');
+  }
+  if (f.verdict === 'fit' && f.maxContext !== null) {
+    return i18n.t('msg_fit_full_tip').replace('{0}', f.maxContext.toLocaleString()).replace('{1}', f.dtype);
+  }
+  return '';
+}
+
+// ---- llama-bench 离线体检：单模型单作业，run 启动 + 2.5s 轮询状态，结果徽章展示 ----
+const benchJobs = ref<Record<string, LlamaBenchJobState>>({});
+const polling = new Set<string>();
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+function startPolling(path: string) {
+  polling.add(path);
+  if (!pollTimer) pollTimer = setInterval(pollBench, 2500);
+}
+
+async function pollBench() {
+  for (const p of [...polling]) {
+    try {
+      const st = await window.api.system.benchLlamaStatus(p);
+      if (st) benchJobs.value = { ...benchJobs.value, [p]: st };
+      if (st && st.state !== 'running') polling.delete(p);
+    } catch {
+      polling.delete(p);
+    }
+  }
+  if (polling.size === 0 && pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+async function onBench(m: ModelInfo) {
+  const ok = await confirm({
+    title: i18n.t('bench_llama_title'),
+    message: i18n.t('bench_llama_confirm'),
+    variant: 'info',
+  });
+  if (!ok) return;
+  try {
+    const res = await window.api.system.benchLlamaRun(m.path);
+    if (res.ok) {
+      benchJobs.value = { ...benchJobs.value, [m.path]: res.data };
+      if (res.data.state === 'running') startPolling(m.path);
+    } else {
+      server.pushOutput({ kind: 'error', data: `[Bench] ${res.error}\n`, ts: Date.now() });
+    }
+  } catch (e: any) {
+    server.pushOutput({ kind: 'error', data: `[Bench] ${e?.message ?? String(e)}\n`, ts: Date.now() });
+  }
+}
+
+function benchBadge(m: ModelInfo): string | null {
+  const job = benchJobs.value[m.path];
+  if (!job) return null;
+  if (job.state === 'running') return i18n.t('bench_llama_running');
+  if (job.state === 'error') return i18n.t('bench_llama_failed');
+  const s = job.summary;
+  if (!s) return null;
+  const pp = s.ppTokS !== null ? Math.round(s.ppTokS).toLocaleString() : '—';
+  const tg = s.tgTokS !== null ? Math.round(s.tgTokS).toLocaleString() : '—';
+  return `pp ${pp} · tg ${tg}`;
+}
+
+function benchTitle(m: ModelInfo): string {
+  const job = benchJobs.value[m.path];
+  if (!job) return '';
+  if (job.state === 'error') return job.error ?? '';
+  const s = job.summary;
+  if (!s) return '';
+  return `${s.modelType ?? ''} · ${s.backend ?? ''} · ${new Date(s.testedAt).toLocaleString()}`;
+}
+
+onUnmounted(() => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+});
 </script>
 
 <template>
@@ -305,6 +421,16 @@ function selectRow(idx: number) {
                   <div v-if="m.tags && m.tags.length" class="model-tags">
                     <span v-for="t in m.tags" :key="t" class="model-tag" :class="tagCls(t)">{{ t }}</span>
                   </div>
+                  <!-- 显存适配徽章 + 体检结果（估算失败/未体检时不出徽章） -->
+                  <div v-if="fitOf(m)?.verdict || benchBadge(m)" class="model-tags">
+                    <span
+                      v-if="fitOf(m)?.verdict"
+                      class="model-tag"
+                      :class="`fit-${fitOf(m)!.verdict}`"
+                      :title="fitTitle(m)"
+                    >{{ fitBadge(m) }}</span>
+                    <span v-if="benchBadge(m)" class="model-tag bench-chip" :title="benchTitle(m)">{{ benchBadge(m) }}</span>
+                  </div>
                 </td>
                 <td class="col-size">{{ m.size_str }}</td>
                 <td class="col-modified">{{ formatRelativeTime(m.modified, settings.language) }}</td>
@@ -312,6 +438,14 @@ function selectRow(idx: number) {
                 <td class="col-actions">
                   <button class="row-btn" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(m)">
                     <Icon name="folder_open" :size="13" />
+                  </button>
+                  <button
+                    class="row-btn"
+                    :title="i18n.t('bench_llama_title')"
+                    :disabled="benchJobs[m.path]?.state === 'running'"
+                    @click.stop="onBench(m)"
+                  >
+                    <Icon name="clock" :size="13" />
                   </button>
                   <button class="row-btn danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(m)">
                     <Icon name="trash" :size="13" />
@@ -573,6 +707,28 @@ function selectRow(idx: number) {
   &.draft {
     color: var(--warn);
     background: color-mix(in srgb, var(--warn) 14%, transparent);
+  }
+
+  // 显存适配徽章（估算结果）：成功绿 / 需部分卸载橙 / 建议降档红
+  &.fit-fit {
+    color: var(--success);
+    background: color-mix(in srgb, var(--success) 14%, transparent);
+  }
+
+  &.fit-partial {
+    color: var(--warn);
+    background: color-mix(in srgb, var(--warn) 14%, transparent);
+  }
+
+  &.fit-no {
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
+  }
+
+  // llama-bench 体检结果徽章：中性灰底 + mono 数值
+  &.bench-chip {
+    color: var(--fg-secondary);
+    background: var(--bg-hover);
   }
 }
 

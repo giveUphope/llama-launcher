@@ -12,6 +12,8 @@ import type {
 
 const ENGINE_DIR = 'D:/Models/llama-bins';
 const MODELS_DIR = 'D:/Models';
+/** 体检演示作业的轮询计数（path → 已轮询次数，≥2 转 done） */
+const mockBenchCalls: Record<string, number> = {};
 
 // ---- 简化命令构建（规则与 core/command-builder 对齐，仅用于浏览器预览环境）----
 // 「还原命令」依赖 previewCommand 按当前参数重新生成：此前的硬编码命令与参数无关，
@@ -107,11 +109,17 @@ const DEMO_GGUF: GgufReadResult = {
     full_attention_interval: null,
     nextn_predict_layers: null,
     chat_template: 'qwen3',
+    rope_freq_base: 1000000,
   } as never,
+  // 与 core buildSuggestions 输出同构：附件守卫后仅主模型生成；ctx_size 为训练上限信息
+  // 不再进入建议（-c 默认 0 = 从模型加载）；采样建议来自 general.sampling.*（作者推荐值）
   suggestions: [
-    { key: 'ctx_size', value: 32768, source: 'qwen3.context_length', description: '模型原生最大上下文' },
-    { key: 'n_gpu_layers', value: 99, source: 'auto', description: '岁 GPU 显存充足，全部层卸载到 GPU' },
-    { key: 'chat_template', value: 'qwen3', source: 'general.chat_template', description: '模型内置模板' },
+    { key: 'temperature', value: 1, source: 'general.sampling.temp', description: '模型推荐的采样温度' },
+    { key: 'top_k', value: 20, source: 'general.sampling.top_k', description: '模型推荐的 top-k 采样值' },
+    { key: 'alias', value: 'Qwen3-32B-A3B-Q4_K_M', source: 'general.name+file_type+filename', description: '使用"模型名称-量化版本"作为服务器别名: Qwen3-32B-A3B-Q4_K_M' },
+    { key: 'cache_type_k', value: 'q8_0', source: 'general.file_type', description: '模型已量化为 Q4_K_M，建议 KV cache K 使用 q8_0 节省显存' },
+    { key: 'cache_type_v', value: 'q8_0', source: 'general.file_type', description: '模型已量化为 Q4_K_M，建议 KV cache V 使用 q8_0 节省显存' },
+    { key: 'flash_attn', value: 'on', source: 'qwen3.context_length', description: '上下文长度较大，建议启用 Flash Attention 以减少显存占用' },
   ] as never,
 };
 
@@ -336,6 +344,78 @@ export function createDemoApi() {
       cleanTrash: () => Promise.resolve({ cleanedCount: 0, freedBytes: 0 } as never),
       listDir: () => Promise.resolve({ path: null, parent: null, entries: [], exists: true }),
       mkdir: () => Promise.resolve(true),
+      // 显存估算演示数据：7900 XTX 空闲 23.2GB，权重 19.5GB；演示会话 ctx 32768（f16 KV ≈ 8 GiB）
+      // → 显存总占用 28.5 GiB 超出空闲 → fits false（演示超限警示场景）；
+      // occupancy 与 core estimateOccupancy 输出同构；目标建议与 core solveMaxContext 规则同构
+      //（无固定封顶：ctx = 各目标 dtype 下显存(+内存联合)预算内的无 OOM 最大值）
+      estimateVram: (_modelPath: string, dtype?: string, target?: string, _occ?: { ngl?: string; ctxSize?: number }) => {
+        const t = target ?? 'balanced';
+        const kv: Record<string, string> = { 'max-context': 'q8_0', balanced: 'q8_0', latency: 'f16', memory: 'q4_0' };
+        // max-context：联合显存+内存预算（部分卸载 ngl 59/64 换上下文）推到训练上限；其余全卸载预算
+        const ctx: Record<string, number> = { 'max-context': 32768, balanced: 20480, latency: 10240, memory: 32768 };
+        const kvD = kv[t] ?? 'q8_0';
+        const recs = [
+          { key: 'flash_attn', value: 'on', reason: `目标「${t}」：提升 prefill 并为 KV 量化前置` },
+          { key: 'cache_type_k', value: kvD, reason: `目标「${t}」KV 缓存档位` },
+          { key: 'cache_type_v', value: kvD, reason: `目标「${t}」KV 缓存档位` },
+          { key: 'ctx_size', value: ctx[t] ?? 20480, reason: `目标「${t}」：按显存+内存预算推算的无 OOM 上限` },
+        ];
+        if (t === 'max-context') {
+          recs.push({ key: 'gpu_layers', value: 59, reason: '联合预算下建议卸载 59/64 层（其余权重与 KV 留在内存）' });
+        }
+        return Promise.resolve({
+          devices: [{ id: 'Vulkan0', name: 'AMD Radeon RX 7900 XTX', totalMiB: 24560, freeMiB: 23749 }],
+          weightsMiB: 19968,
+          kvLayers: 64,
+          kvBytesPerToken: 139264,
+          maxContext: 20480,
+          fullOffloadFits: true,
+          dtype: dtype ?? 'q8_0',
+          target: t,
+          recommendations: recs,
+          occupancy: {
+            vram: {
+              weightsMiB: 19968, kvMiB: 8192, reserveMiB: 1024, totalMiB: 29184,
+              capacityMiB: 24560, availableMiB: 23749, fits: false,
+            },
+            ram: {
+              weightsMiB: 0, kvMiB: 0, reserveMiB: 512, totalMiB: 512,
+              capacityMiB: 32768, availableMiB: 21000, fits: true,
+            },
+            contextTokens: 32768,
+            offloadLayers: 64,
+            totalLayers: 64,
+            maxContext: 20480,
+          },
+        });
+      },
+      // 显存适配徽章演示：19.5GB 主模型 → fit；>24GB（总显存）→ no
+      estimateModelFit: (paths: string[], dtype?: string) => {
+        const out: Record<string, { verdict: 'fit' | 'partial' | 'no' | null; maxContext: number | null; weightsMiB: number | null; dtype: string }> = {};
+        for (const p of paths) {
+          out[p] = { verdict: 'fit', maxContext: 20480, weightsMiB: 19968, dtype: dtype ?? 'q8_0' };
+        }
+        return Promise.resolve(out);
+      },
+      // llama-bench 体检演示：首次轮询 running，第二次 done（模拟 2.5s 后出结果）
+      benchLlamaRun: (modelPath: string) => {
+        mockBenchCalls[modelPath] = 0;
+        return Promise.resolve({ ok: true, data: { modelPath, state: 'running' } as never });
+      },
+      benchLlamaStatus: (modelPath: string) => {
+        const calls = (mockBenchCalls[modelPath] ?? 0) + 1;
+        mockBenchCalls[modelPath] = calls;
+        if (calls < 2) return Promise.resolve({ modelPath, state: 'running' } as never);
+        return Promise.resolve({
+          modelPath,
+          state: 'done',
+          summary: {
+            modelPath, ppTokS: 867.99, tgTokS: 167.66, ngl: 99,
+            backend: 'Vulkan', modelType: 'qwen3 32B.A3B Q4_K_M（演示数据）',
+            testedAt: new Date().toISOString(),
+          },
+        } as never);
+      },
     },
     download: {
       parseUrl: (url: string) => Promise.resolve({

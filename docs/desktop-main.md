@@ -24,13 +24,15 @@
 
 IPC 按功能域声明式注册：`ipc/` 目录下 settings/models/presets/server/logs/system/window/download 各模块导出 `register*Ipc`，`ipc/index.ts` 以 `ipcRegistrars` 数组汇总装配（`registerIpcHandlers()` 遍历调用）；共享的模型目录监听单例在 `ipc/models-watcher.ts`（`watchModelsDir`/`notifyModelsChanged`）。
 
-共 53 个 IPC 通道，分 10 类：Settings / Models / Presets / Server / Logs / 通用 / Window / System / Download /
+共 57 个 IPC 通道，分 10 类：Settings / Models / Presets / Server / Logs / 通用 / Window / System / Download /
  FS。
 
 - 下载完成时调用 `notifyModelsChanged()` 刷新模型列表。
 - `models:watch` 递归监听 `.gguf` 文件变化，500ms 防抖后通知渲染进程。
 - `system:findLlamaExe` 在指定目录（含一级子目录）查找 `llama-server.exe`，用于内联检测。
 - `server:bench`：性能测试通道，委托 `bench-client.ts` 对运行中的 llama-server 发请求（读 completion `timings` + `/metrics`）。
+- `system:estimateVram` / `system:estimateModelFit`：显存探测（spawn `llama-server --list-devices`）+ GGUF KV 内存模型，估算显存/内存双侧占用、无 OOM 上下文上限、性能目标联动建议与模型适配判定（委托 core `devices.ts` / `vram-estimate.ts` / `target-recommend.ts`；设备探测 30s 共享缓存，结果按模型|dtype|target 缓存 60s）。
+- `system:benchLlamaRun` / `system:benchLlamaStatus`：llama-bench 离线体检（pp512/tg128，单模型单作业 + 状态轮询，委托 core `llama-bench.ts`）。
 - **关闭行为链路**：窗口关闭请求统一走 `app-exit.ts`，按设置 `close_behavior`（`ask`/`exit`/`tray`）分流；`ask` 时主进程向渲染进程发 `window:showCloseDialog`，渲染进程经 `window:closeDialogResult` 应答（10 秒超时兜底**最小化到托盘**，不丢数据），服务运行中附带二次确认。
 
 ### 6.4 Launcher 桥接 (launcher-bridge.ts)

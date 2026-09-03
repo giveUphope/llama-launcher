@@ -14,6 +14,14 @@
 
 ### 重构
 
+- **模型内置信息与参数映射分类（2026-09-03）**：按实际用途将展示信息与参数映射划为四类——A 身份识别（只展示）/ B 事实映射（确定性：`nextn_predict_layers → draft-mtp`、`general.sampling.* → 采样参数`）/ C 启发式（量化权重 → KV q8_0、长上下文 → fa=on、名称+规模+量化 → alias）/ D 纯参考（永不映射）。实现：`buildSuggestions` 新增附件守卫（`general.type≠model` 与 clip 架构不再生成建议——mmproj 也会携带 sampling 元数据）；**移除 `ctx_size` 建议**（训练上限 ≠ 推荐值，`-c` 默认 0 = 从模型加载，建议纯冗余）；修正三处语义错挂的 ggufField（`cache_type_k/v`✗quantization、`jinja`✗chat_template、`alias`✗name，行内灰字不再误导）；新增 `--swa-full` 参数（kv_cache 子分组，可调不自动建议——混合架构缓存策略由元数据自动决定，纯 SWA 模型长上下文排查用）；补抽取 `rope.freq_base`，ModelMetaCard 详情按 B/D 类重组并新增 MoE 专家（总数/激活）与 RoPE 基频参考行。参数表 58 → 59，`LLAMA_SERVER_PARAMS.md` 重新生成（--swa-full ⬜→✅）。
+
+- **服务状态卡迁入概览（2026-09-03）**：概览 Q1–Q3（运行状态/当前模型/API 地址）与服务页状态卡两页重复展示同一组信息——状态卡整体抽取为 `ServiceStatusCard` 迁入概览（页面级唯一展示区：状态/模型/API 地址/主机/端口/PID/运行时长 + 基线徽章随迁 + 「打开 Web UI/管理模型」快捷操作行），服务页聚焦命令预览/参数摘要/配置清理/控制台；顺带移除 ServicePage 从未置位的 `stopping` 死临时态。底部状态栏/顶栏为全局常驻 chrome，不属页面级展示约束。
+
+- **参数预设面板低摩擦重做（2026-09-03）**：5 按钮 → 1 自适应按钮 + 行内操作——保存按钮按输入名自动在「保存为预设/覆盖预设」间切换（自适应文案即覆盖预告）；删除与同名保存完全等价的「覆盖选中」按钮，选中行回填名称输入框的行为（应用他人预设后沿用旧名保存的错绑诱因）一并移除；应用/删除改为行内 mini-btn（与 BenchPanel 组合表同款）+ **双击行直接应用**；列表 `onActivated` 自动刷新替代手动刷新按钮；删除预设新增确认弹窗（原误触即删）；名称↔绑定模型错绑守卫保留。
+
+- **侧边栏恢复「内置 Web UI」一级导航（2026-09-03）**：标签由"Web UI"更名「内置 Web UI / Built-in Web UI」，order 5 置于日志与设置之间（设置顺延 order 6），侧栏 6 → 7 项；调用链路（导航 → `/webui` → 布局层 WebUiFrame → `server.apiUrl`）不变，顶栏/概览入口保留。README/AGENTS/frontend/architecture 同步 7 项导航描述。
+
 - **概览页防跳动补强（2026-09-01）**：Dashboard 四区跳动审计后，修复 Q4 最近问题区高度随行数变化（空态 1 行 ↔ 3 行，50px 差）——`.issues-console` 按问题条数上限（3 行）预留 `min-height: 72px`，问题出现/消失时 Q4 区块高度恒定；Q1/Q2/Q3 经审计为替换式文案与常驻值盒（无跳动，豁免项记录于 STYLE\_TODO #46）。
 
 - **边界测试补强（2026-09-01）**：全量盘点核心模块边界覆盖后补齐两处缺口——新增 `format.test.ts`（shared `formatBytes`/`formatDuration` 7 例：0/负数/NaN/Infinity、1023/1024 切换点、KB·MB 1 位/GB·TB 2 位、TB 封顶、秒/分/时切换点与整点折叠），`url-parser.test.ts` 追加空/空白/null 输入与大写扩展名 2 例；顺带加固 `parseModelUrl` 空/非 string 输入防御（此前 `null` 会抛 TypeError）。总用例 core 306 → 315，全部通过。
@@ -21,6 +29,10 @@
 - **可复用优化（2026-09-01）**：① `modelscope-client` 接入共享 `retry.ts`（`requestWithRetry`：`isRetryableError` + 指数退避，最多 3 次，与 download-manager / huggingface-client 同一套网络韧性）；② 字节与时长格式化收敛到 `shared/src/format.ts` 新增 `formatBytes` / `formatDuration`——`modelscope-client.formatFileSize`（保留导出名的别名 re-export）、`DownloadCard.formatBytes`、`TrashCleanCard.formatSize`、`ServicePage.formatDuration` 四处本地重复实现统一为单一事实源（core 与 ui 均依赖 shared，格式语义统一：B 整数 / KB·MB 1 位 / GB·TB 2 位；统一过程发现并修复了 1536 → 误显示 `1.5 MB` 的档位错位 bug）；③ 新增 `modelscope-client.test.ts` 单测（6 例：成功映射 / 分类量化 / retry 退避成功 / 404 不重试 / 重试耗尽 / formatFileSize 别名）；④ BenchmarkPanel 的「服务就绪两阶段等待」抽取为公共 composable `useWaitRunning`（`waitForRunning`），可被性能测试之外的启动场景复用。
 
 ### 新增
+
+- **性能目标选择器 + 模型适配徽章 + llama-bench 离线体检（2026-09-03，P1/P2）**：在估算基础上落地智能推荐三层——① **性能目标选择器**（参数页状态条，四档：最大上下文/均衡/最低延迟/省显存）：core `target-recommend.ts` 确定性规则联动关键杠杆（`flash_attn`、KV 档位、`ctx_size`、部分卸载 `ngl` 层数、MTP 推测解码）。**上下文无固定封顶**：core `solveMaxContext` 在显存+内存联合预算内求解各目标 dtype 下的无 OOM 最大值（约束：f×(权重+KV) + 余量 ≤ 空闲显存、(1−f)×(权重+KV) + 开销 ≤ 可用内存），max-context 允许部分卸载以速度换上下文（如稠密 27B 模型推算 ctx 32768 + ngl 59/64），其余目标优先全卸载、放不下时回退联合预算；下拉面板展示与当前会话值的**差集** chips + 一键应用（确认后写入会话轨道）。② **模型列表适配徽章**：新 IPC `system:estimateModelFit` 批量判定每个量化文件 fit（✓ 全卸载）/ partial（△ 部分卸载）/ no（✗ 建议降档，权重超总显存）+ tooltip 展示全卸载上下文上限。③ **llama-bench 离线体检**：新 IPC `system:benchLlamaRun/Status`（单模型单作业、2.5s 轮询、会话期缓存），对未启动服务的模型文件跑 pp512/tg128 实测 prefill/decode tok/s，模型行「时钟」按钮触发（确认弹窗提示 GPU 占用），结果徽章 `pp N · tg N` 展示。通道 54 → 57；core 新增 `target-recommend.ts` + `llama-bench.ts`（`-o json` 解析以 b10734 真实输出为基准）。设备探测加 30s 共享缓存（estimate/fit 复用，避免重复 spawn）。顺带移除参数页状态条的基线徽章（与「已调整」统计重复，基线状态保留在概览服务状态卡；恢复基线/清除会话操作保留）并修复 `lbl_baseline` 缺失键导致的徽章 tooltip 显示原始键问题。
+
+- **显存探测与硬件资源占用估算（2026-09-03，v2）**：回答「当前配置在我的硬件上占用多少」——新 IPC `system:estimateVram`：主进程 spawn 随引擎分发的 `llama-server --list-devices`（输出含每设备总/空闲 MiB，Vulkan/CUDA 通用、逐行容错解析）+ GGUF KV 内存模型（`kvBytes/token = 2 × 有KV层数 × head_count_kv × key_length × dtype字节`，混合架构按 `full_attention_interval` 折算，权重 ≈ 文件大小）。**v2 占用模型**（`estimateOccupancy`）：由会话参数驱动（卸载层数 / 上下文 / KV 档位），估算显存侧（已卸载层权重 + GPU KV + 1 GiB 计算余量）与内存侧（CPU 层权重 + KV 溢出 + 进程开销）双侧占用，对照设备空闲/系统可用给出 fits 判定；主进程与渲染端共用同一份结构化结果，保证链路一致。UI：参数页状态条「显存占用(估算)」stat 项（占设备容量百分比，槽位常驻占位防跳动，超出空闲时橙色警示，构成明细放 tooltip）；服务页失败 banner 的 **OOM 归因建议**（输出尾部命中显存不足特征 → 「上下文减半 / KV 量化 q8_0」一键缓解动作）。core 新增 `devices.ts` + `vram-estimate.ts`（纯函数估算模型）。
 
 - **依赖升级专项审计（vite 8 / vitest 4 / vue-router 5 / pinia 4 / vue-tsc 3 / electron 44 / electron-builder 26）**：逐一对照官方迁移指南确认破坏面，结论——vue-router 5 对本项目（未用 file-based routing）零破坏；vitest 4 重写 pool（移除 tinypool，Windows 测试挂死根因在上游根治，`vitest.global-setup.mjs` 兜底保留防御性）；electron 44 的 API 使用面（net/shell/app/screen/ipcMain/BrowserWindow）无破坏性变更，剪贴板走 preload 桥 → main 进程的架构符合 44 起 renderer 不再暴露 clipboard 的约束；electron-builder 26 函数式 hook（`before-pack.cjs` 的 `exports.default`）签名匹配；Node 要求 20.19+ / 22.12+ 均满足。
 

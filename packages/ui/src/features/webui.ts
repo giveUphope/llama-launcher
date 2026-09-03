@@ -1,4 +1,4 @@
-// Web UI 功能条目（实际渲染由布局层 WebUiFrame 承担，本页为路由占位）。
+// 内置 Web UI 功能条目（侧栏一级项；实际渲染由布局层 WebUiFrame 承担，本页为路由占位）。
 import type { FeatureDef } from './types.js';
 
 export const webuiFeature: FeatureDef = {

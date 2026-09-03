@@ -2,49 +2,20 @@
 import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import PageFrame from '@/components/common/PageFrame.vue';
-import StatusTag from '@/components/common/StatusTag.vue';
-import InfoStrip from '@/components/common/InfoStrip.vue';
 import Icon from '@/components/common/Icon.vue';
-import { useServerStore } from '@/stores/server';
-import { useParamsStore } from '@/stores/params';
+import ServiceStatusCard from '@/components/service/ServiceStatusCard.vue';
 import { useAppLogStore } from '@/stores/appLog';
 import { useI18nStore } from '@/stores/i18n';
-import { MODEL_KEY, modelBaseName } from '@llama-launcher/shared';
 import type { AppLogEntry } from '@llama-launcher/shared';
 
-const server = useServerStore();
-const params = useParamsStore();
 const appLog = useAppLogStore();
 const i18n = useI18nStore();
 const router = useRouter();
 
-const isRunning = computed(() => server.status === 'running');
+// 服务状态（状态/模型/API 地址/运行时详情）由 ServiceStatusCard 承担——
+// 服务状态信息的唯一页面级展示区（原 Q1–Q3 与服务页状态卡重复，已合并迁入）。
 
-// Q1: 服务是否运行？（有效状态含增强判定：启动失败 → failed、运行中崩溃 → crashed，
-// 与「服务」页状态卡一致，统一走 server store 的 effectiveStatus）
-const statusBadge = computed(() => {
-  const s = server.effectiveStatus;
-  if (s === 'running') return { status: 'ok', label: i18n.t('svc_status_running') };
-  if (s === 'starting') return { status: 'loading', label: i18n.t('svc_status_starting') };
-  if (s === 'stopping') return { status: 'loading', label: i18n.t('svc_status_stopping') };
-  if (s === 'failed') return { status: 'error', label: i18n.t('svc_status_failed') };
-  if (s === 'crashed') return { status: 'error', label: i18n.t('svc_status_crashed') };
-  return { status: 'idle', label: i18n.t('svc_status_stopped') };
-});
-
-// Q2: 当前加载或待启动的模型是什么？（别名优先，回退文件名去 .gguf 后缀）
-const currentModel = computed(() => {
-  const p = String(params.values[MODEL_KEY] ?? '');
-  if (!p) return '';
-  const alias = String(params.values['alias'] ?? '').trim();
-  if (alias) return alias;
-  return modelBaseName(p);
-});
-
-// Q3: API 地址是什么？——语义统一收敛到 server store 的 apiUrl（与真实服务状态绑定：
-// 已停止时为空，不因 store.url 残留旧值而继续显示地址），本页直接使用 server.apiUrl
-
-// Q4: 最近需要处理的问题——数据源用【应用日志】而非后端原始输出：
+// 最近需要处理的问题——数据源用【应用日志】而非后端原始输出：
 // 应用日志是结构化分级记录（WARN/ERROR 语义明确，服务启动失败/下载错误等），
 // 后端 stdout 绝大多数为推理信息行，按"问题"语义过滤必然混杂（正则启发式不可靠）；
 // 后端完整输出保留在「服务」页控制台。仅取问题级（warn/error）最近 3 条。
@@ -55,18 +26,6 @@ const hasError = computed(() => recentIssues.value.some((e) => e.kind === 'error
 
 function lineClass(entry: AppLogEntry): string {
   return `kind-${entry.kind}`;
-}
-
-// ---- 复制地址 ----
-const copied = ref(false);
-let copyTimer: ReturnType<typeof setTimeout> | null = null;
-
-async function copyUrl() {
-  if (!server.apiUrl) return;
-  await window.api.clipboard.write(server.apiUrl);
-  copied.value = true;
-  if (copyTimer) clearTimeout(copyTimer);
-  copyTimer = setTimeout(() => { copied.value = false; copyTimer = null; }, 1500);
 }
 
 // ---- 控制台滚动（迷你问题列表） ----
@@ -82,91 +41,25 @@ onMounted(() => { appLog.subscribe(); });
 
 <template>
   <PageFrame>
-    <!-- Q1: 服务是否运行？ -->
-    <div class="q-section q-status">
-      <div class="q-header">
-        <h2 class="q-title">{{ i18n.t('card_dash_status') }}</h2>
-        <StatusTag :status="statusBadge.status" :label="statusBadge.label" />
-      </div>
-      <!-- 监听地址指示器：主机/端口 分列展示；完整 API 地址统一在下方「API 地址」卡片（Q3） -->
-      <div class="q-grid">
-        <InfoStrip :label="i18n.t('lbl_host')" mono>
-          <!-- 空值用 — 占位（与服务页状态卡值盒一致）：settings 加载前不闪空白 -->
-          <span class="val-box">{{ server.host || '—' }}</span>
-        </InfoStrip>
-        <InfoStrip :label="i18n.t('lbl_dash_port')" mono>
-          <span class="val-box">{{ server.port || '—' }}</span>
-        </InfoStrip>
-      </div>
-    </div>
+    <!-- 服务状态：状态 / 当前模型 / API 地址 / 主机 / 端口 / PID / 运行时长 / 基线徽章，
+         页面级唯一展示区（Card 分区风格，底边线与下方问题区分隔） -->
+    <ServiceStatusCard />
 
-    <!-- Q2: 当前加载什么模型？ -->
-    <div class="q-section q-model">
+    <!-- 最近问题（单行单内容：仅问题本身，无状态指示器——运行状态见上方服务状态卡） -->
+    <div class="q-section q-issues">
       <div class="q-header">
-        <h2 class="q-title">{{ i18n.t('card_dash_model') }}</h2>
-        <StatusTag v-if="currentModel" status="ok" :label="i18n.t('model_status_available')" />
-        <StatusTag v-else status="idle" :label="i18n.t('status_model_none')" />
+        <h2 class="q-title">{{ i18n.t('card_dash_issues') }}</h2>
       </div>
-      <InfoStrip :label="i18n.t('lbl_dash_model')" mono>
-        <span class="val-box">
-          {{ currentModel || i18n.t('msg_no_model_selected') }}
-        </span>
-      </InfoStrip>
-      <div class="q-actions">
-        <button class="action-btn accent" @click="void router.push('/models')">
-          <Icon name="models" :size="14" />
-          <span>{{ i18n.t('lbl_manage_models') }}</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Q3: API 地址是什么？ -->
-    <div class="q-section q-api">
-      <div class="q-header">
-        <h2 class="q-title">{{ i18n.t('card_dash_api') }}</h2>
-      </div>
-      <div class="api-strip">
-        <span class="api-url" :title="server.apiUrl || '—'">
-          <Icon name="link" :size="14" />
-          <span>{{ server.apiUrl || i18n.t('status_stopped') }}</span>
-        </span>
-        <button
-          class="action-btn copy-btn"
-          :disabled="!server.apiUrl"
-          @click="copyUrl"
-          :title="i18n.t('copy_url')"
-        >
-          <Icon name="copy" :size="12" />
-          <span>{{ copied ? i18n.t('msg_url_copied') : i18n.t('copy_url') }}</span>
-        </button>
-        <button
-          class="action-btn accent"
-          :disabled="!isRunning"
-          @click="void router.push('/webui')"
-          :title="i18n.t('open_web')"
-        >
-          <Icon name="external" :size="13" />
-          <span>{{ i18n.t('open_web') }}</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Q4: 是否有需要处理的问题？ -->
-      <!-- Q4: 是否有需要处理的问题？（单行单内容：仅问题本身，无状态指示器——运行状态见 Q1） -->
-      <div class="q-section q-issues">
-        <div class="q-header">
-          <h2 class="q-title">{{ i18n.t('card_dash_issues') }}</h2>
+      <div ref="consoleEl" class="issues-console">
+        <div v-if="recentIssues.length === 0" class="empty-text">
+          {{ i18n.t('msg_no_issues') }}
         </div>
-        <div ref="consoleEl" class="issues-console">
-          <div v-if="recentIssues.length === 0" class="empty-text">
-            {{ i18n.t('msg_no_issues') }}
-          </div>
-          <div
-            v-for="(line, idx) in recentIssues"
-            :key="idx"
-            :class="['log-line', lineClass(line)]"
-          >{{ line.data }}</div>
-        </div>
+        <div
+          v-for="(line, idx) in recentIssues"
+          :key="idx"
+          :class="['log-line', lineClass(line)]"
+        >{{ line.data }}</div>
+      </div>
       <div class="issues-actions-slot" :class="{ 'has-actions': hasError }">
         <div v-if="hasError" class="issues-actions">
           <button class="action-btn" @click="void router.push('/logs')">
@@ -184,7 +77,7 @@ onMounted(() => { appLog.subscribe(); });
 </template>
 
 <style scoped lang="scss">
-/* 四大问题区域 */
+/* 问题区域 */
 .q-section {
   display: flex;
   flex-direction: column;
@@ -193,9 +86,9 @@ onMounted(() => { appLog.subscribe(); });
   padding-bottom: 14px;
 }
 
-// 分区风格：区块之间以实线分隔（线到内容 14px，与 Card 分区体一致，见 frontend.md §7.5.4）
-.q-section + .q-section {
-  border-top: 1px solid var(--border);
+// 服务状态卡（Card 分区）自带底边线；下方问题区补齐与 q-section 相同的 14px 顶距，
+// 保持与「线到内容 14px」一致的分隔节奏（§7.5.4）
+.card + .q-section {
   padding-top: 14px;
 }
 
@@ -212,66 +105,6 @@ onMounted(() => { appLog.subscribe(); });
   font-size: var(--fs-lg);
   font-weight: 600;
   color: var(--fg-primary);
-}
-
-/* 字段值文本框：与输入框同视觉（输入底 + 边框 + 胶囊），与左侧 label 形成清晰对照 */
-.val-box {
-  display: inline-flex;
-  align-items: center;
-  height: 26px;
-  padding: 0 12px;
-  max-width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--fg-primary);
-  font-family: var(--font-mono);
-  font-size: var(--fs-base);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.q-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.q-actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* API 地址条 */
-.api-strip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.api-url {
-  flex: 1;
-  min-width: 200px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 14px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--fg-primary);
-  font-size: var(--fs-base);
-  font-family: var(--font-mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.copy-btn {
-  font-size: var(--fs-md);
 }
 
 /* 迷你日志/问题区域 */
@@ -319,7 +152,7 @@ onMounted(() => { appLog.subscribe(); });
 }
 
 /* 问题操作行防跳动：外层槽位常驻并与按钮行等高（--btn-h），无问题时隐藏但占满
-   高度——操作行出现/消失时 Q4 区块高度恒定，下方内容不再被下推（#42 预留位置模式）。 */
+   高度——操作行出现/消失时问题区高度恒定，下方内容不再被下推（#42 预留位置模式）。 */
 .issues-actions-slot {
   margin-top: 8px;
   min-height: var(--btn-h);

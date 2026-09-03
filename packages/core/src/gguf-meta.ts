@@ -466,23 +466,24 @@ export function estimateQuantFromSize(
 
 /**
  * 从结构化模型信息中推导建议参数。
- * 覆盖采样、上下文、聊天模板、推测解码、KV cache、模型别名等。
+ * 覆盖采样、推测解码、KV cache、模型别名等。
+ *
+ * 分类原则（展示信息 ≠ 参数建议）：
+ * - 仅「模型事实 → 参数值」的确定性映射（MTP 头 → draft-mtp、作者采样推荐 → 采样参数）
+ *   与标注来源的启发式规则（量化权重 → KV q8_0 等）进入建议；
+ * - 纯参考信息（context_length 训练上限、rope.freq_base 等）不产生建议——
+ *   llama-server 的 -c 默认 0 = 从模型加载，逐项建议反而是混淆源。
  */
 function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
   const suggestions: GgufSuggestedParam[] = [];
   const arch = info.architecture;
 
-  // 1. 上下文长度
-  if (info.context_length !== null && info.context_length > 0) {
-    suggestions.push({
-      key: 'ctx_size',
-      value: info.context_length,
-      source: `${arch}.context_length`,
-      description: '模型支持的最大上下文长度',
-    });
-  }
+  // 附件文件守卫：仅主模型（general.type=model 或旧文件缺省）生成建议。
+  // mmproj/clip 附件也常携带 general.sampling.*/name，对其生成建议没有意义。
+  const isMainModel = (info.type ?? 'model') === 'model' && info.architecture !== 'clip';
+  if (!isMainModel) return [];
 
-  // 5. 采样参数 — 模型内置的推荐采样参数
+  // 采样参数 — 模型内置的推荐采样参数
   if (info.sampling_temp !== null && info.sampling_temp > 0) {
     suggestions.push({
       key: 'temperature',
@@ -531,7 +532,7 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
       description: '模型推荐的存在惩罚值',
     });
   }
-  // 7. MTP 推测解码 — 模型含 nextn_predict_layers 时启用 draft-mtp
+  // MTP 推测解码 — 模型含 nextn_predict_layers 时启用 draft-mtp
   if (info.nextn_predict_layers !== null && info.nextn_predict_layers > 0) {
     suggestions.push({
       key: 'spec_type',
@@ -541,7 +542,7 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
     });
   }
 
-  // 8. 模型别名 — 使用"模型名称-量化版本"格式，便于多量化版本同时部署时区分
+  // 模型别名 — 使用"模型名称-量化版本"格式，便于多量化版本同时部署时区分
   {
     // 量化描述优先级：文件名提取（更具体，如 Q4_K_XL、UD-Q4_K_XL）> FILE_TYPE_MAP（基础类型，如 Q4_K）
     // 文件名中的量化变体（_M/_S/_L/_XL、UD- 前缀）在 GGUF file_type 中无法区分，
@@ -575,7 +576,8 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
     }
   }
 
-  // 9. KV cache 量化 — 量化模型建议使用 q8_0 KV cache 节省显存
+  // KV cache 量化 — 量化模型建议使用 q8_0 KV cache 节省显存（启发式：来源为权重量化，
+  // 非 KV cache 自身的元数据）
   if (isQuantized(info.file_type)) {
     suggestions.push({
       key: 'cache_type_k',
@@ -591,7 +593,7 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
     });
   }
 
-  // 10. Flash Attention — 大上下文模型建议启用
+  // Flash Attention — 大上下文模型建议启用（启发式：经验规则，非模型元数据事实）
   if (info.context_length !== null && info.context_length >= 8192) {
     suggestions.push({
       key: 'flash_attn',
@@ -764,6 +766,7 @@ async function readGgufMetadataUncached(filePath: string, fileSize: number): Pro
       ssm_conv_kernel: getNumber(metadata, p('ssm.conv_kernel')),
       ssm_state_size: getNumber(metadata, p('ssm.state_size')),
       ssm_group_count: getNumber(metadata, p('ssm.group_count')),
+      rope_freq_base: getNumber(metadata, p('rope.freq_base')),
       tokenizer_model: getString(metadata, 'tokenizer.ggml.model'),
       tokenizer_pre: getString(metadata, 'tokenizer.ggml.pre'),
       chat_template: getString(metadata, 'tokenizer.chat_template'),

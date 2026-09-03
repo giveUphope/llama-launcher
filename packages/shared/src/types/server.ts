@@ -104,3 +104,31 @@ export interface BenchMetrics {
   draftTotal: number;
   nDecode: number;
 }
+
+/**
+ * llama-bench 离线体检结果（对未启动服务的模型文件直接测速，随引擎分发的 llama-bench.exe）。
+ * 单次体检固定跑 pp512 / tg128 两个测试（全卸载 -ngl 99），汇总为 prefill / decode tok/s。
+ */
+export interface LlamaBenchSummary {
+  modelPath: string;
+  /** prefill 速度（pp512, tok/s）；未测出为 null */
+  ppTokS: number | null;
+  /** decode 速度（tg128, tok/s）；未测出为 null */
+  tgTokS: number | null;
+  /** 实际卸载层数（-ngl 99 时的引擎取值） */
+  ngl: number | null;
+  /** 后端（如 Vulkan） */
+  backend: string | null;
+  /** 模型描述（llama-bench model_type，如 "qwen35moe 35B.A3B IQ1_M - 1.75 bpw"） */
+  modelType: string | null;
+  /** 完成时间 ISO */
+  testedAt: string;
+}
+
+/** llama-bench 作业状态（单模型单作业；结果按模型路径缓存于主进程会话期） */
+export interface LlamaBenchJobState {
+  modelPath: string;
+  state: 'running' | 'done' | 'error';
+  error?: string;
+  summary?: LlamaBenchSummary;
+}

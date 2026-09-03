@@ -78,7 +78,7 @@ llama_launcher/
 │       └── src/
 │           ├── router/            # 路由（createWebHashHistory + featureRoutes 装配）
 │           ├── stores/            # Pinia store（settings/i18n/params/server/download/appLog）
-│           ├── pages/             # 7 个页面（概览/模型/服务/参数/日志/设置 + Web UI 内嵌；侧栏 6 项一级导航，旧页路由重定向）
+│           ├── pages/             # 7 个页面（概览/模型/服务/参数/日志/内置 Web UI/设置；侧栏 7 项一级导航，旧页路由重定向）
 │           ├── features/          # 功能注册表（FeatureDef：侧栏导航 + 路由装配）
 │           ├── components/        # 通用组件 + 参数控件（common/layout/models/params/presets/service/settings/bench）
 │           ├── composables/       # useIPC / useTheme / useStartServer / useWaitRunning / useAutoPresetName / useModelPreset / useConfirm / useFilePicker / useUrlHistory

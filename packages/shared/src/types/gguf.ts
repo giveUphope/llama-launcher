@@ -92,6 +92,8 @@ export interface GgufModelInfo {
   ssm_state_size: number | null;
   /** SSM 分组数（混合模型），来自 <arch>.ssm.group_count */
   ssm_group_count: number | null;
+  /** RoPE 基频，来自 <arch>.rope.freq_base（参考信息：llama-server 默认自动读取元数据，无需参数映射） */
+  rope_freq_base: number | null;
   /** 分词器模型名称，来自 tokenizer.ggml.model */
   tokenizer_model: string | null;
   /** 分词器预处理标识，来自 tokenizer.ggml.pre */

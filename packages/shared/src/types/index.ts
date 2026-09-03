@@ -6,3 +6,4 @@ export * from './ipc.js';
 export * from './gguf.js';
 export * from './download.js';
 export * from './trash.js';
+export * from './vram.js';

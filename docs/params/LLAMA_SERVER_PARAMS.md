@@ -32,7 +32,7 @@
 | `-b`, `--batch-size` | logical maximum batch size (default: 2048) (env: LLAMA_ARG_BATCH) | ✅ 已支持 |
 | `-ub`, `--ubatch-size` | physical maximum batch size (default: 512) (env: LLAMA_ARG_UBATCH) | ✅ 已支持 |
 | `--keep` | number of tokens to keep from the initial prompt (default: 0, -1 = all) | ⬜ 未支持 |
-| `--swa-full` | use full-size SWA cache (default: false) [(more info)](https://github.com/ggml-org/llama.cpp/pull/13194#issuecomment-2868343055) (env: LLAMA_ARG_SWA_FULL) | ⬜ 未支持 |
+| `--swa-full` | use full-size SWA cache (default: false) [(more info)](https://github.com/ggml-org/llama.cpp/pull/13194#issuecomment-2868343055) (env: LLAMA_ARG_SWA_FULL) | ✅ 已支持 |
 | `-fa`, `--flash-attn` | [on\|off\|auto]       set Flash Attention use ('on', 'off', or 'auto', default: 'auto') (env: LLAMA_ARG_FLASH_ATTN) | ✅ 已支持 |
 | `--perf`, `--no-perf` | whether to enable internal libllama performance timings (default: false) (env: LLAMA_ARG_PERF) | ⬜ 未支持 |
 | `-e`, `--escape`, `--no-escape` | whether to process escapes sequences (\n, \r, \t, \', \", \\) (default: true) | ⬜ 未支持 |
@@ -291,5 +291,5 @@
 ## 汇总
 
 - 官方参数总数：261
-- 已支持：58
-- 未支持：203
+- 已支持：59
+- 未支持：202

@@ -398,6 +398,18 @@ describe('双轨参数逻辑（基线/会话）', () => {
     expect(params.hasChanges).toBe(false);
   });
 
+  it('clearSession 保留模型选择（显存估算/目标选择器不失联）', () => {
+    const params = useParamsStore();
+    params.set(MODEL_KEY, 'C:/models/foo.gguf');
+    params.set('ctx_size', 12345);
+    params.clearSession();
+    // 模型选择不属于会话参数：保留，估算与目标建议继续可用
+    expect(params.values[MODEL_KEY]).toBe('C:/models/foo.gguf');
+    const def = PARAMS.find((p) => p.key === 'ctx_size')!.default;
+    expect(params.values['ctx_size']).toBe(def);
+    expect(params.baseline).toBeNull();
+  });
+
   it('autoSave 只写会话、不再写预设文件（双轨核心回归）', async () => {
     const savePreset = vi.fn(() => Promise.resolve());
     (globalThis as any).window.api.presets.save = savePreset;

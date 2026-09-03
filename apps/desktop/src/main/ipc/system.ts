@@ -4,9 +4,10 @@ import { existsSync, readdirSync, statSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
-import { detectTrash, cleanTrash, getDownloadManager, loadSettings } from '@llama-launcher/core';
+import { totalmem, freemem } from 'node:os';
+import { detectTrash, cleanTrash, getDownloadManager, loadSettings, listDevices, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench } from '@llama-launcher/core';
 import { IPC } from '@llama-launcher/shared';
-import type { TrashItem } from '@llama-launcher/shared';
+import type { TrashItem, VramEstimateResult, LlamaBenchJobState, PerfTarget, DeviceMemInfo, ModelFitResult, OccupancyConfig } from '@llama-launcher/shared';
 
 /** 占用端口进程信息（尽力而为：无法识别时为空） */
 interface PortOwner {
@@ -181,6 +182,165 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
       if (await probePort(candidate, bindHost)) return candidate;
     }
     return null;
+  });
+
+  // 设备探测缓存（30s）：空闲显存变化不频繁，避免 estimate / fit 批量调用重复 spawn --list-devices
+  const devicesCache: { at: number; devices: DeviceMemInfo[] } = { at: 0, devices: [] };
+  const DEVICES_CACHE_TTL_MS = 30_000;
+  async function getDevicesCached(): Promise<DeviceMemInfo[]> {
+    if (Date.now() - devicesCache.at < DEVICES_CACHE_TTL_MS) return devicesCache.devices;
+    const settings = loadSettings();
+    const exeDir = settings.server_exe ? dirname(settings.server_exe) : (settings.llama_dir || '');
+    const exeName = process.platform === 'win32' ? 'llama-server.exe' : 'llama-server';
+    const devices = exeDir ? await listDevices(join(exeDir, exeName)) : [];
+    devicesCache.at = Date.now();
+    devicesCache.devices = devices;
+    return devices;
+  }
+
+  // 显存探测 + 上下文容量估算（尽力而为，任一环节失败时对应字段为 null，绝不抛出）：
+  // 1) spawn 随引擎分发的 `llama-server --list-devices` 取每设备空闲显存；
+  // 2) GGUF 元数据 KV 内存模型（权重≈文件大小）估算全卸载上下文上限；
+  // 3) 性能目标联动建议（四档目标 × 关键杠杆的确定性规则）。
+  // 结果按 (模型|dtype|target) 缓存 60s——设备空闲显存变化不频繁，避免每次切页重复 spawn。
+  const estimateCache = new Map<string, { at: number; result: VramEstimateResult }>();
+  const ESTIMATE_CACHE_TTL_MS = 60_000;
+  const PERF_TARGETS: PerfTarget[] = ['max-context', 'balanced', 'latency', 'memory'];
+  ipcMain.handle(IPC.SYSTEM_ESTIMATE_VRAM, async (_e, modelPath: string, dtype = 'q8_0', target: PerfTarget = 'balanced', occ?: Partial<OccupancyConfig>) => {
+    const validTarget: PerfTarget = PERF_TARGETS.includes(target) ? target : 'balanced';
+    const occCfg: OccupancyConfig = {
+      ngl: occ?.ngl ?? 'auto',
+      ctxSize: Number.isFinite(occ?.ctxSize) ? Number(occ?.ctxSize) : 0,
+      kvDtype: dtype,
+    };
+    const empty: VramEstimateResult = {
+      devices: [], weightsMiB: null, kvLayers: null,
+      kvBytesPerToken: null, maxContext: null, fullOffloadFits: null,
+      dtype, target: validTarget, recommendations: [], occupancy: null,
+    };
+    if (!modelPath || !existsSync(modelPath)) return empty;
+    const key = `${modelPath}|${dtype}|${validTarget}|${occCfg.ngl}|${occCfg.ctxSize}`;
+    const hit = estimateCache.get(key);
+    if (hit && Date.now() - hit.at < ESTIMATE_CACHE_TTL_MS) return hit.result;
+
+    const devices = await getDevicesCached();
+
+    let fileSizeBytes: number | null = null;
+    try { fileSizeBytes = statSync(modelPath).size; } catch { /* 文件不可读 */ }
+    let info = null;
+    try { ({ info } = await readGgufMetadata(modelPath)); } catch { /* 非 GGUF/损坏 */ }
+
+    const primary = [...devices].sort((a, b) => b.freeMiB - a.freeMiB)[0] ?? null;
+    const systemFreeMiB = Math.round(freemem() / (1024 * 1024));
+    const est = info && primary
+      ? estimateVram({
+          info,
+          fileSizeBytes,
+          freeBytes: primary.freeMiB * 1024 * 1024,
+          dtypeBytes: KV_DTYPE_BYTES[dtype] ?? KV_DTYPE_BYTES.f16,
+        })
+      : null;
+    const recommendations = info && primary
+      ? recommendForTarget(validTarget, info, fileSizeBytes, primary.freeMiB, systemFreeMiB)
+      : [];
+    // 硬件占用估算（显存 + 内存双侧，会话参数驱动）：与渲染端展示共用同一份结构化结果
+    const occupancy = info && primary
+      ? estimateOccupancy({
+          info,
+          fileSizeBytes,
+          deviceFreeMiB: primary.freeMiB,
+          deviceTotalMiB: primary.totalMiB,
+          systemTotalMiB: Math.round(totalmem() / (1024 * 1024)),
+          systemFreeMiB: Math.round(freemem() / (1024 * 1024)),
+          ngl: occCfg.ngl,
+          ctxSize: occCfg.ctxSize,
+          kvDtype: occCfg.kvDtype,
+        })
+      : null;
+
+    const result: VramEstimateResult = {
+      devices,
+      weightsMiB: est?.weightsMiB ?? (fileSizeBytes !== null ? fileSizeBytes / (1024 * 1024) : null),
+      kvLayers: est?.kvLayers ?? null,
+      kvBytesPerToken: est?.kvBytesPerToken ?? null,
+      maxContext: est?.maxContext ?? null,
+      fullOffloadFits: est?.fullOffloadFits ?? null,
+      dtype,
+      target: validTarget,
+      recommendations,
+      occupancy,
+    };
+    if (estimateCache.size >= 16) {
+      const first = estimateCache.keys().next().value;
+      if (first) estimateCache.delete(first);
+    }
+    estimateCache.set(key, { at: Date.now(), result });
+    return result;
+  });
+
+  // llama-bench 离线体检：单模型单作业，run 启动（fire-and-forget，错误落 job state）、
+  // status 轮询取状态/结果；结果按模型路径缓存会话期（同模型重复体检直接返回缓存）。
+  const benchJobs = new Map<string, LlamaBenchJobState>();
+  const benchResults = new Map<string, LlamaBenchJobState>();  ipcMain.handle(IPC.SYSTEM_BENCH_LLAMA_RUN, (_e, modelPath: string) => {
+    if (!modelPath || !existsSync(modelPath)) {
+      return { ok: false as const, error: 'file not found' };
+    }
+    const running = benchJobs.get(modelPath);
+    if (running?.state === 'running') return { ok: true as const, data: running };
+
+    // 引擎目录的 llama-bench（与 llama-server 同目录）
+    const settings = loadSettings();
+    const exeDir = settings.server_exe ? dirname(settings.server_exe) : (settings.llama_dir || '');
+    const exeName = process.platform === 'win32' ? 'llama-bench.exe' : 'llama-bench';
+
+    const job: LlamaBenchJobState = { modelPath, state: 'running' };
+    benchJobs.set(modelPath, job);
+    runLlamaBench({ exePath: join(exeDir, exeName), modelPath })
+      .then((summary) => {
+        job.state = 'done';
+        job.summary = summary;
+        benchResults.set(modelPath, job);
+      })
+      .catch((err: Error) => {
+        job.state = 'error';
+        job.error = err.message;
+        benchResults.set(modelPath, job);
+      });
+    // 显式重跑：返回新作业（running），完成后覆盖旧结果
+    return { ok: true as const, data: job };
+  });
+  ipcMain.handle(IPC.SYSTEM_BENCH_LLAMA_STATUS, (_e, modelPath: string) => {
+    return benchJobs.get(modelPath) ?? benchResults.get(modelPath) ?? null;
+  });
+
+  // 模型列表批量显存适配判定（fit/partial/no 徽章）：fit = 权重可全卸载；partial = 需部分卸载；
+  // no = 权重超过全部设备总显存（建议更小量化）。元数据不可读的文件 verdict 为 null（UI 不出徽章）。
+  ipcMain.handle(IPC.SYSTEM_ESTIMATE_MODEL_FIT, async (_e, paths: string[], dtype = 'q8_0') => {
+    const out: Record<string, ModelFitResult> = {};
+    if (!Array.isArray(paths) || paths.length === 0) return out;
+    const devices = await getDevicesCached();
+    const primary = [...devices].sort((a, b) => b.freeMiB - a.freeMiB)[0] ?? null;
+    const totalVramMiB = devices.reduce((s, d) => s + d.totalMiB, 0);
+    for (const p of paths.slice(0, 100)) {
+      const base: ModelFitResult = { verdict: null, maxContext: null, weightsMiB: null, dtype };
+      try {
+        const size = statSync(p).size;
+        base.weightsMiB = size / (1024 * 1024);
+        if (primary) {
+          const { info } = await readGgufMetadata(p);
+          const est = estimateVram({
+            info,
+            fileSizeBytes: size,
+            freeBytes: primary.freeMiB * 1024 * 1024,
+            dtypeBytes: KV_DTYPE_BYTES[dtype] ?? KV_DTYPE_BYTES.f16,
+          });
+          base.maxContext = est.maxContext;
+          base.verdict = base.weightsMiB > totalVramMiB ? 'no' : (est.fullOffloadFits ? 'fit' : 'partial');
+        }
+      } catch { /* 非 GGUF/损坏/不可读：保持 null */ }
+      out[p] = base;
+    }
+    return out;
   });
 
   // 检查文件是否存在（用于校验 server_exe、model 文件）

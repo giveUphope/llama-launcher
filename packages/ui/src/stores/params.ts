@@ -276,10 +276,14 @@ export const useParamsStore = defineStore('params', () => {
     persistSession();
   }
 
-  /** 清除会话：回出厂默认并清空基线（慎用；仅由「清除会话参数」确认后调用）。 */
+  /** 清除会话：回出厂默认并清空基线（慎用；仅由「清除会话参数」确认后调用）。
+   *  模型选择不属于「会话参数」——保留当前模型，否则清空后显存估算/目标选择器
+   *  失去模型输入而持续不可用（GGUF 元数据仍有效，无需重新加载）。 */
   function clearSession() {
+    const model = String(values[MODEL_KEY] ?? '');
     baseline.value = null;
     resetAll();
+    if (model) values[MODEL_KEY] = model;
     persistSession();
   }
 

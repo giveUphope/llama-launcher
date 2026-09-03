@@ -60,15 +60,17 @@ export const PARAMS: ParamDef[] = [
   { key: 'n_cpu_moe', group: 'basic', type: 'int_entry', flag: '-ncmoe', default: 0, min: 0, max: 256, subcategory: 'memory' },
   { key: 'n_cpu_ffn', group: 'basic', type: 'int_entry', flag: '-ncffn', default: 0, min: 0, max: 512, subcategory: 'memory' },
 
-  // ---------------- advanced (26) ----------------
+  // ---------------- advanced (27) ----------------
   // 子分组 kv_cache：KV 缓存
+  // KV cache 类型：与模型权重量化（quantization）无关，不挂 ggufField——
+  // 权重量化 → q8_0 的推荐走 buildSuggestions 启发式建议（带来源说明），行内不显示误导性灰字
   {
     key: 'cache_type_k', group: 'advanced', type: 'dropdown', flag: '-ctk', default: 'q8_0',
-    options: ['f16', 'f32', 'bf16', 'q8_0', 'q4_0', 'q4_1', 'iq4_nl', 'q5_0', 'q5_1'], subcategory: 'kv_cache', ggufField: 'quantization',
+    options: ['f16', 'f32', 'bf16', 'q8_0', 'q4_0', 'q4_1', 'iq4_nl', 'q5_0', 'q5_1'], subcategory: 'kv_cache',
   },
   {
     key: 'cache_type_v', group: 'advanced', type: 'dropdown', flag: '-ctv', default: 'q8_0',
-    options: ['f16', 'f32', 'bf16', 'q8_0', 'q4_0', 'q4_1', 'iq4_nl', 'q5_0', 'q5_1'], subcategory: 'kv_cache', ggufField: 'quantization',
+    options: ['f16', 'f32', 'bf16', 'q8_0', 'q4_0', 'q4_1', 'iq4_nl', 'q5_0', 'q5_1'], subcategory: 'kv_cache',
   },
   { key: 'kv_offload', group: 'advanced', type: 'checkbox', flag: '-kvo', default: true, invert_flag: '-nkvo', subcategory: 'kv_cache' },
   // 统一 KV 缓存（b10502 引入）：单一大缓存跨序列共享，槽位数 auto 时默认启用；基线默认关闭（见文件头基线推荐值注释）
@@ -80,6 +82,13 @@ export const PARAMS: ParamDef[] = [
   {
     key: 'kv_unified_per_slot', group: 'advanced', type: 'int_entry', flag: '--kv-unified-per-slot',
     default: 0, min: 0, max: 4194304, subcategory: 'kv_cache',
+  },
+  // SWA 全量缓存（llama.cpp PR 13194）：滑动窗口注意力层保留全量 KV 而非仅窗口内——质量换显存。
+  // 混合注意力模型（线性注意力 + 周期全注意力，如 qwen3-next 系）缓存策略由元数据自动决定，通常无需开启；
+  // 纯 SWA 模型（Gemma/Llama-4 系）长上下文质量下降时的排查手段。模型内置信息卡的「全注意力间隔」即此场景标识。
+  {
+    key: 'swa_full', group: 'advanced', type: 'checkbox', flag: '--swa-full', default: false,
+    subcategory: 'kv_cache',
   },
   // 子分组 multimodal：多模态
   {
@@ -104,7 +113,9 @@ export const PARAMS: ParamDef[] = [
   // 子分组 template：对话模板
   // --jinja 必须位于 --chat-template 之前发射（llama.cpp 约定：除非先前已用 --jinja，
   // 否则 --chat-template 只接受内置模板名）；定义顺序即命令行发射顺序（见 core buildCommand）。
-  { key: 'jinja', group: 'advanced', type: 'checkbox', flag: '--jinja', default: true, invert_flag: '--no-jinja', subcategory: 'template', ggufField: 'chat_template' },
+  // 对话模板启用开关：与 chat_template 内容（tokenizer.chat_template）是两个维度，
+  // 不挂 ggufField——模板存在性提示挂在 chat_template 参数行（其取值才与之相关）
+  { key: 'jinja', group: 'advanced', type: 'checkbox', flag: '--jinja', default: true, invert_flag: '--no-jinja', subcategory: 'template' },
   {
     key: 'chat_template', group: 'advanced', type: 'dropdown', flag: '--chat-template', default: 'none', editable: true,
     subcategory: 'template', ggufField: 'chat_template',
@@ -222,7 +233,9 @@ export const PARAMS: ParamDef[] = [
 
   // ---------------- server (10) ----------------
   // 子分组 identity：服务标识
-  { key: 'alias', group: 'server', type: 'text', flag: '-a', default: '', subcategory: 'identity', ggufField: 'name' },
+  // 别名：由 buildSuggestions 组合生成（name-size_label-量化，启发式）；general.name 单字段
+  // 与建议双源展示易混淆，不挂 ggufField
+  { key: 'alias', group: 'server', type: 'text', flag: '-a', default: '', subcategory: 'identity' },
   { key: 'api_key', group: 'server', type: 'text', flag: '--api-key', default: '', subcategory: 'identity' },
   // 子分组 endpoints：端点配置
   { key: 'ui', group: 'server', type: 'checkbox', flag: '--ui', default: true, invert_flag: '--no-ui', subcategory: 'endpoints' },

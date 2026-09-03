@@ -1,9 +1,9 @@
 # IPC 通道清单
 
-> 范围：IPC 通道完整清单（共 53 个），按类别分组。改 IPC 前必读。常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧常量由 `scripts/generate-preload.cjs` 生成（改完运行 `pnpm generate:ipc`），`scripts/verify-ipc-sync.cjs` 在 lint 阶段检查产物未过期。
+> 范围：IPC 通道完整清单（共 57 个），按类别分组。改 IPC 前必读。常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧常量由 `scripts/generate-preload.cjs` 生成（改完运行 `pnpm generate:ipc`），`scripts/verify-ipc-sync.cjs` 在 lint 阶段检查产物未过期。
 > 索引：[README.md](../README.md) · 相关：[desktop-main.md](desktop-main.md)
 
-共 53 个 IPC 通道，按类别分组如下：
+共 57 个 IPC 通道，按类别分组如下：
 
 ### Settings（2）
 
@@ -74,13 +74,17 @@
 | `window:showCloseDialog`   | 关闭窗口询问请求（主进程 → 渲染进程，应用内弹窗替代原生 dialog；payload `CloseDialogRequest`） |
 | `window:closeDialogResult` | 关闭窗口询问回复（渲染进程 → 主进程；payload `CloseDialogResult`）                   |
 
-### System（7）
+### System（11）
 
 | 通道                    | 用途                                                                                                                   |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `system:checkPort`    | 检查端口是否被占用（按 llama-server 将绑定的 `--host` 地址探测；默认 127.0.0.1，0.0.0.0/局域网 IP 时按对应地址，覆盖占用者绑定在其他网卡 IP 的漏报；占用时返回占用者 PID/进程名） |
 | `system:killProcess`  | 结束指定进程（端口占用处理：Windows `taskkill /F /PID`、POSIX SIGKILL；由渲染端确认后调用）                                                    |
 | `system:findFreePort` | 从指定端口向后扫描，返回首个空闲端口（host 语义同 checkPort；无可用返回 null）                                                                    |
+| `system:estimateVram` | 显存探测 + 上下文容量估算（spawn `llama-server --list-devices` 取每设备空闲显存 + GGUF KV 内存模型估算全卸载上下文上限 + 性能目标联动建议；尽力而为，失败字段为 null；结果按模型\|dtype\|target 缓存 60s） |
+| `system:benchLlamaRun`    | 启动 llama-bench 离线体检（pp512/tg128 全卸载，fire-and-forget 单模型单作业；结果按模型路径缓存会话期） |
+| `system:benchLlamaStatus` | 轮询体检作业状态/结果（running/done/error + LlamaBenchSummary） |
+| `system:estimateModelFit` | 模型列表批量显存适配判定（fit/partial/no 徽章 + 全卸载上下文上限；元数据不可读 verdict 为 null） |
 | `system:fileExists`   | 检查文件是否存在                                                                                                             |
 | `system:findLlamaExe` | 在目录中查找 llama-server 可执行文件（内联检测）                                                                                      |
 | `system:detectTrash`  | 检测应用生成文件中的可清理项（配置目录 + 模型目录双根扫描；活动/暂停/可重试下载任务路径自动保护）                                                                  |

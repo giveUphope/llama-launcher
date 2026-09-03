@@ -25,7 +25,7 @@ interface MetaRow {
   value: unknown;
 }
 
-// 主摘要：模型识别关键信息（架构、量化、规模、上下文长度——后两者直接影响运行参数）
+// 主摘要：A 类身份识别信息（架构、量化、规模、上下文长度——确认"这是什么模型"）
 const summaryRows = computed<MetaRow[]>(() => {
   if (!info.value) return [];
   const i = info.value;
@@ -37,24 +37,35 @@ const summaryRows = computed<MetaRow[]>(() => {
   ].filter((r) => r.value !== null && r.value !== undefined && r.value !== '');
 });
 
-// 详细信息：仅保留与「运行参数」直接相关的内置信息（SWA / MTP / 聊天模板，
-// 均对应用户可在参数页调整的启动参数）；模型来源（名称/组织/许可）、纯结构细节与
-// tokenizer 内部 id 等非参数信息不再展示，避免信息过载、聚焦运行配置。
+// 详细信息按实际用途分两类（展示信息 ≠ 参数建议，映射分类见 docs/params-system.md §5.1）：
+// - B 类「模型事实 → 参数关联」：对应参数页可调整的启动参数，其中确定性事实（MTP 头）
+//   已由 buildSuggestions 映射为建议；上下文长度为训练上限参考（-c 默认 0 = 从模型加载）。
+// - D 类「纯参考信息」：仅辅助了解模型结构，永不映射参数（llama-server 自动读取元数据）。
 const detailRows = computed<MetaRow[]>(() => {
   if (!info.value) return [];
   const i: GgufModelInfo = info.value;
   return [
-    // 混合 SSM 模型全注意力间隔（→ swa-full 建议）
-    { labelKey: 'gguf_full_attn_interval', value: i.full_attention_interval },
-    // 推测解码（→ spec-type/mtp 相关参数）
+    // ---- B 类：与运行参数相关的事实 ----
+    // 推测解码（已映射建议 → spec-type=draft-mtp）
     { labelKey: 'gguf_mtp_layers', value: i.nextn_predict_layers },
-    // 聊天模板（→ --chat-template）
+    // 混合注意力间隔（混合架构标识；缓存策略可在参数页 --swa-full 手动调整，不自动建议）
+    { labelKey: 'gguf_full_attn_interval', value: i.full_attention_interval },
+    // 聊天模板（存在 → --jinja 启用即可生效；避免手动覆盖 --chat-template）
     { labelKey: 'gguf_chat_template', value: i.chat_template ? '✓' : null },
+    // ---- D 类：纯参考信息 ----
+    // MoE 专家配置（总数/每 token 激活数）
+    {
+      labelKey: 'gguf_moe_experts',
+      value: i.expert_count ? `${i.expert_count} / ${i.expert_used_count ?? '—'}` : null,
+    },
+    // RoPE 基频（llama-server 默认自动读取元数据，无需参数映射）
+    { labelKey: 'gguf_rope_freq_base', value: i.rope_freq_base },
   ].filter((r) => r.value !== null && r.value !== undefined && r.value !== '');
 });
 
 // 是否有详细信息可展开
 const hasDetails = computed(() => detailRows.value.length > 0);
+// 注：显存估算不在此卡展示（参数页状态条为唯一展示位，避免两页重复）
 
 function formatValue(v: unknown): string {
   if (v === null || v === undefined) return '—';

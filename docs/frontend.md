@@ -12,13 +12,13 @@
 | 路径 | 说明 |
 |------|------|
 | `/` | 重定向到 `/dashboard` |
-| `/dashboard` | 概览（4 问布局） |
+| `/dashboard` | 概览（服务状态卡 + 最近问题） |
 | `/models` | 模型管理（3 子标签：本地模型 / 模型库 / 下载任务） |
-| `/service` | 服务（运行状态 + 命令预览 + 参数摘要 + 控制台 + 配置清理） |
+| `/service` | 服务（命令预览 + 参数摘要 + 配置清理 + 控制台） |
 | `/params` | 参数设置（侧边栏子树子标签：参数预设 / 自定义参数 / 性能测试，`query.tab` 切换） |
 | `/logs` | 应用日志中心 |
 | `/settings` | 应用设置（4 子标签：常规 / 外观 / 高级 / 关于） |
-| `/webui` | Web UI 内嵌页（服务运行时 iframe 直接展示 llama-server Web UI，替代跳转外部浏览器） |
+| `/webui` | 内置 Web UI（侧栏一级项；服务运行时 iframe 直接展示 llama-server Web UI，替代跳转外部浏览器） |
 | `/download` | 重定向到 `/models?tab=downloads`（旧书签兼容） |
 | `/launch` | 重定向到 `/service`（旧书签兼容） |
 | `/basic` | 重定向到 `/params` |
@@ -38,17 +38,17 @@
 | `download.ts` | 任务列表、IPC 监听注册（`ensureSubscribed` 仅注册一次） |
 | `appLog.ts` | 应用日志缓冲（消费 `logs:*` IPC 推送，供日志中心页渲染） |
 
-### 7.3 页面 (7 个，侧栏 6 项一级导航)
+### 7.3 页面 (7 个，侧栏 7 项一级导航)
 
 | 页面 | 功能 |
 |------|------|
-| `DashboardPage` | 概览：4 问布局（服务是否运行 / 当前加载什么模型 / API 地址 / 是否有需要处理的问题），`.q-section` 顶边实线分隔 |
+| `DashboardPage` | 概览：服务状态卡（`ServiceStatusCard`，自服务页迁入——状态/当前模型/API 地址/主机/端口/PID/运行时长 + 基线徽章，服务状态的唯一页面级展示区）+ 最近问题（应用日志 warn/error 最近 3 条，`.q-section` 分区分隔） |
 | `ModelsPage` | 3 子标签：本地模型（`LocalModelsPanel`）/ 模型库（`LibraryPanel`，DownloadCard library 模式）/ 下载任务（`DownloadsPanel`，DownloadCard tasks 模式） |
-| `ServicePage` | 运行状态与控制按钮（状态卡头 `BaselineBadge` 基线徽章，五行 InfoStrip boxed 值盒）、控制台、命令预览（`CommandPreviewCard`：**双文本框**——「内置参数命令」**只读**展示、随参数实时自动生成（改内置参数走参数设置页控件，无编辑/还原逻辑）；「扩展参数」为唯一可编辑区，绑定 `settings.custom_args` 持久化、原样追加到启动命令末尾；复制 = 内置+扩展合并）、参数摘要（`ParamSummaryCard`）、配置目录清理（`TrashCleanCard`）；前端 `effectiveStatus` 6 态兜底（stopped/starting/running/stopping/failed/crashed） |
-| `ParamsPage` | 3 子标签：参数预设（`PresetsPanel`）/ 自定义参数（13 个子分类分区，`param-grid` `repeat(auto-fit, minmax(340px, 1fr))` 响应式网格）/ 性能测试（`BenchPanel`，自服务页迁入，KeepAlive 缓存保留测试历史）；58 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；顶部 `BaselineBadge` 基线徽章 + 恢复基线/清除会话入口 |
+| `ServicePage` | 命令预览（`CommandPreviewCard`：**双文本框**——「内置参数命令」**只读**展示、随参数实时自动生成（改内置参数走参数设置页控件，无编辑/还原逻辑）；「扩展参数」为唯一可编辑区，绑定 `settings.custom_args` 持久化、原样追加到启动命令末尾；复制 = 内置+扩展合并）、参数摘要（`ParamSummaryCard`）、配置目录清理（`TrashCleanCard`）、控制台输出（上限 5000 行；运行状态卡已迁至概览，本页不再重复展示状态/模型/API 地址） |
+| `ParamsPage` | 3 子标签：参数预设（`PresetsPanel`）/ 自定义参数（13 个子分类分区，`param-grid` `repeat(auto-fit, minmax(340px, 1fr))` 响应式网格）/ 性能测试（`BenchPanel`，自服务页迁入，KeepAlive 缓存保留测试历史）；59 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；状态条含**硬件占用估算 stat**（`useVramEstimate`：显存占用百分比 + 构成明细 tooltip，超限橙色警示）与**性能目标选择器**（四档联动建议差集 chips + 一键应用）；恢复基线/清除会话入口（无基线徽章，与「已调整」统计去重） |
 | `LogsPage` | 应用日志中心：级别筛选 chips、搜索、控制台渲染上限 3000 行、自动滚动 |
 | `SettingsPage` | 4 子标签：常规（`GeneralPanel`，引擎/模型目录内联检测）/ 外观（`AppearancePanel`）/ 高级（`AdvancedPanel`）/ 关于（`AboutPanel`）；原 llama.cpp 标签已并入常规；全部即时保存 |
-| `WebUiPage` | Web UI 路由占位；实际渲染由布局层 `WebUiFrame`（iframe 常驻文档，`v-show` 切换显隐，切页不重载）承担：服务运行时展示 llama-server Web UI，未运行时显示占位提示 |
+| `WebUiPage` | 内置 Web UI 路由占位（侧栏一级项「内置 Web UI」）；实际渲染由布局层 `WebUiFrame`（iframe 常驻文档，`v-show` 切换显隐，切页不重载）承担：服务运行时展示 llama-server Web UI，未运行时显示占位提示 |
 
 ### 7.4 通用组件
 
@@ -60,14 +60,15 @@
 | `ToolTip` | 悬停提示 |
 | `NavButton` | 侧边栏导航按钮（一级项/子标签，子项按 `query.tab` 高亮，一级项带展开箭头） |
 | `StatusTag` | 状态标签（状态点 + 文字，ok/loading/idle/error 变体） |
-| `BaselineBadge` | 参数基线徽章（参数页顶部 + 服务页状态卡）：按会话基线显示「预设名·已修改 / 自定义参数集 / 临时参数 / 默认参数」，可选恢复基线按钮 |
+| `BaselineBadge` | 参数基线徽章（参数页顶部 + 概览服务状态卡）：按会话基线显示「预设名·已修改 / 自定义参数集 / 临时参数 / 默认参数」，可选恢复基线按钮 |
+| `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签 / 当前模型 / API 地址（boxed InfoStrip + 复制按钮）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ 快捷操作（打开 Web UI·管理模型）；卡片头挂 `BaselineBadge` |
 | `AppLogo` | 应用 Logo 统一组件（见 §7.5.7） |
 | `InfoStrip` | 信息行（label + 值/插槽控件；设置页表单行、Dashboard/Service 信息网格共用） |
 | `ModelMetaCard` | 模型元数据展示（主摘要 + 可折叠详情，dashed 次级分隔） |
 | `DownloadCard` | 下载功能卡片（`mode: 'library' \| 'tasks'` 双模式：URL 解析/搜索/文件选择/任务列表；推荐文件只作徽标/高亮/排序提示、**不自动勾选**，下载由用户主动勾选触发；提交下载走 `enqueueFiles`：Store 去重 + 本地同名检测 + 后端 ID 回填；URL 会话历史存 `useUrlHistory` 模块级单例，跨子标签 `v-if` 重建保留） |
 | `ConfirmModal` / `CloseDialog` | 通用确认弹窗 / 退出确认弹窗（`useConfirm` 队列驱动） |
 | `FileBrowserModal` | 文件/目录浏览弹窗（`useFilePicker` 队列驱动，dir/file/save 三模式） |
-| `PresetsPanel` | 预设管理面板（保存/覆盖前做名称↔绑定模型一致性确认，防「应用其他预设切换模型后沿用旧名保存」的错绑） |
+| `PresetsPanel` | 预设管理面板（低摩擦）：智能命名（alias→模型文件名自动同步输入框）+ **自适应保存按钮**（输入名已存在时自动变「覆盖预设」，同一入口完成保存/覆盖）；行内操作（应用/删除 `mini-btn`，删除带确认）+ **双击行直接应用**；列表 `onActivated` 与增删改后自动刷新（无手动刷新按钮）；保留名称↔绑定模型一致性确认（防「应用其他预设切换模型后沿用旧名保存」的错绑） |
 | `BenchPanel` | 性能测试面板（动态参数复用 `ParamRow`（与参数设置页同布局同行效果）+ 智能启动 + 测试历史表格） |
 | `ParamRow` + 控件 | 参数行容器 + `TextParam`/`IntEntryParam`/`SliderParam`/`CheckboxParam`/`DropdownParam`/`FileParam` 六类控件 |
 

@@ -6,13 +6,14 @@
 ### 5.1 参数定义 (shared/params/definitions.ts)
 
 - **`PARAM_GROUPS`**：3 组 — `basic`（基础）/ `advanced`（高级）/ `server`（服务）。
-- **`PARAMS`**：共 58 个参数，分布如下：
+- **`PARAMS`**：共 59 个参数，分布如下：
   - basic：22 个（15 核心 + 7 采样）
-  - advanced：26 个（含 5 个思考控制 + 6 个推测解码 + 多模态/视频/KV 扩展）
+  - advanced：27 个（含 5 个思考控制 + 6 个推测解码 + 多模态/视频/KV 扩展）
   - server：10 个
 - 每个参数定义包含：`key, group, type, flag, default, subcategory, dependsOn, ggufField, invert_flag` 等字段。
 - **8 种控件类型**：`text` / `int_slider` / `int_entry` / `float_slider` / `dropdown` / `checkbox` / `file` / `dir`。
-- **ggufField 映射**：参数可声明 `ggufField` 映射到 `GgufModelInfo` 的字段，参数行内联显示模型内置值；`buildSuggestions` 从元数据推导建议参数，点击可一键应用。
+- **ggufField 映射**：参数可声明 `ggufField` 映射到 `GgufModelInfo` 的字段，参数行内联显示模型内置值；`buildSuggestions` 从元数据推导建议参数，点击可一键应用。映射按实际用途分类（2026-09 梳理）：仅**确定性事实映射**（`nextn_predict_layers → spec_type` 采样推荐等）与**启发式规则**（量化权重 → KV q8_0 等）进入建议；**纯参考信息**（`context_length` 训练上限、`rope.freq_base` 等）只在行内/信息卡展示，不产生建议（`-c` 默认 0 = 从模型加载，逐项建议属混淆源）；`cache_type_k/v`/`jinja`/`alias` 已移除语义错挂的 ggufField。
+- **显存占用估算与性能目标**：core `devices.ts`（`--list-devices` 显存探测）+ `vram-estimate.ts`（KV 内存模型与显存/内存双侧占用 `estimateOccupancy`、无 OOM 最大上下文求解 `solveMaxContext`）+ `target-recommend.ts`（四档性能目标联动建议），经 `system:estimateVram` 暴露；参数页状态条「显存占用(估算)」stat 与目标选择器为唯一 UI 入口（详见前端 §7.3 / core-modules §4 模块表）。
 
 ### 5.2 参数双轨机制（临时会话 / 预设）
 
@@ -20,7 +21,7 @@
 
 - **临时轨道（会话）**：所有参数编辑自动持久化到 `~/.llama_launcher/settings.json` 的 `session_values` + `session_baseline`（`autoSave` watch 800ms 节流，**只写 settings、永不写预设文件**）；应用启动时经 `restoreSession` 恢复上次会话（参数值 + 基线一并还原）。
 - **预设轨道**：`<models_dir>/presets/*.json` 仅在用户显式「保存预设」时写入；应用预设（`applyPreset`）以「预设名 + 参数快照」建立新会话基线（`markBaseline`）。
-- **基线**：`SessionBaseline { preset_name, values }`——`hasChanges`（分组"已修改"蓝点 / 侧栏橙点）有基线时相对基线快照逐键对比，无基线时对比出厂默认；基线状态由 `BaselineBadge` 展示（参数页顶部 + 服务页状态卡），提供「恢复基线」（`restoreBaseline`，resetAll 后回写基线快照）与「清除会话」（`clearSession`，带确认）入口。
+- **基线**：`SessionBaseline { preset_name, values }`——`hasChanges`（分组"已修改"蓝点 / 侧栏橙点）有基线时相对基线快照逐键对比，无基线时对比出厂默认；基线状态由 `BaselineBadge` 展示（参数页顶部 + 概览服务状态卡），提供「恢复基线」（`restoreBaseline`，resetAll 后回写基线快照）与「清除会话」（`clearSession`，带确认）入口。
 - **防丢确认**：切换模型（`applyModel`）与应用 GGUF 建议参数（`applyModelWithSuggestions`）前检测 `hasChanges`，未保存修改时弹 `confirmDiscardDirty` 确认，确认后应用并重建临时基线；应用启动重挂上次模型走 `reattachModelRuntime`（直接赋值、不确认、不重建基线、别名不重派生）。
 - **`MODEL_KEY`（`model`）** 恒随命令携带 `-m`；`set(MODEL_KEY)` 自动派生 `alias`（`modelBaseName`，文件名去 `.gguf` 后缀）。
 

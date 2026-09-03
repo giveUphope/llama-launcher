@@ -126,7 +126,7 @@ describe('readGgufMetadata', () => {
     expect(result.info.eos_token_id).toBe(2);
   });
 
-  it('generates suggestions for context_length', async () => {
+  it('does not suggest ctx_size (training max is info-only; -c 0 = loaded from model)', async () => {
     const kvPairs = [
       ggufKV('general.architecture', VT.STRING, ggufString('llama')),
       ggufKV('llama.context_length', VT.UINT32, u32(8192)),
@@ -135,10 +135,38 @@ describe('readGgufMetadata', () => {
     writeFileSync(filePath, buildGgufV3(0, kvPairs));
 
     const result = await readGgufMetadata(filePath);
+    // context_length 是训练上限而非推荐值，只作信息展示（ModelMetaCard/参数行 ggufField 提示），
+    // 不进入建议参数（-c 默认 0 = 从模型加载，逐项建议属混淆源）
     const keys = result.suggestions.map((s) => s.key);
-    expect(keys).toContain('ctx_size');
-    const ctxSuggestion = result.suggestions.find((s) => s.key === 'ctx_size');
-    expect(ctxSuggestion?.value).toBe(8192);
+    expect(keys).not.toContain('ctx_size');
+    expect(result.info.context_length).toBe(8192);
+  });
+
+  it('does not generate suggestions for attachment files (mmproj/clip)', async () => {
+    const kvPairs = [
+      ggufKV('general.architecture', VT.STRING, ggufString('clip')),
+      ggufKV('general.type', VT.STRING, ggufString('mmproj')),
+      ggufKV('general.name', VT.STRING, ggufString('Vision Projector')),
+      ggufKV('general.sampling.temp', VT.FLOAT32, f32(0.7)),
+    ];
+    const filePath = join(testDir, 'mmproj.gguf');
+    writeFileSync(filePath, buildGgufV3(0, kvPairs));
+
+    const result = await readGgufMetadata(filePath);
+    // mmproj/clip 附件也可能携带 sampling.*/name，对其生成参数建议没有意义
+    expect(result.suggestions).toEqual([]);
+  });
+
+  it('extracts rope.freq_base', async () => {
+    const kvPairs = [
+      ggufKV('general.architecture', VT.STRING, ggufString('qwen3')),
+      ggufKV('qwen3.rope.freq_base', VT.UINT32, u32(1000000)),
+    ];
+    const filePath = join(testDir, 'rope.gguf');
+    writeFileSync(filePath, buildGgufV3(0, kvPairs));
+
+    const result = await readGgufMetadata(filePath);
+    expect(result.info.rope_freq_base).toBe(1000000);
   });
 
   it('does not auto-suggest chat_template or jinja (default=none, user-managed)', async () => {

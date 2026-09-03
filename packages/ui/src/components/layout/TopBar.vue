@@ -160,7 +160,7 @@ async function onRestart() {
 }
 
 async function onOpenWeb() {
-  // 内嵌 Web UI：跳转 /webui 内嵌页（路由存在但侧边栏不显示，入口仅此处）
+  // 内嵌 Web UI：跳转 /webui 内嵌页（侧栏一级项，实际渲染由布局层 WebUiFrame 承担）
   void router.push('/webui');
 }
 </script>

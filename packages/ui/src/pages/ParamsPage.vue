@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, watch, type Component } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, type Component } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { PARAMS } from '@llama-launcher/shared';
+import { PARAMS, MODEL_KEY } from '@llama-launcher/shared';
+import type { PerfTarget, TargetRecommendation, OccupancyConfig } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Icon from '@/components/common/Icon.vue';
 import PresetsPanel from '@/components/presets/PresetsPanel.vue';
 import BenchPanel from '@/components/bench/BenchPanel.vue';
 import ParamRow from '@/components/params/ParamRow.vue';
-import BaselineBadge from '@/components/common/BaselineBadge.vue';
 import { confirm } from '@/composables/useConfirm';
+import { useVramEstimate } from '@/composables/useVramEstimate';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 
@@ -78,6 +79,113 @@ const activeParamCount = computed(() =>
 const totalParamCount = computed(() => PARAMS.length);
 const groupCount = computed(() => subcategoryGroups.value.length);
 
+// 硬件资源占用估算（自定义参数标签状态条 stat 项）：主进程 `--list-devices` 探测 +
+// GGUF KV 内存模型，按当前会话配置（卸载层数/上下文/KV 档位）估算显存与内存双侧占用。
+// stat 槽位常驻占位（不可用显示 —），避免异步加载/显隐导致跳动；构成明细放 title tooltip。
+const PERF_TARGET_ITEMS: { key: PerfTarget; labelKey: string }[] = [
+  { key: 'max-context', labelKey: 'target_max_context' },
+  { key: 'balanced', labelKey: 'target_balanced' },
+  { key: 'latency', labelKey: 'target_latency' },
+  { key: 'memory', labelKey: 'target_memory' },
+];
+const perfTarget = ref<PerfTarget>('balanced');
+const vramModelPath = computed(() => String(params.values[MODEL_KEY] ?? ''));
+const kvDtype = computed(() => String(params.values['cache_type_k'] ?? 'q8_0'));
+// 会话占用配置：与参数页当前值同源（卸载层数/上下文/KV 档位），保证前后端估算链路一致
+const occConfig = computed<OccupancyConfig>(() => ({
+  ngl: String(params.values['gpu_layers'] ?? 'auto'),
+  ctxSize: Number(params.values['ctx_size'] ?? 0) || 0,
+  kvDtype: kvDtype.value,
+}));
+const { estimate: vramEstimate } = useVramEstimate(vramModelPath, kvDtype, perfTarget, occConfig);
+
+const vramOcc = computed(() => vramEstimate.value?.occupancy ?? null);
+
+// stat 值：显存占用占设备容量百分比（容量未知时显示 GiB），不可估算为 null → 显示 —
+const vramStatValue = computed(() => {
+  const o = vramOcc.value;
+  if (!o || o.vram.totalMiB === null) return null;
+  if (o.vram.capacityMiB) return `${Math.round((o.vram.totalMiB / o.vram.capacityMiB) * 100)}%`;
+  return `${(o.vram.totalMiB / 1024).toFixed(1)}G`;
+});
+
+// 显存总占用超出设备空闲即警示
+const vramWarn = computed(() => vramOcc.value?.vram.fits === false);
+
+const giB = (mib: number | null | undefined) => (mib == null ? '—' : (mib / 1024).toFixed(1));
+
+// tooltip：显存/内存双侧占用构成明细 + 上下文参考（与后端 estimateOccupancy 同一份数据）
+const vramTooltip = computed(() => {
+  const o = vramOcc.value;
+  const e = vramEstimate.value;
+  if (!o || !e || !e.devices.length) return i18n.t('msg_vram_unavailable');
+  const v = o.vram;
+  const lines: string[] = [];
+  lines.push(
+    i18n.t('msg_occ_vram_line')
+      .replace('{0}', e.devices[0].name)
+      .replace('{1}', giB(v.weightsMiB))
+      .replace('{2}', giB(v.kvMiB))
+      .replace('{3}', giB(v.reserveMiB))
+      .replace('{4}', giB(v.totalMiB))
+      .replace('{5}', giB(v.availableMiB))
+      .replace('{6}', v.fits === false ? i18n.t('occ_over') : i18n.t('occ_ok')),
+  );
+  lines.push(
+    i18n.t('msg_occ_ram_line')
+      .replace('{0}', giB(o.ram.weightsMiB))
+      .replace('{1}', giB(o.ram.kvMiB))
+      .replace('{2}', giB(o.ram.reserveMiB))
+      .replace('{3}', giB(o.ram.totalMiB))
+      .replace('{4}', giB(o.ram.availableMiB)),
+  );
+  lines.push(
+    i18n.t('msg_occ_ctx_line')
+      .replace('{0}', (o.contextTokens ?? 0).toLocaleString())
+      .replace('{1}', (o.maxContext ?? 0).toLocaleString())
+      .replace('{2}', kvDtype.value),
+  );
+  return lines.join('\n');
+});
+
+// ---- 性能目标选择器：四档目标联动关键杠杆建议（估算引擎驱动，见 core target-recommend） ----
+const targetOpen = ref(false);
+const targetLabel = computed(() => {
+  const item = PERF_TARGET_ITEMS.find((t) => t.key === perfTarget.value);
+  return item ? i18n.t(item.labelKey) : '';
+});
+
+// 与当前会话值的差集：只展示真正会改变的项（与默认一致的 建议 不重复打扰）
+const targetRecs = computed<TargetRecommendation[]>(() => {
+  const recs = vramEstimate.value?.recommendations ?? [];
+  return recs.filter((r) => String(params.values[r.key] ?? '') !== String(r.value));
+});
+
+function selectTarget(t: PerfTarget) {
+  perfTarget.value = t; // 面板保持展开，随估算刷新显示该目标下的建议
+}
+
+async function applyTargetRecs() {
+  const recs = targetRecs.value;
+  if (!recs.length) return;
+  const lines = recs.map((r) => `  ${r.key} = ${r.value}`).join('\n');
+  const ok = await confirm({
+    title: i18n.t('target_apply_title'),
+    message: `${i18n.t('target_apply_msg')}\n\n${lines}`,
+    variant: 'info',
+  });
+  if (!ok) return;
+  for (const r of recs) params.set(r.key, r.value);
+  targetOpen.value = false;
+}
+
+// 点击面板外关闭（与 TopBar 模型下拉同模式）
+function onDocClick() {
+  targetOpen.value = false;
+}
+onMounted(() => { document.addEventListener('click', onDocClick); });
+onUnmounted(() => { document.removeEventListener('click', onDocClick); });
+
 // 清除会话参数：回出厂默认 + 清空基线（双确认防误触）
 async function onClearSession() {
   const ok = await confirm({
@@ -117,9 +225,58 @@ async function onClearSession() {
           <span class="stat-label">{{ i18n.t('lbl_param_groups') }}</span>
         </div>
       </div>
+      <!-- 硬件占用估算 stat：槽位常驻占位（不可用显示 —），构成明细放 tooltip；
+           显存总占用超出设备空闲时橙色警示 -->
+      <div class="stat-divider"></div>
+      <div class="stat" :class="{ warn: vramWarn }" :title="vramTooltip">
+        <Icon :name="vramWarn ? 'alert' : 'info'" :size="14" />
+        <div class="stat-body">
+          <span class="stat-value" :class="{ warn: vramWarn, muted: !vramStatValue }">{{ vramStatValue ?? '—' }}</span>
+          <span class="stat-label">{{ i18n.t('lbl_vram_occupancy') }}</span>
+        </div>
+      </div>
+      <!-- 性能目标选择器：四档目标联动关键杠杆建议（点击外部关闭，与 TopBar 模型下拉同模式） -->
+      <div class="target-wrap" @click.stop>
+        <button class="mini-btn" :title="i18n.t('target_picker_title')" @click="targetOpen = !targetOpen">
+          <Icon name="presets" :size="11" />
+          <span>{{ i18n.t('lbl_perf_target') }}: {{ targetLabel }}</span>
+          <Icon name="chevron_down" :size="11" />
+        </button>
+        <div v-if="targetOpen" class="target-panel">
+          <button
+            v-for="t in PERF_TARGET_ITEMS"
+            :key="t.key"
+            class="target-item"
+            :class="{ active: t.key === perfTarget }"
+            @click="selectTarget(t.key)"
+          >
+            <span>{{ i18n.t(t.labelKey) }}</span>
+            <Icon v-if="t.key === perfTarget" name="check" :size="12" />
+          </button>
+          <div v-if="targetRecs.length" class="target-recs">
+            <div class="target-rec-chips">
+              <span v-for="r in targetRecs" :key="r.key" class="rec-chip" :title="r.reason">
+                {{ r.key }} = {{ r.value }}
+              </span>
+            </div>
+            <button class="action-btn primary" @click="applyTargetRecs">
+              {{ i18n.t('target_apply') }} ({{ targetRecs.length }})
+            </button>
+          </div>
+          <div v-else class="target-recs-empty">{{ i18n.t('target_no_recs') }}</div>
+        </div>
+      </div>
       <div class="status-right">
-        <!-- 双轨参数逻辑：基线徽章 + 恢复基线 + 清除会话（替代原「未保存」脏标签） -->
-        <BaselineBadge show-restore />
+        <!-- 基线徽章已移除（与「已调整」统计重复，基线状态保留在概览服务状态卡）；
+             保留恢复基线 / 清除会话参数两个操作入口 -->
+        <button
+          class="action-btn"
+          :disabled="!params.hasChanges || !params.baseline"
+          :title="i18n.t('msg_restore_baseline')"
+          @click="params.restoreBaseline()"
+        >
+          <span>{{ i18n.t('msg_restore_baseline') }}</span>
+        </button>
         <button
           class="action-btn"
           :title="i18n.t('msg_clear_session')"
@@ -190,6 +347,9 @@ async function onClearSession() {
   font-family: var(--font-mono);
 
   &.warn { color: var(--warn); }
+
+  // 占位态（估算不可用）：次级灰，与其他 stat 的主色区分
+  &.muted { color: var(--fg-muted); font-weight: 400; }
 }
 
 .stat-label {
@@ -208,6 +368,86 @@ async function onClearSession() {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+// 性能目标选择器：mini-btn 触发 + 绝对定位下拉面板（浮层阴影走 --shadow-dropdown）
+.target-wrap {
+  position: relative;
+}
+
+.target-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 300px;
+  padding: 6px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-dropdown);
+  box-shadow: var(--shadow-dropdown);
+}
+
+.target-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-mini);
+  color: var(--fg-secondary);
+  font-size: var(--fs-base);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-smooth), color var(--dur-fast) var(--ease-smooth);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--fg-primary);
+  }
+
+  &.active {
+    color: var(--accent);
+  }
+}
+
+.target-recs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.target-rec-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rec-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--fg-primary);
+  cursor: help;
+}
+
+.target-recs-empty {
+  margin-top: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: var(--fs-base);
 }
 
 .params-content {

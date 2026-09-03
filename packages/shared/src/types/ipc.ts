@@ -42,6 +42,13 @@ export const IPC = {
   SYSTEM_CLEAN_TRASH: 'system:cleanTrash',
   SYSTEM_KILL_PROCESS: 'system:killProcess',
   SYSTEM_FIND_FREE_PORT: 'system:findFreePort',
+  // 显存探测 + 上下文容量估算：主进程 spawn `llama-server --list-devices` + GGUF 元数据 KV 内存模型
+  SYSTEM_ESTIMATE_VRAM: 'system:estimateVram',
+  // llama-bench 离线体检：对未启动服务的模型文件测 pp512/tg128（run 启动作业，status 轮询状态）
+  SYSTEM_BENCH_LLAMA_RUN: 'system:benchLlamaRun',
+  SYSTEM_BENCH_LLAMA_STATUS: 'system:benchLlamaStatus',
+  // 模型列表批量显存适配判定（fit/partial/no 徽章）
+  SYSTEM_ESTIMATE_MODEL_FIT: 'system:estimateModelFit',
   FS_LIST_DIR: 'fs:listDir',
   FS_MKDIR: 'fs:mkdir',
   DOWNLOAD_PARSE_URL: 'download:parseUrl',

@@ -1,8 +1,8 @@
 // 功能注册表：应用内各功能（侧栏导航 + 路由）的声明式装配点。
 // 注册表化重构：路由与侧栏不再硬编码，而是由各功能模块声明、此处汇总；
 // 未来插件可向 features 数组追加条目（enabled 置 false 可停用功能）。
-// 阶段二重构：侧栏导航重组为 6 项（概览/模型/服务/参数/日志/设置），
-// 旧页（控制台/Web UI/下载）保留路由但隐藏侧栏导航，作为其他页面的子标签页。
+// 侧栏导航为 7 项（概览/模型/服务/参数/日志/内置 Web UI/设置），
+// 旧页（控制台/下载）保留路由但隐藏侧栏导航，作为其他页面的子功能。
 import type { RouteRecordRaw } from 'vue-router';
 import type { FeatureDef, NavItem } from './types.js';
 import { dashboardFeature } from './dashboard.js';
@@ -21,18 +21,18 @@ export type { FeatureDef, NavItem } from './types.js';
 export const features: FeatureDef[] = [
   dashboardFeature,  // 概览 (order 0)
   modelsFeature,     // 模型 (order 1)
-  serviceFeature,    // 服务 (order 2) — 新增
+  serviceFeature,    // 服务 (order 2)
   paramsFeature,     // 参数 (order 3)
-  logsFeature,       // 日志 (order 4) — 新增
-  settingsFeature,   // 设置 (order 5)
+  logsFeature,       // 日志 (order 4)
+  webuiFeature,      // 内置 Web UI (order 5) — 侧栏一级项，内嵌帧由布局层 WebUiFrame 承担
+  settingsFeature,   // 设置 (order 6)
   // 以下功能保留路由但隐藏侧栏导航，作为其他页面的子功能或入口
-  downloadFeature,   // 下载 → 阶段三作为模型的子标签页
+  downloadFeature,   // 下载 → 模型页的子标签页
   launchFeature,     // 控制台 → 服务页已整合控制台
-  webuiFeature,      // Web UI → 服务页提供入口
 ];
 
 // 隐藏侧栏但保留路由：将 nav 置为 undefined
-const hiddenNavFeatures = ['download', 'launch', 'webui'];
+const hiddenNavFeatures = ['download', 'launch'];
 for (const f of features) {
   if (hiddenNavFeatures.includes(f.id)) {
     f.nav = undefined as any;
