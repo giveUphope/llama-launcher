@@ -290,12 +290,12 @@ async function onClearSession() {
     <!-- 左侧 mini-nav 已重构入侧边栏子标签；内容区随 query.tab 切换 -->
     <div class="params-content">
       <template v-if="activeTab === 'custom'">
+        <!-- 分组卡使用标准卡片标题（fs-lg 主色，与预设/服务等页对齐；紧凑体例仅保留给 BenchPanel） -->
         <Card
           v-for="sub in subcategoryGroups"
           :key="sub.key"
           class="param-card"
           :title-key="`subcat_${sub.key}`"
-          compact
         >
           <div class="param-grid">
             <ParamRow v-for="p in sub.params" :key="p.key" :p="p" />

@@ -251,7 +251,7 @@ onUnmounted(() => {
     <!-- 参数快速调整：动态跟随参数配置页非默认值项，逐行复用 ParamRow——
          与自定义参数页同布局同效果（param-grid 同款 auto-fit 网格；行悬停背景/描边、
          非默认橙描边、依赖警示、GGUF 提示、还原按钮均由 ParamRow 统一承载） -->
-    <Card title-key="bench_tune_title" compact>
+    <Card title-key="bench_tune_title">
       <div class="tune-grid">
         <ParamRow v-for="p in activeTuneParams" :key="p.key" :p="p" />
       </div>

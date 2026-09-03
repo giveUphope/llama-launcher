@@ -4,7 +4,6 @@ import { useI18nStore } from '@/stores/i18n';
 
 const props = defineProps<{
   titleKey?: string;
-  compact?: boolean;
 }>();
 
 const i18n = useI18nStore();
@@ -12,7 +11,7 @@ const title = computed(() => (props.titleKey ? i18n.t(props.titleKey) : ''));
 </script>
 
 <template>
-  <section class="card" :class="{ compact }">
+  <section class="card">
     <header v-if="titleKey || $slots.actions" class="card-header">
       <h2 v-if="titleKey" class="card-title">
         <!-- 文本描述优先：标题文字在前，附加元素（帮助图标等）跟后 -->
@@ -78,29 +77,5 @@ const title = computed(() => (props.titleKey ? i18n.t(props.titleKey) : ''));
 
 .card-body {
   padding: 10px 0 14px;
-}
-
-// 紧凑模式：更小头、更紧内距；用于参数页等分组密集场景
-.card.compact {
-  .card-header {
-    height: 30px;
-  }
-
-  .card-title {
-    padding: 0 0 0 2px;
-    font-size: var(--fs-base);
-    font-weight: 600;
-    color: var(--fg-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-  }
-
-  .card-actions {
-    padding-right: 0;
-  }
-
-  .card-body {
-    padding: 4px 0 10px;
-  }
 }
 </style>
