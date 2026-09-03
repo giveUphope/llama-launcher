@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.20] - 2026-09-03
+
+
 ### 依赖
 
 - **文档更新不再自动发版（2026-09-01）**：`ci.yml` 新增 `changes` job **确定**本次 push 变更性质（checkout 后以 `github.event.before` 为基线 `git diff --name-only` 解析文件清单，不依赖 webhook `commits[].modified` 字段——Actions 环境中该字段不可靠，首版实现即为判定失败所验证），`bump` job 增加 `needs.changes.outputs.non-doc == 'true'` 守卫——**纯文档变更**（仅 `docs/**`、根 `README.md`、`AGENTS.md`）跳过 bump 与 Release（版本不再为空文档更新递增），verify 照常执行；`.github/`、`package.json`、`packages/`、`scripts/` 等代码/工程变更仍自动发版。配套更新 `docs/ci-cd.md` §1.2/§1.3 与 `AGENTS.md` 自动发版说明。
