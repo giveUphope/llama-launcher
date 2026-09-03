@@ -12,9 +12,7 @@ export const zh = {
   // ---------------- 参数双轨逻辑（基线/会话） ----------------
   baseline_preset: '预设：{0}',
   baseline_custom: '自定义参数集',
-  baseline_temp: '临时参数',
   baseline_default: '默认参数',
-  baseline_dirty: '已修改',
   msg_restore_baseline: '恢复基线',
   msg_clear_session: '清除会话参数',
   msg_discard_dirty_title: '丢弃未固化的调整？',
@@ -152,7 +150,6 @@ export const zh = {
   lbl_exe_state_not_found: '未找到',
   lbl_model_path: '模型路径',
   lbl_preset_name: '预设名',
-  lbl_baseline: '参数基线',
   default_on: '默认开',
   default_off: '默认关',
   msg_mmproj_detected: '已自动检测到多模态投影器: {0}',
@@ -179,14 +176,10 @@ export const zh = {
   gguf_moe_experts: 'MoE 专家',
   gguf_rope_freq_base: 'RoPE 基频',
   gguf_apply_suggestions: '应用建议参数',
-  gguf_details_toggle: '展开详细信息',
-  gguf_details_collapse: '收起详细信息',
 
   // ---------------- table columns ----------------
   col_name: '名称',
   col_size: '大小',
-  col_modified: '修改时间',
-  col_path: '路径',
   btn_remove_model: '移除',
   msg_remove_model_confirm: '确定移除模型「{0}」？若目录下存在其他量化版本或文件，仅移除该文件；否则连同相关 mmproj/mtp/dflash 文件一并删除。此操作不可恢复。',
   msg_remove_model_failed: '移除模型失败：{0}',

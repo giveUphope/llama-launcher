@@ -9,7 +9,6 @@ import Card from '@/components/common/Card.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
 import InfoStrip from '@/components/common/InfoStrip.vue';
 import Icon from '@/components/common/Icon.vue';
-import BaselineBadge from '@/components/common/BaselineBadge.vue';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
@@ -137,10 +136,6 @@ function onOomKvQuant() {
 
 <template>
   <Card title-key="card_service_status">
-    <template #actions>
-      <!-- 双轨参数逻辑：基线徽章 + 恢复基线入口（与参数页一致） -->
-      <BaselineBadge show-restore />
-    </template>
     <!-- 单行单内容：运行状态 / 当前模型 / API 地址 / 运行时详情各自独立成行；
          内容值盒统一 boxed InfoStrip（宽/高/样式全库一致，§7.5.4 值盒标准） -->
     <div class="status-row">

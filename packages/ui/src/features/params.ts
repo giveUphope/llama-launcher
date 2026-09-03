@@ -1,4 +1,6 @@
 // 参数设置功能条目（含旧路由重定向）。
+// 单页 + 页内 tab-strip 切换（参数预设 / 自定义参数 / 性能测试，与设置页同一体例）；
+// 2026-09 移除侧栏子树展开——次级页面统一回归页内切换。
 import type { FeatureDef } from './types.js';
 import { useParamsStore } from '@/stores/params';
 
@@ -9,20 +11,8 @@ export const paramsFeature: FeatureDef = {
     labelKey: 'nav_params',
     to: '/params',
     order: 3,
-    // 子标签：参数预设 / 自定义参数 / 性能测试（原 ParamsPage 页内 mini-nav，重构入侧边栏；
-    // 性能测试自服务页迁入——调参与测试强相关，测试组件跟随参数设置）
-    children: [
-      { icon: 'presets', labelKey: 'nav_params_presets', tab: 'presets' },
-      {
-        icon: 'params',
-        labelKey: 'nav_params_custom',
-        tab: 'custom',
-        default: true,
-        // 自定义参数有未保存改动时红点提示（原 mini-nav 橙色小点）
-        dot: () => useParamsStore().hasChanges,
-      },
-      { icon: 'clock', labelKey: 'nav_params_bench', tab: 'bench' },
-    ],
+    // 自定义参数有未保存改动时橙点提示
+    dot: () => useParamsStore().hasChanges,
   },
   routes: [
     { path: '/params', name: 'params', component: () => import('@/pages/ParamsPage.vue') },

@@ -21,7 +21,7 @@
 
 - **临时轨道（会话）**：所有参数编辑自动持久化到 `~/.llama_launcher/settings.json` 的 `session_values` + `session_baseline`（`autoSave` watch 800ms 节流，**只写 settings、永不写预设文件**）；应用启动时经 `restoreSession` 恢复上次会话（参数值 + 基线一并还原）。
 - **预设轨道**：`<models_dir>/presets/*.json` 仅在用户显式「保存预设」时写入；应用预设（`applyPreset`）以「预设名 + 参数快照」建立新会话基线（`markBaseline`）。
-- **基线**：`SessionBaseline { preset_name, values }`——`hasChanges`（分组"已修改"蓝点 / 侧栏橙点）有基线时相对基线快照逐键对比，无基线时对比出厂默认；基线状态由 `BaselineBadge` 展示（参数页顶部 + 概览服务状态卡），提供「恢复基线」（`restoreBaseline`，resetAll 后回写基线快照）与「清除会话」（`clearSession`，带确认）入口。
+- **基线**：`SessionBaseline { preset_name, values }`——`hasChanges`（分组"已修改"蓝点 / 侧栏橙点）有基线时相对基线快照逐键对比，无基线时对比出厂默认。基线不再以徽章展示（2026-09 移除，与「已调整」统计重复）；「恢复基线」（`restoreBaseline`，resetAll 后回写基线快照）与「清除会话」（`clearSession`，带确认；保留模型选择）入口保留在参数页状态条。
 - **防丢确认**：切换模型（`applyModel`）与应用 GGUF 建议参数（`applyModelWithSuggestions`）前检测 `hasChanges`，未保存修改时弹 `confirmDiscardDirty` 确认，确认后应用并重建临时基线；应用启动重挂上次模型走 `reattachModelRuntime`（直接赋值、不确认、不重建基线、别名不重派生）。
 - **`MODEL_KEY`（`model`）** 恒随命令携带 `-m`；`set(MODEL_KEY)` 自动派生 `alias`（`modelBaseName`，文件名去 `.gguf` 后缀）。
 

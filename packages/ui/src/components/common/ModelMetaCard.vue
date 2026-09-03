@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useI18nStore } from '@/stores/i18n';
 import { useParamsStore } from '@/stores/params';
 import { MODEL_KEY } from '@llama-launcher/shared';
 import type { GgufModelInfo } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
-import Icon from '@/components/common/Icon.vue';
 
 const i18n = useI18nStore();
 const params = useParamsStore();
@@ -13,8 +12,6 @@ const params = useParamsStore();
 // 详情展开状态（默认折叠，避免信息过载；用户主动展开查看完整元数据）。
 // 头部的「收起到只显示模型名」按钮已整合移除：卡片紧凑、两层展开控件用途重复，
 // 详情开关（details-toggle）为唯一展开/收起控制点。
-const showDetails = ref(false);
-
 const modelPath = computed(() => String(params.values[MODEL_KEY] ?? ''));
 const info = computed(() => params.ggufInfo);
 const hasInfo = computed(() => !!info.value);
@@ -63,8 +60,6 @@ const detailRows = computed<MetaRow[]>(() => {
   ].filter((r) => r.value !== null && r.value !== undefined && r.value !== '');
 });
 
-// 是否有详细信息可展开
-const hasDetails = computed(() => detailRows.value.length > 0);
 // 注：显存估算不在此卡展示（参数页状态条为唯一展示位，避免两页重复）
 
 function formatValue(v: unknown): string {
@@ -89,15 +84,8 @@ function formatValue(v: unknown): string {
           <span class="chip-val">{{ formatValue(row.value) }}</span>
         </span>
       </div>
-      <button
-        v-if="hasDetails"
-        class="details-toggle"
-        @click="showDetails = !showDetails"
-      >
-        <Icon :name="showDetails ? 'chevron_down' : 'chevron_right'" :size="11" />
-        <span>{{ i18n.t(showDetails ? 'gguf_details_collapse' : 'gguf_details_toggle') }} ({{ detailRows.length }})</span>
-      </button>
-      <div v-if="showDetails && hasDetails" class="meta-chips details">
+      <!-- 详情常驻完整展示（无收起/展开开关）：dashed 次级分隔 -->
+      <div v-if="detailRows.length" class="meta-chips details">
         <span v-for="row in detailRows" :key="row.labelKey" class="meta-chip">
           <span class="chip-key">{{ i18n.t(row.labelKey) }}</span>
           <span class="chip-eq">=</span>
@@ -168,27 +156,5 @@ function formatValue(v: unknown): string {
 .meta-chips.details {
   padding-top: 8px;
   border-top: 1px dashed var(--border);
-}
-
-.details-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: var(--radius-pill);
-  align-self: flex-start;
-  transition: color var(--dur-fast) var(--ease-smooth), background var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover {
-    color: var(--accent);
-    background: var(--bg-hover);
-  }
-
 }
 </style>

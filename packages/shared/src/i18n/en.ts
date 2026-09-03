@@ -14,9 +14,7 @@ export const en: Dict = {
   // ---------------- Params dual-track (baseline / session) ----------------
   baseline_preset: 'Preset: {0}',
   baseline_custom: 'Custom Params',
-  baseline_temp: 'Temporary',
   baseline_default: 'Defaults',
-  baseline_dirty: 'Modified',
   msg_restore_baseline: 'Restore Baseline',
   msg_clear_session: 'Clear Session Params',
   msg_discard_dirty_title: 'Discard unsaved changes?',
@@ -154,7 +152,6 @@ export const en: Dict = {
   lbl_exe_state_not_found: 'Not found',
   lbl_model_path: 'Model Path',
   lbl_preset_name: 'Preset Name',
-  lbl_baseline: 'Parameter Baseline',
   default_on: 'Default on',
   default_off: 'Default off',
   msg_mmproj_detected: 'Multimodal projector auto-detected: {0}',
@@ -181,14 +178,10 @@ export const en: Dict = {
   gguf_moe_experts: 'MoE Experts',
   gguf_rope_freq_base: 'RoPE Freq Base',
   gguf_apply_suggestions: 'Apply Suggestions',
-  gguf_details_toggle: 'Show details',
-  gguf_details_collapse: 'Hide details',
 
   // ---------------- table columns ----------------
   col_name: 'Name',
   col_size: 'Size',
-  col_modified: 'Modified',
-  col_path: 'Path',
   btn_remove_model: 'Remove',
   msg_remove_model_confirm: 'Remove model "{0}"? If the directory holds other quantizations or files, only this file is removed; otherwise it is deleted together with related companion files (mmproj/mtp/dflash). This cannot be undone.',
   msg_remove_model_failed: 'Failed to remove model: {0}',

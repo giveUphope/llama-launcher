@@ -14,11 +14,15 @@ import { useVramEstimate } from '@/composables/useVramEstimate';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 
-// 左侧迷你导航已重构入侧边栏（子标签：参数预设 / 自定义参数 / 性能测试），
-// 本页只保留内容区，tab 由侧边栏经路由 query.tab 驱动。
-// 性能测试（BenchPanel）自服务页迁入作为第三子标签（调参与测试强相关）；
-// 页面级 keep-alive（PageHost）保证切换页面后测试历史不丢失。
+// 单页 + 页内 tab-strip 切换（与设置页同一体例）：query.tab 可深链，未知值回退自定义参数。
+// 参数预设（PresetsPanel）与性能测试（BenchPanel）由 KeepAlive 缓存，切页不丢状态。
 type TabKey = 'custom' | 'presets' | 'bench';
+
+const TABS: Array<{ key: TabKey; icon: string; labelKey: string }> = [
+  { key: 'presets', icon: 'presets', labelKey: 'nav_params_presets' },
+  { key: 'custom', icon: 'params', labelKey: 'nav_params_custom' },
+  { key: 'bench', icon: 'clock', labelKey: 'nav_params_bench' },
+];
 
 const SUBCATEGORY_ORDER: string[] = [
   'network', 'context', 'compute', 'memory', 'sampling',
@@ -31,19 +35,36 @@ const router = useRouter();
 const params = useParamsStore();
 const i18n = useI18nStore();
 
-// 向后兼容：旧 ?tab=params 映射到 custom（bench 现已是真实子标签，直接命中）
-const LEGACY_TAB_MAP: Record<string, TabKey> = { params: 'custom' };
+// 上次访问页签（模块级：跨侧栏切换/keep-alive 保留）。点击侧栏「参数设置」（无 query）
+// 回落到此页签而非固定自定义参数；首次访问默认 custom。
+let lastParamsTab: TabKey = 'custom';
 
-const activeTab = ref<TabKey>('custom');
-watch(() => route.query.tab, (tab) => {
-  const t = String(tab ?? 'custom');
-  if (t === 'presets' || t === 'custom' || t === 'bench') {
-    activeTab.value = t;
-  } else if (LEGACY_TAB_MAP[t]) {
-    // 旧书签/快捷键（?tab=params）：归一化 URL，保证侧边栏子项高亮与内容一致
-    void router.replace({ query: { tab: LEGACY_TAB_MAP[t] } });
-  }
-}, { immediate: true });
+const activeTab = computed<TabKey>(() => {
+  const t = String(route.query.tab ?? '');
+  if (t === 'presets' || t === 'custom' || t === 'bench') return t;
+  return lastParamsTab;
+});
+
+function setTab(key: TabKey) {
+  if (key === activeTab.value) return;
+  lastParamsTab = key;
+  void router.replace({ query: { ...route.query, tab: key } });
+}
+
+// 记住已解析页签（含深链直达 ?tab=bench 等场景）
+watch(activeTab, (t) => { lastParamsTab = t; }, { immediate: true });
+
+// 无 query 进入 /params（侧栏点击、旧路由 /basic 等重定向、旧书签 ?tab=params）：
+// 归一化 URL 为上次页签，保证刷新/分享与视图一致
+watch(
+  () => [route.path, route.query.tab] as const,
+  ([p, t]) => {
+    if (p === '/params' && (t === undefined || t === '')) {
+      void router.replace({ query: { ...route.query, tab: lastParamsTab } });
+    }
+  },
+  { immediate: true },
+);
 
 const activeComponent = computed<Component | null>(() => {
   if (activeTab.value === 'presets') return PresetsPanel;
@@ -200,6 +221,22 @@ async function onClearSession() {
 
 <template>
   <PageFrame>
+    <!-- 页内页签（与设置页同一体例）：参数预设 / 自定义参数 / 性能测试 -->
+    <div class="tab-strip" role="tablist">
+      <button
+        v-for="t in TABS"
+        :key="t.key"
+        class="tab-btn"
+        :class="{ active: activeTab === t.key }"
+        :aria-selected="activeTab === t.key"
+        role="tab"
+        @click="setTab(t.key)"
+      >
+        <Icon :name="t.icon" :size="13" />
+        <span>{{ i18n.t(t.labelKey) }}</span>
+      </button>
+    </div>
+
     <!-- 参数预览条仅在「自定义参数」标签展示（预设界面聚焦预设编辑，不显示参数统计） -->
     <div v-if="activeTab === 'custom'" class="params-status-bar">
       <div class="stat">
@@ -315,6 +352,11 @@ async function onClearSession() {
 </template>
 
 <style scoped lang="scss">
+// 页签条与下方区块统一 8px 间距（§7.5 顶栏条与相邻区块间距规范）
+.tab-strip {
+  margin-bottom: 8px;
+}
+
 .params-status-bar {
   display: flex;
   align-items: center;

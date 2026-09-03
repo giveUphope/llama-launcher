@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch, onMounted, onUnmounted } from 'vue';
 import type { ModelInfo, ModelFitResult, LlamaBenchJobState } from '@llama-launcher/shared';
-import { MODEL_KEY, formatRelativeTime } from '@llama-launcher/shared';
+import { MODEL_KEY } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import ModelMetaCard from '@/components/common/ModelMetaCard.vue';
@@ -398,14 +398,12 @@ onUnmounted(() => {
               <tr>
                 <th>{{ i18n.t('col_name') }}</th>
                 <th class="col-size">{{ i18n.t('col_size') }}</th>
-                <th class="col-modified">{{ i18n.t('col_modified') }}</th>
-                <th>{{ i18n.t('col_path') }}</th>
                 <th class="col-actions"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="!filteredModels.length">
-                <td colspan="5" class="empty">{{ searchQuery ? i18n.t('msg_no_search_results') : '—' }}</td>
+                <td colspan="3" class="empty">{{ searchQuery ? i18n.t('msg_no_search_results') : '—' }}</td>
               </tr>
               <tr
                 v-for="(m, idx) in filteredModels"
@@ -416,13 +414,12 @@ onUnmounted(() => {
                 <td>
                   <div class="model-name-cell">
                     <Icon v-if="m.path === modelPath" name="star" :size="12" class="selected-icon" />
-                    <div class="model-name-row">{{ m.name }}</div>
+                    <!-- 路径不再单列展示：悬停名称可见完整路径，「打开目录」按钮直达所在目录 -->
+                    <div class="model-name-row" :title="m.path">{{ m.name }}</div>
                   </div>
-                  <div v-if="m.tags && m.tags.length" class="model-tags">
-                    <span v-for="t in m.tags" :key="t" class="model-tag" :class="tagCls(t)">{{ t }}</span>
-                  </div>
-                  <!-- 显存适配徽章 + 体检结果（估算失败/未体检时不出徽章） -->
-                  <div v-if="fitOf(m)?.verdict || benchBadge(m)" class="model-tags">
+                  <!-- 伴随文件标签 + 显存适配 + 体检结果合并同一行 -->
+                  <div v-if="(m.tags && m.tags.length) || fitOf(m)?.verdict || benchBadge(m)" class="model-tags">
+                    <span v-for="t in m.tags ?? []" :key="t" class="model-tag" :class="tagCls(t)">{{ t }}</span>
                     <span
                       v-if="fitOf(m)?.verdict"
                       class="model-tag"
@@ -433,23 +430,23 @@ onUnmounted(() => {
                   </div>
                 </td>
                 <td class="col-size">{{ m.size_str }}</td>
-                <td class="col-modified">{{ formatRelativeTime(m.modified, settings.language) }}</td>
-                <td class="path-cell">{{ m.path }}</td>
                 <td class="col-actions">
-                  <button class="row-btn" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(m)">
-                    <Icon name="folder_open" :size="13" />
-                  </button>
-                  <button
-                    class="row-btn"
-                    :title="i18n.t('bench_llama_title')"
-                    :disabled="benchJobs[m.path]?.state === 'running'"
-                    @click.stop="onBench(m)"
-                  >
-                    <Icon name="clock" :size="13" />
-                  </button>
-                  <button class="row-btn danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(m)">
-                    <Icon name="trash" :size="13" />
-                  </button>
+                  <div class="row-actions">
+                    <button class="row-btn" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(m)">
+                      <Icon name="folder_open" :size="13" />
+                    </button>
+                    <button
+                      class="row-btn"
+                      :title="i18n.t('bench_llama_title')"
+                      :disabled="benchJobs[m.path]?.state === 'running'"
+                      @click.stop="onBench(m)"
+                    >
+                      <Icon name="clock" :size="13" />
+                    </button>
+                    <button class="row-btn danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(m)">
+                      <Icon name="trash" :size="13" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -639,19 +636,26 @@ onUnmounted(() => {
     width: 90px;
   }
 
-  .col-modified {
-    width: 170px;
-  }
-
-  .path-cell {
-    color: var(--fg-muted);
-    font-family: var(--font-mono);
-    font-size: var(--fs-sm);
+  // 名称列保底宽度：保证伴随标签 + 适配徽章 + 体检结果同行展示
+  th:first-child,
+  td:first-child {
+    min-width: 210px;
   }
 
   .col-actions {
-    width: 76px;
+    width: 84px;
     text-align: right;
+
+    // 操作按钮固定单行（flex 消除 inline 空白节点，路径列收缩时不再换行）
+    .row-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+
+    .row-btn {
+      flex-shrink: 0;
+    }
   }
 
   .empty {
@@ -678,9 +682,11 @@ onUnmounted(() => {
 
 .model-tags {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   margin-top: 4px;
+  // 标签恒单行：超出时整行省略（名称列已有 min-width 保底）
+  overflow: hidden;
 }
 
 /* 伴随文件标签徽章（mmproj / dflash / draft），淡底配色对齐全局徽章风格 */

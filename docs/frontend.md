@@ -5,7 +5,7 @@
 
 ### 7.1 路由与功能注册表 (router/index.ts + features/)
 
-路由由**功能注册表**装配：`packages/ui/src/features/` 中每个功能模块声明 `FeatureDef`（`nav` 侧栏导航 + `routes`），`features/index.ts` 汇总为 `navItems`（侧栏渲染）与 `featureRoutes`（路由装配）；`router/index.ts` 仅 `createWebHashHistory` + `featureRoutes`。新增功能 = 注册表加一个条目；`enabled:false` 可停用；`order` 决定侧栏排序；参数页橙点经 `nav.dot()` 在渲染上下文求值保持响应式。**侧栏子树**：一级项可声明 `children[]`（子标签），子项不占独立路由，点击写入 `query.tab` 由页内读取切换内容；一级项在 `Sidebar` 中可展开/收起（手动切换优先，激活项自动展开），子项激活 = path 命中 + `query.tab` 精确匹配（无 query 时默认项高亮）；**侧栏收起时子树仍渲染为 icon-only 行**（`.nav-sub.compact` 去缩进），调整提示橙点以**图标右上角标**呈现（不被 56px 导轨 overflow 裁切），全部导航按钮带 `title`/`aria-label`。**启动顺序**（main.ts）：`settings.load()` 与 `last_tab` 页签恢复在 `app.mount()` **之前**完成——首帧即为目标页签，启动期不存在第二次导航（挂载后的恢复重定向会在首屏中途注入导航，表现为路由已切换而视图停留在旧页）；设置加载带 **3s 超时兜底**（`Promise.race`，加载异常时按当前 URL 直接进入，不阻塞启动）。**页面切换**（PageHost）为**结构化直接替换**：`keep-alive` 直接替换激活组件（结构上不存在双页同框窗口），路由 `watch` 后对内容区做 90ms 容器淡入（WAAPI，opacity 0.55→1，`prefers-reduced-motion` 跳过）；**不用 `<transition>`**——KeepAlive 失活移除时序下 JS 钩子 `done()`/`transitionend` 可能永不触发，快速导航时出现短暂双页同框（旧方案已废弃，见 STYLE_TODO #40）。**浏览器预览**（无 Electron preload 的环境）：`main.ts` 注入 `dev/demo-mock.ts` 的 `createDemoApi()` 演示数据，其中 `buildDemoPreviewCommand` 按 core `buildCommand` 同规则动态构建命令预览。
+路由由**功能注册表**装配：`packages/ui/src/features/` 中每个功能模块声明 `FeatureDef`（`nav` 侧栏导航 + `routes`），`features/index.ts` 汇总为 `navItems`（侧栏渲染）与 `featureRoutes`（路由装配）；`router/index.ts` 仅 `createWebHashHistory` + `featureRoutes`。新增功能 = 注册表加一个条目；`enabled:false` 可停用；`order` 决定侧栏排序；参数页橙点经 `nav.dot()` 在渲染上下文求值保持响应式。**侧栏子树已移除**（2026-09：`children[]`/展开机制随参数设置回归单页删除）——次级页面统一回归**页内 tab-strip 切换**（参数设置三页签与设置页同一体例，`query.tab` 可深链）；调整提示橙点以**图标右上角标**呈现（侧栏收起态，不被 56px 导轨 overflow 裁切），全部导航按钮带 `title`/`aria-label`。**启动顺序**（main.ts）：`settings.load()` 与 `last_tab` 页签恢复在 `app.mount()` **之前**完成——首帧即为目标页签，启动期不存在第二次导航（挂载后的恢复重定向会在首屏中途注入导航，表现为路由已切换而视图停留在旧页）；设置加载带 **3s 超时兜底**（`Promise.race`，加载异常时按当前 URL 直接进入，不阻塞启动）。**页面切换**（PageHost）为**结构化直接替换**：`keep-alive` 直接替换激活组件（结构上不存在双页同框窗口），路由 `watch` 后对内容区做 90ms 容器淡入（WAAPI，opacity 0.55→1，`prefers-reduced-motion` 跳过）；**不用 `<transition>`**——KeepAlive 失活移除时序下 JS 钩子 `done()`/`transitionend` 可能永不触发，快速导航时出现短暂双页同框（旧方案已废弃，见 STYLE_TODO #40）。**浏览器预览**（无 Electron preload 的环境）：`main.ts` 注入 `dev/demo-mock.ts` 的 `createDemoApi()` 演示数据，其中 `buildDemoPreviewCommand` 按 core `buildCommand` 同规则动态构建命令预览。
 
 `createWebHashHistory`，共 15 条路由（7 个功能页 + 1 条根重定向 + 7 条旧路由重定向）：
 
@@ -15,7 +15,7 @@
 | `/dashboard` | 概览（服务状态卡 + 最近问题） |
 | `/models` | 模型管理（3 子标签：本地模型 / 模型库 / 下载任务） |
 | `/service` | 服务（命令预览 + 参数摘要 + 配置清理 + 控制台） |
-| `/params` | 参数设置（侧边栏子树子标签：参数预设 / 自定义参数 / 性能测试，`query.tab` 切换） |
+| `/params` | 参数设置（页内 tab-strip 三页签：参数预设 / 自定义参数 / 性能测试，与设置页同一体例，`query.tab` 可深链） |
 | `/logs` | 应用日志中心 |
 | `/settings` | 应用设置（4 子标签：常规 / 外观 / 高级 / 关于） |
 | `/webui` | 内置 Web UI（侧栏一级项；服务运行时 iframe 直接展示 llama-server Web UI，替代跳转外部浏览器） |
@@ -42,10 +42,10 @@
 
 | 页面 | 功能 |
 |------|------|
-| `DashboardPage` | 概览：服务状态卡（`ServiceStatusCard`，自服务页迁入——状态/当前模型/API 地址/主机/端口/PID/运行时长 + 基线徽章，服务状态的唯一页面级展示区）+ 最近问题（应用日志 warn/error 最近 3 条，`.q-section` 分区分隔） |
+| `DashboardPage` | 概览：服务状态卡（`ServiceStatusCard`，自服务页迁入——状态/当前模型/API 地址/主机/端口/PID/运行时长，服务状态的唯一页面级展示区）+ 最近问题（应用日志 warn/error 最近 3 条，`.q-section` 分区分隔） |
 | `ModelsPage` | 3 子标签：本地模型（`LocalModelsPanel`）/ 模型库（`LibraryPanel`，DownloadCard library 模式）/ 下载任务（`DownloadsPanel`，DownloadCard tasks 模式） |
 | `ServicePage` | 命令预览（`CommandPreviewCard`：**双文本框**——「内置参数命令」**只读**展示、随参数实时自动生成（改内置参数走参数设置页控件，无编辑/还原逻辑）；「扩展参数」为唯一可编辑区，绑定 `settings.custom_args` 持久化、原样追加到启动命令末尾；复制 = 内置+扩展合并）、参数摘要（`ParamSummaryCard`）、配置目录清理（`TrashCleanCard`）、控制台输出（上限 5000 行；运行状态卡已迁至概览，本页不再重复展示状态/模型/API 地址） |
-| `ParamsPage` | 3 子标签：参数预设（`PresetsPanel`）/ 自定义参数（13 个子分类分区，`param-grid` `repeat(auto-fit, minmax(340px, 1fr))` 响应式网格）/ 性能测试（`BenchPanel`，自服务页迁入，KeepAlive 缓存保留测试历史）；59 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；状态条含**硬件占用估算 stat**（`useVramEstimate`：显存占用百分比 + 构成明细 tooltip，超限橙色警示）与**性能目标选择器**（四档联动建议差集 chips + 一键应用）；恢复基线/清除会话入口（无基线徽章，与「已调整」统计去重） |
+| `ParamsPage` | 页内 tab-strip 三页签（与设置页统一）：参数预设（`PresetsPanel`）/ 自定义参数（13 个子分类分区，`param-grid` `repeat(auto-fit, minmax(340px, 1fr))` 响应式网格）/ 性能测试（`BenchPanel`，自服务页迁入，KeepAlive 缓存保留测试历史）；59 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；自定义页签状态条含**硬件占用估算 stat**（`useVramEstimate`：显存占用百分比 + 构成明细 tooltip，超限橙色警示）与**性能目标选择器**（四档联动建议差集 chips + 一键应用）；恢复基线/清除会话入口（无基线徽章，与「已调整」统计去重） |
 | `LogsPage` | 应用日志中心：级别筛选 chips、搜索、控制台渲染上限 3000 行、自动滚动 |
 | `SettingsPage` | 4 子标签：常规（`GeneralPanel`，引擎/模型目录内联检测）/ 外观（`AppearancePanel`）/ 高级（`AdvancedPanel`）/ 关于（`AboutPanel`）；原 llama.cpp 标签已并入常规；全部即时保存 |
 | `WebUiPage` | 内置 Web UI 路由占位（侧栏一级项「内置 Web UI」）；实际渲染由布局层 `WebUiFrame`（iframe 常驻文档，`v-show` 切换显隐，切页不重载）承担：服务运行时展示 llama-server Web UI，未运行时显示占位提示 |
@@ -58,13 +58,12 @@
 | `Card` | 内容分区容器：带标题和 actions 插槽；**分区风格**——透明背景、无圆角/阴影，相邻区块以底边 1px 实线分隔（`:last-child` 无线） |
 | `Icon` | 内联 SVG 图标库（字典 36 项，未引用项随清理删除） |
 | `ToolTip` | 悬停提示 |
-| `NavButton` | 侧边栏导航按钮（一级项/子标签，子项按 `query.tab` 高亮，一级项带展开箭头） |
+| `NavButton` | 侧边栏导航按钮（一级项，激活 = path 命中；支持收起态图标形态与调整橙点角标） |
 | `StatusTag` | 状态标签（状态点 + 文字，ok/loading/idle/error 变体） |
-| `BaselineBadge` | 参数基线徽章（参数页顶部 + 概览服务状态卡）：按会话基线显示「预设名·已修改 / 自定义参数集 / 临时参数 / 默认参数」，可选恢复基线按钮 |
-| `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签 / 当前模型 / API 地址（boxed InfoStrip + 复制按钮）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ 快捷操作（打开 Web UI·管理模型）；卡片头挂 `BaselineBadge` |
+| `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签 / 当前模型 / API 地址（boxed InfoStrip + 复制按钮）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ 快捷操作（打开 Web UI·管理模型） |
 | `AppLogo` | 应用 Logo 统一组件（见 §7.5.7） |
 | `InfoStrip` | 信息行（label + 值/插槽控件；设置页表单行、Dashboard/Service 信息网格共用） |
-| `ModelMetaCard` | 模型元数据展示（主摘要 + 可折叠详情，dashed 次级分隔） |
+| `ModelMetaCard` | 模型元数据展示（A 类识别摘要 + B/D 类详情**常驻完整展示**，dashed 次级分隔；无收起/展开开关） |
 | `DownloadCard` | 下载功能卡片（`mode: 'library' \| 'tasks'` 双模式：URL 解析/搜索/文件选择/任务列表；推荐文件只作徽标/高亮/排序提示、**不自动勾选**，下载由用户主动勾选触发；提交下载走 `enqueueFiles`：Store 去重 + 本地同名检测 + 后端 ID 回填；URL 会话历史存 `useUrlHistory` 模块级单例，跨子标签 `v-if` 重建保留） |
 | `ConfirmModal` / `CloseDialog` | 通用确认弹窗 / 退出确认弹窗（`useConfirm` 队列驱动） |
 | `FileBrowserModal` | 文件/目录浏览弹窗（`useFilePicker` 队列驱动，dir/file/save 三模式） |
