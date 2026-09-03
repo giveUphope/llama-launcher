@@ -43,7 +43,7 @@
 | `server:status`  | 查询服务状态                                          |
 | `server:preview` | 预览启动命令                                          |
 | `server:output`  | 输出推送（主进程 → 渲染进程）                                |
-| `server:bench`   | 性能测试：一次运行依次执行单并发与多并发两个场景，返回 timings 与 DFlash 指标 |
+| `server:bench`   | 性能测试：一次运行必测单并发；多并发按服务器实际并行槽位（np≥2）条件执行，否则结果置 null，返回 timings 与 DFlash 指标 |
 
 ### Logs（3）
 
@@ -78,10 +78,10 @@
 
 | 通道                    | 用途                                                                                                                   |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `system:checkPort`    | 检查端口是否被占用（按 llama-server 将绑定的 `--host` 地址探测；默认 127.0.0.1，0.0.0.0/局域网 IP 时按对应地址，覆盖占用者绑定在其他网卡 IP 的漏报；占用时返回占用者 PID/进程名） |
+| `system:checkPort`    | 检查端口是否被占用（按 llama-server 将绑定的 `--host` 地址探测；默认 127.0.0.1，0.0.0.0/局域网 IP 时按对应地址——2026-09 实测：占用者绑局域网 IP 时探 127.0.0.1 漏报、探对应地址命中，覆盖其他网卡占用者场景；Windows 上通配与回环可共存，探测为尽力而为；占用时返回占用者 PID/进程名） |
 | `system:killProcess`  | 结束指定进程（端口占用处理：Windows `taskkill /F /PID`、POSIX SIGKILL；由渲染端确认后调用）                                                    |
 | `system:findFreePort` | 从指定端口向后扫描，返回首个空闲端口（host 语义同 checkPort；无可用返回 null）                                                                    |
-| `system:estimateVram` | 显存探测 + 上下文容量估算（spawn `llama-server --list-devices` 取每设备空闲显存 + GGUF KV 内存模型估算全卸载上下文上限 + 性能目标联动建议；尽力而为，失败字段为 null；结果按模型\|dtype\|target 缓存 60s） |
+| `system:estimateVram` | 显存探测 + 上下文容量估算（spawn `llama-server --list-devices` 取每设备空闲显存 + GGUF KV 内存模型估算全卸载上下文上限 + 性能目标联动建议；尽力而为，失败字段为 null；结果按 模型\|dtype\|target\|ngl\|ctxSize 缓存 60s） |
 | `system:benchLlamaRun`    | 启动 llama-bench 离线体检（pp512/tg128 全卸载，fire-and-forget 单模型单作业；结果按模型路径缓存会话期） |
 | `system:benchLlamaStatus` | 轮询体检作业状态/结果（running/done/error + LlamaBenchSummary） |
 | `system:estimateModelFit` | 模型列表批量显存适配判定（fit/partial/no 徽章 + 全卸载上下文上限；元数据不可读 verdict 为 null） |

@@ -115,7 +115,7 @@ export class Launcher extends EventEmitter {
       host: this.host,
       port: this.port,
       url: `http://${this.host}:${this.port}/`,
-      // 最近一次启动的参数快照（含 _enabled），供渲染进程判断当前服务是否与某组参数一致
+      // 最近一次启动的参数快照（纯值映射，无 `_enabled`），供渲染进程判断当前服务是否与某组参数一致
       values: { ...this.currentValues },
     };
   }

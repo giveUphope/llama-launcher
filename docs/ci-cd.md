@@ -24,7 +24,7 @@
   2. `pnpm/action-setup@v5`（version: 10.12.1）— **必须在 `setup-node` 之前**（否则 `cache: pnpm` 时找不到 pnpm）
   3. `actions/setup-node@v7`（node-version: 24, cache: pnpm）
   4. `pnpm install --frozen-lockfile`
-  5. `pnpm build` — **必须先于 `pnpm lint``**（tsc project references 依赖 shared/dist / core/dist）
+  5. `pnpm build` — **必须先于 `pnpm lint`**（tsc project references 依赖 shared/dist / core/dist）
   6. `pnpm lint`（turbo run lint + verify-ipc-sync.cjs + check-docs-links.cjs）
   7. `pnpm test`
 
@@ -36,7 +36,7 @@ pull_request 和 push 事件都走 verify。
 - **守卫条件**：`github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && needs.changes.outputs.non-doc == 'true'`
   - 只处理 push 到 main 的事件，PR 合并后的触发自动命中
   - `github.actor != 'github-actions[bot]'` **防止无限循环**：bot 自己推入的版本 bump 提交不再触发第二次 bump
-  - **`non-doc == 'true'`（2026-09-02 新增）**：`changes` job 解析本次 push 各提交的文件清单，仅当存在非文档文件变更（`docs/**`、根 `README.md`、`AGENTS.md` 之外）时才 bump——**纯文档更新不递增版本、不触发 Release**，避免每次都发版
+  - **`non-doc == 'true'`（2026-09-01 新增）**：`changes` job 解析本次 push 各提交的文件清单，仅当存在非文档文件变更（`docs/**`、根 `README.md`、`AGENTS.md` 之外）时才 bump——**纯文档更新不递增版本、不触发 Release**，避免每次都发版
 - **步骤**：
   1. `actions/checkout@v7`（fetch-depth: 0, persist-credentials: true）
   2. `pnpm/action-setup@v5` + `actions/setup-node@v7` + `pnpm install --frozen-lockfile`
@@ -58,9 +58,9 @@ pull_request 和 push 事件都走 verify。
 
 ## 2. 关键配置要点
 
-### 2.1 Actions Node 24 运行时
+### 2.1 Actions 运行时版本
 
-GitHub Actions 于 2026-06-16 起默认以 Node 24 运行 JS actions，2026-09-23 从 runner 移除 Node 20。所有 actions 已升级到 node24 runtime 版本以消除弃用告警：
+所有 actions 已升级到 node24 runtime 版本以消除弃用告警（GitHub runner 镜像的 Node.js 版本变更公告见 [actions/runner-images#14029](https://github.com/actions/runner-images/issues/14029)：Node.js 20 于 2026-04-30 EOL，2026-05-19~26 从 runner 镜像移除，默认版本改 Node.js 22）：
 
 | Action | 之前的版本 | 当前版本 |
 |--------|-----------|---------|
@@ -101,7 +101,11 @@ concurrency:
 
 ```bash
 node scripts/bump-version.cjs patch   # 或 minor / major
-git push origin main                   # 触发 CI → bump → release
 ```
 
-或在 github.com 上手动触发 `release.yml`（workflow_dispatch → 输入版本号 vX.Y.Z）。
+**注意**：手动 bump 后再 `git push origin main` 会命中 CI 的 bump job 再递增一次（bump 守卫只看变更性质 `non-doc` 与 actor 是否 bot，不识别「本地已 bump」）——本地版本号会被跳过且不打 tag/发版，最终发布版本为 CI 二次 bump 的结果。可选做法：
+
+- **本地只 bump + 打 tag + 推送 tag**，随后在 GitHub 手动触发 `release.yml`（workflow_dispatch → 输入版本号 vX.Y.Z）——避免 CI 二次 bump；
+- 或接受「本地 bump 后直推 main = 发布版本为 CI 再 +1」的语义，以 CI 输出的 tag 为准。
+
+或完全依赖自动发版：直推非文档变更到 main，由 bump job 自动完成 bump + tag + release。

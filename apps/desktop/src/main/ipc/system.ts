@@ -145,9 +145,9 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
   // 占用时返回占用者 PID/进程名（尽力而为），供 UI 展示可操作的处理选项。
   // host 传入 llama-server 将要绑定的地址（参数页 --host 值）：
   //   - 空/127.0.0.1 → 按 127.0.0.1 探测（回环精确）；
-  //   - 0.0.0.0 / :: / 局域网 IP → 按该地址探测（通配监听会与一切地址占用冲突，
-  //     覆盖"占用者绑定在其他网卡 IP"的漏报场景；若占用者只绑 127 而 llama 绑 0.0.0.0——
-  //     仅当 host 明确为 0.0.0.0 时才建议用户考虑，默认回环场景不受影响）
+  //   - 0.0.0.0 / :: / 局域网 IP → 按该地址探测（2026-09 实测：占用者绑局域网 IP 时探 127.0.0.1 会漏报，
+  //     探对应地址可命中——按 host 探测覆盖"占用者绑定在其他网卡 IP"的场景；
+  //     注意 Windows 上通配与回环可共存（SO_REUSEADDR 语义），探测结果为尽力而为）
   ipcMain.handle(IPC.SYSTEM_CHECK_PORT, async (_e, port: number, host?: string) => {
     const bindHost = host && host.trim() ? host.trim() : '127.0.0.1';
     const free = await probePort(port, bindHost);
@@ -202,7 +202,7 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
   // 1) spawn 随引擎分发的 `llama-server --list-devices` 取每设备空闲显存；
   // 2) GGUF 元数据 KV 内存模型（权重≈文件大小）估算全卸载上下文上限；
   // 3) 性能目标联动建议（四档目标 × 关键杠杆的确定性规则）。
-  // 结果按 (模型|dtype|target) 缓存 60s——设备空闲显存变化不频繁，避免每次切页重复 spawn。
+  // 结果按 (模型|dtype|target|ngl|ctxSize) 缓存 60s——设备空闲显存变化不频繁，避免每次切页重复 spawn。
   const estimateCache = new Map<string, { at: number; result: VramEstimateResult }>();
   const ESTIMATE_CACHE_TTL_MS = 60_000;
   const PERF_TARGETS: PerfTarget[] = ['max-context', 'balanced', 'latency', 'memory'];

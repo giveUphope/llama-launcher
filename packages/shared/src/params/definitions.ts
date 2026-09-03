@@ -22,7 +22,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
 ];
 
 export const PARAMS: ParamDef[] = [
-  // ---------------- basic (13) ----------------
+  // ---------------- basic (15) ----------------
   // 子分组 network：网络配置
   { key: 'host', group: 'basic', type: 'text', flag: '--host', default: '127.0.0.1', subcategory: 'network' },
   { key: 'port', group: 'basic', type: 'int_entry', flag: '--port', default: 8080, min: 1, max: 65535, subcategory: 'network' },

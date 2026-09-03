@@ -31,20 +31,20 @@ IPC 按功能域声明式注册：`ipc/` 目录下 settings/models/presets/serve
 - `models:watch` 递归监听 `.gguf` 文件变化，500ms 防抖后通知渲染进程。
 - `system:findLlamaExe` 在指定目录（含一级子目录）查找 `llama-server.exe`，用于内联检测。
 - `server:bench`：性能测试通道，委托 `bench-client.ts` 对运行中的 llama-server 发请求（读 completion `timings` + `/metrics`）。
-- `system:estimateVram` / `system:estimateModelFit`：显存探测（spawn `llama-server --list-devices`）+ GGUF KV 内存模型，估算显存/内存双侧占用、无 OOM 上下文上限、性能目标联动建议与模型适配判定（委托 core `devices.ts` / `vram-estimate.ts` / `target-recommend.ts`；设备探测 30s 共享缓存，结果按模型|dtype|target 缓存 60s）。
+- `system:estimateVram` / `system:estimateModelFit`：显存探测（spawn `llama-server --list-devices`）+ GGUF KV 内存模型，估算显存/内存双侧占用、无 OOM 上下文上限、性能目标联动建议与模型适配判定（委托 core `devices.ts` / `vram-estimate.ts` / `target-recommend.ts`；设备探测 30s 共享缓存，结果按 模型|dtype|target|ngl|ctxSize 缓存 60s）。
 - `system:benchLlamaRun` / `system:benchLlamaStatus`：llama-bench 离线体检（pp512/tg128，单模型单作业 + 状态轮询，委托 core `llama-bench.ts`）。
 - **关闭行为链路**：窗口关闭请求统一走 `app-exit.ts`，按设置 `close_behavior`（`ask`/`exit`/`tray`）分流；`ask` 时主进程向渲染进程发 `window:showCloseDialog`，渲染进程经 `window:closeDialogResult` 应答（10 秒超时兜底**最小化到托盘**，不丢数据），服务运行中附带二次确认。
 
 ### 6.4 Launcher 桥接 (launcher-bridge.ts)
 
 - **单例** `launcherBridge`，跨窗口共享同一个 Launcher 实例。
-- **输出缓冲区**：上限 5000 条，新窗口连接时重放历史输出，保证状态可见；输出经 **16ms 窗口批量合并推送**（模型加载等突发日志不逐行压 IPC）。
+- **输出缓冲区**：上限 5000 条，新窗口连接时重放历史输出，保证状态可见；输出经 **16ms 窗口聚合后同步逐条冲刷**（突发日志不即时逐行 send，但仍每条目一条 `SERVER_OUTPUT` 消息，不做数组打包）。
 - **清理**：`disposeSync()`（同步强杀，供 `before-quit`）/ `dispose()`（异步等待 `exit` 或 5 秒超时）。
 - **重启竞态规避**：`Launcher.restart()` 在运行中会 `proc.once('exit', () => start)` 等旧进程退出后再启动新进程（未运行时直接 start），避免手动 stop() 后立即 start() 时 `launcher.proc` 仍指向旧进程导致的 `Server is already running` 误判（taskkill 异步杀进程，exit 事件触发前 proc 未置 null）。
 
 ### 6.5 Preload (preload/index.cjs)
 
-- **CommonJS 模块**：Electron sandbox 要求 preload 不能用 ESM。
+- **CommonJS 模块**：Electron 要求 preload 脚本必须为 CommonJS（与 `sandbox: false` 无关——ESM 写法在 preload 环境不可加载）。
 - **`contextBridge.exposeInMainWorld('api', api)`**：向渲染进程暴露安全 API。
 - **IPC 常量生成化**：preload 无法 import shared，IPC 通道常量由 `scripts/generate-preload.cjs` 从 `shared/src/types/ipc.ts` 生成到同级 `ipc-constants.cjs`（`pnpm generate:ipc`），`index.cjs` require 该生成物；`verify-ipc-sync.cjs` 校验生成物未过期，并禁止把常量手工内联回 `index.cjs`。
 - **`clonePlain` 序列化**：所有参数经 clonePlain 序列化后再传递，确保跨上下文安全。

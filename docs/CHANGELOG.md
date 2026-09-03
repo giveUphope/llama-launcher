@@ -6,11 +6,12 @@
 
 ### 依赖
 
-- **文档更新不再自动发版（2026-09-02）**：`ci.yml` 新增 `changes` job **确定**本次 push 变更性质（checkout 后以 `github.event.before` 为基线 `git diff --name-only` 解析文件清单，不依赖 webhook `commits[].modified` 字段——Actions 环境中该字段不可靠，首版实现即为判定失败所验证），`bump` job 增加 `needs.changes.outputs.non-doc == 'true'` 守卫——**纯文档变更**（仅 `docs/**`、根 `README.md`、`AGENTS.md`）跳过 bump 与 Release（版本不再为空文档更新递增），verify 照常执行；`.github/`、`package.json`、`packages/`、`scripts/` 等代码/工程变更仍自动发版。配套更新 `docs/ci-cd.md` §1.2/§1.3 与 `AGENTS.md` 自动发版说明。
+- **文档更新不再自动发版（2026-09-01）**：`ci.yml` 新增 `changes` job **确定**本次 push 变更性质（checkout 后以 `github.event.before` 为基线 `git diff --name-only` 解析文件清单，不依赖 webhook `commits[].modified` 字段——Actions 环境中该字段不可靠，首版实现即为判定失败所验证），`bump` job 增加 `needs.changes.outputs.non-doc == 'true'` 守卫——**纯文档变更**（仅 `docs/**`、根 `README.md`、`AGENTS.md`）跳过 bump 与 Release（版本不再为空文档更新递增），verify 照常执行；`.github/`、`package.json`、`packages/`、`scripts/` 等代码/工程变更仍自动发版。配套更新 `docs/ci-cd.md` §1.2/§1.3 与 `AGENTS.md` 自动发版说明。
 
-- **CI Actions 升级至 Node 24 运行时（2026-09-01）**：GitHub Actions 2026-09-23 将从 runner 移除 Node 20（2026-06-16 起强制默认 Node 24）——`actions/checkout@v4` → `@v7`、`actions/setup-node@v4` → `@v7`（工作流 node-version 20 → 24，移除 `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION` opt-out env）、`pnpm/action-setup@v4` → `@v5`（node24 稳定线；不用 @v6：v6 存在指定 `version` 装错 pnpm 版本的 bug，pnpm/action-setup#225）、`softprops/action-gh-release@v2` → `@v3`（release.yml）。全部为 node24 runtime，弃用告警消除；配套更新 `docs/ci-cd.md` §2.1 与 `docs/auto-release.md` 版本表。README 参数/CI 描述同步对齐 b10734 基线。
+- **CI Actions 升级至 Node 24 运行时（2026-09-01）**：GitHub 官方公告（[actions/runner-images#14029](https://github.com/actions/runner-images/issues/14029)）Node.js 20 于 2026-04-30 EOL、2026-05-19~26 从 runner 镜像移除且默认版本改 Node 22——`actions/checkout@v4` → `@v7`、`actions/setup-node@v4` → `@v7`（工作流 node-version 20 → 24，移除 `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION` opt-out env）、`pnpm/action-setup@v4` → `@v5`（node24 稳定线；不用 @v6：v6 存在指定 `version` 装错 pnpm 版本的 bug，pnpm/action-setup#225）、`softprops/action-gh-release@v2` → `@v3`（release.yml）。全部为 node24 runtime，弃用告警消除；配套更新 `docs/ci-cd.md` §2.1 与 `docs/auto-release.md` 版本表。README 参数/CI 描述同步对齐 b10734 基线。
 
 - **依赖升级（2026-09-01）**：vue 3.5.39 → 3.5.42、turbo 2.10.3 → 2.10.12、resedit 3.0.2 → 3.1.0、sass 1.101.0 → 1.103.1、concurrently 9 → 10、cross-env 7 → 10、wait-on 8 → 9、electron 44.0.0 → 44.1.0、@vue/devtools-api 8.1.5 → 8.2.1；**TypeScript 5.9.3 → 6.0.3**（`^6.0.3`，最后一条官方 JS 线）。TS6 默认值翻转适配：`core/tsconfig.json` 显式 `types:["node"]`（TS6 起 `@types` 不再自动注入）、`ui/tsconfig.json` 移除 `baseUrl`（TS6 弃用，7.0 移除，paths 改相对解析）。**TypeScript 7.0（Go 原生）暂缓**：无稳定程序化 API（计划 7.1 提供），`vue-tsc` 最新 3.3.11 运行时崩溃（`./lib/tsc` 子路径不再导出；上游修复 vuejs/language-tools#6123 已合并但未发布）。解除条件：npm 发布含 #6123 的 `vue-tsc`，或 TypeScript 7.1 稳定 API 落地。
+
 
 ### 重构
 
@@ -33,6 +34,7 @@
 
 - **可复用优化（2026-09-01）**：① `modelscope-client` 接入共享 `retry.ts`（`requestWithRetry`：`isRetryableError` + 指数退避，最多 3 次，与 download-manager / huggingface-client 同一套网络韧性）；② 字节与时长格式化收敛到 `shared/src/format.ts` 新增 `formatBytes` / `formatDuration`——`modelscope-client.formatFileSize`（保留导出名的别名 re-export）、`DownloadCard.formatBytes`、`TrashCleanCard.formatSize`、`ServicePage.formatDuration` 四处本地重复实现统一为单一事实源（core 与 ui 均依赖 shared，格式语义统一：B 整数 / KB·MB 1 位 / GB·TB 2 位；统一过程发现并修复了 1536 → 误显示 `1.5 MB` 的档位错位 bug）；③ 新增 `modelscope-client.test.ts` 单测（6 例：成功映射 / 分类量化 / retry 退避成功 / 404 不重试 / 重试耗尽 / formatFileSize 别名）；④ BenchmarkPanel 的「服务就绪两阶段等待」抽取为公共 composable `useWaitRunning`（`waitForRunning`），可被性能测试之外的启动场景复用。
 
+
 ### 新增
 
 - **性能目标选择器 + 模型适配徽章 + llama-bench 离线体检（2026-09-03，P1/P2）**：在估算基础上落地智能推荐三层——① **性能目标选择器**（参数页状态条，四档：最大上下文/均衡/最低延迟/省显存）：core `target-recommend.ts` 确定性规则联动关键杠杆（`flash_attn`、KV 档位、`ctx_size`、部分卸载 `ngl` 层数、MTP 推测解码）。**上下文无固定封顶**：core `solveMaxContext` 在显存+内存联合预算内求解各目标 dtype 下的无 OOM 最大值（约束：f×(权重+KV) + 余量 ≤ 空闲显存、(1−f)×(权重+KV) + 开销 ≤ 可用内存），max-context 允许部分卸载以速度换上下文（如稠密 27B 模型推算 ctx 32768 + ngl 59/64），其余目标优先全卸载、放不下时回退联合预算；下拉面板展示与当前会话值的**差集** chips + 一键应用（确认后写入会话轨道）。② **模型列表适配徽章**：新 IPC `system:estimateModelFit` 批量判定每个量化文件 fit（✓ 全卸载）/ partial（△ 部分卸载）/ no（✗ 建议降档，权重超总显存）+ tooltip 展示全卸载上下文上限。③ **llama-bench 离线体检**：新 IPC `system:benchLlamaRun/Status`（单模型单作业、2.5s 轮询、会话期缓存），对未启动服务的模型文件跑 pp512/tg128 实测 prefill/decode tok/s，模型行「时钟」按钮触发（确认弹窗提示 GPU 占用），结果徽章 `pp N · tg N` 展示。通道 54 → 57；core 新增 `target-recommend.ts` + `llama-bench.ts`（`-o json` 解析以 b10734 真实输出为基准）。设备探测加 30s 共享缓存（estimate/fit 复用，避免重复 spawn）。顺带移除参数页状态条的基线徽章并修复 `lbl_baseline` 缺失键导致的徽章 tooltip 显示原始键问题（基线徽章后已整体移除，见上条）。
@@ -45,6 +47,7 @@
 
 - **pinia 4 peer 显式化**：pinia 4 为 ESM-only 且 `@vue/devtools-api` 变为必需 peer——已显式声明到 ui 包 devDependencies（此前靠 pnpm 宽松模式侥幸解析，严格环境会缺），运行时 ESM import 验证通过。
 
+
 ### 参数系统
 
 - **参数基线升级至 llama.cpp b10734（2026-09-01）**：按 §5.5 re-pin 流程重走参数固定全流程——
@@ -54,6 +57,7 @@
   - 新增 9 个参数（参数表 49 → **58**）：`--lazy-mode`（惰性张量读取 off/auto/on，basic·内存）、`-ncffn`（CPU FFN 层数，basic·内存）、`--kv-unified-per-slot`（每槽位统一 KV 上限，advanced·KV）、`-mmdev`（投影器设备，advanced·多模态，文本输入支持动态设备名）、`--video-fps` / `--video-timestamp-interval` / `--video-ffmpeg-dir`（视频多模态三件套，advanced·多模态）、`--spec-synth-len` / `--spec-synth-rates`（投机合成基准 benchmarking only，advanced·推测解码）。全部按默认值省略规则建模（空/默认值不发射 flag），i18n 双语 label + help 齐全。
 
   - 文档与校验：`generate-params-doc` 来源串与 `LLAMA_SERVER_PARAMS.md` 更新（Total 261 / Supported **58**）；`verify-params-sync` ✅ 完全一致；`verify-help-drift` b10502→b10734 无移除、无应用缺失。回归：lint / build / test（315+48）全绿。
+
 
 ### 修复
 
@@ -93,34 +97,6 @@
 
 - **参数行非默认值橙色描边提示**：自定义参数页中参数值 ≠ 默认值时，参数行边框变为 `--warn` 调整提示橙（与参数还原按钮同色系、hover 时保持），便于快速定位已调整项；依赖未满足行仍按 `dep-unmet`（同色描边 + 底色 + 警示图标）呈现，不重复叠加。
 
-### 变更
-
-- **模型下载取消推荐文件自动勾选**：模型库文件列表加载后不再替用户预选推荐文件，下载完全由用户主动勾选触发；推荐文件保留「推荐」徽标、行高亮与相关性排序置顶，仅作提示不作预选。`DownloadCard` 内提交下载逻辑抽取为 `enqueueFiles`（Store 去重 / 本地同名检测 / 后端 ID 回填三层校验不变），并新增过期 `listFiles` 响应守卫（快速切换仓库时不覆盖列表）。
-
-- **预设文件结构升级 v2**：`presets/*.json` 内容结构化——`model` 从 `values` 中分离为顶层元数据字段（null = 纯参数集）、新增 `created_at`（覆盖保存保留首次创建时间）与 `app_version`（写入方版本，参数漂移审计）、`values` 仅含参数键（清除 legacy `_enabled` 残留）并按 `PARAMS` 定义顺序稳定序列化（重复保存零 diff 噪音）。`preset_version` 升至 2；读取 v1/无版本旧文件自动迁移到 v2 内存形状（下次显式保存才改写落盘），IPC 通道与保存入参不变。
-
-- **移除参数独立启用机制（`_enabled`）**：参数无独立启用/禁用状态，改为「值 ≠ 默认值才发射 flag」（checkbox 恒发射、空串跳过、依赖门控），预设文件只存纯值快照；`buildCommand` 读到 legacy `_enabled` 直接忽略。相关死代码 `BASELINE_ENABLED_KEYS` 同步移除（实测依据保留为注释）。
-
-- **性能测试迁至参数设置页**：BenchPanel 自服务页迁入「参数设置 → 性能测试」子标签（KeepAlive 保留测试历史），服务页不再包含性能测试；测试面板动态跟随「自定义参数」中值 ≠ 默认值的参数。
-
-- **页面切换重构（PageHost）**：移除 `<transition mode="out-in">` 交接机制（快速导航时存在短暂双页同框窗口），改为 keep-alive 直接替换 + 路由 watch 容器 90ms 淡入；启动顺序改为挂载前完成设置加载与 last\_tab 恢复（3s 超时兜底），根治切页闪现与启动竞态。
-
-- **UI 风格统一（STYLE\_TODO #21–#40）**：组件间距/分隔线节奏统一（分区线两侧 14px）；标签等列（110px 右对齐）；服务页五行信息改 boxed 值盒；参数还原按钮（clear-btn）重设计；移除全库按钮按压缩放（`:active scale`，防文字挤压拉伸）；应用 Logo 统一为 `AppLogo` 组件；模型页统计条精简 + 模型列表懒加载扫描；日志页提示条移除、按钮并入筛选行；模型元数据卡整合为单一「展开/收起」开关；参数摘要显示模型绝对路径（标签改「模型目录」）。
-
-- **性能测试调优区与参数页样式统一**：「性能参数调整」卡从逐控件手铺 `tune-grid` 改为逐行复用 `ParamRow` 组件——悬停底色/描边、**非默认值** **`--warn`** **橙描边**、依赖未满足底色+警示图标、文件/目录类型文件选择控件与参数设置页完全同源（组件级统一，样式规范后续变更自动跟随，不再依赖两处各自维护）。`tune-grid` 与 `param-grid` 保持同配方网格。
-
-- **移除「视觉效果」设置（固定默认玻璃形态）**：设置页「外观与语言」的视觉效果开关（毛玻璃/实底性能模式）连同 `fx_mode` 设置字段、`FxMode` 类型、`data-fx` 属性与 `theme.scss`/`surface.scss` 的 `[data-fx='off']` 回退块整体移除——视觉表现收敛为唯一默认形态（玻璃表面 + 果冻动效），不再提供实底回退开关（OS 级 `prefers-reduced-motion` 减弱动效仍生效）。旧 `settings.json` 中的 `fx_mode` 字段在加载归一化时自然丢弃。
-
-- **IPC 常量生成化**：preload IPC 常量由 `scripts/generate-preload.cjs` 生成到 `ipc-constants.cjs`（`pnpm generate:ipc`），`verify-ipc-sync.cjs` 改为校验生成物未过期 + 防止手工内联回退。
-
-- **仪表盘「最近问题」数据源**：改为消费应用日志（`logs:*`）的 warn/error 最近 3 条，不再对服务控制台输出做正则启发式分类。
-
-- **API 地址语义收敛到 server store 单一来源**：新增 `server.apiUrl` 计算属性作为界面一切「API 地址」展示/复制的唯一来源（与真实服务状态绑定：`running` 取 `server.url`（为空回退 `http://host:port`）、`starting` 取推导地址、`stopped` 返回空串），全部消费方改为直接消费它——仪表盘 Q3、服务页状态卡（原本地 `apiUrl` 门控推导下线）、**状态栏**（`v-if` 与复制逻辑自 `server.url` 收敛，停止后 URL 条消失）与 **WebUiFrame**（iframe `webUrl` 自 `server.url||推导` 收敛，保留自身 `running` 门控作双保险）；页面/组件不再各自就地派生。修复：停止服务后 `onStatus` 只更新 `status` 不刷新 `url`，页面直读 `server.url` 会继续显示上次启动的已失效地址（状态栏同款残留一并根治）；现在停止态统一回落占位符（`—`/整条隐藏），标签位与复制按钮常驻、无值 `disabled`，运行前后行结构零跳动。
-
-- **文档全面对齐**：frontend/params-system/core-modules/data-persistence/desktop-main/README 等文档与当前实现对齐（发射规则、双轨机制、PageHost、样式断言、下载常量、测试清单等；本次补记 §7.5.7「API 地址语义收敛到 server store 单一来源」与 server store 的 `apiUrl`）。
-
-### 修复
-
 - **隐藏组件导致的页面布局跳动（预留位置方案）**：服务页「失败/异常退出」提示条（`.failure-banner`，`v-if`）出现时把下方命令预览/参数摘要/清理三张卡片整体下推、消失时上移；服务页控制台头部「有新日志」胶囊（`.new-logs`，`v-if`）出现时右侧滚动提示在 `space-between` 下从左侧跳至右侧；日志页「有新日志」胶囊（`.new-logs-bar`，`v-if`）出现时把 `flex:1` 控制台上下挤压。三处统一改为**预留位置（reserve space）**：外层常驻槽位（`failure-banner-slot` / `new-logs-slot`）固定预留与内容等高的 `min-height`，内容用 `v-if` 条件渲染、槽位用 `visibility:hidden` 隐藏但不占位位移——出现/消失时下方卡片列与控制台高度、右侧提示位置保持完全稳定，零跳动。校验：`pnpm lint` 4 包全绿、`style-audit` 10/10、`pnpm test` 全过、UI 生产构建通过。
 
 - **`pnpm test`** **在 Windows 上挂死**：ui 包全量测试通过后 vitest 进程静默不退出（turbo 管道随之挂死，测试本会话卡住 15 分钟才被手动终止）。排查定位：vitest 2.1.x 的 tinypool worker 销毁后 IPC 管道句柄残留主进程（实测 17 个 PipeWrap），ui 恰为 4 个测试文件时触发退出竞态——1\~3 个文件正常、threads/forks、顺序执行、单 worker、isolate=false 均无法绕开；core 包同版本同规模句柄残留但正常退出。修复：`packages/ui/vitest.global-setup.mjs`（经 `vitest.config.ts` 的 `globalSetup` 引用）在运行结束、退出码确定后 `process.exit` 兜底退出，测试结果与退出码不变；仅 run 模式适用，详见 [docs/testing.md](testing.md)。验证：`pnpm test` 连续多次端到端全绿（core 300 + ui 48）。
@@ -148,6 +124,63 @@
 - **预设名称与绑定模型无法对应**：预设「应用」会连带把当前模型切换为预设绑定模型，之后若沿用列表中另一行的名字保存/覆盖，会把**新模型**写进**旧名**预设——名称与绑定模型不再对应（智能按名匹配命中后携带错误模型）。保存/覆盖入口新增名称↔模型一致性守卫（`isNameConsistentWithModel`：名称 ∈ 当前模型文件名候选，或模型为空=纯参数集，均放行；不一致时弹确认框说明后果，取消即中止）。
 
 - **切换界面后 URL 历史不再弹出**：模型页三个子标签以 `v-if` 切换面板，切到「本地模型/下载任务」再回「模型库」时 `DownloadCard` 销毁重建，实例级 `urlHistory` 被清零、历史下拉无条目可弹。URL 会话历史抽取为 `useUrlHistory` composable（模块级单例，跨组件重建保留；应用退出进程结束才清空，语义不变），并补充 4 个单测（记录/去重置顶/上限/跨实例共享）。
+
+- **preload `estimateVram` 第 4 参丢失修复（2026-09-04）**：`index.cjs` 包装只转发 `(modelPath, dtype, target)`，第 4 参 `occ`（会话参数驱动的卸载层数/上下文）在桥接层丢失——生产环境占用估算恒按 `ngl='auto'`/`ctx=0` 计算，「会话参数驱动」的硬件占用估算端到端失效（渲染端类型声明/调用点与主进程 handler 均按 4 参设计）；补全 4 参转发。
+
+- **性能目标下拉面板实底化 + 未定义圆角 token 修复（2026-09-04）**：`.target-panel` 补做 #41「下拉/菜单实底」规范（`--bg-card` + `--border` + `--radius-row`，移除 `backdrop-filter`），并修复引用全仓不存在的 `--radius-dropdown`（圆角此前按无效值回退）——style-audit 第 7 条清单不再命中该点。
+
+- **概览「最近问题」空态占位行高修复（2026-09-04）**：`.empty-text` 以 `line-height: 72px` 撑占位——违反行高语义化清单（style-audit #9 ❌）且 border-box 下 72px 已含父级 padding、实际超出预留区 12px；改 flex 居中 + `min-height: 60px`，空态/1–3 行高度严格恒定，style-audit 全绿（STYLE_TODO #49）。
+
+- **bump-version CHANGELOG 头更新失效修复（2026-09-04）**：脚本以 `/^## \[Unreleased\]/m` 匹配标题，而 CHANGELOG 自 2026-09-01 格式化起为转义形态 `## \[Unreleased]`，替换静默 no-op——v0.0.11–v0.0.18 版本条目从未写入（git 历史佐证：该区间 chore(release) 提交对 CHANGELOG 零改动）；正则兼容两种形态并沿用文件现行转义风格，同时回填 0.0.11–0.0.18 缺失的版本标题（空壳，与 0.0.8–0.0.10 同款）。
+
+- **文档一致性审计两轮清理（2026-09-03/04）**：横向核对全部文档与实现——数字层面（IPC 53/51→57、参数 58/49→59、GGUF 59→60、测试规模 core 25 文件/355 用例 + ui 5 文件/54 用例）；行为层面（`estimateVram` 缓存 key 补 ngl/ctx、checkbox 发射语义、`-md`→file 型依赖保留不清理、分组「蓝点」→橙描边、`buildSuggestions` 11 条无 ctx_size、下拉/菜单实底、圆角/间距 token、`server:bench` 多并发条件执行等 23+ 处）；STYLE_TODO 已修复明细移入 `docs/archive/style-todo-resolved.md` 只读留档、活动清单瘦身 694→110 行；README/AGENTS/frontend/params-system/core-modules/architecture/data-persistence/testing/ipc-channels/desktop-main/design-decisions 同步。
+
+
+### 变更
+
+- **模型下载取消推荐文件自动勾选**：模型库文件列表加载后不再替用户预选推荐文件，下载完全由用户主动勾选触发；推荐文件保留「推荐」徽标、行高亮与相关性排序置顶，仅作提示不作预选。`DownloadCard` 内提交下载逻辑抽取为 `enqueueFiles`（Store 去重 / 本地同名检测 / 后端 ID 回填三层校验不变），并新增过期 `listFiles` 响应守卫（快速切换仓库时不覆盖列表）。
+
+- **预设文件结构升级 v2**：`presets/*.json` 内容结构化——`model` 从 `values` 中分离为顶层元数据字段（null = 纯参数集）、新增 `created_at`（覆盖保存保留首次创建时间）与 `app_version`（写入方版本，参数漂移审计）、`values` 仅含参数键（清除 legacy `_enabled` 残留）并按 `PARAMS` 定义顺序稳定序列化（重复保存零 diff 噪音）。`preset_version` 升至 2；读取 v1/无版本旧文件自动迁移到 v2 内存形状（下次显式保存才改写落盘），IPC 通道与保存入参不变。
+
+- **移除参数独立启用机制（`_enabled`）**：参数无独立启用/禁用状态，改为「值 ≠ 默认值才发射 flag」（checkbox 恒发射、空串跳过、依赖门控），预设文件只存纯值快照；`buildCommand` 读到 legacy `_enabled` 直接忽略。相关死代码 `BASELINE_ENABLED_KEYS` 同步移除（实测依据保留为注释）。
+
+- **性能测试迁至参数设置页**：BenchPanel 自服务页迁入「参数设置 → 性能测试」子标签（KeepAlive 保留测试历史），服务页不再包含性能测试；测试面板动态跟随「自定义参数」中值 ≠ 默认值的参数。
+
+- **页面切换重构（PageHost）**：移除 `<transition mode="out-in">` 交接机制（快速导航时存在短暂双页同框窗口），改为 keep-alive 直接替换 + 路由 watch 容器 90ms 淡入；启动顺序改为挂载前完成设置加载与 last\_tab 恢复（3s 超时兜底），根治切页闪现与启动竞态。
+
+- **UI 风格统一（STYLE\_TODO #21–#40）**：组件间距/分隔线节奏统一（分区线两侧 14px）；标签等列（110px 右对齐）；服务页五行信息改 boxed 值盒；参数还原按钮（clear-btn）重设计；移除全库按钮按压缩放（`:active scale`，防文字挤压拉伸）；应用 Logo 统一为 `AppLogo` 组件；模型页统计条精简 + 模型列表懒加载扫描；日志页提示条移除、按钮并入筛选行；模型元数据卡整合为单一「展开/收起」开关；参数摘要显示模型绝对路径（标签改「模型目录」）。
+
+- **性能测试调优区与参数页样式统一**：「性能参数调整」卡从逐控件手铺 `tune-grid` 改为逐行复用 `ParamRow` 组件——悬停底色/描边、**非默认值** **`--warn`** **橙描边**、依赖未满足底色+警示图标、文件/目录类型文件选择控件与参数设置页完全同源（组件级统一，样式规范后续变更自动跟随，不再依赖两处各自维护）。`tune-grid` 与 `param-grid` 保持同配方网格。
+
+- **移除「视觉效果」设置（固定默认玻璃形态）**：设置页「外观与语言」的视觉效果开关（毛玻璃/实底性能模式）连同 `fx_mode` 设置字段、`FxMode` 类型、`data-fx` 属性与 `theme.scss`/`surface.scss` 的 `[data-fx='off']` 回退块整体移除——视觉表现收敛为唯一默认形态（玻璃表面 + 果冻动效），不再提供实底回退开关（OS 级 `prefers-reduced-motion` 减弱动效仍生效）。旧 `settings.json` 中的 `fx_mode` 字段在加载归一化时自然丢弃。
+
+- **IPC 常量生成化**：preload IPC 常量由 `scripts/generate-preload.cjs` 生成到 `ipc-constants.cjs`（`pnpm generate:ipc`），`verify-ipc-sync.cjs` 改为校验生成物未过期 + 防止手工内联回退。
+
+- **仪表盘「最近问题」数据源**：改为消费应用日志（`logs:*`）的 warn/error 最近 3 条，不再对服务控制台输出做正则启发式分类。
+
+- **API 地址语义收敛到 server store 单一来源**：新增 `server.apiUrl` 计算属性作为界面一切「API 地址」展示/复制的唯一来源（与真实服务状态绑定：`running` 取 `server.url`（为空回退 `http://host:port`）、`starting` 取推导地址、`stopped` 返回空串），全部消费方改为直接消费它——仪表盘 Q3、服务页状态卡（原本地 `apiUrl` 门控推导下线）、**状态栏**（`v-if` 与复制逻辑自 `server.url` 收敛，停止后 URL 条消失）与 **WebUiFrame**（iframe `webUrl` 自 `server.url||推导` 收敛，保留自身 `running` 门控作双保险）；页面/组件不再各自就地派生。修复：停止服务后 `onStatus` 只更新 `status` 不刷新 `url`，页面直读 `server.url` 会继续显示上次启动的已失效地址（状态栏同款残留一并根治）；现在停止态统一回落占位符（`—`/整条隐藏），标签位与复制按钮常驻、无值 `disabled`，运行前后行结构零跳动。
+
+- **文档全面对齐**：frontend/params-system/core-modules/data-persistence/desktop-main/README 等文档与当前实现对齐（发射规则、双轨机制、PageHost、样式断言、下载常量、测试清单等；本次补记 §7.5.7「API 地址语义收敛到 server store 单一来源」与 server store 的 `apiUrl`）。
+
+- **文档一致性审计与归档收敛（2026-09-03/04）**：STYLE_TODO 已修复明细（#1–#47 + 历史修复）整体移入 `docs/archive/style-todo-resolved.md` 只读留档，活动清单仅保留待修复项与已修复索引表（694 → 110 行），新增 #48/#49 已修复与 #50（状态小圆点 7/8 尺寸两制）待修复登记；frontend §7.5 相关引用同步指向归档。
+
+
+## \[0.0.18] - 2026-09-01
+
+## \[0.0.17] - 2026-09-01
+
+## \[0.0.16] - 2026-09-01
+
+## \[0.0.15] - 2026-09-01
+
+## \[0.0.14] - 2026-09-01
+
+## \[0.0.13] - 2026-09-01
+
+## \[0.0.12] - 2026-09-01
+
+## \[0.0.11] - 2026-09-01
+
 
 ## \[0.0.10] - 2026-08-22
 

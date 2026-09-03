@@ -12,11 +12,12 @@
 | `settings.ts` | `AppSettings`、`ThemeMode`、`FxMode`、`CloseBehavior`、`Language`、`SessionBaseline`（参数会话基线 `{ preset_name, values }`） |
 | `param.ts` | `ParamDef`、`ParamGroup`、`ParamType` |
 | `preset.ts` | `PresetValues`、`Preset` |
-| `server.ts` | `ServerInfo`、`ServerStatus`、`OutputEntry`、`AppLogEntry`/`AppLogKind`（应用日志）、`ModelInfo`（模型扫描条目，含 `tags`）、`BenchRequest`/`BenchResult`/`BenchRunResult`/`BenchMetrics`（性能测试） |
-| `gguf.ts` | `GgufModelInfo`、建议参数类型 |
+| `server.ts` | `ServerInfo`、`ServerStatus`、`OutputEntry`、`AppLogEntry`/`AppLogKind`（应用日志）、`ModelInfo`（模型扫描条目，含 `tags`）、`BenchRequest`/`BenchResult`/`BenchRunResult`/`BenchMetrics`（性能测试）、`LlamaBenchSummary`/`LlamaBenchJobState`（llama-bench 离线体检） |
+| `gguf.ts` | `GgufModelInfo`（60 字段，含 `rope_freq_base`）、建议参数类型 |
+| `vram.ts` | `DeviceMemInfo`、`PerfTarget`/`TargetRecommendation`（性能目标四档）、`OccupancySide`/`HardwareOccupancy`/`VramEstimateResult`/`OccupancyConfig`（显存/内存占用估算）、`ModelFitVerdict`/`ModelFitResult`（模型适配判定） |
 | `download.ts` | `StartDownloadRequest`、下载任务/进度类型 |
 | `trash.ts` | `TrashKind`、`TrashRoot`、`TrashItem`、`DetectResult`、`CleanResult`（应用生成文件清理：配置目录 + 模型目录双根） |
-| `ipc.ts` | `IPC` 常量对象（51 通道）、`IpcChannel` |
+| `ipc.ts` | `IPC` 常量对象（57 通道）、`IpcChannel` |
 | `index.ts` | 统一导出 |
 
 ---

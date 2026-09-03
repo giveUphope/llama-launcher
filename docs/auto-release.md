@@ -10,7 +10,7 @@ release.yml 由 ci.yml 的 bump job 通过 `gh workflow run release.yml -f versi
 ## 1. 触发方式
 
 - **自动触发**：push main → ci.yml verify 通过 → bump job 自动递增版本并 `gh workflow run release.yml -f version="vX"`
-- **手动触发**：GitHub → Actions → release → Run workflow → 输入版本号（如 v0.0.05）
+- **手动触发**：GitHub → Actions → release → Run workflow → 输入版本号（如 v0.0.19）
 
 ---
 
@@ -38,24 +38,17 @@ release.yml 由 ci.yml 的 bump job 通过 `gh workflow run release.yml -f versi
 
 pnpm dist 通过 [scripts/dist-with-fallback.cjs](../scripts/dist-with-fallback.cjs) 调用 electron-builder，自动处理 release/ 目录文件锁定（Defender / 索引器 / 资源管理器占用时回退到 release-tmp-* 临时目录再回迁）。详见 [packaging.md](packaging.md)。
 
-electron-builder 会规范化版本号（SemVer trailing zeros 剥离）：
+electron-builder 产物文件名 = `llama.Launcher.{version}.exe`（productName「llama Launcher」中的空格在文件名中为点号；**版本号完整保留，不做 trailing-zero 剥离**——实证：远端 v0.0.8/v0.0.9/v0.0.10 产物名分别为 `llama.Launcher.0.0.8.exe` / `0.0.9.exe` / `0.0.10.exe`）。
 
-| 应用版本 | electron-builder 输出文件名 |
-|----------|---------------------------|
-| 0.0.05 | llama Launcher 0.0.5.exe |
-| 0.0.10 | llama Launcher 0.0.1.exe |
-
-Release tag 保持完整版本号（如 v0.0.05），与 .exe 文件名不严格对应，这是 electron-builder 的预期行为。
+Release tag 保持完整版本号（如 v0.0.19，非零填充），与产物文件名一致（均保留完整版本号）。
 
 ---
 
 ## 4. Release 资产上传
 
-softprops/action-gh-release@v3 的 files 字段使用通配符 `release/*.exe`，而非精确路径 `release/llama Launcher X.Y.Z.exe`。
+softprops/action-gh-release@v3 的 files 字段使用通配符 `release/*.exe`，而非精确路径 `release/llama.Launcher.0.0.19.exe`。
 
-原因：
-1. .exe 文件名中的空格会导致 glob 匹配失败
-2. 实际输出文件名受 electron-builder 版本规范化影响，与 tag 版本号位数不同
+原因：产物文件名 = `llama.Launcher.{version}.exe`（版本号随 bump 递增，精确路径需每次改 workflow），通配符免维护且兼容未来版本。
 
 **正确配置**：
 

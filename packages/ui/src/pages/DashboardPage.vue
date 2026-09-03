@@ -136,11 +136,14 @@ onMounted(() => { appLog.subscribe(); });
   }
 
   .empty-text {
-    /* 空态占位组件：line-height 对齐 72px 预留区，垂直居中占满（min-height 恒定），
-       与 1–3 行问题条目同高，空态 ↔ 有内容高度零变化（#46/#47 预留位置模式） */
+    /* 空态占位组件：flex 居中 + min-height 60px（父级 72px border-box − 上下 padding 12），
+       垂直居中占满预留区，空态 ↔ 1–3 行条目高度恒定（#46/#47 预留位置模式；
+       原定高行高方案超出预留区 12px 且违反行高语义化清单 #9，2026-09-04 改为 flex） */
     color: var(--fg-muted);
-    text-align: center;
-    line-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60px;
     padding: 0;
     font-family: var(--font-family);
   }

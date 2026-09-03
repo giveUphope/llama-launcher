@@ -405,7 +405,8 @@ async function onClearSession() {
   gap: 6px;
 }
 
-// 性能目标选择器：mini-btn 触发 + 绝对定位下拉面板（浮层阴影走 --shadow-dropdown）
+// 性能目标选择器：mini-btn 触发 + 绝对定位下拉面板（浮层阴影走 --shadow-dropdown；
+// 表面实底 --bg-card + --border，对齐 §7.5.6 下拉/菜单实底规范与 STYLE_TODO #41）
 .target-wrap {
   position: relative;
 }
@@ -417,10 +418,9 @@ async function onClearSession() {
   z-index: 30;
   min-width: 300px;
   padding: 6px;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-dropdown);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-row);
   box-shadow: var(--shadow-dropdown);
 }
 

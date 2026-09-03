@@ -59,7 +59,7 @@
 | `Icon` | 内联 SVG 图标库（字典 36 项，未引用项随清理删除） |
 | `ToolTip` | 悬停提示 |
 | `NavButton` | 侧边栏导航按钮（一级项，激活 = path 命中；支持收起态图标形态与调整橙点角标） |
-| `StatusTag` | 状态标签（状态点 + 文字，ok/loading/idle/error 变体） |
+| `StatusTag` | 状态标签（状态点 + 文字，ok/warn/error/idle/loading 变体） |
 | `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签 / 当前模型 / API 地址（boxed InfoStrip + 复制按钮）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ 快捷操作（打开 Web UI·管理模型） |
 | `AppLogo` | 应用 Logo 统一组件（见 §7.5.7） |
 | `InfoStrip` | 信息行（label + 值/插槽控件；设置页表单行、Dashboard/Service 信息网格共用） |
@@ -73,7 +73,7 @@
 
 ### 7.5 样式系统（UI 风格规范）
 
-> 本文是 UI 风格的**唯一权威来源**（single source of truth）。新增/修改 UI 时必须遵循以下规范，并保持与既有页面一致；发现不一致项请登记到仓库根目录 `style/STYLE_TODO.md`（含修复效果验证方式），不要静默引入新风格。
+> 本文是 UI 风格的**唯一权威来源**（single source of truth）。新增/修改 UI 时必须遵循以下规范，并保持与既有页面一致；发现不一致项请登记到 `docs/style/STYLE_TODO.md`（含修复效果验证方式），不要静默引入新风格。
 
 #### 7.5.1 设计 Token（`packages/ui/src/styles/`）
 
@@ -116,7 +116,7 @@
 |---|---|---|
 | `--radius-pill` | 999px | **交互元素**：按钮（btn/action/mini/tab/modal/dl/fb）、输入框、下拉项、chip、徽章、tab、开关、导航项 |
 | `--radius-modal` | 20px | 模态弹窗面板 |
-| `--radius-row` | 10px | 参数行、表格单元、下拉面板、summary chip、控制台容器 |
+| `--radius-row` | 10px | 参数行、表格单元、下拉面板、控制台容器 |
 | `--radius-control` | 8px | 小控件过渡值（窗口按钮等） |
 | 2px | — | 滑块轨道（唯一例外） |
 | 50% | — | 状态圆点、开关 knob、滑块 thumb、圆形图标按钮 |
@@ -127,7 +127,7 @@
 #### 7.5.4 间距规范
 
 - **页面**：`padding: 20px 24px 24px`（`PageFrame` 引用 `variables.scss` `$layout-page-padding`）；**分区风格**——`page-frame` / 各页 `.tab-content` 纵向 `gap: 0`，相邻内容区块由实线分隔（Card 底边线、Dashboard `.q-section + .q-section` 顶边线）；区块内元素间距 `gap: 10px` 为默认。
-- **间距刻度**（组件内 gap 只允许以下刻度，全库 157 处审计一致、无离群值；**不设 1/2/3px 微间距档**，像素级收紧的紧凑原子内间距也一律取最小刻度 4px）：
+- **间距刻度**（组件内 gap 只允许以下刻度，全库逐项审计一致、无离群值——计数以 `pnpm style:audit` 第 4 条为准，勿在文档写死；**不设 1/2/3px 微间距档**，像素级收紧的紧凑原子内间距也一律取最小刻度 4px）：
   | 刻度 | 语义用途 |
   |---|---|
   | `4px` | 紧凑列表（文件列表项）、状态点与文本 |
@@ -140,12 +140,12 @@
 - **顶栏条与相邻区块间距**（2026-08-29 统一）：页面顶部的条形容器（tab-strip、status-summary、toolbar、params-status-bar、status-bar、stats-row）与上一/下一区块的间距**一律 8px**——models 由 `.tab-content { margin-top: 8px }`、settings 由 `.status-summary { margin: 8px 0 0 }`（内容间距由 `.tab-content` margin-top 提供）、logs 由 `.toolbar { margin-bottom: 8px }`、params/downloads 由状态条 `margin-bottom: 8px` 提供。
 - **分隔线节奏**（分区风格实线分隔，2026-08-29 统一；**线两侧均 14px**）：① **主分隔**（`1px solid var(--border)`，内容区块之间）——Card 底边机制（体 `10px 0 14px`，线下由下一区块 header 的固定高自然留白）；顶边线变体（Dashboard `.q-section + .q-section`、DownloadCard `.tasks-section`）`padding-top: 14px`，**线上方**同样 14px——Dashboard 由 `.q-section { padding-bottom: 14px }` 提供，DownloadCard 由容器 flex gap 8px + `.tasks-section:not(:first-child) { margin-top: 6px }` 补足（任务模式下为首子块，不加）。② **次级分隔**（`1px dashed var(--border)`，块内详情/次要内容，如 ModelMetaCard `.meta-chips.details`）`padding-top: 8px`，上方由 `.meta-body` gap 8px 提供（8/8 对称）。③ **标题下划线**（组标题 `border-bottom`，如 ParamSummaryCard `.summary-group-title`）`padding-bottom: 4px`。④ **表格行分隔**：单元格 `padding: 6px 8px`（§7.5.4 表格）。弹窗内部分区条（FileBrowserModal 头/底 `12px 14px`、路径/保存行 `8px 14px`）为弹窗专属尺寸，不套用。
 - **分区体**：`padding: 10px 0 14px`（左右 0，随页边距对齐）；分区头高 38px，无 accent 竖条（2026-09 移除 compact 变体，全应用统一标准标题体例）。
-- **组件 padding 约定**（2026-08-29 统一，见 STYLE_TODO #21）：padding 属控件尺寸而非元素间距，不受 gap 刻度表约束，但同类元素必须同值——① `fs-xs` 彩色小徽章统一 `1px 6px`；② `fs-sm` 交互 chip 统一 `3px 8px`；③ 信息展示胶囊（runtime-model / version-badge / 状态栏 clickable）统一 `2px 10px`；④ 非胶囊的行/条纵向微间距（提示条、分页条、帮助热区、标签下划线间距）一律 ≥4px；⑤ 参数行/调优行 `padding: 4px 8px`（§7.5.7）。保留的光学对齐例外：Card 标题左缩进 `0 0 0 2px`（uppercase 字面补偿）。
+- **组件 padding 约定**（2026-08-29 统一，见 STYLE_TODO #21）：padding 属控件尺寸而非元素间距，不受 gap 刻度表约束，但同类元素必须同值——① `fs-xs` 彩色小徽章统一 `1px 6px`；② `fs-sm` 交互 chip 统一 `3px 8px`；③ 信息展示胶囊（version-badge / 状态栏 clickable）统一 `2px 10px`；④ 非胶囊的行/条纵向微间距（提示条、分页条、帮助热区、标签下划线间距）一律 ≥4px；⑤ 参数行/调优行 `padding: 4px 8px`（§7.5.7）。保留的光学对齐例外：Card 标题左缩进 `0 0 0 2px`（uppercase 字面补偿）。
 - **按钮组**：`display: flex; gap: 8px`（页面工具栏、行内操作区）；弹窗按钮 `gap: 10px`；卡片头操作 `gap: 6px`。
 - **常用控件高度**：mini-btn 20 / 输入框 26–28 / action-btn `var(--btn-h)`(30) / TopBar btn 30 / tab-btn 28 / modal-btn 32 / win-btn 46 宽。
 - **表格**：`padding: 6px 8px` 单元格；`thead` sticky + `background: var(--bg-card)`；列固定宽度用 `col-*` class。
-- **统一控件宽度**：参数控件 `label-col` `flex: 0 1 110px`（min-width 64px，**右对齐** + `padding-right: 8px`，长标签省略号截断）、num-input 100px、下拉触发器 `dropdown-trigger` 宽 100%（下拉面板 fixed 定位）、gguf-hint `flex: 0 1 auto`（min 50px / max 90px）。**标签等列逻辑（2026-08-29 用户决策，替代 #25 的贴文字方向）**：全部"选项行"（`InfoStrip .info-label`、`.tune-label`）与参数行同配方——`flex: 0 1 110px`（min-width 64px）+ `text-align: right`，标签占等宽列、内容起点跨行对齐；长标签面板级 `:deep(.info-label)` 覆盖（如 AdvancedPanel 140px）。容器过窄省略号截断。
-- **值盒标准（内容文本框统一，2026-08-29，见 STYLE_TODO #37）**：展示类内容值盒统一使用 `InfoStrip` 的 **`boxed` 变体**——高 **26px**、`padding: 0 10px`、`bg-input` + 1px 边框、胶囊圆角、行内 flex 填满（同组行左缘/宽跨行对齐）、内容省略截断。适用：状态卡当前模型/API 地址/运行时详情等；仪表盘 `.val-box` 同规格。禁止同类内容项回退纯文本或自造异形盒（高度/内距各写一套）。
+- **统一控件宽度**：参数控件 `label-col` `flex: 0 1 110px`（min-width 64px，**右对齐** + `padding-right: 8px`，长标签省略号截断）、num-input 100px、下拉触发器 `dropdown-trigger` 宽 100%（下拉面板 fixed 定位）、gguf-hint `flex: 0 1 auto`（min 44px / max 72px）。**标签等列逻辑（2026-08-29 用户决策，替代 #25 的贴文字方向）**：全部"选项行"（`InfoStrip .info-label`、`.tune-label`）与参数行同配方——`flex: 0 1 110px`（min-width 64px）+ `text-align: right`，标签占等宽列、内容起点跨行对齐；长标签面板级 `:deep(.info-label)` 覆盖（如 AdvancedPanel 140px）。容器过窄省略号截断。
+- **值盒标准（内容文本框统一，2026-08-29，见 STYLE_TODO #37）**：展示类内容值盒统一使用 `InfoStrip` 的 **`boxed` 变体**——高 **26px**、`padding: 0 10px`、`bg-input` + 1px 边框、胶囊圆角、行内 flex 填满（同组行左缘/宽跨行对齐）、内容省略截断。适用：状态卡当前模型/API 地址/运行时详情等。禁止同类内容项回退纯文本或自造异形盒（高度/内距各写一套）。
 
 #### 7.5.5 按钮类型学（taxonomy）
 
@@ -165,7 +165,7 @@
 
 - 阴影统一引用 token（组件内禁止裸 `box-shadow`/遮罩）：tooltip `var(--shadow-tooltip)`、下拉/菜单 `var(--shadow-dropdown)`、弹窗 `var(--shadow-modal)`、控件小阴影 `var(--shadow-control)`、遮罩 `var(--overlay)`。
 - **单玻璃层（性能约定）**：全应用 `backdrop-filter` 只允许出现在：① `surface.scss` 的 `.glass-layer`（全视口固定一层，模糊装饰背景斑块，背景静态 ⇒ blur 缓存）；② 弹窗背板（`blur(var(--glass-blur))` + `var(--overlay)`）；③ 工具提示（面积小且生命周期短）。**下拉/菜单面板不得用 backdrop-filter**（2026-08-31 起改实底，见 STYLE_TODO #41）；**列表行、表格行、参数行、控制台行、滚动容器一律不得加 backdrop-filter**（只走半透明 `--glass-bg`）。
-- 表面背景统一 `var(--glass-bg)` / 弹窗 `var(--glass-bg-strong)`，容器边框 `var(--glass-border)`；输入框保持 `var(--bg-input)` 不透明保证可读性。`@supports not (backdrop-filter: ...)` 时回落实底。
+- 表面背景统一 `var(--glass-bg)` / 弹窗 `var(--glass-bg-strong)`，容器边框 `var(--glass-border)`；输入框保持 `var(--bg-input)` 不透明保证可读性。`@supports not (backdrop-filter: ...)` 的回退 = 隐藏 `.glass-layer`（`surface.scss`）——表面半透明色本身不依赖 blur，无需转实底。
 - **下拉面板统一（实底可读）**：`position: fixed`（`DropdownParam` 用 `<Teleport to="body">`）、`border-radius: var(--radius-row)`、**背景 `var(--bg-card)` 实底 + 边框 `var(--border)`**（半透明底会让面板下方内容透出削弱对比度，backdrop-filter 合成层使文字失去亚像素抗锯齿发虚——功能菜单可读性优先，与 fx-off 回退形态一致，见 STYLE_TODO #41）、`max-height` 内滚动、`z-index` 高于卡片；选中行底色用 `color-mix(in srgb, var(--accent) 14%, transparent)` + `--accent` 文字（勿用 `--bg-active` 暗蓝底叠蓝字，深色主题对比度不足，STYLE_TODO #13 同型问题）。
 - 工具提示恒为深色底（两种主题下对比度一致）。
 - 例外：状态栏深蓝底上的白色半透明 hover（`rgba(255,255,255,.15)`）为**表面着色**而非 elevation，不纳入阴影 token；chip-count 计数底（`color-mix(in srgb, var(--fg-secondary) 12%, transparent)` / 激活态 `var(--primary-fg) 22%`）同类。
@@ -174,14 +174,14 @@
 
 - **参数行**（`ParamRow` 统一承载，参数设置页与性能测试调优区共用同一组件）：`padding: 4px 8px` + 圆角 `var(--radius-row)`，默认透明描边；hover 底色 `--bg-hover` + 边框 `--border`；**值 ≠ 默认时边框 `--warn`**（与还原按钮同色系）；依赖未满足 `--warn` 边框 + 底色 + 警示图标；文件/目录类型渲染文件选择控件。
 - **参数网格**：`param-grid`（参数设置页）与 `tune-grid`（性能测试调优区）同配方 `repeat(auto-fit, minmax(340px, 1fr))`、gap `4px 14px`、≤720px 单列；卡片/分区装饰条统一 `--accent` 蓝（2026-08-26 起不使用 hue-cycle 循环取色）。
-- **状态小圆点**：8×8 `border-radius: 50%`。
+- **状态小圆点**：`border-radius: 50%`；StatusBar 状态点 8×8、StatusTag 7×7（两实现尺寸不一，已登记 STYLE_TODO 🔴 待统一）。
 - **悬浮提示文本色**：`color-mix(in srgb, var(--success) 12%, transparent)` 底 + `var(--success)` 边框/文字（如 PresetsPanel/BenchPanel 的 applied-msg）。
 - **下载分类徽章**：颜色走 `--badge-*` token，底用 `color-mix(in srgb, var(--badge-*) 14%, transparent)`（legacy/fp32 为 16%）；`cat-other` 用 `--fg-muted` + `--bg-hover`。徽章色为分类图例语义，两种主题恒定。
 - **果冻动效**：浮层/开关进入的 **transform 过渡**用 `var(--ease-jelly)` 弹簧（浮层 `translateY+scale` 进入）；**颜色/阴影类过渡（background/color/border-color/box-shadow/opacity）一律 `var(--ease-smooth)`**（无过冲，防 hover 闪烁，见 STYLE_TODO #23）；**按钮按压不再整体缩放**（2026-08-29 移除全部 `:active scale`——整体缩放会挤压/拉伸按钮内文字，按压反馈 = 背景/边框色变化，见 STYLE_TODO #32）；禁止 width/height/margin 等布局动画；`prefers-reduced-motion` 下全部关闭。**例外（均不得用于滚动/高频重绘场景）**：① 用户主动触发的单次布局过渡（侧边栏折叠宽度 `transition: width var(--dur-med) var(--ease-smooth)`）；② 进度条填充宽度过渡（DownloadCard `.task-progress-fill`，`transition: width var(--dur-med) var(--ease-smooth)`，作为进度数值的跟随展示）。
 - **复制按钮统一**（2026-08-29，见 STYLE_TODO #26）：行内复制操作一律 `action-btn` + `Icon name="copy" :size="12"` + 文案（复制地址 `copy_url` / 复制模型名 `copy_model` / 复制命令 `copy_cmd`），点击后文案临时切换为"已复制"反馈；不使用纯图标迷你按钮。内容项（值胶囊/URL 条等）配对文字描述标签（如 `当前模型`/`API 地址`，样式同 `.info-label` 语义：次级色、贴内容 8px）。状态栏为特例：值即按钮（点击复制 + tooltip + "已复制" tip），不使用按钮形态。
-- **模型别名派生**（2026-08-29）：`set(MODEL_KEY)` 时自动派生 `alias` 参数 = 模型文件名去 `.gguf` 后缀（`modelBaseName`，shared），命令构建自动携带 `-a/--alias`（API 侧模型名不带扩展名）；换模型跟随更新、预设携带模型但未存别名时补派生；界面「当前模型」显示（服务页胶囊/状态栏/仪表盘）别名优先，回退为去后缀文件名。
+- **模型别名派生**（2026-08-29）：`set(MODEL_KEY)` 时自动派生 `alias` 参数 = 模型文件名去 `.gguf` 后缀（`modelBaseName`，shared），命令构建自动携带 `-a/--alias`（API 侧模型名不带扩展名）；换模型跟随更新、预设携带模型但未存别名时补派生；界面「当前模型」显示（概览状态卡/状态栏）别名优先，回退为去后缀文件名。
 - **应用 Logo 统一**（2026-08-29，见 STYLE_TODO #29）：所有出现位置使用 `AppLogo` 组件（`components/common/AppLogo.vue`，`size` prop 指定边长）——同一 svg 资源（`assets/app-icon.svg`，与打包/任务栏图标同源）、统一胶囊圆角（`--radius-pill`）；出现位置：TopBar（20px）、设置-关于品牌头（40px + 应用名 + 版本）、浏览器标签 favicon（index.html `link rel="icon"` 同源）。新增 Logo 出现位置时必须复用该组件，禁止直接 `import app-icon.svg` 或 `<img>` 散写。
-- **API 地址语义收敛到 server store 单一来源**（2026-08-31）：界面一切「API 地址」展示/复制只取 `server.apiUrl`，**禁止页面各自从 `server.url`/`host`/`port` 就地派生**。store 内 `apiUrl` 与真实服务状态绑定——`running` 返回 `url`（为空时回退 `http://host:port`）、`starting` 返回推导地址、`stopped` 返回**空串**。原因：`onStatus` 事件只更新 `status` 不刷新 `url`，停止后 `server.url` 仍残留上次启动的地址，页面直接读 `url` 会显示已失效的旧 URL。显示层对空值统一以占位符（`—`/`status_stopped`）呈现，标签位与复制按钮常驻（无值时 `disabled`），保证运行前后行结构零跳动。当前消费方：仪表盘 Q3、服务页状态卡、状态栏（URL 可点复制，停止后整条消失）、WebUiFrame（iframe src，保留自身 `running` 门控作双保险）。新增任何 API 地址展示点必须复用 `server.apiUrl`。
+- **API 地址语义收敛到 server store 单一来源**（2026-08-31）：界面一切「API 地址」展示/复制只取 `server.apiUrl`，**禁止页面各自从 `server.url`/`host`/`port` 就地派生**。store 内 `apiUrl` 与真实服务状态绑定——`running` 返回 `url`（为空时回退 `http://host:port`）、`starting` 返回推导地址、`stopped` 返回**空串**。原因：`onStatus` 事件只更新 `status` 不刷新 `url`，停止后 `server.url` 仍残留上次启动的地址，页面直接读 `url` 会显示已失效的旧 URL。显示层对空值统一以占位符（`—`/`status_stopped`）呈现，标签位与复制按钮常驻（无值时 `disabled`），保证运行前后行结构零跳动。当前消费方：概览服务状态卡（`ServiceStatusCard`）、状态栏（URL 可点复制，停止后整条消失）、WebUiFrame（iframe src，保留自身 `running` 门控作双保险）。新增任何 API 地址展示点必须复用 `server.apiUrl`。
 - **禁止**：组件内 `style="color:#..."` 内联色值（动态状态色如 StatusBar 状态点除外）；非 token 的裸 `rgba(...)` 阴影/背景；逐行/逐列表项 backdrop-filter。
 
 #### 7.5.8 一致性检查清单（改动 UI 前对照）

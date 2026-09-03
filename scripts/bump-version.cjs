@@ -70,16 +70,19 @@ function run() {
   writeText('packages/shared/src/params/definitions.ts', defs);
 
   // 4. CHANGELOG.md：[Unreleased] 标题 → 新版本，带今天的日期
+  // 标题存在两种形态：`## [Unreleased]` 与 markdown 转义体 `## \[Unreleased]`（2026-09 格式化引入）——
+  // 旧正则只匹配前者，导致 v0.0.11 起替换静默 no-op、版本条目漏插。现兼容两种并沿用文件现行风格。
   const today = new Date().toISOString().slice(0, 10);
   let changelog = readText('docs/CHANGELOG.md');
-  changelog = changelog.replace(
-    /^## \[Unreleased\]/m,
-    `## [Unreleased]\n\n## [${newVersion}] - ${today}\n`,
-  );
-  // 但如果已是最新版本（上一次 bump 未合并），避免重复
-  if (!changelog.includes(`## [${newVersion}]`)) {
-    // 找不到 Unreleased，就在顶部插入
-    changelog = changelog.replace(/^## \[Unreleased\]\s*$/m, `## [Unreleased]\n\n## [${newVersion}] - ${today}\n`);
+  const UNREL_RE = /^## (\\?)\[Unreleased\]/m;
+  const mUnrel = changelog.match(UNREL_RE);
+  const esc = mUnrel && mUnrel[1] ? '\\' : '';
+  const header = `## ${esc}[Unreleased]\n\n## ${esc}[${newVersion}] - ${today}\n`;
+  if (mUnrel) {
+    changelog = changelog.replace(UNREL_RE, header);
+  } else {
+    // 找不到 Unreleased 标题：在文首（一级标题之后）插入
+    changelog = changelog.replace(/^# [^\n]*\n/, (h) => `${h}\n${header}\n`);
   }
   writeText('docs/CHANGELOG.md', changelog);
 

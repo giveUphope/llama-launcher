@@ -37,9 +37,9 @@
 
 - **`buildCommand(opts)`**：校验 `exePath` 存在性，生成 `[exePath, '-m', modelPath, ...flags]` 数组。
 
-- **发射规则**（无独立启用机制；`values._enabled` 为 legacy 字段，读取时直接忽略）：值**不等于默认值**才发射 flag；checkbox 恒发射（`flag`/`invert_flag`，无 `invert_flag` 且为 false 时不发射，如 `--metrics`）；空串跳过；`dependsOn` 依赖不满足跳过；`model` 恒附 `-m`（空模型不附）。
+- **发射规则**（无独立启用机制；`values._enabled` 为 legacy 字段，读取时直接忽略）：值**不等于默认值**才发射 flag；checkbox 勾选发 `flag`、取消发 `invert_flag`（无 `invert_flag` 且 default false 的常开开关取消时不发射，如 `--metrics`）；空串跳过；`dependsOn` 依赖不满足跳过；`model` 恒附 `-m`（空模型不附）。
 
-- **checkbox**：有 `invert_flag` 时 true 发 `flag`、false 发 `invert_flag`（如 `--flash-attn` / `--no-flash-attn`）；无 `invert_flag` 的常开开关（default false）仅 true 时发射。
+- **checkbox**：有 `invert_flag` 时 true 发 `flag`、false 发 `invert_flag`（如 `--jinja` / `--no-jinja`）；无 `invert_flag` 的常开开关（default false）仅 true 时发射。
 
 - **float\_slider**：保留 2 位小数，避免浮点精度问题导致命令字符串不稳定。
 
@@ -65,9 +65,9 @@
 
 - **跳过 ARRAY 类型**：tokenizer 等数组数据可达数 MB，仅跳过不读入内存。
 
-- **提取** **`GgufModelInfo`**：包含 59 个字段（架构、上下文长度、量化、采样参数、组织/许可证/数据集/分词器等）。
+- **提取** **`GgufModelInfo`**：包含 60 个字段（架构、上下文长度、量化、采样参数、rope 基准、组织/许可证/数据集/分词器等）。
 
-- **`buildSuggestions(info)`**：基于元数据推导建议参数，共 **12 条规则**：`ctx_size` / `temperature` / `top_k` / `top_p` / `min_p` / `repeat_penalty` / `presence_penalty` / `spec_type` / `alias` / `cache_type_k` / `cache_type_v` / `flash_attn`（仅建议有元数据依据且偏离当前值的项）。
+- **`buildSuggestions(info)`**：基于元数据推导建议参数，共 **11 条规则**：`temperature` / `top_k` / `top_p` / `min_p` / `repeat_penalty` / `presence_penalty` / `spec_type` / `alias` / `cache_type_k` / `cache_type_v` / `flash_attn`（仅建议有元数据依据且偏离当前值的项；纯参考信息如 `context_length` 训练上限不产生建议——`-c 0` 即"从模型加载"，`ctx_size` 建议已于 2026-09-03 移除；主模型守卫：非 model 类型/clip 附件不产生建议）。
 
 - **LRU 缓存**：上限 32 条，按 `filePath:mtimeMs:size` 为键，文件变更时自动失效。
 
@@ -214,8 +214,8 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 
 | 文件                      | 主要导出                                                                                                                               | 说明                                                    |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `types/`                | `IPC`（51 通道）、`AppSettings`、`ParamDef`、`Preset`、`ServerInfo`、`OutputEntry`、`ModelInfo`、`GgufModelInfo`、`DownloadTask`、`TrashItem` 等 | 全部跨包类型（[data-persistence.md](data-persistence.md) §9） |
-| `params/definitions.ts` | `PARAMS`（49）/ `PARAM_GROUPS`（3 组）/ `MODEL_KEY` / `APP_VERSION` / `APP_NAME`                                                        | 参数表唯一来源（[params-system.md](params-system.md)）         |
+| `types/`                | `IPC`（57 通道）、`AppSettings`、`ParamDef`、`Preset`、`ServerInfo`、`OutputEntry`、`ModelInfo`、`GgufModelInfo`、`DownloadTask`、`TrashItem`、`HardwareOccupancy`/`VramEstimateResult`/`PerfTarget` 等 | 全部跨包类型（[data-persistence.md](data-persistence.md) §9） |
+| `params/definitions.ts` | `PARAMS`（59：basic 22 / advanced 27 / server 10）/ `PARAM_GROUPS`（3 组）/ `MODEL_KEY` / `APP_VERSION` / `APP_NAME`                  | 参数表唯一来源（[params-system.md](params-system.md)）         |
 | `i18n/`                 | `tr` / `setLang` + zh/en 字典                                                                                                        | 双语 UI 文案                                              |
 | `model-name.ts`         | `modelBaseName(modelPath)`                                                                                                         | 模型显示名/别名派生（alias 自动填充）                                |
 | `model-relevance.ts`    | `categorizeFile` / `parseQuantization` / 相关性评分                                                                                     | 文件分类 + 量化标签解析（下载徽标）                                   |
@@ -243,8 +243,8 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | 目录             | 主要导出                                                                                                                                                                                                                                                             | 说明                                           |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | `stores/`      | `settings` / `i18n` / `params`（双轨）/ `server` / `download` / `appLog`                                                                                                                                                                                             | Pinia store（[frontend.md](frontend.md) §7.2） |
-| `composables/` | `useIPC` / `useTheme` / `useStartServer` / `useAutoPresetName` / `useModelPreset` / `useConfirm` / `useFilePicker` / `useUrlHistory`                                                                                                                             | IPC 调用与逻辑封装                                  |
+| `composables/` | `useIPC` / `useTheme` / `useStartServer` / `useAutoPresetName` / `useModelPreset` / `useConfirm` / `useFilePicker` / `useUrlHistory` / `useVramEstimate`                                                                                                     | IPC 调用与逻辑封装                                  |
 | `features/`    | dashboard / models / service / params / logs / settings / webui 各 `FeatureDef` + `navItems`/`featureRoutes` 聚合                                                                                                                                                   | 功能注册表（侧栏导航 + 路由装配，§7.1）                      |
 | `pages/`       | `DashboardPage` / `ModelsPage` / `ServicePage` / `ParamsPage` / `LogsPage` / `SettingsPage` / `WebUiPage`                                                                                                                                                        | 7 页面（§7.3）                                   |
-| `components/`  | common（`PageFrame`/`Card`/`Icon`/`ToolTip`/`StatusTag`/`InfoStrip`/`ServiceStatusCard`/`DownloadCard`/`ModelMetaCard`/`ConfirmModal`/`CloseDialog`/`FileBrowserModal`…）、layout（`Sidebar`/`TopBar`/`StatusBar`/`WebUiFrame`…）、params 6 控件、`BenchPanel`/`PresetsPanel` | 组件库（§7.4）                                    |
+| `components/`  | common（`PageFrame`/`Card`/`Icon`/`ToolTip`/`StatusTag`/`InfoStrip`/`DownloadCard`/`ModelMetaCard`/`ConfirmModal`/`CloseDialog`/`FileBrowserModal`…）、layout（`Sidebar`/`TopBar`/`StatusBar`/`WebUiFrame`…）、service（`ServiceStatusCard`/`CommandPreviewCard`/`ParamSummaryCard`/`TrashCleanCard`）、models（`LocalModelsPanel`/`DownloadsPanel`/`LibraryPanel`）、presets（`PresetsPanel`）、bench（`BenchPanel`）、settings（4 面板）、params 6 控件 + `ParamRow` | 组件库（§7.4）                                    |
 

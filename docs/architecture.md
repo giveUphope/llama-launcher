@@ -5,7 +5,7 @@
 
 ## 1. 项目概述
 
-llama\_launcher 是面向 llama.cpp 的 `llama-server` 的桌面启动器。功能包括：选择 `.gguf` 模型、读取 GGUF 元数据自动推导建议参数、配置 58 个启动参数、启动/停止/重启服务、实时查看输出、保存/加载预设、在线下载模型、浅色/深色主题和中/英文切换。应用不捆绑 llama.cpp 二进制，用户选择 llama-server 所在目录后自动检测可执行文件。
+llama\_launcher 是面向 llama.cpp 的 `llama-server` 的桌面启动器。功能包括：选择 `.gguf` 模型、读取 GGUF 元数据自动推导建议参数、配置 59 个启动参数、启动/停止/重启服务、实时查看输出、保存/加载预设、在线下载模型、浅色/深色主题和中/英文切换。应用不捆绑 llama.cpp 二进制，用户选择 llama-server 所在目录后自动检测可执行文件。
 
 当前只有一条主维护线：`apps/desktop` + `packages/*`（Electron + TypeScript + Vue 3 + Vite + Pinia）。整个项目通过 pnpm workspace + turborepo 管理，构建产物统一由 turbo 编排。
 
@@ -20,7 +20,7 @@ llama_launcher/
 │       ├── src/
 │       │   ├── main/                  # 主进程
 │       │   │   ├── index.ts           # 入口：单实例锁、窗口创建、生命周期、传输注入
-│       │   │   ├── ipc/               # 功能域 IPC 注册表（51 通道，register*Ipc + index 聚合）
+│       │   │   ├── ipc/               # 功能域 IPC 注册表（57 通道，register*Ipc + index 聚合）
 │       │   │   │   ├── index.ts       #   ipcRegistrars 数组汇总装配（registerIpcHandlers）
 │       │   │   │   ├── settings.ts    #   settings:load/save
 │       │   │   │   ├── models.ts      #   models:scan/detectMmproj/detectDraft/readGgufMeta/remove
@@ -28,10 +28,10 @@ llama_launcher/
 │       │   │   │   ├── presets.ts     #   presets:list/save/load/delete
 │       │   │   │   ├── server.ts      #   server:start/stop/restart/status/preview/bench
 │       │   │   │   ├── logs.ts        #   logs:list/clear/onlog
-│       │   │   │   ├── system.ts      #   system:checkPort/fileExists/findLlamaExe/detectTrash/cleanTrash
+│       │   │   │   ├── system.ts      #   system:checkPort/killProcess/findFreePort/fileExists/findLlamaExe/detectTrash/cleanTrash/estimateVram/benchLlamaRun/benchLlamaStatus/estimateModelFit
 │       │   │   │   ├── window.ts      #   window:close/minimize/toggleMaximize/state + 关闭弹窗转发
 │       │   │   │   └── download.ts    #   download:parseUrl/search/listFiles/start/cancel/pause/resume
-│       │   │   ├── launcher-bridge.ts # Launcher 单例桥接 + 输出缓冲（16ms 批量推送）
+│       │   │   ├── launcher-bridge.ts # Launcher 单例桥接 + 输出缓冲（16ms 窗口聚合冲刷）
 │       │   │   ├── app-exit.ts        # 退出行为：close_behavior 分流 + 关闭弹窗一问一答（requestExit/minimizeToTray/handleWindowClose）
 │       │   │   ├── app-log.ts         # 应用日志环形缓冲（区别于服务控制台，走 logs:* IPC）
 │       │   │   ├── process-registry.ts # 窗口 ↔ 子进程关联注册表（ProcessRegistry，两阶段终止）
@@ -57,6 +57,10 @@ llama_launcher/
 │   │       ├── process.ts             # 子进程封装（LlamaServerProcess，两阶段终止）
 │   │       ├── launcher.ts            # 启动编排状态机（stopped→starting→running）
 │   │       ├── gguf-meta.ts           # GGUF 元数据流式读取（64KB 块 + LRU）
+│   │       ├── devices.ts             # 设备显存探测（spawn llama-server --list-devices，解析每设备总/空闲 MiB）
+│   │       ├── vram-estimate.ts       # KV 内存模型 + 显存/内存双侧占用估算 + 无 OOM 最大上下文求解
+│   │       ├── target-recommend.ts    # 性能目标四档联动建议（ctx / KV 档位 / 卸载层数 / MTP）
+│   │       ├── llama-bench.ts         # llama-bench 离线体检（pp/tg 实测，-o json 解析）
 │   │       ├── url-parser.ts          # 模型 URL 解析（LM Studio / HuggingFace / hf-mirror / ModelScope）
 │   │       ├── modelscope-client.ts   # ModelScope API 客户端
 │   │       ├── huggingface-client.ts  # HuggingFace 镜像客户端（hf-mirror.com，可注入 Electron net 传输）
@@ -68,8 +72,8 @@ llama_launcher/
 │   │       └── types.ts               # 核心内部类型
 │   ├── shared/                    # 共享层（类型/参数表/i18n 唯一来源）
 │   │   └── src/
-│   │       ├── types/             # 类型定义（settings/param/preset/server/gguf/download/trash/ipc）
-│   │       ├── params/definitions.ts # 参数表（3 组 / 58 个参数）
+│   │       ├── types/             # 类型定义（settings/param/preset/server/gguf/download/trash/vram/ipc）
+│   │       ├── params/definitions.ts # 参数表（3 组 / 59 个参数）
 │   │       ├── i18n/              # 中英文案（zh/en/labels）
 │   │       ├── model-name.ts      # 模型显示名/别名派生（modelBaseName）
 │   │       ├── model-relevance.ts # 文件分类 + 量化标签解析（categorizeFile/parseQuantization）
