@@ -12,7 +12,6 @@ import AppearancePanel from '@/components/settings/AppearancePanel.vue';
 import AdvancedPanel from '@/components/settings/AdvancedPanel.vue';
 import AboutPanel from '@/components/settings/AboutPanel.vue';
 import { useI18nStore } from '@/stores/i18n';
-import { APP_VERSION } from '@llama-launcher/shared';
 import { useSettingsStore } from '@/stores/settings';
 
 type TabKey = 'general' | 'appearance' | 'advanced' | 'about';
@@ -95,18 +94,21 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
       </button>
     </div>
 
-    <div class="status-summary">
+    <!-- 提示条整体仅「常规」页签展示：其中即时保存提示、模型目录/引擎文件状态均对应常规控件，
+         其他页签不显示无关状态（idle 未设置 / missing 路径不存在 文案分离，避免自相矛盾） -->
+    <div v-if="activeTab === 'general'" class="status-summary">
       <div class="summary-item">
         <Icon name="save" :size="14" />
         <span class="summary-label">{{ i18n.t('lbl_settings_hint') }}</span>
       </div>
       <div class="summary-divider"></div>
       <div class="summary-item">
-        <Icon :name="modelsState === 'ok' ? 'check_circle' : 'alert'" :size="14" />
+        <Icon :name="modelsState === 'ok' ? 'check_circle' : modelsState === 'idle' ? 'info' : 'alert'" :size="14" />
         <span class="summary-label" :title="modelsDir || undefined">
           <template v-if="modelsState === 'checking'">{{ i18n.t('msg_detecting') }}</template>
-          <template v-else-if="modelsState === 'missing'">{{ i18n.t('lbl_model_dir_missing') }}（{{ i18n.t('lbl_dir_not_exist') }}）</template>
-          <template v-else>{{ modelsState === 'ok' ? i18n.t('lbl_model_dir_ready') : i18n.t('lbl_model_dir_missing') }}</template>
+          <template v-else-if="modelsState === 'missing'">{{ i18n.t('lbl_model_dir_missing') }}</template>
+          <template v-else-if="modelsState === 'idle'">{{ i18n.t('lbl_model_dir_unset') }}</template>
+          <template v-else>{{ i18n.t('lbl_model_dir_ready') }}</template>
         </span>
       </div>
       <div class="summary-divider"></div>
@@ -120,11 +122,8 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
           <template v-if="exeState === 'checking'">{{ i18n.t('msg_detecting') }}</template>
           <template v-else-if="exeState === 'ok'">{{ i18n.t('lbl_exe_state_ready') }}</template>
           <template v-else-if="exeState === 'missing'">{{ i18n.t('lbl_exe_state_missing') }}</template>
-          <template v-else>{{ i18n.t('msg_no_exe_hint') }}</template>
+          <template v-else>{{ i18n.t('lbl_exe_state_idle') }}</template>
         </span>
-      </div>
-      <div class="summary-right">
-        <span class="version">v{{ APP_VERSION }}</span>
       </div>
     </div>
 
@@ -166,13 +165,6 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
   width: 1px;
   height: 18px;
   background: var(--border);
-}
-
-.summary-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .tab-content {

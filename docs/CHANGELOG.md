@@ -14,6 +14,8 @@
 
 ### 重构
 
+- **设置页状态摘要整体按页签收敛（2026-09-03）**：顶部状态摘要（即时保存提示 + 模型目录/引擎文件状态）对应控件全部位于「常规」页签，现**整体仅在该页签渲染**，外观/高级/关于不再出现无关提示条；提示条版本号移除（「关于」页签与侧边栏页脚已有展示，三处重复）；文案矛盾修正——原「未配置（目录不存在）」对已配置但路径消失的场景自相矛盾，改为 idle=「模型目录未设置」/ missing=「模型目录不存在」（`lbl_model_dir_unset` 新增、`lbl_model_dir_missing`/`lbl_exe_state_missing` 语义修正、`lbl_dir_not_exist` 删除）；引擎 idle 改用「未配置」短标签替代长句提示（`msg_no_exe_hint` 保留于启动校验等原场景）。
+
 - **参数设置回归单页 + 页内 tab-strip 统一（2026-09-03）**：移除侧栏子树（参数设置的可展开 chevron 与「参数预设/自定义参数/性能测试」子项），次级页面切换统一回归**页内 tab-strip**（与设置页同一体例，`query.tab` 可深链、`/presets` 旧重定向保持可用）；Sidebar/NavButton 清理子树展开/子标签高亮的死代码（`NavItem.children`、NavButton `child`/`expandable` 等能力随删）；参数橙点信号上移到侧栏一级项（自定义参数有未保存调整时点亮）。
 - **模型内置信息与参数映射分类（2026-09-03）**：按实际用途将展示信息与参数映射划为四类——A 身份识别（只展示）/ B 事实映射（确定性：`nextn_predict_layers → draft-mtp`、`general.sampling.* → 采样参数`）/ C 启发式（量化权重 → KV q8_0、长上下文 → fa=on、名称+规模+量化 → alias）/ D 纯参考（永不映射）。实现：`buildSuggestions` 新增附件守卫（`general.type≠model` 与 clip 架构不再生成建议——mmproj 也会携带 sampling 元数据）；**移除 `ctx_size` 建议**（训练上限 ≠ 推荐值，`-c` 默认 0 = 从模型加载，建议纯冗余）；修正三处语义错挂的 ggufField（`cache_type_k/v`✗quantization、`jinja`✗chat_template、`alias`✗name，行内灰字不再误导）；新增 `--swa-full` 参数（kv_cache 子分组，可调不自动建议——混合架构缓存策略由元数据自动决定，纯 SWA 模型长上下文排查用）；补抽取 `rope.freq_base`，ModelMetaCard 详情按 B/D 类重组并新增 MoE 专家（总数/激活）与 RoPE 基频参考行。参数表 58 → 59，`LLAMA_SERVER_PARAMS.md` 重新生成（--swa-full ⬜→✅）。
 
