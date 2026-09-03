@@ -14,7 +14,7 @@ import { useVramEstimate } from '@/composables/useVramEstimate';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 
-// 单页 + 页内 tab-strip 切换（与设置页同一体例）：query.tab 可深链，未知值回退自定义参数。
+// 单页 + 页内 tab-strip 切换（与设置页同一体例）：query.tab 可深链，无 query 进入回退首个页签「参数预设」。
 // 参数预设（PresetsPanel）与性能测试（BenchPanel）由 KeepAlive 缓存，切页不丢状态。
 type TabKey = 'custom' | 'presets' | 'bench';
 
@@ -35,32 +35,25 @@ const router = useRouter();
 const params = useParamsStore();
 const i18n = useI18nStore();
 
-// 上次访问页签（模块级：跨侧栏切换/keep-alive 保留）。点击侧栏「参数设置」（无 query）
-// 回落到此页签而非固定自定义参数；首次访问默认 custom。
-let lastParamsTab: TabKey = 'custom';
-
+// 进入参数设置（无 query：侧栏点击、/basic 等旧重定向、旧书签）固定落在「参数预设」（首个页签）；
+// 显式 ?tab=presets|custom|bench 仍深链有效。页签切换仅改写 query，不跨次进入记忆。
 const activeTab = computed<TabKey>(() => {
   const t = String(route.query.tab ?? '');
   if (t === 'presets' || t === 'custom' || t === 'bench') return t;
-  return lastParamsTab;
+  return 'presets';
 });
 
 function setTab(key: TabKey) {
   if (key === activeTab.value) return;
-  lastParamsTab = key;
   void router.replace({ query: { ...route.query, tab: key } });
 }
 
-// 记住已解析页签（含深链直达 ?tab=bench 等场景）
-watch(activeTab, (t) => { lastParamsTab = t; }, { immediate: true });
-
-// 无 query 进入 /params（侧栏点击、旧路由 /basic 等重定向、旧书签 ?tab=params）：
-// 归一化 URL 为上次页签，保证刷新/分享与视图一致
+// 无 query 进入 /params 时归一化 URL 为默认页签，保证刷新/分享与视图一致
 watch(
   () => [route.path, route.query.tab] as const,
   ([p, t]) => {
     if (p === '/params' && (t === undefined || t === '')) {
-      void router.replace({ query: { ...route.query, tab: lastParamsTab } });
+      void router.replace({ query: { ...route.query, tab: 'presets' } });
     }
   },
   { immediate: true },
