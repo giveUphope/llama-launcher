@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.21] - 2026-09-04
+
+
 - **移除「性能测试」页签与相关模块**：`ParamsPage` 的 bench 子标签、`BenchPanel.vue`、主进程 `bench-client.ts`（HTTP /metrics + timings 客户端）、IPC `server:bench` 通道（57 → 56）、`BenchRequest`/`BenchResult`/`BenchRunResult`/`BenchMetrics` 类型、`useWaitRunning` composable 与 `verify-bench-client.mjs` 冒烟脚本一并移除；`ParamsPage` 页签降为两页签（参数预设 / 自定义参数）。**「模型体检」（模型管理内 llama-bench 离线体检，`system:benchLlama*`）不受影响**。
 
 ## \[0.0.20] - 2026-09-03
