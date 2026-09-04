@@ -53,6 +53,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 52 | 跨页面间距一致性统一（全量间距审查）：筛选 chip 水平内距 `0 9px`→`0 8px`（DownloadCard 对齐 level-chip）、fs-sm `.rec-chip` `2px 8px`→`3px 8px`、`.empty` 空态 `16px`→`20px`（BenchPanel 对齐 Presets/LocalModels）；标准固化 §7.5.4 ⑥⑦ | 2026-09-04 |
 | 49 | 概览「最近问题」空态占位 `line-height: 72px` 违反行高语义化清单（style-audit #9 ❌）→ flex 居中 + `min-height: 60px` | 2026-09-04 |
 | 48 | 性能目标下拉面板 `.target-panel` 玻璃浮层违反「下拉/菜单实底」（#41 同型回潮）+ 引用未定义 `--radius-dropdown` → 实底 `--bg-card` + `--radius-row` | 2026-09-04 |
 | 47 | 概览页内容占位组件补强（Q1 空值 dash / Q4 空态占位行） | 2026-09-01 |

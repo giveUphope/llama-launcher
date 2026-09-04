@@ -544,7 +544,7 @@ onUnmounted(() => {
   .empty {
     text-align: center;
     color: var(--fg-muted);
-    padding: 16px;
+    padding: 20px; // 空态标准内距 20px（与 PresetsPanel/LocalModelsPanel .empty 统一；原 16px 离群）
   }
 }
 </style>

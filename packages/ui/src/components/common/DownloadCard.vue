@@ -1239,7 +1239,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   align-items: center;
   gap: 4px; // 胶囊内 icon/计数间距与其他筛选 chip（level-chip）一致
   height: 24px;
-  padding: 0 9px;
+  padding: 0 8px; // 筛选 chip 水平内距统一 8px（与 LogsPage .level-chip 一致；原 9px 离群，§7.5.4）
   border-radius: var(--radius-pill);
   background: var(--bg-input);
   border: 1px solid var(--border);

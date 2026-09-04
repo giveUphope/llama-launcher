@@ -6,8 +6,14 @@
 
 ***
 
-## 已修复明细（#1–#49 + 历史修复）
+## 已修复明细（#1–#49、#52 + 历史修复）
 
+
+### 52. 跨页面间距一致性统一（筛选 chip / rec-chip / 空态 .empty）— ✅ 2026-09-04
+
+- **问题（全量间距审查发现，同类元素跨页面取值漂移）**：① 固定高 24px 筛选 chip 水平内距不一致——LogsPage `.level-chip` `0 8px` 而 DownloadCard `.chip` `0 9px`（后者注释自称“与 level-chip 一致”，实为离群）；② fs-sm chip 内距——5 处 `3px 8px`，唯 ParamsPage `.rec-chip` `2px 8px`；③ 独立居中文本空态 `.empty`——PresetsPanel/LocalModelsPanel `20px`，唯 BenchPanel `16px`。
+- **修复**：三处分别统一为 `0 8px` / `3px 8px` / `20px`；标准固化进 frontend.md §7.5.4「组件 padding 约定」⑥（筛选 chip `0 8px`）⑦（空态 `.empty` `20px`），并明确其余空态为不同语义变体（弹窗 `.fb-empty`、区块内 `.empty-msg`/`.target-recs-empty`、大图标 `.empty-log`）各自统一。
+- **修复效果验证**：全量间距脚本复查 `padding: 0 9px`/`2px 8px` 归零、`.empty` 均 `20px`；GAP 全库 0 违规（均在 0/4/5/6/8/10/12/14）；`pnpm build`/`style:audit`/`lint` 全绿。
 
 ### 49. 概览「最近问题」空态占位行高违反语义化清单（style-audit #9 ❌）— ✅ 2026-09-04
 

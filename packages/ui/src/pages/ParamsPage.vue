@@ -468,7 +468,7 @@ async function onClearSession() {
 .rec-chip {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 3px 8px; // fs-sm chip 统一 3px 8px（与其余 chip 一致；原 2px 离群，§7.5.4）
   background: var(--bg-hover);
   border-radius: var(--radius-pill);
   font-family: var(--font-mono);
