@@ -135,16 +135,9 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-.pid,
-.url,
-.model,
-.shortcut {
-  opacity: 0.85;
-}
-
-.shortcut {
-  opacity: 0.65;
-}
+/* 状态栏文字全不透明纯白：蓝底（--statusbar-blue→accent 渐变）上纯白满不透明仅约 4.5:1（AA 下限），
+   任何 opacity 降级都跌破 AA（原 .url/.model 0.85→~3.7:1、.shortcut 0.65→~2.6:1，蓝底上看不清）。
+   视觉层级改由 .status-text 的 font-weight:600 承担，不再用不透明度削弱可读性。 */
 
 /* 可点击复制项 */
 .clickable {

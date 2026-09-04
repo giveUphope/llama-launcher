@@ -48,8 +48,8 @@
 
   // 危险（描边，hover 实底白字）
   &.danger {
-    color: var(--danger);
-    border-color: var(--danger);
+    color: var(--danger-text);      // 文字/描边用文字版（浅色主题更深达 AA）；hover 实底仍用亮 --danger
+    border-color: var(--danger-text);
 
     &:hover:not(:disabled) {
       background: var(--danger);
@@ -59,8 +59,8 @@
 
   // 警告（描边，hover 实底深字）
   &.warn {
-    color: var(--warn);
-    border-color: var(--warn);
+    color: var(--warn-text);        // 文字/描边用文字版（浅色主题更深达 AA）；hover 实底仍用亮 --warn
+    border-color: var(--warn-text);
 
     &:hover:not(:disabled) {
       background: var(--warn);
@@ -121,12 +121,12 @@
 
   // 危险（danger 描边）
   &.danger {
-    color: var(--danger);
-    border-color: var(--danger);
+    color: var(--danger-text);
+    border-color: var(--danger-text);
 
     &:hover:not(:disabled) {
       background: color-mix(in srgb, var(--danger) 10%, var(--bg-input));
-      color: var(--danger);
+      color: var(--danger-text);
     }
   }
 

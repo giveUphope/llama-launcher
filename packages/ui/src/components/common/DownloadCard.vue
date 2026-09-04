@@ -1057,8 +1057,8 @@ function quantTooltip(q: QuantizationInfo | null): string {
   }
 
   &.danger {
-    color: var(--danger);
-    border-color: var(--danger);
+    color: var(--danger-text);
+    border-color: var(--danger-text);
 
     &:hover:not(:disabled) {
       background: var(--danger);
@@ -1082,14 +1082,14 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 /* 错误/提示消息 */
 .error-msg {
-  color: var(--danger);
+  color: var(--danger-text); // 浅色主题深红达 AA（原亮 --danger 仅 3.8:1）
   font-size: var(--fs-base);
   padding: 4px 0;
   white-space: pre-line;
 }
 
 .warn-msg {
-  color: var(--warn);
+  color: var(--warn-text); // 浅色主题深琥珀达 AA（原亮 --warn 仅 2.2:1 看不清）
   font-size: var(--fs-base);
   padding: 4px 0;
 }
@@ -1510,7 +1510,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .task-error {
-  color: var(--danger);
+  color: var(--danger-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

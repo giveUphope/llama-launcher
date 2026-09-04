@@ -76,11 +76,21 @@ function cancelText(key?: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--overlay);
-  backdrop-filter: blur(var(--glass-blur));
+  // 遮罩暗底 + 模糊移到 ::before 独立叶子层：panel 文字不再落入 backdrop-filter 合成层
+  // 而失去亚像素抗锯齿发虚（与 #41「下拉实底」同理；§7.5.6 弹窗背板 blur 视觉语义不变）
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--overlay);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+  }
 }
 
 .modal-panel {
+  position: relative; // 置于 backdrop::before 遮罩层之上（文字保持锐利）
+  z-index: 1;
   width: min(440px, calc(100vw - 48px));
   max-height: calc(100vh - 64px);
   overflow: auto;
@@ -105,8 +115,8 @@ function cancelText(key?: string): string {
   justify-content: center;
   color: var(--accent);
 }
-.variant-warning .modal-icon { color: var(--warn); }
-.variant-danger .modal-icon { color: var(--danger); }
+.variant-warning .modal-icon { color: var(--warn-text); }
+.variant-danger .modal-icon { color: var(--danger-text); }
 
 .modal-title {
   margin: 0;

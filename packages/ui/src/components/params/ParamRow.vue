@@ -153,7 +153,7 @@ function onClear() {
   }
 
   &.dep-unmet {
-    border-color: var(--warn);
+    border-color: var(--warn-text);
     background: color-mix(in srgb, var(--warn) 6%, transparent);
   }
 
@@ -161,10 +161,10 @@ function onClear() {
   // 依赖未满足时由 dep-unmet 呈现（同色描边 + 底色 + 警示图标），不重复挂类；
   // 悬停保持橙色，不回落到通用 hover 灰描边。
   &.changed {
-    border-color: var(--warn);
+    border-color: var(--warn-text);
 
     &:hover {
-      border-color: var(--warn);
+      border-color: var(--warn-text);
     }
   }
 }
@@ -217,7 +217,7 @@ function onClear() {
 }
 
 .dep-hint {
-  color: var(--warn);
+  color: var(--warn-text);
   font-size: var(--fs-sm);
   flex-shrink: 0;
   cursor: help;
@@ -243,7 +243,7 @@ function onClear() {
     opacity var(--dur-fast) var(--ease-smooth);
 
   &:hover {
-    color: var(--warn);
+    color: var(--warn-text);
     background: color-mix(in srgb, var(--warn) 14%, transparent);
     opacity: 1;
   }

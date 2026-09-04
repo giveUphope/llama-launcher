@@ -107,13 +107,13 @@ const error = computed<string>(() => {
   }
 
   &.invalid {
-    border-color: var(--danger);
+    border-color: var(--danger-text);
   }
 }
 
 .error-text {
   font-size: var(--fs-base);
-  color: var(--danger);
+  color: var(--danger-text);
   white-space: nowrap;
   flex-shrink: 0;
 }

@@ -177,7 +177,8 @@ const logCount = computed(() => server.outputs.length);
 }
 
 .scroll-hint {
-  opacity: 0.7;
+  // 不用 opacity 削弱（--fg-muted 叠 0.7 会跌破 AA）；直接取 --fg-muted（已达 AA）
+  color: var(--fg-muted);
 }
 
 .log-count {

@@ -53,6 +53,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 53 | 文字可读性专项：弹窗 panel 文字脱离 backdrop-filter 发虚（blur 移 ::before 叶子层）、StatusBar 白字去 opacity（0.65→~2.6:1 升满不透明 4.5:1）、新增 --success/warn/danger-text 自适应变体使浅色面语义文字由 2.2–3.8:1 升至 ≥4.5:1（控制台/日志保留亮色）、hint 去 opacity | 2026-09-04 |
 | 52 | 跨页面间距一致性统一（全量间距审查）：筛选 chip 水平内距 `0 9px`→`0 8px`（DownloadCard 对齐 level-chip）、fs-sm `.rec-chip` `2px 8px`→`3px 8px`、`.empty` 空态 `16px`→`20px`（BenchPanel 对齐 Presets/LocalModels）；标准固化 §7.5.4 ⑥⑦ | 2026-09-04 |
 | 49 | 概览「最近问题」空态占位 `line-height: 72px` 违反行高语义化清单（style-audit #9 ❌）→ flex 居中 + `min-height: 60px` | 2026-09-04 |
 | 48 | 性能目标下拉面板 `.target-panel` 玻璃浮层违反「下拉/菜单实底」（#41 同型回潮）+ 引用未定义 `--radius-dropdown` → 实底 `--bg-card` + `--radius-row` | 2026-09-04 |

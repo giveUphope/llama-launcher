@@ -381,7 +381,7 @@ async function onClearSession() {
   color: var(--fg-primary);
   font-family: var(--font-mono);
 
-  &.warn { color: var(--warn); }
+  &.warn { color: var(--warn-text); }
 
   // 占位态（估算不可用）：次级灰，与其他 stat 的主色区分
   &.muted { color: var(--fg-muted); font-weight: 400; }

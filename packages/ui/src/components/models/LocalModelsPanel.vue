@@ -706,28 +706,28 @@ onUnmounted(() => {
   }
 
   &.dflash {
-    color: var(--success);
+    color: var(--success-text);
     background: color-mix(in srgb, var(--success) 14%, transparent);
   }
 
   &.draft {
-    color: var(--warn);
+    color: var(--warn-text);
     background: color-mix(in srgb, var(--warn) 14%, transparent);
   }
 
   // 显存适配徽章（估算结果）：成功绿 / 需部分卸载橙 / 建议降档红
   &.fit-fit {
-    color: var(--success);
+    color: var(--success-text);
     background: color-mix(in srgb, var(--success) 14%, transparent);
   }
 
   &.fit-partial {
-    color: var(--warn);
+    color: var(--warn-text);
     background: color-mix(in srgb, var(--warn) 14%, transparent);
   }
 
   &.fit-no {
-    color: var(--danger);
+    color: var(--danger-text);
     background: color-mix(in srgb, var(--danger) 14%, transparent);
   }
 
@@ -761,7 +761,7 @@ onUnmounted(() => {
 
   &.danger:hover {
     background: color-mix(in srgb, var(--danger) 12%, transparent);
-    color: var(--danger);
+    color: var(--danger-text);
   }
 }
 
@@ -773,7 +773,7 @@ onUnmounted(() => {
   text-align: center;
 
   &.error {
-    color: var(--danger);
+    color: var(--danger-text);
   }
 }
 

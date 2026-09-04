@@ -8,6 +8,13 @@
   --danger-hover: #{$danger-hover};
   --warn: #{$warn};
   --info: #{$info};
+  // 语义色「文字/描边专用」变体：亮色 success/warn/danger 作文字落在浅色面时对比不足
+  // （warn 2.2:1、success 2.9:1、danger 3.8:1），故浅色主题用更深的文字版（下方 light 块覆盖）；
+  // 深色主题沿用亮色（深底上足够清晰）。仅用于主题相关浅色面上的语义文字/描边；
+  // 控制台/日志（恒深底 --console-bg）与实底按钮背景仍用原亮色 --success/--warn/--danger。
+  --success-text: var(--success);
+  --warn-text: var(--warn);
+  --danger-text: var(--danger);
   --statusbar-blue: #{$statusbar-blue};
   --statusbar-hover: rgba(255, 255, 255, 0.15);  // 状态栏深蓝底上的白色半透明 hover（表面着色，非 elevation）
   --font-family: #{$font-family};
@@ -154,6 +161,10 @@
   --fg-secondary: #4B5563;
   --fg-muted: #6B7280;      // 对比度修正：原 #9AA1AC 在白/浅蓝底仅 ~2.3:1，升 gray-500 达 WCAG AA（需求2）
   --border: #DCE4F0;        // 边框（蓝白微 tint）
+  // 语义色文字版（浅色主题深化，均 ≥4.5:1 达 WCAG AA；深色主题见 :root 沿用亮色）
+  --success-text: #0f7b3f;
+  --warn-text: #a85209;
+  --danger-text: #c0392b;
   --border-focus: #{$accent};
   --switch-track: #D1D5DB;
   --switch-btn: #ffffff;

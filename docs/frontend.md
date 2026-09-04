@@ -79,7 +79,8 @@
 
 - **强调色**（蓝色系列，2026-08-26 由蓝紫 #6c50e7 调整为纯蓝）：`--accent`(#2563eb)。accent 是交互强调色（描边按钮、链接、聚焦边框、选中行、开关/进度条等状态控件）；hover/选中态由 `--bg-hover`/`--bg-active`/`--border-focus`/`color-mix` 派生（原 `--accent-hover/pressed/soft/dim` 变体 token 已随主按钮主题化删除，见 STYLE_TODO #22）。
 - **主题主按钮**（黑白高对比 CTA，2026-08-26 新增）：`--primary-bg`/`--primary-fg`/`--primary-hover`/`--primary-pressed`；**深色主题=白底黑字**（#F3F4F6/#111827），**浅色主题=黑底白字**（#17181F/#FFFFFF）。实底主按钮（`action-btn.primary`、TopBar `btn-start`、`modal-btn/fb-btn/dl-btn.primary`、选中 tab 与筛选 chip 的实底态）一律引用该 token，不使用 accent 实底。
-- **状态色**：`--success`(#27ae60) / `--danger`(#e74c3c) / `--warn`(#f39c12) / `--info`(#007acc) / `--statusbar-blue`(#007acc，VS Code 风格状态栏蓝)。
+- **状态色**：`--success`(#27ae60) / `--danger`(#e74c3c) / `--warn`(#f39c12) / `--info`(#007acc) / `--statusbar-blue`(#007acc，VS Code 风格状态栏蓝）。
+- **语义色文字/描边变体**（2026-09 可读性修正）：`--success-text` / `--warn-text` / `--danger-text`。亮色 success/warn/danger 作**文字**落在浅色面时对比不足（warn 2.2:1、success 2.9:1、danger 3.8:1，均 <AA），故浅色主题用更深的文字版（#0f7b3f / #a85209 / #c0392b，均 ≥4.5:1），深色主题沿用亮色（深底上足够清晰）。**用途划分**：主题相关浅色面上的语义**文字/描边**（消息、状态徽章、outline 按钮 label+border、依赖提示等）一律用 `-text` 变体；**控制台/日志**（恒深底 `--console-bg`，双主题不变）与**实底按钮背景/状态圆点**仍用原亮色 `--success/--warn/--danger`（如 warn 实底按钮配 `#1a1a1a`、日志 `.kind-*` 行）。**文字不用 `opacity` 削弱**（会与背景混合不可控地跌破 AA，如状态栏白字曾 0.65→~2.6:1），降级改走色 token（`--fg-muted` 等）。
 - **语义色板**（`theme.scss`，按 `data-theme` 切换）：`--bg-app` / `--bg-sidebar` / `--bg-card` / `--bg-input` / `--bg-hover` / `--bg-active` / `--fg-primary` / `--fg-secondary` / `--fg-muted` / `--border` / `--border-focus` / `--switch-track` / `--switch-btn`。
 - **蓝白渐变背景**（2026-09 新增）：`--bg-app-gradient` = `linear-gradient(135deg, --bg-grad-1 → --bg-grad-2 48% → --bg-grad-3)`，stop 色值 `--bg-grad-1/2/3` 按主题定义（浅色 柔蓝 #DCE9FB→纯白 #FFFFFF→柔蓝 #E9F1FC；深色 海军蓝 #0E1830→石板 #12151C→海军蓝 #0D1526）；`--bg-app` 保留为实底回退（无渐变支持 / WebUiFrame 防闪烁）。body 背景 = `background-color: var(--bg-app)` + `background-image: var(--bg-app-gradient)`，经 `.glass-layer` 模糊与 `--bg-blob-*`（已统一为纯蓝调）叠加呈平缓蓝白过渡。
 - **恒定深色表面**（两种主题下都不变）：控制台 `--console-bg`(#0B1120)/`--console-fg`、工具提示 `--tooltip-bg`(#1e1e1e)/`--tooltip-fg`(#fff)。（侧边栏**随主题切换**：浅色主题为浅底 + 黑灰字 + accent 蓝激活项，见下条玻璃 token。）
@@ -166,7 +167,7 @@
 #### 7.5.6 浮层、阴影与毛玻璃（glassmorphism）
 
 - 阴影统一引用 token（组件内禁止裸 `box-shadow`/遮罩）：tooltip `var(--shadow-tooltip)`、下拉/菜单 `var(--shadow-dropdown)`、弹窗 `var(--shadow-modal)`、控件小阴影 `var(--shadow-control)`、遮罩 `var(--overlay)`。
-- **单玻璃层（性能约定）**：全应用 `backdrop-filter` 只允许出现在：① `surface.scss` 的 `.glass-layer`（全视口固定一层，模糊装饰背景斑块，背景静态 ⇒ blur 缓存）；② 弹窗背板（`blur(var(--glass-blur))` + `var(--overlay)`）；③ 工具提示（面积小且生命周期短）。**下拉/菜单面板不得用 backdrop-filter**（2026-08-31 起改实底，见 STYLE_TODO #41）；**列表行、表格行、参数行、控制台行、滚动容器一律不得加 backdrop-filter**（只走半透明 `--glass-bg`）。
+- **单玻璃层（性能约定）**：全应用 `backdrop-filter` 只允许出现在：① `surface.scss` 的 `.glass-layer`（全视口固定一层，模糊装饰背景斑块，背景静态 ⇒ blur 缓存）；② 弹窗背板——`blur(var(--glass-blur))` + `var(--overlay)` 挂在背板的 `::before` 叶子层（**不挂在含 panel 的父元素上**，否则 panel 文字落入 backdrop-filter 合成层失去亚像素抗锯齿发虚，见 STYLE_TODO #53），panel 置 `position: relative; z-index: 1` 于其上；③ 工具提示（面积小且生命周期短）。**下拉/菜单面板不得用 backdrop-filter**（2026-08-31 起改实底，见 STYLE_TODO #41）；**列表行、表格行、参数行、控制台行、滚动容器一律不得加 backdrop-filter**（只走半透明 `--glass-bg`）。
 - 表面背景统一 `var(--glass-bg)` / 弹窗 `var(--glass-bg-strong)`，容器边框 `var(--glass-border)`；输入框保持 `var(--bg-input)` 不透明保证可读性。`@supports not (backdrop-filter: ...)` 的回退 = 隐藏 `.glass-layer`（`surface.scss`）——表面半透明色本身不依赖 blur，无需转实底。
 - **下拉面板统一（实底可读）**：`position: fixed`（`DropdownParam` 用 `<Teleport to="body">`）、`border-radius: var(--radius-row)`、**背景 `var(--bg-card)` 实底 + 边框 `var(--border)`**（半透明底会让面板下方内容透出削弱对比度，backdrop-filter 合成层使文字失去亚像素抗锯齿发虚——功能菜单可读性优先，与 fx-off 回退形态一致，见 STYLE_TODO #41）、`max-height` 内滚动、`z-index` 高于卡片；选中行底色用 `color-mix(in srgb, var(--accent) 14%, transparent)` + `--accent` 文字（勿用 `--bg-active` 暗蓝底叠蓝字，深色主题对比度不足，STYLE_TODO #13 同型问题）。
 - 工具提示恒为深色底（两种主题下对比度一致）。
@@ -189,6 +190,7 @@
 #### 7.5.8 一致性检查清单（改动 UI 前对照）
 
 - [ ] 颜色全部走 `var(--*)`（`#fff`/`#1a1a1a` 仅限彩色按钮文字）
+- [ ] 文字对比度 ≥4.5:1（WCAG AA）：语义色作文字用 `-text` 变体（浅底）；不用 `opacity` 削弱文字（改走色 token）；文字不落在 `backdrop-filter` 元素内（发虚）
 - [ ] 浮层阴影/遮罩走 `--shadow-*`/`--overlay`，无裸 `box-shadow`/`rgba(...)` 遮罩
 - [ ] 字号走 `--fs-*`；行高按 §7.5.1 文字系统（正文 ≥1.3，`1` 仅限图标/单行居中）；字重只取 400/600/700
 - [ ] 圆角走 `--radius-*` token（仅 2px 轨道 / 50% 圆形例外），间距符合 7.5.4（gap 只取 4/5/6/8/10/12/14）

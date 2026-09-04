@@ -281,9 +281,9 @@ const closeBehavior = computed<CloseBehavior>({
   white-space: nowrap;
   flex-shrink: 0;
   &.idle, &.detecting { color: var(--fg-muted); background: var(--bg-hover); }
-  &.ok { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
-  &.missing { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
-  &.not_found { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  &.ok { color: var(--success-text); background: color-mix(in srgb, var(--success) 14%, transparent); }
+  &.missing { color: var(--danger-text); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+  &.not_found { color: var(--warn-text); background: color-mix(in srgb, var(--warn) 14%, transparent); }
 }
 .spinning { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

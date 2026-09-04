@@ -273,7 +273,7 @@ onActivated(() => { void onRefreshList(); });
   border-radius: var(--radius-row);
   background: color-mix(in srgb, var(--success) 12%, transparent);
   border: 1px solid var(--success);
-  color: var(--success);
+  color: var(--success-text); // 文字用深绿达 AA；底/边保留亮 --success 语义
   font-size: var(--fs-base);
 }
 

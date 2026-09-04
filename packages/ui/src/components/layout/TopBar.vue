@@ -391,8 +391,8 @@ async function onOpenWeb() {
 }
 
 .btn-stop {
-  color: var(--danger);
-  border-color: var(--danger);
+  color: var(--danger-text);      // 文字/描边用文字版（浅色达 AA）；hover 实底仍用亮 --danger
+  border-color: var(--danger-text);
 
   &:hover:not(:disabled) {
     background: var(--danger);
@@ -401,8 +401,8 @@ async function onOpenWeb() {
 }
 
 .btn-restart {
-  color: var(--warn);
-  border-color: var(--warn);
+  color: var(--warn-text);        // 文字/描边用文字版（浅色达 AA）；hover 实底仍用亮 --warn
+  border-color: var(--warn-text);
 
   &:hover:not(:disabled) {
     background: var(--warn);

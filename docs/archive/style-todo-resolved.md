@@ -6,8 +6,14 @@
 
 ***
 
-## 已修复明细（#1–#49、#52 + 历史修复）
+## 已修复明细（#1–#49、#52–#53 + 历史修复）
 
+
+### 53. 文字虚化 / 深浅色看不清专项修复 — ✅ 2026-09-04
+
+- **问题（可读性专项审查）**：① **虚化**——3 个弹窗（ConfirmModal/CloseDialog/FileBrowserModal）的 `.modal-panel`（含标题/正文/按钮文字）是 `.modal-backdrop` 的 flex 子元素，而 backdrop 挂 `backdrop-filter: blur()`，panel 文字落入 blur 合成层失去亚像素抗锯齿发虚（#41 同型，当时只修了下拉）。② **低对比**——StatusBar 蓝底白字用 opacity 0.85/0.65 削弱（实测降到 3.7:1 / 2.6:1）；ServicePage/LogsPage 的 scroll-hint/show-limit 在 --fg-muted 上再叠 opacity 0.7–0.8。③ **语义色作文字**——warn/success/danger 亮色作文字落在浅色面仅 2.2/2.9/3.8:1（<AA），遍布状态徽章/消息/outline 按钮/依赖提示等。
+- **修复**：① overlay+blur 移到 `.modal-backdrop::before` 独立叶子层，panel 置 `position:relative; z-index:1` 脱离 blur 层（视觉不变、文字恢复锐利）。② StatusBar 去 opacity（纯白满不透明 4.5:1，层级改由 font-weight 承担）；hint 去 opacity 直接用 --fg-muted。③ 新增随主题自适应的 `--success-text`(#0f7b3f)/`--warn-text`(#a85209)/`--danger-text`(#c0392b)（深色主题=原亮色），浅色面语义文字/描边全部切到 -text（≥4.5:1），控制台/日志（恒深底）与实底按钮背景/圆点保留亮色。规范固化 §7.5.1（-text 变体+用途划分+禁 opacity 削弱文字）/§7.5.6（弹窗 blur 挂 ::before）/§7.5.8（对比度清单项）。
+- **修复效果验证**：WCAG 脚本核算全部达标（浅色 -text 5.0–5.4:1、StatusBar 白字 4.5:1、深色沿用亮色 4.4–7.7:1、控制台 4.9–8.6:1）；`getComputedStyle` 确认 -text 双主题正确解析（浅深/深亮）；双主题浏览器截图核对；`pnpm build`/`style:audit`/`lint` 全绿。
 
 ### 52. 跨页面间距一致性统一（筛选 chip / rec-chip / 空态 .empty）— ✅ 2026-09-04
 

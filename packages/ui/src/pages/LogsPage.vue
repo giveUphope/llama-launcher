@@ -424,11 +424,12 @@ function onScroll() {
 }
 
 .scroll-hint {
-  opacity: 0.8;
+  // 不用 opacity 削弱（--fg-muted 叠 0.8 偏淡）；取 --fg-muted（已达 AA）
+  color: var(--fg-muted);
 }
 
 .show-limit {
   font-family: var(--font-mono);
-  opacity: 0.7;
+  color: var(--fg-muted); // 原 opacity 0.7 叠 --fg-muted 偏淡，改纯色达 AA
 }
 </style>

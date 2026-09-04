@@ -85,7 +85,7 @@ function onClearFinished() {
   color: var(--fg-secondary);
 
   &.error .stat-value {
-    color: var(--danger);
+    color: var(--danger-text);
   }
 }
 

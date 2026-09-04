@@ -79,8 +79,8 @@ const props = withDefaults(defineProps<Props>(), {
     white-space: nowrap;
   }
 
-  &.warn { color: var(--warn); }
-  &.success { color: var(--success); }
+  &.warn { color: var(--warn-text); }
+  &.success { color: var(--success-text); }
   &.muted { color: var(--fg-muted); }
 }
 </style>

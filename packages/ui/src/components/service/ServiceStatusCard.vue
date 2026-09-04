@@ -302,7 +302,7 @@ function onOomKvQuant() {
   gap: 8px;
   padding: 6px 12px;
   background: color-mix(in srgb, var(--danger) 12%, transparent);
-  color: var(--danger);
+  color: var(--danger-text); // 文字用深红达 AA；底/边保留亮 --danger 语义
   border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
   border-radius: var(--radius-pill);
   font-size: var(--fs-base);

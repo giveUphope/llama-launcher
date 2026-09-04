@@ -41,17 +41,17 @@ const dotColor = computed(() => {
 }
 
 .status-ok {
-  color: var(--success);
+  color: var(--success-text);
   background: color-mix(in srgb, var(--success) 14%, transparent);
 }
 
 .status-warn {
-  color: var(--warn);
+  color: var(--warn-text);
   background: color-mix(in srgb, var(--warn) 14%, transparent);
 }
 
 .status-error {
-  color: var(--danger);
+  color: var(--danger-text);
   background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
