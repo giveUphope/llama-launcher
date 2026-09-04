@@ -6,7 +6,7 @@ Desktop launcher for llama.cpp `llama-server`. Electron 44 + Vue 3 + Vite 8 + Pi
 
 - `apps/desktop/` — Electron app: `src/main/` (main process: IPC handlers, window, launcher bridge, bench-client), `src/preload/index.cjs` (CommonJS preload, `contextBridge`；IPC 常量由 `scripts/generate-preload.cjs` 生成到同级 `ipc-constants.cjs`，勿手工内联), `electron-builder.config.cjs`.
 
-- `packages/shared/` — **single source of truth** for types, the 59-param table (`src/params/definitions.ts`), and i18n (zh/en). All other packages depend on it.
+- `packages/shared/` — **single source of truth** for types, the 60-param table (`src/params/definitions.ts`), and i18n (zh/en). All other packages depend on it.
 
 - `packages/core/` — business logic: process spawn, command building, GGUF streaming read, model scan, download manager, ModelScope client, HuggingFace mirror client (hf-mirror.com, injectable Electron `net` transport).
 

@@ -60,7 +60,7 @@ export const PARAMS: ParamDef[] = [
   { key: 'n_cpu_moe', group: 'basic', type: 'int_entry', flag: '-ncmoe', default: 0, min: 0, max: 256, subcategory: 'memory' },
   { key: 'n_cpu_ffn', group: 'basic', type: 'int_entry', flag: '-ncffn', default: 0, min: 0, max: 512, subcategory: 'memory' },
 
-  // ---------------- advanced (27) ----------------
+  // ---------------- advanced (28) ----------------
   // 子分组 kv_cache：KV 缓存
   // KV cache 类型：与模型权重量化（quantization）无关，不挂 ggufField——
   // 权重量化 → q8_0 的推荐走 buildSuggestions 启发式建议（带来源说明），行内不显示误导性灰字
@@ -100,6 +100,8 @@ export const PARAMS: ParamDef[] = [
   },
   // 投影器设备（b10734 引入）：none = 不卸载，默认 auto；设备名动态（见 llama-server --list-devices）
   { key: 'mmproj_device', group: 'advanced', type: 'text', flag: '-mmdev', default: '', subcategory: 'multimodal' },
+  // 投影器 GPU 卸载（默认启用）：取消勾选下发 --no-mmproj-offload，投影器留在 CPU（省显存 / 规避部分后端投影器卸载问题）
+  { key: 'mmproj_offload', group: 'advanced', type: 'checkbox', flag: '--mmproj-offload', invert_flag: '--no-mmproj-offload', default: true, subcategory: 'multimodal' },
   // 视频多模态（b10734 引入）
   {
     key: 'video_fps', group: 'advanced', type: 'float_slider', flag: '--video-fps',

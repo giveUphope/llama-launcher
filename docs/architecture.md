@@ -5,7 +5,7 @@
 
 ## 1. 项目概述
 
-llama\_launcher 是面向 llama.cpp 的 `llama-server` 的桌面启动器。功能包括：选择 `.gguf` 模型、读取 GGUF 元数据自动推导建议参数、配置 59 个启动参数、启动/停止/重启服务、实时查看输出、保存/加载预设、在线下载模型、浅色/深色主题和中/英文切换。应用不捆绑 llama.cpp 二进制，用户选择 llama-server 所在目录后自动检测可执行文件。
+llama\_launcher 是面向 llama.cpp 的 `llama-server` 的桌面启动器。功能包括：选择 `.gguf` 模型、读取 GGUF 元数据自动推导建议参数、配置 60 个启动参数、启动/停止/重启服务、实时查看输出、保存/加载预设、在线下载模型、浅色/深色主题和中/英文切换。应用不捆绑 llama.cpp 二进制，用户选择 llama-server 所在目录后自动检测可执行文件。
 
 当前只有一条主维护线：`apps/desktop` + `packages/*`（Electron + TypeScript + Vue 3 + Vite + Pinia）。整个项目通过 pnpm workspace + turborepo 管理，构建产物统一由 turbo 编排。
 
@@ -73,7 +73,7 @@ llama_launcher/
 │   ├── shared/                    # 共享层（类型/参数表/i18n 唯一来源）
 │   │   └── src/
 │   │       ├── types/             # 类型定义（settings/param/preset/server/gguf/download/trash/vram/ipc）
-│   │       ├── params/definitions.ts # 参数表（3 组 / 59 个参数）
+│   │       ├── params/definitions.ts # 参数表（3 组 / 60 个参数）
 │   │       ├── i18n/              # 中英文案（zh/en/labels）
 │   │       ├── model-name.ts      # 模型显示名/别名派生（modelBaseName）
 │   │       ├── model-relevance.ts # 文件分类 + 量化标签解析（categorizeFile/parseQuantization）

@@ -15,7 +15,7 @@
 | `presets-store.test.ts`               | 预设读写                                                                            |
 | `models-scanner.test.ts`              | 模型扫描                                                                            |
 | `command-builder.test.ts`             | 命令构建（含 legacy `_enabled` 忽略）                                                    |
-| `command-builder-definitions.test.ts` | 命令构建（表驱动：从 `definitions.ts` 生成全部 59 参数的结构约束与发射行为用例）                             |
+| `command-builder-definitions.test.ts` | 命令构建（表驱动：从 `definitions.ts` 生成全部 60 参数的结构约束与发射行为用例）                             |
 | `launcher.test.ts`                    | 启动编排                                                                            |
 | `gguf-meta.test.ts`                   | GGUF 元数据读取（含建议参数生成、附件模型守卫、rope 字段抽取）                                        |
 | `devices.test.ts`                     | `--list-devices` 输出解析（逐行容错、Vulkan/CUDA 行锚定）                                    |

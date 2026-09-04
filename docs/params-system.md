@@ -6,9 +6,9 @@
 ### 5.1 参数定义 (shared/params/definitions.ts)
 
 - **`PARAM_GROUPS`**：3 组 — `basic`（基础）/ `advanced`（高级）/ `server`（服务）。
-- **`PARAMS`**：共 59 个参数，分布如下：
+- **`PARAMS`**：共 60 个参数，分布如下：
   - basic：22 个（15 核心 + 7 采样）
-  - advanced：27 个（5 思考控制 + 9 推测解码（其中 6 依赖外部草稿）+ 5 多模态 + 6 KV 扩展 + 2 模板）
+  - advanced：28 个（5 思考控制 + 9 推测解码（其中 6 依赖外部草稿）+ 6 多模态 + 6 KV 扩展 + 2 模板）
   - server：10 个
 - 每个参数定义包含：`key, group, type, flag, default, subcategory, dependsOn, ggufField, invert_flag` 等字段。
 - **8 种控件类型**：`text` / `int_slider` / `int_entry` / `float_slider` / `dropdown` / `checkbox` / `file` / `dir`。

@@ -211,7 +211,7 @@
 | `-mm`, `--mmproj` | path to a multimodal projector file. see tools/mtmd/README.md note: if -hf is used, this argument can be omitted (env: LLAMA_ARG_MMPROJ) | ✅ 已支持 |
 | `-mmu`, `--mmproj-url` | URL to a multimodal projector file. see tools/mtmd/README.md (env: LLAMA_ARG_MMPROJ_URL) | ⬜ 未支持 |
 | `--mmproj-auto`, `--no-mmproj`, `--no-mmproj-auto` | whether to use multimodal projector file (if available), useful when using -hf (default: enabled) (env: LLAMA_ARG_MMPROJ_AUTO) | ⬜ 未支持 |
-| `--mmproj-offload`, `--no-mmproj-offload` | whether to enable GPU offloading for multimodal projector (default: enabled) (env: LLAMA_ARG_MMPROJ_OFFLOAD) | ⬜ 未支持 |
+| `--mmproj-offload`, `--no-mmproj-offload` | whether to enable GPU offloading for multimodal projector (default: enabled) (env: LLAMA_ARG_MMPROJ_OFFLOAD) | ✅ 已支持 |
 | `-mmdev`, `--mmproj-device` | device to use for multimodal projector (none = don't offload, default: auto) use --list-devices to see a list of available devices (env: MTMD_BACKEND_DEVICE) | ✅ 已支持 |
 | `--image-min-tokens` | minimum number of tokens each image can take, only used by vision models with dynamic resolution (default: read from model) (env: LLAMA_ARG_IMAGE_MIN_TOKENS) | ⬜ 未支持 |
 | `--image-max-tokens` | maximum number of tokens each image can take, only used by vision models with dynamic resolution (default: read from model) (env: LLAMA_ARG_IMAGE_MAX_TOKENS) | ⬜ 未支持 |
