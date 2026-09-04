@@ -24,7 +24,7 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 | Task                           | Command                                                                                                                                  |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Install                        | `pnpm install` (Node >=20, pnpm 10.12.1; `onlyBuiltDependencies`: electron, esbuild; Node 版本由 root `engines` 声明，resedit 打包钩子要求 Node 20+) |
+| Install                        | `pnpm install` (Node >=20, pnpm 11.21.0; `allowBuilds`（pnpm 11 取代 `onlyBuiltDependencies`）: electron/esbuild=true、@parcel/watcher=false; Node 版本由 root `engines` 声明，resedit 打包钩子要求 Node 20+) |
 | Dev (Vite + Electron HMR)      | `pnpm dev` (or `pnpm --filter @llama-launcher/desktop dev:vite`)；`pnpm dev:console` = 同款 dev 但默认打开 DevTools                              |
 | Typecheck + IPC/doc sync check | `pnpm lint` (runs `turbo run lint` **and** `node scripts/verify-ipc-sync.cjs` **and** `node scripts/check-docs-links.cjs`)               |
 | Unit tests                     | `pnpm test` (Vitest 4; `packages/core` 25 个测试文件 + `packages/ui` 5 个，turbo 一并运行)                                                          |
@@ -58,7 +58,7 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 - **Keep** **`electron-builder.config.cjs`** **`directories.output`** **stable.** It should normally be `../../release`. If you temporarily change it to bypass a file lock, restore it and remove the temporary directory before finishing.
 
-- **Workspace root** **`package.json`** **is not** **`apps/desktop/package.json`.** It must contain the root `scripts` (`dev`/`build`/`lint`/`test`), `packageManager: pnpm@10.12.1`, and `turbo` devDependency. Do not overwrite it with a package-level manifest.
+- **Workspace root** **`package.json`** **is not** **`apps/desktop/package.json`.** It must contain the root `scripts` (`dev`/`build`/`lint`/`test`), `packageManager: pnpm@11.21.0`, and `turbo` devDependency. Do not overwrite it with a package-level manifest.
 
 - **Version bumps are automated.** Pushing to `main` with **non-doc changes** triggers `scripts/bump-version.cjs` (patch increment) which updates `package.json` (root + desktop), `APP_VERSION` in `definitions.ts`, `CHANGELOG.md` header, and text references in `docs/packaging.md` / `README.md` / `AGENTS.md`. **Pure doc pushes**（仅 `docs/**`、根 `README.md`、`AGENTS.md`）**跳过 bump 与 Release**（`changes` job 判定，见 [docs/ci-cd.md](docs/ci-cd.md) §1.3）。Manual bumps use `node scripts/bump-version.cjs [patch|minor|major]`. Only `CHANGELOG.md [Unreleased]` content and `docs/params/` baseline updates require manual editing (see [docs/ci-cd.md](docs/ci-cd.md) / [docs/auto-release.md](docs/auto-release.md)).
 
@@ -76,7 +76,7 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 - **Packaging leaks**: `before-pack.cjs`/`after-pack.cjs` swap pnpm symlinks/junctions for real `dist/*.js` so `asar` excludes source/tests/config. On Windows, `fs.lstat().isSymbolicLink()` is **not** enough for junctions — the scripts use `fs.realpathSync` to detect them, and also handle broken/circular symlinks (e.g. `shamefully-hoist=true` leftovers) by falling back to root `node_modules/@llama-launcher/{core,shared}`. Keep `electron-builder.config.cjs` `signAndEditExecutable: false` (no admin signing on this setup). Because that flag also skips rcedit, `after-pack.cjs` must write the app's `VS_VERSION_INFO` (ProductName/FileDescription/OriginalFilename + app version) itself via `resedit` (pure-JS, root devDependency), then inject the icon via `inject-icon.cjs` — otherwise the packaged exe reports ProductName "Electron" in Task Manager / file properties.
 
-- **Mirrors**: `.npmrc` points electron/electron-builder at npmmirror.com — relevant if installing on a restricted network.
+- **Mirrors**: `.npmrc` points electron/electron-builder at npmmirror.com — relevant if installing on a restricted network. electron 二进制缺失时（pnpm side-effects 缓存会整体跳过 electron 的 postinstall，`pnpm install`/`rebuild` 都不重下，导致无 `dist/electron.exe`）用 `pnpm reinstall:electron` 走 `.npmrc` 的 electron_mirror 补装（勿手动 `node <electron>/install.js`：不经 pnpm 拿不到镜像，会回退 GitHub 源在国内 fetch failed）。
 
 ## Docs to read before sensitive changes
 

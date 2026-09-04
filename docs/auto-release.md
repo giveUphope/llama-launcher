@@ -22,7 +22,7 @@ release.yml 由 ci.yml 的 bump job 通过 `gh workflow run release.yml -f versi
 | # | 步骤 | 说明 |
 |---|------|------|
 | 1 | actions/checkout@v7 (ref: vX) | 检出对应版本的 tag |
-| 2 | pnpm/action-setup@v5 + actions/setup-node@v7 | 环境准备（Node 24, pnpm 10.12.1） |
+| 2 | pnpm/action-setup@v5 + actions/setup-node@v7 | 环境准备（Node 24, pnpm 11.21.0） |
 | 3 | pnpm install --frozen-lockfile | 安装依赖 |
 | 4 | pnpm build | 构建所有包 |
 | 5 | pnpm dist | electron-builder portable 打包，输出到 release/ |

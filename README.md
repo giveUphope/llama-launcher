@@ -263,7 +263,7 @@ llama_launcher/
 
 - Node.js >= 20
 
-- pnpm 10.12.1
+- pnpm 11.21.0
 
 - Windows / macOS / Linux
 

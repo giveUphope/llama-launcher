@@ -21,7 +21,7 @@
 - **Runner**：ubuntu-latest
 - **步骤**：
   1. `actions/checkout@v7`
-  2. `pnpm/action-setup@v5`（version: 10.12.1）— **必须在 `setup-node` 之前**（否则 `cache: pnpm` 时找不到 pnpm）
+  2. `pnpm/action-setup@v5`（version: 11.21.0）— **必须在 `setup-node` 之前**（否则 `cache: pnpm` 时找不到 pnpm）
   3. `actions/setup-node@v7`（node-version: 24, cache: pnpm）
   4. `pnpm install --frozen-lockfile`
   5. `pnpm build` — **必须先于 `pnpm lint`**（tsc project references 依赖 shared/dist / core/dist）

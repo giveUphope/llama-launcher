@@ -3,7 +3,7 @@
   "version": "0.0.20",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.12.1",
+  "packageManager": "pnpm@11.21.0",
   "engines": {
     "node": ">=20"
   },
@@ -15,6 +15,7 @@
     "docs:check": "node scripts/check-docs-links.cjs",
     "style:audit": "node scripts/style-audit.cjs",
     "generate:ipc": "node scripts/generate-preload.cjs",
+    "reinstall:electron": "node scripts/reinstall-electron.cjs",
     "test": "turbo run test --no-daemon",
     "dist": "pnpm --filter @llama-launcher/desktop dist"
   },
