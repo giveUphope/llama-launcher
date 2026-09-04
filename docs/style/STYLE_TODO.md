@@ -38,6 +38,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **建议修复**：统一 8×8（`.status-dot` 宽高改 8px），不改变色板。
 - **修复效果验证**：`grep -n "width: 7px" StatusTag.vue` 无命中；双主题截图核对概览/服务页状态点与文字基线对齐无位移；`pnpm style:audit` 全绿；§7.5.5 该条回写为单一「状态小圆点 8×8」。
 
+### 51. 浅色 `--fg-muted` 在蓝白渐变「浅蓝角」为 AA-large（3.9–4.3:1，未达 AA-normal 4.5:1）— 🟡 待确认（蓝白渐变美学取舍）
+
+- **位置**：`packages/ui/src/styles/theme.scss` light 块 `--bg-grad-1 #DCE9FB` / `--bg-grad-3 #E9F1FC` × `--fg-muted #6B7280`；文字直接衬于 body 渐变（卡片/内容区透明，分区风格）。
+- **描述**：2026-09 蓝白渐变改造已把 `--fg-muted` 从 #9AA1AC（白底仅 ~2.5:1，FAIL）提升到 #6B7280（白底 4.83:1，AA）。但渐变最蓝角落（#DCE9FB）上小号 muted 文字为 3.93:1、#E9F1FC 上 4.25:1，介于 AA-large(3:1) 与 AA-normal(4.5:1) 之间。「可见蓝调」与「muted 比 --fg-secondary 更浅的层级」在角落处存在固有张力，属有意取舍，暂不修复。
+- **建议修复**（若后续要求全区域达 AA-normal）：① 蓝角调更亮（如 #E7EFFA，亮度↑）使 muted≥4.5；或 ② `--fg-muted` 再降到 ~#5C6470（会压缩与 secondary 层级差）；或 ③ 给落在蓝角的 muted 文本加白底衬底/描边。
+- **修复效果验证**：node 对比度脚本核算 `--fg-muted × --bg-grad-1/3 ≥ 4.5`；双主题截图核对辅助文字（占位符/空态/时间戳）清晰；`pnpm style:audit` 全绿。
+
 ***
 
 ## 🟢 已修复索引

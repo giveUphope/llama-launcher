@@ -81,6 +81,7 @@
 - **主题主按钮**（黑白高对比 CTA，2026-08-26 新增）：`--primary-bg`/`--primary-fg`/`--primary-hover`/`--primary-pressed`；**深色主题=白底黑字**（#F3F4F6/#111827），**浅色主题=黑底白字**（#17181F/#FFFFFF）。实底主按钮（`action-btn.primary`、TopBar `btn-start`、`modal-btn/fb-btn/dl-btn.primary`、选中 tab 与筛选 chip 的实底态）一律引用该 token，不使用 accent 实底。
 - **状态色**：`--success`(#27ae60) / `--danger`(#e74c3c) / `--warn`(#f39c12) / `--info`(#007acc) / `--statusbar-blue`(#007acc，VS Code 风格状态栏蓝)。
 - **语义色板**（`theme.scss`，按 `data-theme` 切换）：`--bg-app` / `--bg-sidebar` / `--bg-card` / `--bg-input` / `--bg-hover` / `--bg-active` / `--fg-primary` / `--fg-secondary` / `--fg-muted` / `--border` / `--border-focus` / `--switch-track` / `--switch-btn`。
+- **蓝白渐变背景**（2026-09 新增）：`--bg-app-gradient` = `linear-gradient(135deg, --bg-grad-1 → --bg-grad-2 48% → --bg-grad-3)`，stop 色值 `--bg-grad-1/2/3` 按主题定义（浅色 柔蓝 #DCE9FB→纯白 #FFFFFF→柔蓝 #E9F1FC；深色 海军蓝 #0E1830→石板 #12151C→海军蓝 #0D1526）；`--bg-app` 保留为实底回退（无渐变支持 / WebUiFrame 防闪烁）。body 背景 = `background-color: var(--bg-app)` + `background-image: var(--bg-app-gradient)`，经 `.glass-layer` 模糊与 `--bg-blob-*`（已统一为纯蓝调）叠加呈平缓蓝白过渡。
 - **恒定深色表面**（两种主题下都不变）：控制台 `--console-bg`(#0B1120)/`--console-fg`、工具提示 `--tooltip-bg`(#1e1e1e)/`--tooltip-fg`(#fff)。（侧边栏**随主题切换**：浅色主题为浅底 + 黑灰字 + accent 蓝激活项，见下条玻璃 token。）
 - **字体**：`--font-family`（Inter + `SF Pro Display` + `Segoe UI Variable` + CJK 回退栈）、`--font-mono`（JetBrains Mono、Fira Code、Cascadia Code、Consolas）。数值/路径/命令一律 `--font-mono`。
 - **字号**（语义化，禁止裸 px；2026-08 整体上调 1px 改善桌面可读性）：`--fs-xs`(11 徽章/辅助) / `--fs-sm`(12 次要提示/状态栏/summary chip) / `--fs-base`(13 正文/输入/控制台) / `--fs-md`(14 按钮/列表项) / `--fs-lg`(15 卡片标题/参数名/导航项) / `--fs-appname`(16 应用名，TopBar 最大字号)。
@@ -107,7 +108,8 @@
 #### 7.5.2 主题
 
 - 主题挂在 `<html data-theme="dark|light">`（默认 dark），由 `stores/settings.ts` 的 `applyTheme` 切换。
-- **主题基调**（2026-08-26 调整）：**深色 = 中性深灰底（`--bg-app` #101216）+ 白字；浅色 = 白底（#FFFFFF）+ 黑/灰字**；主按钮随主题反色（深色白底黑字 / 浅色黑底白字，见 `--primary-*`）。accent 蓝保留为交互强调色，下载分类徽章与状态语义色不变。
+- **主题基调**（2026-08-26 调整；2026-09 蓝白渐变）：**深色 = 蓝黑渐变底（`--bg-app-gradient`，实底回退 `--bg-app` #101216）+ 白字；浅色 = 蓝白渐变底（柔蓝→纯白→柔蓝，实底回退 #FFFFFF）+ 黑/灰字**；主按钮随主题反色（深色白底黑字 / 浅色黑底白字，见 `--primary-*`）。accent 蓝保留为交互强调色，下载分类徽章与状态语义色不变。
+- **渐变对比度约束**（2026-09）：卡片/内容区透明（分区风格），文字直接衬于 body 渐变，故渐变 stop 一律取高亮度（浅色）/低亮度（深色）。据此浅色 `--fg-muted` 由 #9AA1AC 提升为 #6B7280（原白底仅 ~2.5:1 未达 WCAG AA）、`--sidebar-fg-muted` 同步；实测浅色 `--fg-primary/secondary` 全 stop AA/AAA、`--fg-muted` 白底 AA(4.83:1)/浅蓝角 AA-large(3.9–4.3:1，残留项见 STYLE_TODO #51)，深色全文字 AA/AAA。彩色按钮文字色不变（accent/danger/success 底 → `#fff`，warn 底 → `#1a1a1a`）。
 - 视觉效果固定为默认玻璃形态（毛玻璃/果冻动效/蓝色点缀）；原「视觉效果」开关（`data-fx` / `fx_mode`，off = 实底性能模式）已于 2026-08-31 移除，无用户侧回退开关（OS 级 `prefers-reduced-motion` 仍生效，见 §7.5.7）。
 
 #### 7.5.3 圆角体系（2026-08 胶囊化重构）

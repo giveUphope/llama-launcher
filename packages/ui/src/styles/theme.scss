@@ -57,10 +57,14 @@
   --glass-blur: 12px;
   --glass-saturate: 140%;
 
-// 装饰背景斑块（body::before，冷调蓝紫/青色，低饱和）
---bg-blob-1: hsla(220, 70%, 55%, 0.16);
---bg-blob-2: hsla(260, 70%, 55%, 0.13);
---bg-blob-3: hsla(200, 60%, 50%, 0.11);
+// 装饰背景斑块（body::before，统一蓝调、低饱和；2026-09 去除紫/青以契合蓝白渐变主题）
+--bg-blob-1: hsla(215, 82%, 58%, 0.16);
+--bg-blob-2: hsla(205, 76%, 56%, 0.13);
+--bg-blob-3: hsla(226, 72%, 60%, 0.11);
+
+// 蓝白渐变背景表达式（body 用）：stop 色值 --bg-grad-1/2/3 按主题定义（见 dark/light 块）；
+// --bg-app 保留为实底回退（无渐变支持时 / WebUiFrame 防闪烁）。经 .glass-layer 模糊后过渡更柔和。
+--bg-app-gradient: linear-gradient(135deg, var(--bg-grad-1) 0%, var(--bg-grad-2) 48%, var(--bg-grad-3) 100%);
 
 // 侧边栏恒为深色玻璃（两种主题一致；冷调深蓝灰）
 --glass-sidebar: rgba(13, 17, 29, 0.82);
@@ -97,6 +101,10 @@
   --bg-input: #23262D;      // 输入框
   --bg-hover: #262A33;      // hover
   --bg-active: #26308F;     // 选中/激活态（蓝色暗调）
+  // 蓝白渐变的深色适配（蓝黑渐变）：深海军蓝 → 石板灰 → 海军蓝，平缓过渡
+  --bg-grad-1: #0E1830;
+  --bg-grad-2: #12151C;
+  --bg-grad-3: #0D1526;
   --fg-primary: #F5F6F8;    // 主要正文（白）
   --fg-secondary: #BBBFC9;  // 次要正文（灰）
   --fg-muted: #8A90A0;      // 辅助文字（灰）
@@ -135,13 +143,17 @@
   --bg-app: #FFFFFF;        // 应用背景（白）
   --bg-sidebar: #15181E;    // 侧栏保持深色
   --bg-card: #FFFFFF;
-  --bg-input: #F3F4F6;
-  --bg-hover: #EDEEF1;
+  --bg-input: #EDF2FA;      // 输入/按钮底（蓝白微 tint，2026-09 蓝白渐变主题）
+  --bg-hover: #E4EBF6;      // hover（蓝白微 tint）
   --bg-active: #DBEAFE;     // 品牌色浅底（浅蓝）
+  // 蓝白渐变（浅色主题）：柔蓝 → 纯白 → 柔蓝，平缓过渡（body 背景，经玻璃层模糊更柔和）
+  --bg-grad-1: #DCE9FB;
+  --bg-grad-2: #FFFFFF;
+  --bg-grad-3: #E9F1FC;
   --fg-primary: #111827;
   --fg-secondary: #4B5563;
-  --fg-muted: #9AA1AC;
-  --border: #E4E6EB;
+  --fg-muted: #6B7280;      // 对比度修正：原 #9AA1AC 在白/浅蓝底仅 ~2.3:1，升 gray-500 达 WCAG AA（需求2）
+  --border: #DCE4F0;        // 边框（蓝白微 tint）
   --border-focus: #{$accent};
   --switch-track: #D1D5DB;
   --switch-btn: #ffffff;
@@ -157,8 +169,8 @@
   // 侧边栏跟随主题：浅色主题 = 白/浅底 + 黑灰字（深色主题见上方深色块）
   --sidebar-fg-primary: #111827;
   --sidebar-fg-secondary: #4B5563;
-  --sidebar-fg-muted: #9AA1AC;
-  --sidebar-bg-hover: #EDEEF1;
+  --sidebar-fg-muted: #6B7280;      // 对比度修正：与 --fg-muted 一致（浅色侧栏白玻璃底，原 #9AA1AC 仅 ~2.4:1）
+  --sidebar-bg-hover: #E4EBF6;      // 蓝白微 tint（与 --bg-hover 一致）
   // 激活项：浅蓝底 + accent 蓝字（浅色侧栏高对比）
   --sidebar-bg-active: #DBEAFE;
   --sidebar-fg-active: #2563eb;
@@ -172,7 +184,9 @@
 }
 
 body {
-  background: var(--bg-app);
+  // 蓝白渐变：底色 --bg-app 作实底回退，渐变层叠其上（token 见各主题 --bg-app-gradient / --bg-grad-*）
+  background-color: var(--bg-app);
+  background-image: var(--bg-app-gradient);
   color: var(--fg-primary);
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
