@@ -52,7 +52,6 @@
 | 脚本 | 前置条件 | 验证内容 |
 | ---- | ---- | ---- |
 | `scripts/verify-server-start.mjs` | 先构建 `core/dist`（`pnpm --filter @llama-launcher/core build`），目录下有 llama-server 二进制 | `Launcher` 启动编排冒烟：状态机 / listening 检测 / 停止清理，逐阶段断言并打印结果 |
-| `scripts/verify-bench-client.mjs` | **真实 llama-server + 真实模型（含 dflash 草稿模型）** | 性能测试客户端冒烟：`/metrics` 指标名与 completion `timings` 字段解析（`fetchMetrics`/`runBench`），需启动真实服务并持有 `.gguf` 草稿模型 |
 
 两者均为手动执行（不接入 `pnpm test`），用于真实二进制/引擎环境下的链路验证。
 

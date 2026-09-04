@@ -99,7 +99,6 @@ const api = {
     restart: (values, settings) => invoke(IPC.SERVER_RESTART, values, settings),
     getStatus: () => invoke(IPC.SERVER_STATUS),
     previewCommand: (values, settings) => invoke(IPC.SERVER_PREVIEW, values, settings),
-    bench: (req) => invoke(IPC.SERVER_BENCH, req),
     onOutput: (cb) => {
       outputListeners.push(cb);
       return () => {

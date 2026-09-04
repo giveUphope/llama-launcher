@@ -18,7 +18,6 @@ export const IPC = {
   SERVER_STATUS: 'server:status',
   SERVER_PREVIEW: 'server:preview',
   SERVER_OUTPUT: 'server:output',
-  SERVER_BENCH: 'server:bench',
   // 应用日志（区别于服务控制台：记录应用自身生命周期/操作）
   LOGS_LIST: 'logs:list',
   LOGS_CLEAR: 'logs:clear',

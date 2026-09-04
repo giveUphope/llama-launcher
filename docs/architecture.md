@@ -20,7 +20,7 @@ llama_launcher/
 │       ├── src/
 │       │   ├── main/                  # 主进程
 │       │   │   ├── index.ts           # 入口：单实例锁、窗口创建、生命周期、传输注入
-│       │   │   ├── ipc/               # 功能域 IPC 注册表（57 通道，register*Ipc + index 聚合）
+│       │   │   ├── ipc/               # 功能域 IPC 注册表（56 通道，register*Ipc + index 聚合）
 │       │   │   │   ├── index.ts       #   ipcRegistrars 数组汇总装配（registerIpcHandlers）
 │       │   │   │   ├── settings.ts    #   settings:load/save
 │       │   │   │   ├── models.ts      #   models:scan/detectMmproj/detectDraft/readGgufMeta/remove
@@ -36,7 +36,6 @@ llama_launcher/
 │       │   │   ├── app-log.ts         # 应用日志环形缓冲（区别于服务控制台，走 logs:* IPC）
 │       │   │   ├── process-registry.ts # 窗口 ↔ 子进程关联注册表（ProcessRegistry，两阶段终止）
 │       │   │   ├── tray.ts            # 系统托盘保活（createTray，右键菜单定位在图标上方）
-│       │   │   ├── bench-client.ts    # 性能测试 HTTP 客户端（Electron net 读 /metrics + timings）
 │       │   │   ├── hf-transport.ts    # 注入 HfHttpTransport：Electron net 传输（规避 BoringSSL TLS 指纹被拒）
 │       │   │   ├── download-transport.ts # 注入 DownloadTransport：Electron net 流式传输（仅 hf-mirror.com）
 │       │   │   └── window.ts          # 窗口创建与几何持久化
@@ -84,8 +83,8 @@ llama_launcher/
 │           ├── stores/            # Pinia store（settings/i18n/params/server/download/appLog）
 │           ├── pages/             # 7 个页面（概览/模型/服务/参数/日志/内置 Web UI/设置；侧栏 7 项一级导航，旧页路由重定向）
 │           ├── features/          # 功能注册表（FeatureDef：侧栏导航 + 路由装配）
-│           ├── components/        # 通用组件 + 参数控件（common/layout/models/params/presets/service/settings/bench）
-│           ├── composables/       # useIPC / useTheme / useStartServer / useWaitRunning / useAutoPresetName / useModelPreset / useConfirm / useFilePicker / useUrlHistory
+│           ├── components/        # 通用组件 + 参数控件（common/layout/models/params/presets/service/settings）
+│           ├── composables/       # useIPC / useTheme / useStartServer / useAutoPresetName / useModelPreset / useConfirm / useFilePicker / useUrlHistory
 │           ├── dev/               # demo-mock（无 Electron preload 的浏览器预览环境注入）
 │           └── styles/            # reset / theme / variables / surface / buttons
 ├── scripts/                           # 构建辅助脚本
@@ -104,7 +103,6 @@ llama_launcher/
 │   ├── check-docs-links.cjs         # 文档相对链接与锚点完整性（lint 阶段执行）
 │   ├── style-audit.cjs              # UI 风格规范审计（frontend.md §7.5 十项检查）
 │   ├── verify-server-start.mjs      # Launcher 手动冒烟测试（需 core/dist 先构建）
-│   ├── verify-bench-client.mjs      # 性能测试指标/timings 解析冒烟测试（需真实模型）
 │   ├── integ_devsession.mjs         # 开发会话集成测试入口
 │   ├── icon-gen/gen-icon.cjs        # 应用图标生成（desktop pnpm gen:icon）
 │   ├── inject-icon.cjs              # 打包后注入 exe 图标

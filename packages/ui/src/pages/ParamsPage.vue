@@ -7,7 +7,6 @@ import Card from '@/components/common/Card.vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Icon from '@/components/common/Icon.vue';
 import PresetsPanel from '@/components/presets/PresetsPanel.vue';
-import BenchPanel from '@/components/bench/BenchPanel.vue';
 import ParamRow from '@/components/params/ParamRow.vue';
 import { confirm } from '@/composables/useConfirm';
 import { useVramEstimate } from '@/composables/useVramEstimate';
@@ -15,13 +14,12 @@ import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 
 // 单页 + 页内 tab-strip 切换（与设置页同一体例）：query.tab 可深链，无 query 进入回退首个页签「参数预设」。
-// 参数预设（PresetsPanel）与性能测试（BenchPanel）由 KeepAlive 缓存，切页不丢状态。
-type TabKey = 'custom' | 'presets' | 'bench';
+// 参数预设（PresetsPanel）由 KeepAlive 缓存，切页不丢状态。
+type TabKey = 'custom' | 'presets';
 
 const TABS: Array<{ key: TabKey; icon: string; labelKey: string }> = [
   { key: 'presets', icon: 'presets', labelKey: 'nav_params_presets' },
   { key: 'custom', icon: 'params', labelKey: 'nav_params_custom' },
-  { key: 'bench', icon: 'clock', labelKey: 'nav_params_bench' },
 ];
 
 const SUBCATEGORY_ORDER: string[] = [
@@ -39,7 +37,7 @@ const i18n = useI18nStore();
 // 显式 ?tab=presets|custom|bench 仍深链有效。页签切换仅改写 query，不跨次进入记忆。
 const activeTab = computed<TabKey>(() => {
   const t = String(route.query.tab ?? '');
-  if (t === 'presets' || t === 'custom' || t === 'bench') return t;
+  if (t === 'presets' || t === 'custom') return t;
   return 'presets';
 });
 
@@ -61,7 +59,6 @@ watch(
 
 const activeComponent = computed<Component | null>(() => {
   if (activeTab.value === 'presets') return PresetsPanel;
-  if (activeTab.value === 'bench') return BenchPanel;
   return null; // custom 直接渲染 ParamRow 列表
 });
 
@@ -320,7 +317,7 @@ async function onClearSession() {
     <!-- 左侧 mini-nav 已重构入侧边栏子标签；内容区随 query.tab 切换 -->
     <div class="params-content">
       <template v-if="activeTab === 'custom'">
-        <!-- 分组卡使用标准卡片标题（fs-lg 主色，与预设/服务等页对齐；紧凑体例仅保留给 BenchPanel） -->
+        <!-- 分组卡使用标准卡片标题（fs-lg 主色，与预设/服务等页对齐） -->
         <Card
           v-for="sub in subcategoryGroups"
           :key="sub.key"
@@ -333,7 +330,7 @@ async function onClearSession() {
         </Card>
       </template>
 
-      <KeepAlive v-else include="PresetsPanel,BenchPanel">
+      <KeepAlive v-else include="PresetsPanel">
         <component
           :is="activeComponent"
           v-if="activeComponent"

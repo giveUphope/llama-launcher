@@ -45,7 +45,7 @@
 | `DashboardPage` | 概览：服务状态卡（`ServiceStatusCard`，自服务页迁入——状态/当前模型/API 地址/主机/端口/PID/运行时长，服务状态的唯一页面级展示区）+ 最近问题（应用日志 warn/error 最近 3 条，`.q-section` 分区分隔） |
 | `ModelsPage` | 3 子标签：本地模型（`LocalModelsPanel`）/ 模型库（`LibraryPanel`，DownloadCard library 模式）/ 下载任务（`DownloadsPanel`，DownloadCard tasks 模式） |
 | `ServicePage` | 命令预览（`CommandPreviewCard`：**双文本框**——「内置参数命令」**只读**展示、随参数实时自动生成（改内置参数走参数设置页控件，无编辑/还原逻辑）；「扩展参数」为唯一可编辑区，绑定 `settings.custom_args` 持久化、原样追加到启动命令末尾；复制 = 内置+扩展合并）、参数摘要（`ParamSummaryCard`）、配置目录清理（`TrashCleanCard`）、控制台输出（上限 5000 行；运行状态卡已迁至概览，本页不再重复展示状态/模型/API 地址） |
-| `ParamsPage` | 页内 tab-strip 三页签（与设置页统一）：参数预设（`PresetsPanel`）/ 自定义参数（13 个子分类分区，`param-grid` `repeat(auto-fit, minmax(340px, 1fr))` 响应式网格）/ 性能测试（`BenchPanel`，自服务页迁入，KeepAlive 缓存保留测试历史）；60 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；自定义页签状态条含**硬件占用估算 stat**（`useVramEstimate`：显存占用百分比 + 构成明细 tooltip，超限橙色警示）与**性能目标选择器**（四档联动建议差集 chips + 一键应用）；恢复基线/清除会话入口（无基线徽章，与「已调整」统计去重） |
+| `ParamsPage` | 页内 tab-strip 两页签（与设置页统一）：参数预设（`PresetsPanel`）/ 自定义参数（13 个子分类分区，`param-grid` `repeat(auto-fit, minmax(340px, 1fr))` 响应式网格）；60 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；自定义页签状态条含**硬件占用估算 stat**（`useVramEstimate`：显存占用百分比 + 构成明细 tooltip，超限橙色警示）与**性能目标选择器**（四档联动建议差集 chips + 一键应用）；恢复基线/清除会话入口（无基线徽章，与「已调整」统计去重） |
 | `LogsPage` | 应用日志中心：级别筛选 chips、搜索、控制台渲染上限 3000 行、自动滚动 |
 | `SettingsPage` | 4 子标签：常规（`GeneralPanel`，引擎/模型目录内联检测）/ 外观（`AppearancePanel`）/ 高级（`AdvancedPanel`）/ 关于（`AboutPanel`）；原 llama.cpp 标签已并入常规；全部即时保存；顶部状态摘要（即时保存提示 + 模型目录/引擎文件状态）**整体仅常规页签展示**，版本提示已移除（「关于」页签与侧边栏页脚已展示；idle「未设置」与 missing「路径不存在」文案分离，不再自相矛盾） |
 | `WebUiPage` | 内置 Web UI 路由占位（侧栏一级项「内置 Web UI」）；实际渲染由布局层 `WebUiFrame`（iframe 常驻文档，`v-show` 切换显隐，切页不重载）承担：服务运行时展示 llama-server Web UI，未运行时显示占位提示 |
@@ -68,7 +68,6 @@
 | `ConfirmModal` / `CloseDialog` | 通用确认弹窗 / 退出确认弹窗（`useConfirm` 队列驱动） |
 | `FileBrowserModal` | 文件/目录浏览弹窗（`useFilePicker` 队列驱动，dir/file/save 三模式） |
 | `PresetsPanel` | 预设管理面板（低摩擦）：智能命名（alias→模型文件名自动同步输入框）+ **自适应保存按钮**（输入名已存在时自动变「覆盖预设」，同一入口完成保存/覆盖）；行内操作（应用/删除 `mini-btn`，删除带确认）+ **双击行直接应用**；列表 `onActivated` 与增删改后自动刷新（无手动刷新按钮）；保留名称↔绑定模型一致性确认（防「应用其他预设切换模型后沿用旧名保存」的错绑） |
-| `BenchPanel` | 性能测试面板（动态参数复用 `ParamRow`（与参数设置页同布局同行效果）+ 智能启动 + 测试历史表格） |
 | `ParamRow` + 控件 | 参数行容器 + `TextParam`/`IntEntryParam`/`SliderParam`/`CheckboxParam`/`DropdownParam`/`FileParam` 六类控件 |
 
 ### 7.5 样式系统（UI 风格规范）
@@ -178,7 +177,7 @@
 - **参数行**（`ParamRow` 统一承载，参数设置页与性能测试调优区共用同一组件）：`padding: 4px 8px` + 圆角 `var(--radius-row)`，默认透明描边；hover 底色 `--bg-hover` + 边框 `--border`；**值 ≠ 默认时边框 `--warn`**（与还原按钮同色系）；依赖未满足 `--warn` 边框 + 底色 + 警示图标；文件/目录类型渲染文件选择控件。
 - **参数网格**：`param-grid`（参数设置页）与 `tune-grid`（性能测试调优区）同配方 `repeat(auto-fit, minmax(340px, 1fr))`、gap `4px 14px`、≤720px 单列；卡片/分区装饰条统一 `--accent` 蓝（2026-08-26 起不使用 hue-cycle 循环取色）。
 - **状态小圆点**：`border-radius: 50%`；StatusBar 状态点 8×8、StatusTag 7×7（两实现尺寸不一，已登记 STYLE_TODO 🔴 待统一）。
-- **悬浮提示文本色**：`color-mix(in srgb, var(--success) 12%, transparent)` 底 + `var(--success)` 边框/文字（如 PresetsPanel/BenchPanel 的 applied-msg）。
+- **悬浮提示文本色**：`color-mix(in srgb, var(--success) 12%, transparent)` 底 + `var(--success)` 边框/文字（如 PresetsPanel 的 applied-msg）。
 - **下载分类徽章**：颜色走 `--badge-*` token，底用 `color-mix(in srgb, var(--badge-*) 14%, transparent)`（legacy/fp32 为 16%）；`cat-other` 用 `--fg-muted` + `--bg-hover`。徽章色为分类图例语义，两种主题恒定。
 - **果冻动效**：浮层/开关进入的 **transform 过渡**用 `var(--ease-jelly)` 弹簧（浮层 `translateY+scale` 进入）；**颜色/阴影类过渡（background/color/border-color/box-shadow/opacity）一律 `var(--ease-smooth)`**（无过冲，防 hover 闪烁，见 STYLE_TODO #23）；**按钮按压不再整体缩放**（2026-08-29 移除全部 `:active scale`——整体缩放会挤压/拉伸按钮内文字，按压反馈 = 背景/边框色变化，见 STYLE_TODO #32）；禁止 width/height/margin 等布局动画；`prefers-reduced-motion` 下全部关闭。**例外（均不得用于滚动/高频重绘场景）**：① 用户主动触发的单次布局过渡（侧边栏折叠宽度 `transition: width var(--dur-med) var(--ease-smooth)`）；② 进度条填充宽度过渡（DownloadCard `.task-progress-fill`，`transition: width var(--dur-med) var(--ease-smooth)`，作为进度数值的跟随展示）。
 - **复制按钮统一**（2026-08-29，见 STYLE_TODO #26）：行内复制操作一律 `action-btn` + `Icon name="copy" :size="12"` + 文案（复制地址 `copy_url` / 复制模型名 `copy_model` / 复制命令 `copy_cmd`），点击后文案临时切换为"已复制"反馈；不使用纯图标迷你按钮。内容项（值胶囊/URL 条等）配对文字描述标签（如 `当前模型`/`API 地址`，样式同 `.info-label` 语义：次级色、贴内容 8px）。状态栏为特例：值即按钮（点击复制 + tooltip + "已复制" tip），不使用按钮形态。

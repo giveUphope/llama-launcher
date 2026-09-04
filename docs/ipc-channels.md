@@ -1,9 +1,9 @@
 # IPC 通道清单
 
-> 范围：IPC 通道完整清单（共 57 个），按类别分组。改 IPC 前必读。常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧常量由 `scripts/generate-preload.cjs` 生成（改完运行 `pnpm generate:ipc`），`scripts/verify-ipc-sync.cjs` 在 lint 阶段检查产物未过期。
+> 范围：IPC 通道完整清单（共 56 个），按类别分组。改 IPC 前必读。常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧常量由 `scripts/generate-preload.cjs` 生成（改完运行 `pnpm generate:ipc`），`scripts/verify-ipc-sync.cjs` 在 lint 阶段检查产物未过期。
 > 索引：[README.md](../README.md) · 相关：[desktop-main.md](desktop-main.md)
 
-共 57 个 IPC 通道，按类别分组如下：
+共 56 个 IPC 通道，按类别分组如下：
 
 ### Settings（2）
 
@@ -33,7 +33,7 @@
 | `presets:load`   | 加载预设   |
 | `presets:delete` | 删除预设   |
 
-### Server（7）
+### Server（6）
 
 | 通道               | 用途                                              |
 | ---------------- | ----------------------------------------------- |
@@ -43,7 +43,6 @@
 | `server:status`  | 查询服务状态                                          |
 | `server:preview` | 预览启动命令                                          |
 | `server:output`  | 输出推送（主进程 → 渲染进程）                                |
-| `server:bench`   | 性能测试：一次运行必测单并发；多并发按服务器实际并行槽位（np≥2）条件执行，否则结果置 null，返回 timings 与 DFlash 指标 |
 
 ### Logs（3）
 

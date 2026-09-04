@@ -52,7 +52,6 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 - **DFlash auto-detect** in `detectDraftModel`: dflash-named files → `spec_type=draft-dflash` + `-fa on` + `spec_draft_n_max=15`; re-triggers when switching back to external draft types.
 
-- **Performance test** lives in `main/bench-client.ts` (Electron `net` HTTP: `/metrics` Prometheus + completion `timings`; llama-bench does NOT support DFlash) + `ui/components/bench/BenchPanel.vue` (dynamic non-default-value params, `waitRunning` two-phase + startup-failure detection). IPC: `server:bench`.
 
 - **Packaging is sensitive to pnpm junctions.** Before editing `scripts/before-pack.cjs` / `after-pack.cjs`, read [docs/packaging.md](docs/packaging.md#打包配置-electron-builderconfigcjs). The hooks must (1) detect junctions via `fs.realpathSync`, (2) replace them with `dist/*.js`-only real directories, (3) restore the original junctions after pack. Drift here causes the packaged app to load stale `shared/dist` and fail to start.
 

@@ -133,7 +133,6 @@ const logCount = computed(() => server.outputs.length);
         <span v-for="(line, idx) in renderedOutputs" :key="idx" :class="['output-line', lineClass(line)]">{{ line.data }}</span>
       </div>
     </Card>
-    <!-- 性能测试（BenchPanel）已迁至「参数设置 → 性能测试」子标签（调参与测试强相关） -->
   </PageFrame>
 </template>
 

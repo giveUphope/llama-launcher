@@ -33,7 +33,7 @@
 | 文档                                               | 内容                                               |
 | ------------------------------------------------ | ------------------------------------------------ |
 | [desktop-main.md](docs/desktop-main.md)          | 主进程：窗口、IPC 注册、Launcher 桥接、退出/托盘/进程清理、Preload（§6） |
-| [ipc-channels.md](docs/ipc-channels.md)          | 57 个 IPC 通道完整清单（改 IPC 前必读，§8）                    |
+| [ipc-channels.md](docs/ipc-channels.md)          | 56 个 IPC 通道完整清单（改 IPC 前必读，§8）                    |
 | [frontend.md](docs/frontend.md)                  | 前端架构 + **UI 风格规范 §7.5**（§7）                      |
 | [style/STYLE\_TODO.md](docs/style/STYLE_TODO.md) | UI 风格待修复清单 + 已修复索引（完整记录见 docs/archive 归档）                    |
 
@@ -375,7 +375,7 @@ pnpm lint
 
 ## IPC 通道
 
-应用通过 57 个 IPC 通道实现主进程与渲染进程通信，分为 10 类：
+应用通过 56 个 IPC 通道实现主进程与渲染进程通信，分为 10 类：
 
 | 类别       | 通道数 | 说明                                    |
 | -------- | --- | ------------------------------------- |

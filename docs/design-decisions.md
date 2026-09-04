@@ -16,8 +16,8 @@
 11. **动态预设目录**：预设文件存储在模型目录下 `presets/` 子目录，与模型文件集中管理，避免文件分散。
 12. **打包健壮性**：Windows junction 通过 `realpathSync` 检测、重试 + `rename+rd` 清理锁文件、afterPack 恢复 junction，保证开发环境与生产包都不被污染。
 13. **可注入网络传输**：`DownloadTransport` / `HfHttpTransport` 接口允许 Electron 主进程注入基于 `net` 模块（Chromium 网络栈）的传输，规避 Electron 内置 Node 的 BoringSSL TLS 指纹被 hf-mirror.com 拒绝的问题。仅 `hf-mirror.com` 走注入传输，其余源（ModelScope 等）继续走 `node:https`，保持单测 mock 兼容。
-14. **在线性能实测**：`llama-bench` 等 CLI 不支持 DFlash/推测解码评测，故性能测试采用运行中 llama-server 的 `--metrics` 端点 + completion `timings`（与日志 `draft acceptance` 同源），通过主进程 `net` 模块发 HTTP（无 CORS 限制）读取真实吞吐与 DFlash 接受率。
-15. **服务重启竞态规避**：统一走 `Launcher.restart()`（等旧进程 exit 后启动新进程），避免手动 stop→start 的 `already running` 竞态；UI 侧 `waitRunning` 两阶段等待（先离开 running 再重新 running）避免旧状态残留导致新进程未加载完就访问端点，连续 `stopped` + `pid === null` 判定启动失败避免无限等待。
+14. **在线性能实测（2026-09-04 已随「性能测试」功能整体移除，本条留存备查）**：`llama-bench` 等 CLI 不支持 DFlash/推测解码评测，故性能测试采用运行中 llama-server 的 `--metrics` 端点 + completion `timings`（与日志 `draft acceptance` 同源），通过主进程 `net` 模块发 HTTP（无 CORS 限制）读取真实吞吐与 DFlash 接受率。
+15. **服务重启竞态规避**：统一走 `Launcher.restart()`（等旧进程 exit 后启动新进程），避免手动 stop→start 的 `already running` 竞态。（原 UI 侧 `waitRunning` 两阶段等待已随性能测试功能移除，2026-09-04；重启竞态防护现由 `Launcher.restart()` 单点承担。）
 16. **依赖联动清理**：`syncDependencies` 按 `dependsOn` 声明自动清理依赖不满足的下游参数（防止残留 `-md`/`--mirostat-lr` 等无效 flag 发射），并区分外部草稿类型（draft-simple/eagle3/dflash/dspark）与 MTP/ngram 的依赖范围。
 17. **DFlash 自动检测**：模型切换时检测同目录 dflash 草稿模型，自动配置 `draft-dflash` + `-fa on` + n_max 15（对齐 Muse-Glimmer DFlash 每 block 16 位置语义），切回外部草稿类型时自动重新检测填入路径。
 18. **内存参数基线（实测驱动）**：`cache_type_k/v`（q8_0）、`load_mode`（none）、`fit`（off）、`kv_unified`（off，经 `invert_flag` 恒发射 `--no-kv-unified`）作为**基线推荐默认值**内建——在"值 ≠ 默认值才发射"规则下天然下发。依据 `docs/archive/experiments/plan-kv-split-cli-test.md`（AMD 7900 XTX 24GB + b10429 Vulkan 实测）：f16 KV + mmap + fit on 的长上下文组合会吃满 32GB 系统内存冻结；q8 KV 使 27B@262K 显存需求从 ~35GB 降至 ~25.7GB，`--load-mode none` 加载后释放权重宿主缓冲，`--fit off` 规避显式 ctx/ngl 时 fit 中止的劣化（25.7 vs 36.6 tok/s）。

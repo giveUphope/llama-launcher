@@ -70,42 +70,7 @@ export const zh = {
   lbl_dash_model: '当前模型',
   msg_no_issues: '暂无问题',
 
-  // ---------------- bench（性能测试） ----------------
-  bench_tune_title: '性能参数调整',
-  bench_tune_hint: '此处动态展示「自定义参数」子标签中已调整（非默认值）的参数，控件与参数值实时同步，参数增减后列表自动更新。点击「运行测试」将自动以新参数重启服务并测量真实吞吐；测试结果可在下方「测试历史」中对比。',
-  bench_run_title: '运行测试',
-  bench_prompt: '测试提示词',
-  bench_max_tokens: '生成 Token 数',
-  bench_run: '运行测试',
-  bench_running: '测试中…',
-  bench_stop: '停止服务',
-  bench_status_restart: '正在重启服务…',
-  bench_status_starting: '服务未运行，正在启动…',
-  bench_status_reuse: '参数与运行中服务一致，复用现有服务（不重复加载模型）…',
-  bench_status_wait: '等待服务就绪…',
-  bench_status_running: '服务已就绪，执行单并发与多并发（np≥2）测试…',
-  bench_multi_skipped: '服务器并行槽位 np={0}（无多并行），本次仅测试单并发',
-  bench_status_timeout: '服务启动超时',
-  bench_status_failed: '服务启动失败（模型/参数配置错误？请查看控制台日志）',
-  bench_metrics_hint: '测试需要 --metrics 端点（未启用时会自动开启），用于读取 tokens/s 与推测解码接受率。一次「运行测试」始终执行单并发；多并发仅在服务器并行槽位 -np≥2 时执行（并发数=min(np,8)），结果分别追加到表格对比。',
-  bench_concurrent_suffix: '多并发 ×{0}',
-  bench_concurrent_failed: '（{0} 个请求失败）',
-  bench_history_title: '测试历史（调整参数后再次运行即可对比，关闭应用清空）',
-  bench_combo_name: '次数',
-  bench_test_time: '测试时间',
-  bench_combo: '测试',
-  bench_no_history: '暂无测试记录。直接调整参数后点击「运行测试」，每次结果自动追加到表格对比。',
-  bench_clear_history: '清空历史',
-  bench_delete: '删除',
-  bench_apply: '应用',
-  bench_apply_tip: '将该次测试使用的参数应用到当前参数设置（完全覆盖）',
-  bench_applied: '已应用测试参数「{0}」，启用 {1} 项参数',
-  bench_tok_s: '生成 tok/s',
-  bench_prompt_tok_s: '提示 tok/s',
-  bench_acceptance: '推测解码接受率',
-  bench_gen_tokens: '生成 tokens',
-  bench_params: '参数（已调整）',
-  bench_default_prompt: '请用中文解释推测解码的基本原理，并给出一个简单例子。',
+
 
 
   // ---------------- card titles ----------------
@@ -423,7 +388,6 @@ export const zh = {
   nav_models_downloads: '下载任务',
   nav_params_presets: '参数预设',
   nav_params_custom: '自定义参数',
-  nav_params_bench: '性能测试',
   nav_settings_general: '常规',
   nav_settings_appearance: '外观',
   nav_settings_advanced: '高级',
@@ -451,7 +415,6 @@ export const zh = {
   msg_kill_failed: '结束进程失败：{0}',
   msg_free_port_not_found: '未找到空闲端口（{0}~{1} 范围内均被占用）。请先关闭占用端口的程序。',
   svc_port_busy_hint: '端口 {0} 无法绑定：可能已被其他程序占用。请停止占用该端口的程序，或在「参数设置-服务」更换端口后重启。',
-  bench_error: '性能测试执行失败：{0}',
 };
 
 export type Dict = typeof zh;

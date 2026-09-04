@@ -7,7 +7,6 @@ import type {
   DownloadSource,
   TrashItem, DetectResult, CleanResult,
   CloseDialogRequest, CloseDialogResult,
-  BenchRequest, BenchResult, BenchRunResult,
   AppLogEntry,
   VramEstimateResult, ModelFitResult, OccupancyConfig,
   LlamaBenchJobState,
@@ -51,7 +50,6 @@ export interface ElectronAPI {
     restart: (values: PresetValues, settings: AppSettings) => Promise<IpcResponse>;
     getStatus: () => Promise<ServerInfo>;
     previewCommand: (values: PresetValues, settings: AppSettings) => Promise<IpcResponse<string>>;
-    bench: (req: BenchRequest) => Promise<IpcResponse<BenchRunResult>>;
     onOutput: (cb: (e: OutputEntry) => void) => () => void;
     onStatus: (cb: (s: ServerStatus) => void) => () => void;
   };

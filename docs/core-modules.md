@@ -115,41 +115,13 @@
 
 - **伴随标签**：`detectCompanionTags` 为扫描结果标注伴随文件标签（多模态投影器 / 草稿模型是否存在），写入 `ModelInfo.tags` 供前端展示。
 
-### 4.8 性能测试 (bench-client.ts + BenchPanel.vue)
-
-「参数设置 → 性能测试」标签封装了 llama-server 在线实测能力：
-
-- **数据来源**（经 b10360 源码确认）：`llama-bench` 等 CLI **不支持 DFlash/推测解码评测**（零 spec/draft 支持），故采用运行中 llama-server 的 `--metrics` 端点（Prometheus）+ completion 响应 `timings`：
-
-  - `llamacpp:prompt_tokens_seconds` / `llamacpp:predicted_tokens_seconds`（tok/s gauge）
-
-  - `llamacpp:spec_decode_num_accepted_tokens_total` / `spec_decode_num_draft_tokens_total`（DFlash 接受率，与日志 `draft acceptance` 同源）
-
-  - completion `timings`：`prompt_per_second` / `predicted_per_second` / `draft_n` / `draft_n_accepted`（单次请求准确值）
-
-- **`bench-client.ts`**（主进程）：用 Electron `net` 模块发 HTTP（无 CORS 限制，支持 `api_key` Bearer 鉴权）；`fetchMetrics` 解析 Prometheus 文本，`runBench` 发非流式 `/v1/chat/completions` 读 timings，`runBenchConcurrent` 并行发 `concurrency` 个请求并聚合（tok/s 求和 = 多槽聚合吞吐，部分失败时聚合成功请求并记录 `failed`，全部失败抛错；并发请求超时放宽至 120s 以容纳槽位排队）。
-
-- **`BenchPanel.vue`**（渲染进程）：
-
-  - **动态参数**：`activeTuneParams` 跟随自定义参数页**值 ≠ 默认值**的参数（同发射规则），复用参数控件（SliderParam/IntEntryParam/DropdownParam/CheckboxParam/TextParam），交互与值完全一致
-
-  - **智能启动检测**：服务未运行自动启动、运行中参数一致（参数值快照对比）复用不重启、不一致则 `server.restart()`（core 等旧进程 exit 后启动新进程，避免 stop→start 竞态）
-
-  - **`waitRunning`** **两阶段等待**：restart 场景先等状态离开 running（旧进程退出）再等重新 running（新进程加载完成），避免旧 running 残留导致新进程模型未加载完就发请求；连续轮询 `stopped` + `pid === null` 判定启动失败（模型/参数配置错误），不长时间卡在等待
-
-  - **单并发 + 多并发一体测试**：一次「运行测试」执行单并发（1 个请求）；`-np`/parallel ≥ 2 时**追加**多并发场景（并发数 = min(np, 8)），历史表在 np≥2 时追加两条记录（多并发行带 ×N 后缀，部分请求失败时标注失败数），np≤1 只追加单并发行；不新增任何按钮/控件
-
-  - **测试历史表格**：每次运行自动追加记录（含参数值快照），展示生成/提示 tok/s、DFlash 接受率、生成 tokens、已调整参数摘要；内存态，关闭应用清空，可手动清空
-
-  - **IPC**：`server:bench`（单并发 + 多并发两阶段）
-
-### 4.9 设置与预设存储 (settings-store.ts / presets-store.ts)
+### 4.8 设置与预设存储 (settings-store.ts / presets-store.ts)
 
 - **`settings-store.ts`**：`loadSettings()` / `saveSettings(settings)` / `getDefaultSettings()`。持久化到 `~/.llama_launcher/settings.json`，写入为**原子替换**（`.tmp` + rename）+ **CAS 合并守卫**（写入前读取磁盘值作基线，其他实例的更新不丢），加载时逐字段归一化，损坏文件自动备份 `settings.json.bak`。schema 版本由 `SETTINGS_VERSION` 管理（变更走 `migrateSettings`）。含 `hf_mirror_host` 时同步 `setHfMirrorHost` 驱动镜像链路。字段全清单见 [data-persistence.md](data-persistence.md) §10。
 
 - **`presets-store.ts`**：`listPresets(dir)` / `loadPreset(dir, name)` / `savePreset(dir, name, values)` / `deletePreset(dir, name)` / `deletePresetsForModel(modelsDir, modelPath)`（移除模型时清理关联预设）。预设文件存 `<models_dir>/presets/*.json`（`resolvePresetsDir` 动态解析），v2 结构：顶层 `model` + 纯 `values`（无 `model` 与 legacy `_enabled` 残留），按 `PARAMS` 定义顺序稳定序列化；写入原子替换。加载统一迁移 v2 内存形状（v1 `values.model` 提升为顶层 `model`）。详见 [data-persistence.md](data-persistence.md) §10。
 
-### 4.10 可重试错误判定与指数退避 (retry.ts)
+### 4.9 可重试错误判定与指数退避 (retry.ts)
 
 download-manager 与 huggingface-client 共用的网络韧性层（收敛两份近似实现，新增网络调用零成本复用）：
 
@@ -157,7 +129,7 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 
 - `retryDelayMs(attempt, baseMs=1000, maxMs=30000)`：`base × 2^attempt + 抖动(0–500ms)`，封顶 `maxMs`。huggingface-client 的重试即每跳递增 attempt。
 
-### 4.11 下载续传事件日志 (download-log.ts)
+### 4.10 下载续传事件日志 (download-log.ts)
 
 下载任务断点续传的 **JSONL 事实源**（对应 DSH 的 append-only 会话日志理念）：
 
@@ -190,8 +162,8 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | 文件                      | 主要导出                                                                                                                                                            | 说明                                    |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | `paths.ts`              | `CONFIG_DIR`/`SETTINGS_FILE`/`PRESETS_DIR`、`resolvePresetsDir(modelsDir)`、`basenameSafe`                                                                        | 路径常量与解析；开发模式自动查找 `llama-*-bin-*` 最新目录 |
-| `settings-store.ts`     | `loadSettings` / `saveSettings` / `getDefaultSettings`                                                                                                          | 设置读写（CAS + 原子替换，§4.9）                 |
-| `presets-store.ts`      | `listPresets`/`loadPreset`/`savePreset`/`deletePreset`/`deletePresetsForModel`                                                                                  | 预设 CRUD（v2，§4.9）                      |
+| `settings-store.ts`     | `loadSettings` / `saveSettings` / `getDefaultSettings`                                                                                                          | 设置读写（CAS + 原子替换，§4.8）                 |
+| `presets-store.ts`      | `listPresets`/`loadPreset`/`savePreset`/`deletePreset`/`deletePresetsForModel`                                                                                  | 预设 CRUD（v2，§4.8）                      |
 | `models-scanner.ts`     | `scanModels` / `detectMmproj` / `detectDraftModel` / `removeModelFile` / `invalidateScanCache` / `ensureDir`                                                    | .gguf 递归扫描 + 伴随检测 + 移除（§4.4）          |
 | `command-builder.ts`    | `buildCommand` / `previewCommand` / `formatCommand` / `tokenizeArgs` / `quoteArg`                                                                               | 启动命令构建（§4.3）                          |
 | `process.ts`            | `LlamaServerProcess` / `killProcessTree` / `SimpleProcessInfo` / `findDevSessionRoot` / `pickTurboDevRoot`                                                      | 子进程封装 + 两阶段终止（§4.1）                   |
@@ -205,8 +177,8 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | `modelscope-client.ts`  | `searchModels` / `listModelFiles`（均走 `requestWithRetry` 指数退避重试）/ `buildDownloadUrl` / `buildModelPageUrl` / `formatFileSize`（别名 re-export shared `formatBytes`） | ModelScope API（§4.6）                  |
 | `huggingface-client.ts` | `listHfFiles` / `buildHfDownloadUrl` / `buildHfModelPageUrl` / `setHfTransport` / `setHfMirrorHost` / `getHfMirrorHost` / `isHfMirrorHostname`                  | HF 镜像客户端（§4.6）                        |
 | `download-manager.ts`   | `DownloadManager`（单例 `getDownloadManager`）/ `setDownloadTransport` / `DownloadTransport`                                                                        | 多任务断点续传（§4.6）                         |
-| `download-log.ts`       | `appendDownloadEvent` / `replayDownloadLog` / `deleteDownloadLog` / `migrateLegacyMeta`                                                                         | 续传事件日志（§4.11）                         |
-| `retry.ts`              | `isRetryableError` / `retryDelayMs`                                                                                                                             | 重试判定与退避（§4.10）                        |
+| `download-log.ts`       | `appendDownloadEvent` / `replayDownloadLog` / `deleteDownloadLog` / `migrateLegacyMeta`                                                                         | 续传事件日志（§4.10）                         |
+| `retry.ts`              | `isRetryableError` / `retryDelayMs`                                                                                                                             | 重试判定与退避（§4.9）                        |
 | `trash-cleaner.ts`      | `detectTrash` / `cleanTrash`（`TrashScanOptions`）                                                                                                                | 应用生成文件清理（§4.13）                       |
 | `cleanup-logger.ts`     | `cleanupLogger`（debug/info/warn/error）/ `setCleanupLogLevel`                                                                                                    | 进程清理日志（§4.12）                         |
 
@@ -214,8 +186,8 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 
 | 文件                      | 主要导出                                                                                                                               | 说明                                                    |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `types/`                | `IPC`（57 通道）、`AppSettings`、`ParamDef`、`Preset`、`ServerInfo`、`OutputEntry`、`ModelInfo`、`GgufModelInfo`、`DownloadTask`、`TrashItem`、`HardwareOccupancy`/`VramEstimateResult`/`PerfTarget` 等 | 全部跨包类型（[data-persistence.md](data-persistence.md) §9） |
-| `params/definitions.ts` | `PARAMS`（59：basic 22 / advanced 27 / server 10）/ `PARAM_GROUPS`（3 组）/ `MODEL_KEY` / `APP_VERSION` / `APP_NAME`                  | 参数表唯一来源（[params-system.md](params-system.md)）         |
+| `types/`                | `IPC`（56 通道）、`AppSettings`、`ParamDef`、`Preset`、`ServerInfo`、`OutputEntry`、`ModelInfo`、`GgufModelInfo`、`DownloadTask`、`TrashItem`、`HardwareOccupancy`/`VramEstimateResult`/`PerfTarget` 等 | 全部跨包类型（[data-persistence.md](data-persistence.md) §9） |
+| `params/definitions.ts` | `PARAMS`（60：basic 22 / advanced 28 / server 10）/ `PARAM_GROUPS`（3 组）/ `MODEL_KEY` / `APP_VERSION` / `APP_NAME`                  | 参数表唯一来源（[params-system.md](params-system.md)）         |
 | `i18n/`                 | `tr` / `setLang` + zh/en 字典                                                                                                        | 双语 UI 文案                                              |
 | `model-name.ts`         | `modelBaseName(modelPath)`                                                                                                         | 模型显示名/别名派生（alias 自动填充）                                |
 | `model-relevance.ts`    | `categorizeFile` / `parseQuantization` / 相关性评分                                                                                     | 文件分类 + 量化标签解析（下载徽标）                                   |
@@ -234,7 +206,6 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | `app-log.ts`            | `logApp` / `getAppLogs` / `clearAppLogs`                                                                                                                                                                                                      | 应用日志环形缓冲（2000 条）                                    |
 | `process-registry.ts`   | `ProcessRegistry` / `processRegistry`（`associate`/`cleanupWindow`/`cleanupAll`/`countFor`/`listAlivePids`）                                                                                                                                    | 窗口↔进程关联 + 两阶段终止（§6.7）                               |
 | `tray.ts`               | `createTray(win)`                                                                                                                                                                                                                             | 系统托盘保活（§6.8）                                        |
-| `bench-client.ts`       | `fetchMetrics` / `runBench` / `runBenchConcurrent`                                                                                                                                                                                            | 性能测试客户端（§4.8）                                       |
 | `hf-transport.ts`       | `installHfTransport`                                                                                                                                                                                                                          | 注入 Electron `net` 传输（§4.6）                          |
 | `download-transport.ts` | `installDownloadTransport`                                                                                                                                                                                                                    | 注入流式下载传输（§4.6）                                      |
 
@@ -246,5 +217,5 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | `composables/` | `useIPC` / `useTheme` / `useStartServer` / `useAutoPresetName` / `useModelPreset` / `useConfirm` / `useFilePicker` / `useUrlHistory` / `useVramEstimate`                                                                                                     | IPC 调用与逻辑封装                                  |
 | `features/`    | dashboard / models / service / params / logs / settings / webui 各 `FeatureDef` + `navItems`/`featureRoutes` 聚合                                                                                                                                                   | 功能注册表（侧栏导航 + 路由装配，§7.1）                      |
 | `pages/`       | `DashboardPage` / `ModelsPage` / `ServicePage` / `ParamsPage` / `LogsPage` / `SettingsPage` / `WebUiPage`                                                                                                                                                        | 7 页面（§7.3）                                   |
-| `components/`  | common（`PageFrame`/`Card`/`Icon`/`ToolTip`/`StatusTag`/`InfoStrip`/`DownloadCard`/`ModelMetaCard`/`ConfirmModal`/`CloseDialog`/`FileBrowserModal`…）、layout（`Sidebar`/`TopBar`/`StatusBar`/`WebUiFrame`…）、service（`ServiceStatusCard`/`CommandPreviewCard`/`ParamSummaryCard`/`TrashCleanCard`）、models（`LocalModelsPanel`/`DownloadsPanel`/`LibraryPanel`）、presets（`PresetsPanel`）、bench（`BenchPanel`）、settings（4 面板）、params 6 控件 + `ParamRow` | 组件库（§7.4）                                    |
+| `components/`  | common（`PageFrame`/`Card`/`Icon`/`ToolTip`/`StatusTag`/`InfoStrip`/`DownloadCard`/`ModelMetaCard`/`ConfirmModal`/`CloseDialog`/`FileBrowserModal`…）、layout（`Sidebar`/`TopBar`/`StatusBar`/`WebUiFrame`…）、service（`ServiceStatusCard`/`CommandPreviewCard`/`ParamSummaryCard`/`TrashCleanCard`）、models（`LocalModelsPanel`/`DownloadsPanel`/`LibraryPanel`）、presets（`PresetsPanel`）、settings（4 面板）、params 6 控件 + `ParamRow` | 组件库（§7.4）                                    |
 
