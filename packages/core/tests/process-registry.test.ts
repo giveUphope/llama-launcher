@@ -1,10 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ProcessRegistry } from '../../../apps/desktop/src/main/process-registry.js';
 import { LlamaServerProcess } from '../src/process.js';
 import { setCleanupLogLevel } from '../src/cleanup-logger.js';
 
 // 测试期间仅保留 error 级日志，避免 warn/info 写入 stderr 干扰测试运行环境
 setCleanupLogLevel('error');
+
+// 记录本文件启动过的子进程，afterEach 兜底强杀：用例超时或断言提前失败时，未清理的 ping 会残留
+// 至多 30s，拖慢后续 taskkill/spawn，导致连续重跑越跑越慢、稳定超时。
+const spawned: LlamaServerProcess[] = [];
 
 // 模拟 BrowserWindow 的最小结构（registry 仅使用 id 与 isDestroyed）
 function fakeWin(id: number): any {
@@ -19,6 +23,7 @@ function longRunningProc(): LlamaServerProcess {
   } else {
     proc.start({ exePath: process.execPath, args: ['-e', 'setTimeout(() => {}, 30000)'] });
   }
+  spawned.push(proc);
   return proc;
 }
 
@@ -33,6 +38,13 @@ describe('ProcessRegistry (window ↔ process mapping)', () => {
   let reg: ProcessRegistry;
   beforeEach(() => {
     reg = new ProcessRegistry();
+    spawned.length = 0;
+  });
+  // 兜底清理：强杀仍存活的子进程（已 terminate 的实例 kill() 为 no-op），防止泄漏累积拖慢后续用例
+  afterEach(() => {
+    for (const p of spawned) {
+      if (p.isRunning()) p.kill();
+    }
   });
 
   it('associates a process with a window and counts it', () => {
