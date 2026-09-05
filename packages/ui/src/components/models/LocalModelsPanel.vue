@@ -670,14 +670,21 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  max-width: 100%;
+  min-width: 0; /* 允许 flex 子项收缩，让下方 ellipsis 生效 */
 }
 
 .selected-icon {
   color: var(--accent);
+  flex-shrink: 0;
 }
 
 .model-name-row {
   font-weight: 600;
+  /* 长模型名单行截断：悬停 title 已含完整路径，不需要换行堆叠 */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .model-tags {

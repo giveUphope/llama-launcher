@@ -334,11 +334,17 @@ onActivated(() => { void onRefreshList(); });
   }
 
   .col-time {
-    width: 180px;
+    // 短时间文本（MM-DD HH:MM）：压缩到恰好容纳，把空间让给弹性名称列
+    width: 110px;
+    white-space: nowrap;
   }
 
   .col-model {
-    width: 200px;
+    // 长模型名单行截断：固定列宽内不再换行/溢出挤压相邻列
+    width: 190px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   // 操作列：紧凑收纳行内按钮，避免挤压名称/模型列
