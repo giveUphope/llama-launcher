@@ -54,7 +54,10 @@ onUnmounted(() => {
   font-size: var(--fs-sm);
   line-height: 1.4;
   padding: 6px 12px;
-  border-radius: var(--radius-pill);
+  // 方形圆角（浮层层级对应下拉面板的 --radius-row），不用胶囊 --radius-pill
+  border-radius: var(--radius-row);
+  // 标签列 text-align: right 会继承进来——多行气泡内容强制左对齐，避免右对齐错位
+  text-align: left;
   white-space: pre-wrap;
   max-width: 280px;
   width: max-content;
