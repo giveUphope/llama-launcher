@@ -175,11 +175,6 @@ const logCount = computed(() => server.outputs.length);
   }
 }
 
-.scroll-hint {
-  // 不用 opacity 削弱（--fg-muted 叠 0.7 会跌破 AA）；直接取 --fg-muted（已达 AA）
-  color: var(--fg-muted);
-}
-
 .log-count {
   font-family: var(--font-mono);
   color: var(--fg-muted);

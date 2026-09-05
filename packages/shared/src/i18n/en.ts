@@ -376,8 +376,6 @@ export const en: Dict = {
   msg_service_crashed: 'Service crashed unexpectedly',
   // ---- Phase 2 Console ----
   msg_new_logs: 'New logs available',
-  msg_autoscroll_on: 'Auto-scroll: on',
-  msg_autoscroll_off: 'Auto-scroll: paused',
   // ---- Phase 3 Tabs ----
   nav_models_local: 'Local',
   nav_models_library: 'Library',

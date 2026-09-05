@@ -417,15 +417,10 @@ function onScroll() {
 .scroll-hint-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end; // 自动滚动提示已移除，行数保持右侧
   font-size: var(--fs-sm);
   color: var(--fg-muted);
   padding: 4px;
-}
-
-.scroll-hint {
-  // 不用 opacity 削弱（--fg-muted 叠 0.8 偏淡）；取 --fg-muted（已达 AA）
-  color: var(--fg-muted);
 }
 
 .show-limit {

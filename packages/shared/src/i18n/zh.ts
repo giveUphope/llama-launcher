@@ -375,8 +375,6 @@ export const zh = {
   msg_service_crashed: '服务异常退出',
   // ---- 阶段二 控制台 ----
   msg_new_logs: '有新日志',
-  msg_autoscroll_on: '自动滚动: 开启',
-  msg_autoscroll_off: '自动滚动: 暂停',
   // ---- 阶段三 子标签 ----
   nav_models_local: '本地模型',
   nav_models_library: '模型库',
