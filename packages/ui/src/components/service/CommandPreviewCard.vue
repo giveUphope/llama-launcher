@@ -157,10 +157,18 @@ onUnmounted(() => {
   white-space: pre-wrap;
   word-break: break-all;
 
-  // 只读内置命令：不可编辑，光标默认、文字仍可选中复制
+  // 占位符：恒深底上统一对比度（console-fg 半透明），避免空态两框观感不一致
+  &::placeholder {
+    color: color-mix(in srgb, var(--console-fg) 60%, transparent);
+    opacity: 1; // Firefox 默认把 placeholder 再降 opacity
+  }
+
+  // 只读内置命令：不可编辑，光标默认、文字仍可选中复制。
+  // 文字色与可编辑框统一用 --console-fg（配合恒定深底 --console-bg），
+  // 不能用 --fg-secondary——浅色主题下它是深灰，深底上对比度不足。
   &[readonly] {
     cursor: default;
-    color: var(--fg-secondary);
+    color: var(--console-fg);
   }
 
   &:focus {

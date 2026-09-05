@@ -398,7 +398,7 @@ onUnmounted(() => {
               <tr>
                 <th>{{ i18n.t('col_name') }}</th>
                 <th class="col-size">{{ i18n.t('col_size') }}</th>
-                <th class="col-actions"></th>
+                <th class="col-actions">{{ i18n.t('col_actions') }}</th>
               </tr>
             </thead>
             <tbody>

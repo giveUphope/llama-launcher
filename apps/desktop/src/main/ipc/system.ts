@@ -5,7 +5,7 @@ import { createServer } from 'node:net';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { totalmem, freemem } from 'node:os';
-import { detectTrash, cleanTrash, getDownloadManager, loadSettings, listDevices, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench } from '@llama-launcher/core';
+import { detectTrash, cleanTrash, getDownloadManager, loadSettings, listDevices, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench, detectMmproj } from '@llama-launcher/core';
 import { IPC } from '@llama-launcher/shared';
 import type { TrashItem, VramEstimateResult, LlamaBenchJobState, PerfTarget, DeviceMemInfo, ModelFitResult, OccupancyConfig } from '@llama-launcher/shared';
 
@@ -198,6 +198,18 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
     return devices;
   }
 
+  /** 模型有效权重体积（Bytes）= 主模型 + 同目录多模态投影器（mmproj）。
+   *  投影器同样整体驻留显存，估算时必须计入，否则多模态模型的 fit/占用判定过于乐观。 */
+  function effectiveWeightBytes(modelPath: string): number | null {
+    let bytes: number | null = null;
+    try { bytes = statSync(modelPath).size; } catch { return null; }
+    const mmproj = detectMmproj(modelPath);
+    if (mmproj) {
+      try { bytes += statSync(mmproj).size; } catch { /* 伴随文件不可读：仅按主模型估算 */ }
+    }
+    return bytes;
+  }
+
   // 显存探测 + 上下文容量估算（尽力而为，任一环节失败时对应字段为 null，绝不抛出）：
   // 1) spawn 随引擎分发的 `llama-server --list-devices` 取每设备空闲显存；
   // 2) GGUF 元数据 KV 内存模型（权重≈文件大小）估算全卸载上下文上限；
@@ -225,8 +237,8 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
 
     const devices = await getDevicesCached();
 
-    let fileSizeBytes: number | null = null;
-    try { fileSizeBytes = statSync(modelPath).size; } catch { /* 文件不可读 */ }
+    // 有效权重体积 = 主模型 + 同目录 mmproj 投影器：投影器整体驻留显存，遗漏会把占用/上下文估计得过乐观
+    const fileSizeBytes = effectiveWeightBytes(modelPath);
     let info = null;
     try { ({ info } = await readGgufMetadata(modelPath)); } catch { /* 非 GGUF/损坏 */ }
 
@@ -324,7 +336,10 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
     for (const p of paths.slice(0, 100)) {
       const base: ModelFitResult = { verdict: null, maxContext: null, weightsMiB: null, dtype };
       try {
-        const size = statSync(p).size;
+        // 有效权重体积 = 主模型 + 同目录 mmproj 投影器：多模态投影器同样整体驻留显存，
+        // 遗漏会把 fit 判定得过乐观（全卸载放不下时可能被误判为可容纳）
+        const size = effectiveWeightBytes(p);
+        if (size === null) throw new Error('unreadable');
         base.weightsMiB = size / (1024 * 1024);
         if (primary) {
           const { info } = await readGgufMetadata(p);
