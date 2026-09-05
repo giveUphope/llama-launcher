@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.22] - 2026-09-05
+
+
 - **移除「下载任务」页签（2026-09-05）**：模型页「下载任务」与「模型库」功能重复——`DownloadCard` library 模式已内置完整下载任务区（进度/暂停/恢复/重试/清除）。移除第三页签与 `DownloadsPanel.vue`（任务统计条一并删除），模型页回归两页签（本地模型 / 模型库）；旧路由 `/download` 保留并重定向到 `/models?tab=library`（旧书签仍落到下载功能所在页）。i18n 清理 6 个失效键（`nav_models_downloads`、`lbl_total_tasks`/`lbl_active_tasks`/`lbl_completed_tasks`/`lbl_failed_tasks`、`btn_clear_finished`）。
 
 - **参数悬浮气泡不再被侧边栏截断（2026-09-05）**：气泡原以标签居中锚定（`left:50%`），靠近侧边栏的参数长文案向左溢出时被内容区 `overflow` 在侧栏边界处裁掉。改为左边缘锚定（只向右生长）+ 侧边栏 z-index 压至 0、内容区升至 1，气泡完整显示于侧栏之上。
