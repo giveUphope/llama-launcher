@@ -13,7 +13,7 @@ export class Launcher extends EventEmitter {
   private status: ServerStatus = 'stopped';
   private currentSettings: AppSettings | null = null;
   // 最近一次 start/restart 使用的参数快照（用于判断当前运行服务是否与某组参数一致，
-  // 性能测试等场景可据此避免参数未变时的重复加载）
+  // 参数未变时可据此避免重复加载）
   private currentValues: Record<string, string | number | boolean> = {};
   private host = '127.0.0.1';
   private port = 8080;

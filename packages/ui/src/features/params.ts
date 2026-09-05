@@ -1,5 +1,5 @@
 // 参数设置功能条目（含旧路由重定向）。
-// 单页 + 页内 tab-strip 切换（参数预设 / 自定义参数 / 性能测试，与设置页同一体例）；
+// 单页 + 页内 tab-strip 切换（参数预设 / 自定义参数，与设置页同一体例）；
 // 2026-09 移除侧栏子树展开——次级页面统一回归页内切换。
 import type { FeatureDef } from './types.js';
 import { useParamsStore } from '@/stores/params';

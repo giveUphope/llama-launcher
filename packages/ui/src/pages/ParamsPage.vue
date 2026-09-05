@@ -211,7 +211,7 @@ async function onClearSession() {
 
 <template>
   <PageFrame>
-    <!-- 页内页签（与设置页同一体例）：参数预设 / 自定义参数 / 性能测试 -->
+    <!-- 页内页签（与设置页同一体例）：参数预设 / 自定义参数 -->
     <div class="tab-strip" role="tablist">
       <button
         v-for="t in TABS"
