@@ -46,8 +46,9 @@ onUnmounted(() => {
 .tooltip {
   position: absolute;
   bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  // 左边缘锚定（而非居中）：气泡只向右生长，绝不向左越出内容区而撞上侧边栏；
+  // 否则居中锚定在左边缘参数上会向左溢出，被内容区 overflow 在侧边栏边界处裁掉
+  left: 0;
   background: var(--tooltip-bg);
   color: var(--tooltip-fg);
   font-size: var(--fs-sm);
@@ -71,6 +72,6 @@ onUnmounted(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(3px) scale(0.96);
+  transform: translateY(3px) scale(0.96);
 }
 </style>

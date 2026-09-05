@@ -359,7 +359,7 @@ pnpm lint
 
 ### 8. 下载模型
 
-在"模型管理"页的"模型库"子标签粘贴 LM Studio / HuggingFace / HF Mirror / ModelScope 链接。HuggingFace/HF Mirror 链接走镜像直链列出文件，其余来源自动搜索 ModelScope 中的对应模型，展示 GGUF 文件列表：推荐文件带「推荐」徽标并排在最前（不自动勾选），勾选所需文件后点"下载所选"开始下载（下载进度在"下载任务"子标签查看）。下载完成后模型列表会自动刷新。
+在"模型管理"页的"模型库"子标签粘贴 LM Studio / HuggingFace / HF Mirror / ModelScope 链接。HuggingFace/HF Mirror 链接走镜像直链列出文件，其余来源自动搜索 ModelScope 中的对应模型，展示 GGUF 文件列表：推荐文件带「推荐」徽标并排在最前（不自动勾选），勾选所需文件后点"下载所选"开始下载，下载进度与任务管理（暂停/恢复/重试）就在模型库下方任务区查看。下载完成后模型列表会自动刷新。
 
 ### 安全下载
 

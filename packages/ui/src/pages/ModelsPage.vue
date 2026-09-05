@@ -1,14 +1,12 @@
 <script setup lang="ts">
-// 模型页（3 子标签壳）：本地模型 / 模型库 / 下载任务。
-// 阶段三重构：原 DownloadPage 拆为 LibraryPanel（URL 解析+搜索+文件选择）
-// 与 DownloadsPanel（任务列表），原 ModelsPage 主体抽到 LocalModelsPanel。
-// 旧路由 /download 重定向到 ?tab=downloads（保留旧书签）。
-import { computed, watch } from 'vue';
+// 模型页（2 子标签壳）：本地模型 / 模型库。
+// 下载任务不再单列页签——模型库（DownloadCard library 模式）已内置任务区，
+// 含进度/暂停/恢复/清除等完整能力。旧路由 /download 保留并指向模型库 tab。
+import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PageFrame from '@/components/common/PageFrame.vue';
 import LocalModelsPanel from '@/components/models/LocalModelsPanel.vue';
 import LibraryPanel from '@/components/models/LibraryPanel.vue';
-import DownloadsPanel from '@/components/models/DownloadsPanel.vue';
 import Icon from '@/components/common/Icon.vue';
 import { useI18nStore } from '@/stores/i18n';
 
@@ -16,17 +14,16 @@ const route = useRoute();
 const router = useRouter();
 const i18n = useI18nStore();
 
-type TabKey = 'local' | 'library' | 'downloads';
+type TabKey = 'local' | 'library';
 
 const TABS: Array<{ key: TabKey; icon: string; labelKey: string }> = [
   { key: 'local', icon: 'folder_open', labelKey: 'nav_models_local' },
   { key: 'library', icon: 'search', labelKey: 'nav_models_library' },
-  { key: 'downloads', icon: 'download', labelKey: 'nav_models_downloads' },
 ];
 
 const activeTab = computed<TabKey>(() => {
   const t = String(route.query.tab ?? 'local');
-  if (t === 'library' || t === 'downloads') return t;
+  if (t === 'library') return t;
   return 'local';
 });
 
@@ -34,18 +31,6 @@ function setTab(key: TabKey) {
   if (key === activeTab.value) return;
   void router.replace({ query: { ...route.query, tab: key } });
 }
-
-// /download 旧路由入口：若直接通过路径进入（无 tab），保持在 downloads tab；
-// features/download.ts 仍把 /download 路由保留为合法入口，渲染此页 downloads tab。
-watch(
-  () => route.path,
-  (p) => {
-    if (p === '/download' && route.query.tab !== 'downloads') {
-      void router.replace({ query: { ...route.query, tab: 'downloads' } });
-    }
-  },
-  { immediate: true },
-);
 </script>
 
 <template>
@@ -68,7 +53,6 @@ watch(
     <div class="tab-content">
       <LocalModelsPanel v-if="activeTab === 'local'" />
       <LibraryPanel v-else-if="activeTab === 'library'" />
-      <DownloadsPanel v-else-if="activeTab === 'downloads'" />
     </div>
   </PageFrame>
 </template>

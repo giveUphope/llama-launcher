@@ -39,6 +39,8 @@ import WebUiFrame from './WebUiFrame.vue';
 
 .app-content {
   position: relative; /* WebUiFrame 绝对定位铺满内容区 */
+  /* 层级高于侧边栏（z-index 0）：内容区浮层/气泡在侧栏之上绘制，不被侧栏遮罩 */
+  z-index: 1;
   flex: 1;
   min-width: 0;
   min-height: 0;

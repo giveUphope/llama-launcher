@@ -66,6 +66,8 @@ function toggleCollapsed() {
   background: var(--glass-sidebar);
   border-right: 1px solid var(--glass-sidebar-border);
   overflow: hidden;
+  /* 层级压到内容区之下：右侧内容区（.app-content, z-index 1）的浮层/气泡不被侧栏遮罩 */
+  z-index: 0;
   // 折叠宽度：用户主动触发的单次布局过渡（§7.5.7 例外）
   transition: width var(--dur-med) var(--ease-smooth);
 

@@ -19,7 +19,7 @@
 | `/logs` | 应用日志中心 |
 | `/settings` | 应用设置（4 子标签：常规 / 外观 / 高级 / 关于） |
 | `/webui` | 内置 Web UI（侧栏一级项；服务运行时 iframe 直接展示 llama-server Web UI，替代跳转外部浏览器） |
-| `/download` | 重定向到 `/models?tab=downloads`（旧书签兼容） |
+| `/download` | 重定向到 `/models?tab=library`（旧书签兼容） |
 | `/launch` | 重定向到 `/service`（旧书签兼容） |
 | `/basic` | 重定向到 `/params` |
 | `/advanced` | 重定向到 `/params` |
@@ -43,7 +43,7 @@
 | 页面 | 功能 |
 |------|------|
 | `DashboardPage` | 概览：服务状态卡（`ServiceStatusCard`，自服务页迁入——状态/当前模型/API 地址/主机/端口/PID/运行时长，服务状态的唯一页面级展示区）+ 最近问题（应用日志 warn/error 最近 3 条，`.q-section` 分区分隔） |
-| `ModelsPage` | 3 子标签：本地模型（`LocalModelsPanel`）/ 模型库（`LibraryPanel`，DownloadCard library 模式）/ 下载任务（`DownloadsPanel`，DownloadCard tasks 模式） |
+| `ModelsPage` | 2 子标签：本地模型（`LocalModelsPanel`）/ 模型库（`LibraryPanel`，DownloadCard library 模式，内置下载任务区） |
 | `ServicePage` | 命令预览（`CommandPreviewCard`：**双文本框**——「内置参数命令」**只读**展示、随参数实时自动生成（改内置参数走参数设置页控件，无编辑/还原逻辑）；「扩展参数」为唯一可编辑区，绑定 `settings.custom_args` 持久化、原样追加到启动命令末尾；复制 = 内置+扩展合并）、参数摘要（`ParamSummaryCard`）、配置目录清理（`TrashCleanCard`）、控制台输出（上限 5000 行；运行状态卡已迁至概览，本页不再重复展示状态/模型/API 地址） |
 | `ParamsPage` | 页内 tab-strip 两页签（与设置页统一）：参数预设（`PresetsPanel`）/ 自定义参数（13 个子分类分区，`param-grid` `repeat(auto-fit, minmax(340px, 1fr))` 响应式网格）；60 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；自定义页签状态条含**硬件占用估算 stat**（`useVramEstimate`：显存占用百分比 + 构成明细 tooltip，超限橙色警示）与**性能目标选择器**（四档联动建议差集 chips + 一键应用）；恢复基线/清除会话入口（无基线徽章，与「已调整」统计去重） |
 | `LogsPage` | 应用日志中心：级别筛选 chips、搜索、控制台渲染上限 3000 行、自动滚动 |
