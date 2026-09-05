@@ -1,6 +1,6 @@
 # 核心模块详解
 
-> 范围：核心业务模块：进程管理、启动编排、命令构建、模型扫描、GGUF 元数据、在线下载、路径解析、性能测试。
+> 范围：核心业务模块：进程管理、启动编排、命令构建、模型扫描、GGUF 元数据、在线下载、路径解析。
 > 索引：[README.md](../README.md) · 相关：[params-system.md](params-system.md) · [desktop-main.md](desktop-main.md)
 
 ### 4.1 进程管理 (process.ts)

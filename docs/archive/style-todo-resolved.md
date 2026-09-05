@@ -675,3 +675,5 @@
 ## 已确认设计决策（已固化进 §7.5 规范，历史留档）
 
 - **2026-08-15 UI 全面重构（胶囊 + 单层毛玻璃 + 果冻动画）**：用户确认属「完整重构新 UI 风格」，非增量引入新风格。设计决策：① 交互元素全部胶囊化（`--radius-pill`），容器/弹窗/行分设 `--radius-card/modal/row` token；② 毛玻璃采用**单玻璃层**架构（`surface.scss .glass-layer` 全视口 1 层 blur + 表面半透明），blur 层数 18→1，稳态开销 ≈0-3% 帧时间；③ 果冻动效只动 transform/opacity，`prefers-reduced-motion` 关闭；④ 新增 `data-fx='glass|off'` 视觉效果开关（Settings 可切，off = 实底性能模式，回退 = 一个属性）。原「点缀式彩虹」装饰（CTA 按钮 `--rainbow-grad` / 下载进度条 / 分区 `--hue` 循环）已由 2026-08-26「统一蓝色系」决策移除（见上方 🟢 已修复 #8/#9），不再属于当前设计。验证：`pnpm lint`（含 check-docs-links）+ `pnpm test` 全绿；详见 frontend.md §7.5。
+
+### 38. 性能测试调优区组件样式按参数设置页统一 — ✅ 2026-09-04（功能随「性能测试」整体移除，tune-grid/调优区不复存在，条目自结）

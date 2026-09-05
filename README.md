@@ -23,7 +23,7 @@
 | 文档                                              | 内容                                                            |
 | ----------------------------------------------- | ------------------------------------------------------------- |
 | [architecture.md](docs/architecture.md)         | 项目概述、目录结构、Monorepo 架构与依赖流（§1–3）                               |
-| [core-modules.md](docs/core-modules.md)         | 核心业务模块：进程、启动编排、命令构建、GGUF、下载、性能测试、设置/预设、清理、续传日志 + 关键类与函数索引（§4） |
+| [core-modules.md](docs/core-modules.md)         | 核心业务模块：进程、启动编排、命令构建、GGUF、下载、设置/预设、清理、续传日志 + 关键类与函数索引（§4） |
 | [params-system.md](docs/params-system.md)       | 参数定义、双轨机制（临时会话/预设）、依赖联动、控件组件（§5）                              |
 | [data-persistence.md](docs/data-persistence.md) | 类型定义与持久化（§9–10）                                               |
 | [design-decisions.md](docs/design-decisions.md) | 关键设计决策（§13）                                                   |
@@ -88,7 +88,7 @@
 
 ### 全覆盖的参数配置
 
-- 内置 **60 个** **`llama-server`** **参数**，分 3 组管理（基础 / 高级 / 服务）
+- 内置 **60 个** **`llama-server`** **参数**，分 13 个子分类分区管理（网络 / 上下文 / KV 缓存 / 采样 / 推测解码等）
 
 - **参数基线对齐 llama.cpp b10734**：参数定义与 `--help` 输出经 `scripts/verify-params-sync.cjs` / `verify-help-drift.cjs` 双向审计（基线帮助固定于 `docs/params/llama-server-help-out.txt`，二进制升级走 re-pin 流程）；覆盖 b10734 新能力——惰性张量读取（`--lazy-mode`）、CPU FFN 层数（`-ncffn`）、每槽位统一 KV 上限（`--kv-unified-per-slot`）、投影器设备（`-mmdev`）、视频多模态（`--video-fps` 等）与投机合成基准（`--spec-synth-*`）
 
@@ -335,7 +335,7 @@ pnpm lint
 
 ### 4. 调整参数
 
-在"参数设置"页面调整 60 个启动参数（3 个子标签：参数预设 / 自定义参数 / 性能测试；自定义参数内按 13 个子分类分区，如网络 / 上下文 / 采样 / KV 缓存 / 推测解码等）。参数没有独立启用开关：值与默认值不同的参数才会出现在命令行中；参数默认值自动持久化为"会话参数"，重启应用后恢复。
+在"参数设置"页面调整 60 个启动参数（2 个子标签：参数预设 / 自定义参数；自定义参数内按 13 个子分类分区，如网络 / 上下文 / 采样 / KV 缓存 / 推测解码等）。参数没有独立启用开关：值与默认值不同的参数才会出现在命令行中；参数默认值自动持久化为"会话参数"，重启应用后恢复。
 
 点击"应用建议参数"可一键应用从 GGUF 元数据推导的参数（会先重置当前参数）。
 
@@ -357,7 +357,7 @@ pnpm lint
 
 在"服务"页面点击启动按钮，应用会启动 `llama-server` 子进程并实时显示输出。启动后可点击侧边栏"内置 Web UI"（或顶栏"打开 Web UI"），在应用内直接使用 llama-server 的 Web UI（内嵌 iframe，不再跳转外部浏览器）。
 
-### 8. 下载模型
+### 7. 下载模型
 
 在"模型管理"页的"模型库"子标签粘贴 LM Studio / HuggingFace / HF Mirror / ModelScope 链接。HuggingFace/HF Mirror 链接走镜像直链列出文件，其余来源自动搜索 ModelScope 中的对应模型，展示 GGUF 文件列表：推荐文件带「推荐」徽标并排在最前（不自动勾选），勾选所需文件后点"下载所选"开始下载，下载进度与任务管理（暂停/恢复/重试）就在模型库下方任务区查看。下载完成后模型列表会自动刷新。
 
@@ -382,7 +382,7 @@ pnpm lint
 | Settings | 2   | 加载/保存应用设置                             |
 | Models   | 7   | 扫描、mmproj/草稿检测、GGUF 读取、目录监听、移除、变更通知   |
 | Presets  | 4   | 预设 CRUD                               |
-| Server   | 7   | 启动/停止/重启/状态/命令预览/输出推送/性能测试            |
+| Server   | 6   | 启动/停止/重启/状态/命令预览/输出推送            |
 | Logs     | 3   | 应用日志读取/清空/推送（区别于服务控制台）                |
 | 通用       | 3   | 剪贴板、打开外链、打开目录                         |
 | Window   | 8   | 关闭、最小化、最大化切换、状态查询、最大化/还原通知、关闭弹窗一问一答   |
@@ -437,7 +437,7 @@ IPC 常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧由
 1. **标题**：`# 文档名`，一句概括主题。
 2. **范围说明**：标题下紧跟两行说明块——第一行 `> 范围：<覆盖内容>`，第二行 `> 索引：<本 README 相对链接> · 相关：<相关文档相对链接>`；说明本文覆盖范围、指向本索引、列出相关文档（docs/ 内一律相对路径）。
 3. **章节编号**：沿用架构文档原有编号（`N.x`），跨文档引用用「文档名 §N.x」或相对链接，不重编章节号（保证链接锚点稳定）。
-4. **术语统一**：参数/预设/性能测试/打包等术语与 `AGENTS.md`、`docs/params/LLAMA_SERVER_PARAMS.md` 一致。
+4. **术语统一**：参数/预设/打包等术语与 `AGENTS.md`、`docs/params/LLAMA_SERVER_PARAMS.md` 一致。
 5. **链接**：docs/ 内部一律相对路径（`frontend.md`、`style/STYLE_TODO.md`）；代码路径用反引号（如 `packages/ui/src/styles/`）。
 6. **来源**：拆分自原 CODE\_WIKI.md 的章节保持内容原样（仅调整格式），新增内容标注日期；待修复/已知问题登记到 `style/STYLE_TODO.md` 而不是散落在正文。
 7. **例外（保持自身格式）**：`docs/CHANGELOG.md`（历史版本记录，按版本分组）、`docs/params/LLAMA_SERVER_PARAMS.md`（由 `scripts/generate-params-doc.cjs` 生成，勿手改）。

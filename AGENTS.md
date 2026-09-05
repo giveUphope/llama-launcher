@@ -4,7 +4,7 @@ Desktop launcher for llama.cpp `llama-server`. Electron 44 + Vue 3 + Vite 8 + Pi
 
 ## Repository layout
 
-- `apps/desktop/` — Electron app: `src/main/` (main process: IPC handlers, window, launcher bridge, bench-client), `src/preload/index.cjs` (CommonJS preload, `contextBridge`；IPC 常量由 `scripts/generate-preload.cjs` 生成到同级 `ipc-constants.cjs`，勿手工内联), `electron-builder.config.cjs`.
+- `apps/desktop/` — Electron app: `src/main/` (main process: IPC handlers, window, launcher bridge), `src/preload/index.cjs` (CommonJS preload, `contextBridge`；IPC 常量由 `scripts/generate-preload.cjs` 生成到同级 `ipc-constants.cjs`，勿手工内联), `electron-builder.config.cjs`.
 
 - `packages/shared/` — **single source of truth** for types, the 60-param table (`src/params/definitions.ts`), and i18n (zh/en). All other packages depend on it.
 
@@ -32,7 +32,7 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 | Package distribution build     | `pnpm dist` (build + `dist-with-fallback.cjs`)                                                                                           |
 | Per-package typecheck          | `pnpm --filter @llama-launcher/core lint` etc.                                                                                           |
 
-`lint` will fail if the 57 IPC channel constants in `packages/shared/src/types/ipc.ts` drift from the generated preload copy `apps/desktop/src/preload/ipc-constants.cjs` (regenerate via `pnpm generate:ipc`), or if any docs link/anchor breaks — always re-run it after touching IPC or docs.
+`lint` will fail if the 56 IPC channel constants in `packages/shared/src/types/ipc.ts` drift from the generated preload copy `apps/desktop/src/preload/ipc-constants.cjs` (regenerate via `pnpm generate:ipc`), or if any docs link/anchor breaks — always re-run it after touching IPC or docs.
 
 ## Architecture / editing rules
 

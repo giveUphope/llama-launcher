@@ -5,7 +5,7 @@
 
 ### 7.1 路由与功能注册表 (router/index.ts + features/)
 
-路由由**功能注册表**装配：`packages/ui/src/features/` 中每个功能模块声明 `FeatureDef`（`nav` 侧栏导航 + `routes`），`features/index.ts` 汇总为 `navItems`（侧栏渲染）与 `featureRoutes`（路由装配）；`router/index.ts` 仅 `createWebHashHistory` + `featureRoutes`。新增功能 = 注册表加一个条目；`enabled:false` 可停用；`order` 决定侧栏排序；参数页橙点经 `nav.dot()` 在渲染上下文求值保持响应式。**侧栏子树已移除**（2026-09：`children[]`/展开机制随参数设置回归单页删除）——次级页面统一回归**页内 tab-strip 切换**（参数设置三页签与设置页同一体例，`query.tab` 可深链）；调整提示橙点以**图标右上角标**呈现（侧栏收起态，不被 56px 导轨 overflow 裁切），全部导航按钮带 `title`/`aria-label`。**启动顺序**（main.ts）：`settings.load()` 与 `last_tab` 页签恢复在 `app.mount()` **之前**完成——首帧即为目标页签，启动期不存在第二次导航（挂载后的恢复重定向会在首屏中途注入导航，表现为路由已切换而视图停留在旧页）；设置加载带 **3s 超时兜底**（`Promise.race`，加载异常时按当前 URL 直接进入，不阻塞启动）。**页面切换**（PageHost）为**结构化直接替换**：`keep-alive` 直接替换激活组件（结构上不存在双页同框窗口），路由 `watch` 后对内容区做 90ms 容器淡入（WAAPI，opacity 0.55→1，`prefers-reduced-motion` 跳过）；**不用 `<transition>`**——KeepAlive 失活移除时序下 JS 钩子 `done()`/`transitionend` 可能永不触发，快速导航时出现短暂双页同框（旧方案已废弃，见 STYLE_TODO #40）。**浏览器预览**（无 Electron preload 的环境）：`main.ts` 注入 `dev/demo-mock.ts` 的 `createDemoApi()` 演示数据，其中 `buildDemoPreviewCommand` 按 core `buildCommand` 同规则动态构建命令预览。
+路由由**功能注册表**装配：`packages/ui/src/features/` 中每个功能模块声明 `FeatureDef`（`nav` 侧栏导航 + `routes`），`features/index.ts` 汇总为 `navItems`（侧栏渲染）与 `featureRoutes`（路由装配）；`router/index.ts` 仅 `createWebHashHistory` + `featureRoutes`。新增功能 = 注册表加一个条目；`enabled:false` 可停用；`order` 决定侧栏排序；参数页橙点经 `nav.dot()` 在渲染上下文求值保持响应式。**侧栏子树已移除**（2026-09：`children[]`/展开机制随参数设置回归单页删除）——次级页面统一回归**页内 tab-strip 切换**（参数设置两页签与设置页同一体例，`query.tab` 可深链）；调整提示橙点以**图标右上角标**呈现（侧栏收起态，不被 56px 导轨 overflow 裁切），全部导航按钮带 `title`/`aria-label`。**启动顺序**（main.ts）：`settings.load()` 与 `last_tab` 页签恢复在 `app.mount()` **之前**完成——首帧即为目标页签，启动期不存在第二次导航（挂载后的恢复重定向会在首屏中途注入导航，表现为路由已切换而视图停留在旧页）；设置加载带 **3s 超时兜底**（`Promise.race`，加载异常时按当前 URL 直接进入，不阻塞启动）。**页面切换**（PageHost）为**结构化直接替换**：`keep-alive` 直接替换激活组件（结构上不存在双页同框窗口），路由 `watch` 后对内容区做 90ms 容器淡入（WAAPI，opacity 0.55→1，`prefers-reduced-motion` 跳过）；**不用 `<transition>`**——KeepAlive 失活移除时序下 JS 钩子 `done()`/`transitionend` 可能永不触发，快速导航时出现短暂双页同框（旧方案已废弃，见 STYLE_TODO #40）。**浏览器预览**（无 Electron preload 的环境）：`main.ts` 注入 `dev/demo-mock.ts` 的 `createDemoApi()` 演示数据，其中 `buildDemoPreviewCommand` 按 core `buildCommand` 同规则动态构建命令预览。
 
 `createWebHashHistory`，共 15 条路由（7 个功能页 + 1 条根重定向 + 7 条旧路由重定向）：
 
@@ -13,9 +13,9 @@
 |------|------|
 | `/` | 重定向到 `/dashboard` |
 | `/dashboard` | 概览（服务状态卡 + 最近问题） |
-| `/models` | 模型管理（3 子标签：本地模型 / 模型库 / 下载任务） |
+| `/models` | 模型管理（2 子标签：本地模型 / 模型库；模型库内含下载任务区） |
 | `/service` | 服务（命令预览 + 参数摘要 + 配置清理 + 控制台） |
-| `/params` | 参数设置（页内 tab-strip 三页签：参数预设 / 自定义参数 / 性能测试，与设置页同一体例，`query.tab` 可深链；无 query 进入默认落在首个页签「参数预设」并归一化 URL） |
+| `/params` | 参数设置（页内 tab-strip 两页签：参数预设 / 自定义参数，与设置页同一体例，`query.tab` 可深链；无 query 进入默认落在首个页签「参数预设」并归一化 URL） |
 | `/logs` | 应用日志中心 |
 | `/settings` | 应用设置（4 子标签：常规 / 外观 / 高级 / 关于） |
 | `/webui` | 内置 Web UI（侧栏一级项；服务运行时 iframe 直接展示 llama-server Web UI，替代跳转外部浏览器） |
@@ -142,11 +142,11 @@
 - **顶栏条与相邻区块间距**（2026-08-29 统一）：页面顶部的条形容器（tab-strip、status-summary、toolbar、params-status-bar、status-bar、stats-row）与上一/下一区块的间距**一律 8px**——models 由 `.tab-content { margin-top: 8px }`、settings 由 `.status-summary { margin: 8px 0 0 }`（内容间距由 `.tab-content` margin-top 提供）、logs 由 `.toolbar { margin-bottom: 8px }`、params/downloads 由状态条 `margin-bottom: 8px` 提供。
 - **分隔线节奏**（分区风格实线分隔，2026-08-29 统一；**线两侧均 14px**）：① **主分隔**（`1px solid var(--border)`，内容区块之间）——Card 底边机制（体 `10px 0 14px`，线下由下一区块 header 的固定高自然留白）；顶边线变体（Dashboard `.q-section + .q-section`、DownloadCard `.tasks-section`）`padding-top: 14px`，**线上方**同样 14px——Dashboard 由 `.q-section { padding-bottom: 14px }` 提供，DownloadCard 由容器 flex gap 8px + `.tasks-section:not(:first-child) { margin-top: 6px }` 补足（任务模式下为首子块，不加）。② **次级分隔**（`1px dashed var(--border)`，块内详情/次要内容，如 ModelMetaCard `.meta-chips.details`）`padding-top: 8px`，上方由 `.meta-body` gap 8px 提供（8/8 对称）。③ **标题下划线**（组标题 `border-bottom`，如 ParamSummaryCard `.summary-group-title`）`padding-bottom: 4px`。④ **表格行分隔**：单元格 `padding: 6px 8px`（§7.5.4 表格）。弹窗内部分区条（FileBrowserModal 头/底 `12px 14px`、路径/保存行 `8px 14px`）为弹窗专属尺寸，不套用。
 - **分区体**：`padding: 10px 0 14px`（左右 0，随页边距对齐）；分区头高 38px，无 accent 竖条（2026-09 移除 compact 变体，全应用统一标准标题体例）。
-- **组件 padding 约定**（2026-08-29 统一，见 STYLE_TODO #21）：padding 属控件尺寸而非元素间距，不受 gap 刻度表约束，但同类元素必须同值——① `fs-xs` 彩色小徽章统一 `1px 6px`；② `fs-sm` 交互 chip 统一 `3px 8px`；③ 信息展示胶囊（version-badge / 状态栏 clickable）统一 `2px 10px`；④ 非胶囊的行/条纵向微间距（提示条、分页条、帮助热区、标签下划线间距）一律 ≥4px；⑤ 参数行/调优行 `padding: 4px 8px`（§7.5.7）；⑥ 固定高筛选 chip（24px，如 LogsPage `.level-chip` / DownloadCard `.chip`）水平内距统一 `0 8px`；⑦ 独立居中文本空态（`.empty`）统一 `padding: 20px`——其余空态为不同语义变体、各自内部统一（弹窗 `.fb-empty` `24px 14px`、区块内 `.empty-msg`/`.target-recs-empty` `8px`、大图标 LogsPage `.empty-log` `40px 20px`）。保留的光学对齐例外：Card 标题左缩进 `0 0 0 2px`（uppercase 字面补偿）。
+- **组件 padding 约定**（2026-08-29 统一，见 STYLE_TODO #21）：padding 属控件尺寸而非元素间距，不受 gap 刻度表约束，但同类元素必须同值——① `fs-xs` 彩色小徽章统一 `1px 6px`；② `fs-sm` 交互 chip 统一 `3px 8px`；③ 信息展示胶囊（version-badge / 状态栏 clickable）统一 `2px 10px`；④ 非胶囊的行/条纵向微间距（提示条、分页条、帮助热区、标签下划线间距）一律 ≥4px；⑤ 参数行 `padding: 4px 8px`（§7.5.7）；⑥ 固定高筛选 chip（24px，如 LogsPage `.level-chip` / DownloadCard `.chip`）水平内距统一 `0 8px`；⑦ 独立居中文本空态（`.empty`）统一 `padding: 20px`——其余空态为不同语义变体、各自内部统一（弹窗 `.fb-empty` `24px 14px`、区块内 `.empty-msg`/`.target-recs-empty` `8px`、大图标 LogsPage `.empty-log` `40px 20px`）。保留的光学对齐例外：Card 标题左缩进 `0 0 0 2px`（uppercase 字面补偿）。
 - **按钮组**：`display: flex; gap: 8px`（页面工具栏、行内操作区）；弹窗按钮 `gap: 10px`；卡片头操作 `gap: 6px`。
 - **常用控件高度**：mini-btn 20 / 输入框 26–28 / action-btn `var(--btn-h)`(30) / TopBar btn 30 / tab-btn 28 / modal-btn 32 / win-btn 46 宽。
 - **表格**：`padding: 6px 8px` 单元格；`thead` sticky + `background: var(--bg-card)`；列固定宽度用 `col-*` class。
-- **统一控件宽度**：参数控件 `label-col` `flex: 0 1 110px`（min-width 64px，**右对齐** + `padding-right: 8px`，长标签省略号截断）、num-input 100px、下拉触发器 `dropdown-trigger` 宽 100%（下拉面板 fixed 定位）、gguf-hint `flex: 0 1 auto`（min 44px / max 72px）。**标签等列逻辑（2026-08-29 用户决策，替代 #25 的贴文字方向）**：全部"选项行"（`InfoStrip .info-label`、`.tune-label`）与参数行同配方——`flex: 0 1 110px`（min-width 64px）+ `text-align: right`，标签占等宽列、内容起点跨行对齐；长标签面板级 `:deep(.info-label)` 覆盖（如 AdvancedPanel 140px）。容器过窄省略号截断。
+- **统一控件宽度**：参数控件 `label-col` `flex: 0 1 110px`（min-width 64px，**右对齐** + `padding-right: 8px`，长标签省略号截断）、num-input 100px、下拉触发器 `dropdown-trigger` 宽 100%（下拉面板 fixed 定位）、gguf-hint `flex: 0 1 auto`（min 44px / max 72px）。**标签等列逻辑（2026-08-29 用户决策，替代 #25 的贴文字方向）**：全部"选项行"（`InfoStrip .info-label`）与参数行同配方——`flex: 0 1 110px`（min-width 64px）+ `text-align: right`，标签占等宽列、内容起点跨行对齐；长标签面板级 `:deep(.info-label)` 覆盖（如 AdvancedPanel 140px）。容器过窄省略号截断。
 - **值盒标准（内容文本框统一，2026-08-29，见 STYLE_TODO #37）**：展示类内容值盒统一使用 `InfoStrip` 的 **`boxed` 变体**——高 **26px**、`padding: 0 10px`、`bg-input` + 1px 边框、胶囊圆角、行内 flex 填满（同组行左缘/宽跨行对齐）、内容省略截断。适用：状态卡当前模型/API 地址/运行时详情等。禁止同类内容项回退纯文本或自造异形盒（高度/内距各写一套）。
 
 #### 7.5.5 按钮类型学（taxonomy）
@@ -174,8 +174,8 @@
 
 #### 7.5.7 常用模式
 
-- **参数行**（`ParamRow` 统一承载，参数设置页与性能测试调优区共用同一组件）：`padding: 4px 8px` + 圆角 `var(--radius-row)`，默认透明描边；hover 底色 `--bg-hover` + 边框 `--border`；**值 ≠ 默认时边框 `--warn`**（与还原按钮同色系）；依赖未满足 `--warn` 边框 + 底色 + 警示图标；文件/目录类型渲染文件选择控件。
-- **参数网格**：`param-grid`（参数设置页）与 `tune-grid`（性能测试调优区）同配方 `repeat(auto-fit, minmax(340px, 1fr))`、gap `4px 14px`、≤720px 单列；卡片/分区装饰条统一 `--accent` 蓝（2026-08-26 起不使用 hue-cycle 循环取色）。
+- **参数行**（`ParamRow` 统一承载）：`padding: 4px 8px` + 圆角 `var(--radius-row)`，默认透明描边；hover 底色 `--bg-hover` + 边框 `--border`；**值 ≠ 默认时边框 `--warn`**（与还原按钮同色系）；依赖未满足 `--warn` 边框 + 底色 + 警示图标；文件/目录类型渲染文件选择控件。
+- **参数网格**：`param-grid`（参数设置页）`repeat(auto-fit, minmax(340px, 1fr))`、gap `4px 14px`、≤720px 单列；卡片/分区装饰条统一 `--accent` 蓝（2026-08-26 起不使用 hue-cycle 循环取色）。
 - **状态小圆点**：`border-radius: 50%`；StatusBar 状态点 8×8、StatusTag 7×7（两实现尺寸不一，已登记 STYLE_TODO 🔴 待统一）。
 - **悬浮提示文本色**：`color-mix(in srgb, var(--success) 12%, transparent)` 底 + `var(--success)` 边框/文字（如 PresetsPanel 的 applied-msg）。
 - **下载分类徽章**：颜色走 `--badge-*` token，底用 `color-mix(in srgb, var(--badge-*) 14%, transparent)`（legacy/fp32 为 16%）；`cat-other` 用 `--fg-muted` + `--bg-hover`。徽章色为分类图例语义，两种主题恒定。
