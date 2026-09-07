@@ -6,3 +6,4 @@ allowBuilds:
   electron: true
   esbuild: true
   '@parcel/watcher': false
+  electron-winstaller: false
