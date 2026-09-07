@@ -121,6 +121,17 @@
 - [x] **内联 SVG 清零**：唯一非 Arco 图标 = TopBar win-btn 的 4 个手绘窗口字形 → Arco 原生图标（`IconMinus`/`IconFullscreen`/`IconFullscreenExit`/`IconClose`），经 Icon.vue 映射（新增 `minimize`/`maximize`/`restore` 三键）渲染；浏览器验证 `pageInlineSvg: 0`（窗口处于最大化态时正确显示还原图标）
 - [x] 图标体系结论：全应用图标 100% 来自 `@arco-design/web-vue/es/icon`，统一经 `Icon.vue` 名称映射渲染
 
+## 收尾十批：图标语义校准——消除「多语义共用同一图形」（2026-09-07，用户反馈大量图标观感非原生）
+
+审计发现 Icon.vue 映射存在 **3 组碰撞 + 2 处错配**：`models`/`disk` 同用 IconStorage、`params`/`settings` 同用 IconSettings（侧边栏相邻项同形）、`file`/`file_check`/`empty` 三语义共用 IconFile、`empty`（空态）错配文件图标、`dashboard` 用四宫格而非仪表盘。全部换为语义最贴切的 Arco 官方图标：
+
+- [x] `dashboard` → `IconDashboard`（官方仪表盘，替代四宫格 IconApps）
+- [x] `models` → `IconRobot`（AI 模型；`disk` 独占 `IconStorage`）
+- [x] `params` → `IconTool`（扳手调参；`settings` 独占齿轮 `IconSettings`）
+- [x] `file_check` → `IconCheckSquare`（已校验文件；`file` 独占 `IconFile`）
+- [x] `empty` → `IconEmpty`（官方空态图标）
+- [x] 效果（浏览器验证）：侧边栏 7 项图标两两不同形（dashboard/robot/cloud/tool/code-block/public/settings），全页 26 个 SVG 均带 `arco-icon` 类、非 Arco 内联 SVG = 0
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |
