@@ -108,6 +108,11 @@
 - [x] 修复：删除 6 个控件组件的残留 margin；ParamRow 行内清零 form-item 外距 / wrapper·content 最小高度 / 标签列行高（压回 1.3）；控件统一 `size="small"`（28px，对齐 §7.5.4「输入框 26–28」与设置面板）
 - [x] 效果（浏览器实测）：行高 54px → 34px（开关行）/ 38px（输入·下拉行），悬浮高亮上下各 5px 即行内距，无空白残留
 
+## 收尾八批：还原按钮纯 Arco 化（2026-09-07，用户指出残留自绘样式）
+
+- [x] `ParamRow.vue` 参数还原钮 `clear-btn`：去掉全部自绘覆盖（20px 尺寸、灰色默认 + 橙色 hover 染色、opacity 0.55 弱化渐显）→ 纯 Arco 原生形态 `type="text" size="mini" shape="circle" status="warning"`（warning 橙常显、24×24 原生尺寸、Arco 默认 hover），零自定义样式
+- [x] 保留项（无 Arco 对应原语，业务语义）：`.changed`/`.dep-unmet` 行橙色描边（脏值/依赖未满足指示）、`.gguf-hint.applicable` 点击应用下划线供能
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |
@@ -115,7 +120,7 @@
 | 概览 Dashboard | a-button / Card(a-card) / a-descriptions / a-typography-text(copyable) / a-space / a-tag | 统计数字排版（展示层） |
 | 模型管理 | a-tabs / a-table / a-statistic / a-divider / a-input / a-tag / a-checkbox / a-pagination / a-progress / checkable a-tag / a-list / a-dropdown+doption | `.file-item` 行选中（checkbox + 行点击，展示层） |
 | 服务 | a-alert / a-textarea / a-tag / a-button | 命令预览恒深底样式（§7.5.1 恒定深色面） |
-| 参数设置 | a-tabs / a-dropdown / a-statistic / a-divider / a-form-item / a-slider / a-input-number / a-select / a-switch / a-checkbox / a-input-group / a-tag / a-tooltip / a-button(text/mini/circle) | ParamRow 24px 紧凑行容器（承载层，控件全 Arco） |
+| 参数设置 | a-tabs / a-dropdown / a-statistic / a-divider / a-form-item / a-slider / a-input-number / a-select / a-switch / a-checkbox / a-input-group / a-tag / a-tooltip / a-button(text/mini/circle/warning) | ParamRow 24px 紧凑行容器（承载层，控件全 Arco）；`.changed`/`.dep-unmet` 橙描边（脏值/依赖语义，Arco token） |
 | 日志 | a-radio-group(button) / a-input / a-button | 控制台行着色（恒深底语义） |
 | 内置 Web UI | a-result / WebUiFrame(iframe 生命周期) | iframe 本体 |
 | 应用设置 | a-tabs / a-form(a-form-item) / a-descriptions / a-select / a-radio-group / a-input / a-button | — |

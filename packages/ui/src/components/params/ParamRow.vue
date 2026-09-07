@@ -129,6 +129,7 @@ function onClear() {
       type="text"
       size="mini"
       shape="circle"
+      status="warning"
       :title="i18n.t('msg_clear_param')"
       @click="onClear"
     >
@@ -232,37 +233,6 @@ function onClear() {
   flex-shrink: 0;
   display: inline-flex;
   cursor: help;
-}
-
-// 参数还原按钮：a-button text/mini/circle 压成 20px 幽灵图标钮（统一小图标可供性语言）。
-// 默认弱化（半透明、随行悬停渐显），悬停软 warn 色调（非实心黄底，
-// 密集参数页中逐行实心圆点视觉突兀）；键盘聚焦时保持可见。
-.clear-btn {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  color: var(--color-text-3);
-  background: transparent;
-  opacity: 0.55;
-  transition: color var(--dur-fast) var(--ease-smooth), background var(--dur-fast) var(--ease-smooth),
-    opacity var(--dur-fast) var(--ease-smooth);
-
-  &:hover {
-    color: rgb(var(--orange-6));
-    background: color-mix(in srgb, rgb(var(--orange-6)) 14%, transparent);
-    opacity: 1;
-  }
-
-  &:focus-visible {
-    opacity: 1;
-  }
-
-}
-
-// 行悬停时还原按钮完全显形（密集页降噪；键盘焦点路径已单独保可见）
-.param-row-wrapper:hover .clear-btn {
-  opacity: 1;
 }
 
 </style>
