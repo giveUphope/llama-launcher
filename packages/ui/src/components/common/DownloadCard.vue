@@ -792,8 +792,9 @@ function quantTooltip(q: QuantizationInfo | null): string {
         <div v-else-if="filesError" class="error-msg">{{ filesError }}</div>
         <div v-else-if="modelFiles.length === 0" class="empty-msg">{{ i18n.t('msg_no_files') }}</div>
         <div v-else-if="pagedFiles.length === 0" class="empty-msg">{{ i18n.t('msg_no_files_in_cat') }}</div>
-        <div v-else class="file-list">
-          <div
+        <a-list v-else class="file-list" :bordered="false" size="small">
+          <!-- 模型文件列表：a-list 承载（行选中 = 行点击 + a-checkbox，§7.5.5 交互控件原生） -->
+          <a-list-item
             v-for="f in pagedFiles"
             :key="f.path"
             class="file-item"
@@ -816,8 +817,8 @@ function quantTooltip(q: QuantizationInfo | null): string {
             <span v-if="f.path === recommendedPath" class="rec-badge">{{ i18n.t('lbl_recommended') }}</span>
             <span class="file-cat" :class="`cat-${f.category}`">{{ categoryLabel(f.category) }}</span>
             <span class="file-size">{{ f.sizeStr }}</span>
-          </div>
-        </div>
+          </a-list-item>
+        </a-list>
 
         <!-- 文件分页 -->
         <div v-if="filesTotalPages > 1" class="pager">
@@ -1183,10 +1184,22 @@ function quantTooltip(q: QuantizationInfo | null): string {
   background: color-mix(in srgb, var(--primary-fg) 22%, transparent);
 }
 
+/* 模型文件列表：a-list 承载，仅保留条目间距/背景覆盖（同 result-list 范式） */
 .file-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  background: none;
+
+  :deep(.arco-list-content) {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0;
+  }
+
+  :deep(.arco-list-item) {
+    padding: 0;
+    border-bottom: none;
+    background: none;
+  }
 }
 
 .file-item {
@@ -1198,8 +1211,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   border: 1px solid var(--color-border-2);
   background: var(--color-fill-2);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth);
 
   &:hover {
     background: var(--color-fill-3);

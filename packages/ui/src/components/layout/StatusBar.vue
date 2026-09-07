@@ -77,24 +77,29 @@ onUnmounted(() => {
       <!-- 状态：a-tag 承载动作状态色胶囊 + Arco 状态文案（替代手写状态圆点/文本） -->
       <a-tag :color="statusColor" size="small">{{ statusText }}</a-tag>
       <a-typography-text v-if="pidText" class="pid">{{ pidText }}</a-typography-text>
-      <span
+      <!-- 可点击复制值：a-button type=text 基座（值即按钮，§7.5.7 复制模式）+ 状态栏铬覆盖 -->
+      <a-button
         v-if="server.apiUrl"
-        class="url clickable"
+        class="url pill-copy"
+        type="text"
+        size="mini"
         :title="i18n.t('copy_url')"
         @click="onCopyUrl"
       >
         <span class="url-text">{{ server.apiUrl }}</span>
         <a-tag v-if="copiedKey === 'url'" size="small" color="success">{{ i18n.t('msg_url_copied') }}</a-tag>
-      </span>
-      <span
+      </a-button>
+      <a-button
         v-if="params.get(MODEL_KEY)"
-        class="model clickable"
+        class="model pill-copy"
+        type="text"
+        size="mini"
         :title="i18n.t('copy_model')"
         @click="onCopyModel"
       >
         <span class="model-text">{{ modelName }}</span>
         <a-tag v-if="copiedKey === 'model'" size="small" color="success">{{ i18n.t('msg_model_copied') }}</a-tag>
-      </span>
+      </a-button>
       <span v-else class="model">{{ modelName }}</span>
     </div>
     <div class="right">
@@ -124,21 +129,21 @@ onUnmounted(() => {
   gap: 10px;
 }
 
-/* 可点击复制项 */
-.clickable {
-  cursor: pointer;
+/* 可点击复制值：a-button 基座 + 状态栏铬覆盖（胶囊、白字、hover 表面着色） */
+.pill-copy {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 2px 10px;
   margin: -2px -6px;
   border-radius: var(--radius-pill);
-  position: relative;
-  transition: background var(--dur-fast) var(--ease-smooth), opacity var(--dur-fast) var(--ease-smooth);
+  color: inherit;
+  height: auto;
+  transition: background var(--dur-fast) var(--ease-smooth);
 
   &:hover {
     background: var(--statusbar-hover);
-    opacity: 1;
+    color: inherit;
   }
 }
 </style>

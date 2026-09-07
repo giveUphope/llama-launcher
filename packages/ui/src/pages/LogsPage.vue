@@ -170,14 +170,11 @@ function onScroll() {
         <Icon name="info" :size="11" />
         <span>{{ i18n.t('msg_app_logs_hint') }}</span>
       </div>
-      <!-- 有新日志胶囊：仅在有提示时渲染（原常驻占位行会在控制台顶部留下空白条，
-           2026-09-07 移除占位；胶囊为瞬时反馈，出现时控制台轻微下移可接受） -->
-      <div v-if="hasNewLogs" class="new-logs-slot" @click="void scrollConsoleToBottom()">
-        <div class="new-logs-bar">
-          <Icon name="chevron_down" :size="12" />
-          <span>{{ i18n.t('msg_new_logs') }}</span>
-        </div>
-      </div>
+      <!-- 有新日志胶囊：a-button 基座（点击回到底部），仅在有提示时渲染 -->
+      <a-button v-if="hasNewLogs" class="new-logs-bar" type="text" size="mini" @click="void scrollConsoleToBottom()">
+        <Icon name="chevron_down" :size="12" />
+        <span>{{ i18n.t('msg_new_logs') }}</span>
+      </a-button>
       <div
         ref="consoleEl"
         class="console"
@@ -258,14 +255,7 @@ function onScroll() {
   color: var(--color-text-3);
 }
 
-/* new-logs 槽位常驻：预留胶囊等高的固定高度，无新日志时隐藏但占位（console 不跳动） */
-/* 有新日志胶囊行：仅提示时渲染（不再常驻占位，控制台顶部无空白条） */
-.new-logs-slot {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-}
-
+/* 有新日志胶囊：a-button 基座，仅提示时渲染（不再常驻占位，控制台顶部无空白条） */
 .new-logs-bar {
   display: inline-flex;
   align-items: center;
@@ -275,8 +265,8 @@ function onScroll() {
   color: rgb(var(--primary-6));
   border: 1px solid rgb(var(--primary-6));
   border-radius: var(--radius-pill);
-  cursor: pointer;
   font-size: var(--fs-sm);
+  height: auto;
   font-weight: 600;
   animation: pulse-glow 2s ease-in-out infinite;
 

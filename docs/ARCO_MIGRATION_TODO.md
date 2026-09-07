@@ -166,12 +166,22 @@
 
 - [x] **行操作按钮样式更新**（用户追问：图标原生后按钮样式也应跟上）：三个纯图标圆形钮（`size=mini shape=circle`，违反 §7.5.5「内容区操作按钮一律文本内联」，且与预设面板行操作不一致）→ 文本内联小按钮（`size=small` + 图标 + 短标签 目录/体检/移除，移除保留 danger），操作列 84→190px；新增 i18n 短键 `act_dir`/`act_bench`（zh/en 同步）。浏览器验证：3 按钮全 `arco-btn-size-small`、图标+文案、danger 态、列宽 190px
 
+## 收尾十五批：剩余自定义交互控件全面清零（2026-09-07，用户要求全面审查残留）
+
+系统扫描（可点击非 Arco 元素 + 手写 hover/背景覆盖 + 原生控件残留），最后 3 类自定义交互控件全部迁移：
+
+- [x] `DownloadCard.vue` 模型文件列表 `.file-item` 手写可点击 `<div>` 行 → `a-list`/`a-list-item`（同 result-list 范式；checkbox + 行点击语义保留在 Arco 组件上）
+- [x] `StatusBar.vue` 可点击复制值胶囊 `.clickable` span → `a-button type="text" size="mini"` 基座 + 状态栏铬覆盖（胶囊/白字/`--statusbar-hover` 表面着色）——§7.5.7「值即按钮不使用按钮形态」表述同步废止
+- [x] `ServicePage.vue`/`LogsPage.vue`「有新日志」胶囊 span → `a-button type="text" size="mini"`（点击回到底部，保留脉冲动效）
+- [x] 浏览器跨页复验：模型库 4 文件行全 `arco-list-item`（自定义 div 0）、状态栏 2 胶囊全 `arco-btn`（legacy `.clickable` 0）、服务页非 Arco 按钮 0
+- [x] 至此**全应用无自定义交互控件**：所有可点击/可输入元素均由 Arco 组件承载（a-button/a-tag/a-list/a-table/a-input/a-select/a-checkbox/a-statistic/a-dropdown 等）；仅存的自定义 CSS 均为布局容器或展示层样式（恒深控制台、徽章语义色、状态栏表面着色）
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |
 | --- | --- | --- |
 | 概览 Dashboard | a-button / Card(a-card) / a-descriptions / a-typography-text(copyable) / a-space / a-tag | 统计数字排版（展示层） |
-| 模型管理 | a-tabs / a-table / a-statistic / a-divider / a-input / a-tag / a-checkbox / a-pagination / a-progress / checkable a-tag / a-list / a-dropdown+doption | `.file-item` 行选中（checkbox + 行点击，展示层） |
+| 模型管理 | a-tabs / a-table / a-statistic / a-divider / a-input / a-tag / a-checkbox / a-pagination / a-progress / checkable a-tag / a-list（文件列表/搜索结果） / a-dropdown+doption | 徽章语义色（`--badge-*` 展示层） |
 | 服务 | a-alert / a-textarea / a-tag / a-button | 命令预览恒深底样式（§7.5.1 恒定深色面） |
 | 参数设置 | a-tabs / a-dropdown / a-statistic / a-divider / a-form-item / a-slider / a-input-number / a-select / a-switch / a-checkbox / a-input-group / a-tag / a-tooltip / a-button(text/mini/circle/warning) | ParamRow 24px 紧凑行容器（承载层，控件全 Arco）；`.changed`/`.dep-unmet` 橙描边（脏值/依赖语义，Arco token） |
 | 日志 | a-radio-group(button) / a-input / a-button | 控制台行着色（恒深底语义） |

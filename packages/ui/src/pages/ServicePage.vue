@@ -110,15 +110,12 @@ const logCount = computed(() => server.outputs.length);
         </a-button>
         <span class="log-count">{{ logCount }} {{ i18n.t('col_lines') }}</span>
       </template>
-      <!-- 有新日志胶囊：仅在有提示时渲染（原常驻占位行会在卡片体顶部留下空白条，
-           2026-09-07 移除占位；胶囊为用户滚动离底后的瞬时反馈，出现时轻微下移可接受） -->
+      <!-- 有新日志胶囊：a-button 基座（点击回到底部），仅在有提示时渲染 -->
       <div v-if="hasNewLogs" class="console-header">
-        <span class="new-logs-slot has-new" @click="void scrollConsoleToBottom()">
-          <span class="new-logs">
-            <Icon name="chevron_down" :size="12" />
-            <span>{{ i18n.t('msg_new_logs') }}</span>
-          </span>
-        </span>
+        <a-button class="new-logs" type="text" size="mini" @click="void scrollConsoleToBottom()">
+          <Icon name="chevron_down" :size="12" />
+          <span>{{ i18n.t('msg_new_logs') }}</span>
+        </a-button>
       </div>
       <div
         ref="consoleEl"
@@ -144,12 +141,6 @@ const logCount = computed(() => server.outputs.length);
 }
 
 /* 有新日志胶囊行：仅提示时渲染（不再常驻占位，卡片体顶部无空白条） */
-.new-logs-slot {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-}
-
 .new-logs {
   display: inline-flex;
   align-items: center;
@@ -158,11 +149,12 @@ const logCount = computed(() => server.outputs.length);
   background: color-mix(in srgb, rgb(var(--primary-6)) 14%, transparent);
   color: rgb(var(--primary-6));
   border-radius: var(--radius-pill);
-  cursor: pointer;
   font-weight: 600;
+  height: auto;
 
   &:hover {
     background: color-mix(in srgb, rgb(var(--primary-6)) 24%, transparent);
+    color: rgb(var(--primary-6));
   }
 }
 
