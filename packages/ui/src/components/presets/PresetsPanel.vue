@@ -227,7 +227,7 @@ onActivated(() => { void onRefreshList(); });
 
 .field-label {
   font-size: var(--fs-lg);
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   width: 70px;
   flex-shrink: 0;
 }
@@ -240,7 +240,7 @@ onActivated(() => { void onRefreshList(); });
 // 列表卡右上角操作提示：次级弱化文案（双击应用 / 同名保存即覆盖）
 .list-hint {
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 .applied-msg-slot {
@@ -255,9 +255,9 @@ onActivated(() => { void onRefreshList(); });
 .applied-msg {
   padding: 6px 10px;
   border-radius: var(--radius-row);
-  background: color-mix(in srgb, var(--success) 12%, transparent);
-  border: 1px solid var(--success);
-  color: var(--success-text); // 文字用深绿达 AA；底/边保留亮 --success 语义
+  background: color-mix(in srgb, rgb(var(--success-6)) 12%, transparent);
+  border: 1px solid rgb(var(--success-6));
+  color: rgb(var(--success-6)); // 文字用深绿达 AA；底/边保留亮 --success 语义
   font-size: var(--fs-base);
 }
 
@@ -276,12 +276,12 @@ onActivated(() => { void onRefreshList(); });
   }
 
   &:hover {
-    background: var(--bg-hover);
+    background: var(--color-fill-3);
   }
 
   // 当前应用的预设行：accent 色调底纹
   &.active {
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    background: color-mix(in srgb, rgb(var(--primary-6)) 10%, transparent);
   }
 }
 
@@ -312,7 +312,7 @@ onActivated(() => { void onRefreshList(); });
   width: 110px;
   white-space: nowrap;
   flex-shrink: 0;
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
 }
 
 .col-model {

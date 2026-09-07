@@ -245,7 +245,7 @@ function onOomKvQuant() {
 
 // 值缺省占位（未运行/无值）：次级灰，与有值时的主色形成对比但保持行结构不变
 .empty-val {
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 // 值盒内联元素：flex 收缩 + 超长省略，防止溢出值盒
@@ -305,7 +305,7 @@ function onOomKvQuant() {
 
   :deep(.arco-alert-content) {
     line-height: 1.4;
-    color: var(--danger-text); // 深红达 AA（见 style-audit #53），兼容浅/深主题
+    color: rgb(var(--danger-6)); // 深红达 AA（见 style-audit #53），兼容浅/深主题
   }
 }
 
@@ -318,7 +318,7 @@ function onOomKvQuant() {
   margin-top: 8px;
 
   .oom-text {
-    color: var(--fg-secondary);
+    color: var(--color-text-2);
     font-size: var(--fs-base);
   }
 }

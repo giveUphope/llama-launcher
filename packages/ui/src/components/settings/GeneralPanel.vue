@@ -247,13 +247,13 @@ const closeBehavior = computed<CloseBehavior>({
   max-width: 460px; // 限制最大宽度：避免宽窗口下路径输入框拉满整行，表单行节奏更紧凑
   height: 28px;
   padding: 0 12px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  background: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
   border-radius: var(--radius-pill);
-  color: var(--fg-primary);
+  color: var(--color-text-1);
   font-size: var(--fs-md);
   font-family: var(--font-mono);
-  &:focus { border-color: var(--accent); outline: none; }
+  &:focus { border-color: rgb(var(--primary-6)); outline: none; }
 }
 
 .exe-status {
@@ -267,10 +267,10 @@ const closeBehavior = computed<CloseBehavior>({
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
-  &.idle, &.detecting { color: var(--fg-muted); background: var(--bg-hover); }
-  &.ok { color: var(--success-text); background: color-mix(in srgb, var(--success) 14%, transparent); }
-  &.missing { color: var(--danger-text); background: color-mix(in srgb, var(--danger) 14%, transparent); }
-  &.not_found { color: var(--warn-text); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  &.idle, &.detecting { color: var(--color-text-3); background: var(--color-fill-3); }
+  &.ok { color: rgb(var(--success-6)); background: color-mix(in srgb, rgb(var(--success-6)) 14%, transparent); }
+  &.missing { color: rgb(var(--danger-6)); background: color-mix(in srgb, rgb(var(--danger-6)) 14%, transparent); }
+  &.not_found { color: rgb(var(--orange-6)); background: color-mix(in srgb, rgb(var(--orange-6)) 14%, transparent); }
 }
 .spinning { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -280,10 +280,10 @@ const closeBehavior = computed<CloseBehavior>({
   align-items: center;
   margin-left: 4px;
   padding: 4px;
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   cursor: help;
   border-radius: var(--radius-pill);
-  &:hover { color: var(--accent); background: var(--bg-hover); }
+  &:hover { color: rgb(var(--primary-6)); background: var(--color-fill-3); }
 }
 </style>
 
@@ -293,8 +293,8 @@ const closeBehavior = computed<CloseBehavior>({
   padding: 10px 12px;
   border-radius: var(--radius-row);
   // 实底浮层（STYLE_TODO #41 / §7.5.6）：可读性优先，不用半透明玻璃 + backdrop-filter
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-2);
   box-shadow: var(--shadow-dropdown);
   animation: exe-help-panel-in var(--dur-fast) var(--ease-jelly);
 }
@@ -307,7 +307,7 @@ const closeBehavior = computed<CloseBehavior>({
   gap: 8px;
   font-size: var(--fs-base);
   line-height: 1.5;
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   // 步骤间距单一机制：仅 margin-top 4px（间距刻度最小档），不再叠加 padding
   & + .exe-help-step { margin-top: 4px; }
 }
@@ -319,7 +319,7 @@ const closeBehavior = computed<CloseBehavior>({
   width: 18px; height: 18px;
   margin-top: 1px;
   border-radius: 50%;
-  background: var(--accent);
+  background: rgb(var(--primary-6));
   color: #fff;
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -338,12 +338,12 @@ const closeBehavior = computed<CloseBehavior>({
   margin-top: 8px;
   padding: 0 12px;
   border-radius: var(--radius-pill);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  color: var(--fg-primary);
+  background: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
+  color: var(--color-text-1);
   font-size: var(--fs-base);
   cursor: pointer;
   white-space: nowrap;
-  &:hover { background: var(--bg-hover); border-color: var(--accent); color: var(--accent); }
+  &:hover { background: var(--color-fill-3); border-color: rgb(var(--primary-6)); color: rgb(var(--primary-6)); }
 }
 </style>

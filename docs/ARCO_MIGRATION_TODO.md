@@ -56,8 +56,8 @@
 
 ### 本次待办
 
-- [ ] 若后续追求「少维护自定义 CSS」：将 InfoStrip 值盒迁移到 `a-descriptions`（保留 26px 高胶囊覆盖）、meta-chip 迁移到 `a-tag`（key=val 走插槽）、失败提示迁移到 `a-alert`。
-- [ ] 可选：把 theme.scss 的映射层（`--fg-*/--bg-*` 等）在业务组件全部 Arco 化后删除，直接引用 `--color-text-*` 等原始令牌，收敛为单一 token 体系。
+- [x] 若后续追求「少维护自定义 CSS」：将 InfoStrip 值盒迁移到 `a-descriptions`（保留 26px 高胶囊覆盖）、meta-chip 迁移到 `a-tag`（key=val 走插槽）、失败提示迁移到 `a-alert`。（2026-09-07 完成：InfoStrip 内部改 a-descriptions 承载并删手写 flex 布局、ModelMetaCard meta-chip→a-tag；失败提示 a-alert 已随 B1 完成）
+- [x] 可选：把 theme.scss 的映射层（`--fg-*/--bg-*` 等）在业务组件全部 Arco 化后删除，直接引用 `--color-text-*` 等原始令牌，收敛为单一 token 体系。（2026-09-07 完成：20 个纯映射别名 248 处/24 文件扁平化为 Arco 令牌，theme.scss 删除别名定义，仅保留业务/布局 token；顺带补回 `31273e4` 误删的 `--badge-*`/`--bg-active`(双主题)/`--btn-h`/`--statusbar-*`/`--fs-appname` 定义，核查脚本确认无「未定义且非 Arco 命名空间」token 残留）
 
 ## 每批验收
 

@@ -51,13 +51,13 @@ const concurrentOptions = [1, 2, 3, 4, 5];
   max-width: 460px; // 限制最大宽度：避免拉满整行，同时保证 placeholder 全文可见
   height: 28px;
   padding: 0 12px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  background: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
   border-radius: var(--radius-pill);
-  color: var(--fg-primary);
+  color: var(--color-text-1);
   font-size: var(--fs-md);
   font-family: var(--font-mono);
-  &:focus { border-color: var(--accent); outline: none; }
+  &:focus { border-color: rgb(var(--primary-6)); outline: none; }
 }
 .select-row {
   display: flex;
@@ -67,7 +67,7 @@ const concurrentOptions = [1, 2, 3, 4, 5];
 }
 .field-hint {
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 // 长标签等列：本面板标签列 140px（全局等列默认 110px 会截断 'HuggingFace 镜像源'）；
 // 标签是 InfoStrip 内部元素，scoped 需 :deep() 命中

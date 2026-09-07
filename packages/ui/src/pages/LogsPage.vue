@@ -240,21 +240,21 @@ function onScroll() {
   height: 24px;
   padding: 0 8px;
   border-radius: var(--radius-pill);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  color: var(--fg-secondary);
+  background: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
+  color: var(--color-text-2);
   font-size: var(--fs-sm);
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     color var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
-    background: var(--bg-hover);
+    background: var(--color-fill-3);
   }
 
   &.active {
-    background: var(--primary-bg);
-    border-color: var(--primary-bg);
+    background: rgb(var(--primary-6));
+    border-color: rgb(var(--primary-6));
     color: var(--primary-fg);
   }
 }
@@ -279,7 +279,7 @@ function onScroll() {
   align-items: center;
   gap: 6px;
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 /* new-logs 槽位常驻：预留胶囊等高的固定高度，无新日志时隐藏但占位（console 不跳动） */
@@ -299,9 +299,9 @@ function onScroll() {
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent);
-  border: 1px solid var(--accent);
+  background: color-mix(in srgb, rgb(var(--primary-6)) 16%, transparent);
+  color: rgb(var(--primary-6));
+  border: 1px solid rgb(var(--primary-6));
   border-radius: var(--radius-pill);
   cursor: pointer;
   font-size: var(--fs-sm);
@@ -309,20 +309,20 @@ function onScroll() {
   animation: pulse-glow 2s ease-in-out infinite;
 
   &:hover {
-    background: color-mix(in srgb, var(--accent) 26%, transparent);
+    background: color-mix(in srgb, rgb(var(--primary-6)) 26%, transparent);
   }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 30%, transparent); }
-  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 8%, transparent); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, rgb(var(--primary-6)) 30%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, rgb(var(--primary-6)) 8%, transparent); }
 }
 
 .console {
   flex: 1;
   background: var(--console-bg);
   color: var(--console-fg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border-2);
   border-radius: var(--radius-row);
   overflow: auto;
   padding: 8px 12px;
@@ -342,25 +342,25 @@ function onScroll() {
   white-space: pre-wrap;
   word-break: break-all;
 
-  &.kind-error .log-kind { color: var(--danger); }
-  &.kind-error .log-text { color: var(--danger); }
-  &.kind-warn .log-kind { color: var(--warn); }
-  &.kind-warn .log-text { color: var(--warn); }
-  &.kind-success .log-kind { color: var(--success); }
-  &.kind-success .log-text { color: var(--success); }
-  &.kind-info .log-kind { color: var(--info); }
+  &.kind-error .log-kind { color: rgb(var(--danger-6)); }
+  &.kind-error .log-text { color: rgb(var(--danger-6)); }
+  &.kind-warn .log-kind { color: rgb(var(--orange-6)); }
+  &.kind-warn .log-text { color: rgb(var(--orange-6)); }
+  &.kind-success .log-kind { color: rgb(var(--success-6)); }
+  &.kind-success .log-text { color: rgb(var(--success-6)); }
+  &.kind-info .log-kind { color: rgb(var(--arcoblue-6)); }
 }
 
 .log-ts {
   flex-shrink: 0;
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   font-size: var(--fs-sm);
   min-width: 64px;
 }
 
 .log-kind {
   flex-shrink: 0;
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   font-size: var(--fs-sm);
   font-weight: 600;
   min-width: 52px;
@@ -378,7 +378,7 @@ function onScroll() {
   align-items: center;
   gap: 10px;
   padding: 40px 20px;
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   font-size: var(--fs-base);
 }
 
@@ -392,12 +392,12 @@ function onScroll() {
   align-items: center;
   justify-content: flex-end; // 自动滚动提示已移除，行数保持右侧
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   padding: 4px;
 }
 
 .show-limit {
   font-family: var(--font-mono);
-  color: var(--fg-muted); // 原 opacity 0.7 叠 --fg-muted 偏淡，改纯色达 AA
+  color: var(--color-text-3); // 原 opacity 0.7 叠 --fg-muted 偏淡，改纯色达 AA
 }
 </style>

@@ -258,7 +258,7 @@ async function onOpenWeb() {
 .app-name {
   font-size: var(--fs-appname);  // 应用名专用字号，介于 lg(14) 和 xl(18) 之间
   font-weight: 700;
-  color: var(--fg-primary);
+  color: var(--color-text-1);
   white-space: nowrap;
   // 极窄窗口时应用名省略号让位（此前被模型按钮直接裁切出半个字）
   min-width: 0;
@@ -295,20 +295,20 @@ async function onOpenWeb() {
   justify-content: center;
   border: none;
   background: none;
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   cursor: pointer;
   border-radius: var(--radius-control);
   transition: background var(--dur-fast) var(--ease-smooth), color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
-    background: var(--bg-hover);
-    color: var(--fg-primary);
+    background: var(--color-fill-3);
+    color: var(--color-text-1);
   }
 }
 
 .win-close:hover {
-  background: var(--danger);
+  background: rgb(var(--danger-6));
   color: #fff;
 }
 
@@ -331,15 +331,15 @@ async function onOpenWeb() {
 
 // 下拉内容：普通项名称/尺寸两列；选中项 accent 淡色底 + accent 文字；管理项斜体+分割线
 .dd-manage {
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   font-style: italic;
 }
 .dd-divider {
   margin: 4px 0;
 }
 .dd-item.active {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, rgb(var(--primary-6)) 14%, transparent);
+  color: rgb(var(--primary-6));
 }
 .dropdown-name {
   flex: 1;
@@ -350,7 +350,7 @@ async function onOpenWeb() {
   font-family: var(--font-mono);
 }
 .dropdown-size {
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   font-size: var(--fs-sm);
   flex-shrink: 0;
 }

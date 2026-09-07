@@ -141,8 +141,8 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  background: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
   border-radius: var(--radius-row);
   // 顶栏条与相邻区块间距统一 8px（tab 条→状态条 8、状态条→内容由 .tab-content margin-top 8 提供）
   margin: 8px 0 0;
@@ -152,18 +152,18 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
 }
 
 .summary-label {
   font-size: var(--fs-sm);
-  color: var(--fg-primary);
+  color: var(--color-text-1);
 }
 
 .summary-divider {
   width: 1px;
   height: 18px;
-  background: var(--border);
+  background: var(--color-border-2);
 }
 
 .tab-content {

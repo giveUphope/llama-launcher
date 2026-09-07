@@ -44,14 +44,14 @@ const webUrl = computed(() => server.apiUrl);
   z-index: 20; /* 覆盖内容区上层的页面内容 */
   display: flex;
   flex-direction: column;
-  background: var(--bg-app);
+  background: var(--color-bg-1);
 }
 
 .webui-iframe {
   flex: 1;
   width: 100%;
   border: none;
-  background: var(--bg-app); // 加载瞬间避免白/黑闪烁，内容加载后由 Web UI 自身背景覆盖
+  background: var(--color-bg-1); // 加载瞬间避免白/黑闪烁，内容加载后由 Web UI 自身背景覆盖
 }
 
 .webui-placeholder {

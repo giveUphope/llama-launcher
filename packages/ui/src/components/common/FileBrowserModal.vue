@@ -251,10 +251,10 @@ function cancel() {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   font-size: var(--fs-base);
 }
-.fb-row:hover :deep(.arco-list-item) { background: var(--bg-hover); }
+.fb-row:hover :deep(.arco-list-item) { background: var(--color-fill-3); }
 .fb-e-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -264,14 +264,14 @@ function cancel() {
 .fb-empty {
   padding: 24px 14px;
   text-align: center;
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   font-size: var(--fs-base);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
 }
-.fb-error { color: var(--danger-text); }
+.fb-error { color: rgb(var(--danger-6)); }
 
 .fb-save-row {
   display: flex;
@@ -281,13 +281,13 @@ function cancel() {
 }
 .fb-save-label {
   font-size: var(--fs-base);
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   white-space: nowrap;
 }
 
 .fb-hint {
   margin-right: auto;
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 </style>

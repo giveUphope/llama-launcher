@@ -75,14 +75,14 @@ const isAsk = () => request.value?.mode === 'ask';
   align-items: center;
   gap: 8px;
 }
-.fc-ico-info { color: var(--accent); }
-.fc-ico-warn { color: var(--warn-text); }
+.fc-ico-info { color: rgb(var(--primary-6)); }
+.fc-ico-warn { color: rgb(var(--orange-6)); }
 .fc-dialog-msg {
   margin: 0;
   font-size: var(--fs-base);
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
 }
 </style>

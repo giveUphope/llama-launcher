@@ -344,8 +344,8 @@ async function onClearSession() {
   align-items: center;
   gap: 12px;
   padding: 6px 14px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  background: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
   border-radius: var(--radius-row);
   margin-bottom: 8px;
 }
@@ -354,7 +354,7 @@ async function onClearSession() {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
 }
 
 .stat-body {
@@ -367,24 +367,24 @@ async function onClearSession() {
 .stat-value {
   font-size: var(--fs-lg);
   font-weight: 700;
-  color: var(--fg-primary);
+  color: var(--color-text-1);
   font-family: var(--font-mono);
 
-  &.warn { color: var(--warn-text); }
+  &.warn { color: rgb(var(--orange-6)); }
 
   // 占位态（估算不可用）：次级灰，与其他 stat 的主色区分
-  &.muted { color: var(--fg-muted); font-weight: 400; }
+  &.muted { color: var(--color-text-3); font-weight: 400; }
 }
 
 .stat-label {
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 .stat-divider {
   width: 1px;
   height: 22px;
-  background: var(--border);
+  background: var(--color-border-2);
 }
 
 .status-right {
@@ -444,7 +444,7 @@ async function onClearSession() {
 }
 
 .target-menu .target-item.active .arco-dropdown-option-content {
-  color: var(--accent);
+  color: rgb(var(--primary-6));
   font-weight: 600;
 }
 
@@ -454,7 +454,7 @@ async function onClearSession() {
   gap: 8px;
   margin-top: 4px;
   padding: 8px 4px 4px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border-2);
 }
 
 .target-menu .target-rec-chips {
@@ -466,15 +466,15 @@ async function onClearSession() {
 .target-menu .rec-chip {
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
-  color: var(--fg-primary);
+  color: var(--color-text-1);
   cursor: help;
 }
 
 .target-recs-empty {
   margin-top: 4px;
   padding: 8px 4px 4px;
-  border-top: 1px solid var(--border);
-  color: var(--fg-muted);
+  border-top: 1px solid var(--color-border-2);
+  color: var(--color-text-3);
   font-size: var(--fs-base);
 }
 </style>

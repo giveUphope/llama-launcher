@@ -112,7 +112,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 0 12px;
   /* 语义主色保留，叠一层向强调色过渡的微妙渐变 */
-  background: linear-gradient(90deg, var(--statusbar-blue), color-mix(in srgb, var(--statusbar-blue) 78%, var(--accent)));
+  background: linear-gradient(90deg, var(--statusbar-blue), color-mix(in srgb, var(--statusbar-blue) 78%, rgb(var(--primary-6))));
   color: #ffffff;
   font-size: var(--fs-sm);
   font-family: var(--font-family);

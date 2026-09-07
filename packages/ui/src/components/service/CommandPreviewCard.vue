@@ -138,7 +138,7 @@ onUnmounted(() => {
 
 .cmd-section-label {
   font-size: var(--fs-sm);
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   font-weight: 600;
 }
 
@@ -149,7 +149,7 @@ onUnmounted(() => {
   padding: 8px 10px;
   background: var(--console-bg);
   color: var(--console-fg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border-2);
   border-radius: var(--radius-row);
   font-family: var(--font-mono);
   font-size: var(--fs-base);
@@ -173,7 +173,7 @@ onUnmounted(() => {
 
   &:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: rgb(var(--primary-6));
   }
 }
 
@@ -182,7 +182,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 .cmd-actions {

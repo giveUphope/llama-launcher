@@ -58,8 +58,8 @@ const language = computed<Language>({
   display: inline-flex;
   gap: 4px;
   padding: 4px; // 与全局 .tab-strip 胶囊条间距一致（§7.5 选项间距统一；原 3px 微间距已归一到 4px）
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  background: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
   border-radius: var(--radius-pill);
   flex-wrap: nowrap;
 }
@@ -73,7 +73,7 @@ const language = computed<Language>({
   border-radius: var(--radius-pill);
   border: none;
   background: transparent;
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   font-size: var(--fs-md);
   cursor: pointer;
   white-space: nowrap;
@@ -81,13 +81,13 @@ const language = computed<Language>({
     transform var(--dur-fast) var(--ease-jelly);
 
   &:hover:not(.active) {
-    background: var(--bg-hover);
-    color: var(--fg-primary);
+    background: var(--color-fill-3);
+    color: var(--color-text-1);
   }
 
 
   &.active {
-    background: var(--primary-bg);
+    background: rgb(var(--primary-6));
     color: var(--primary-fg);
     font-weight: 600;
   }

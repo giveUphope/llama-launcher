@@ -486,8 +486,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   padding: 8px 14px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  background: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
   border-radius: var(--radius-row);
   // 与 status-bar / params-status-bar 的容器间距一致（8px）
   margin-bottom: 8px;
@@ -497,7 +497,7 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
 }
 
 .stat-body {
@@ -510,19 +510,19 @@ onUnmounted(() => {
 .stat-value {
   font-size: var(--fs-lg);
   font-weight: 700;
-  color: var(--fg-primary);
+  color: var(--color-text-1);
   font-family: var(--font-mono);
 }
 
 .stat-label {
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 .stat-divider {
   width: 1px;
   height: 24px;
-  background: var(--border);
+  background: var(--color-border-2);
 }
 
 /* 统计条与搜索行 */
@@ -535,7 +535,7 @@ onUnmounted(() => {
 
 .search-count {
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   font-family: var(--font-mono);
   flex-shrink: 0;
 }
@@ -544,7 +544,7 @@ onUnmounted(() => {
   margin-top: 8px;
   :deep(.arco-table-tr) { cursor: pointer; }
   :deep(.arco-table-tr.row-selected > td) { background: var(--bg-active); }
-  :deep(.arco-table-th) { color: var(--fg-secondary); font-weight: 600; }
+  :deep(.arco-table-th) { color: var(--color-text-2); font-weight: 600; }
 }
 
 .row-actions {
@@ -563,7 +563,7 @@ onUnmounted(() => {
 }
 
 .selected-icon {
-  color: var(--accent);
+  color: rgb(var(--primary-6));
   flex-shrink: 0;
 }
 
@@ -588,11 +588,11 @@ onUnmounted(() => {
 .gguf-status {
   padding: 12px;
   font-size: var(--fs-md);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   text-align: center;
 
   &.error {
-    color: var(--danger-text);
+    color: rgb(var(--danger-6));
   }
 }
 
@@ -614,22 +614,22 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  background: var(--bg-hover);
+  background: var(--color-fill-3);
   border-radius: var(--radius-pill);
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
 }
 
 .chip-key {
-  color: var(--accent);
+  color: rgb(var(--primary-6));
   font-weight: 600;
 }
 
 .chip-eq {
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 .chip-val {
-  color: var(--fg-primary);
+  color: var(--color-text-1);
 }
 </style>

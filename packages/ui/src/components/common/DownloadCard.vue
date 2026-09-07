@@ -630,14 +630,14 @@ function statusText(status: string): string {
 // 任务状态颜色
 function statusColor(status: string): string {
   const map: Record<string, string> = {
-    queued: 'var(--fg-muted)',
-    downloading: 'var(--accent)',
-    paused: 'var(--warn)',
-    completed: 'var(--success)',
-    error: 'var(--danger)',
-    canceled: 'var(--fg-muted)',
+    queued: 'var(--color-text-3)',
+    downloading: 'rgb(var(--primary-6))',
+    paused: 'rgb(var(--orange-6))',
+    completed: 'rgb(var(--success-6))',
+    error: 'rgb(var(--danger-6))',
+    canceled: 'var(--color-text-3)',
   };
-  return map[status] ?? 'var(--fg-primary)';
+  return map[status] ?? 'var(--color-text-1)';
 }
 
 // 文件类别徽标文本（category 缺失时回退「其他」，避免 cat_undefined 裸键）
@@ -932,7 +932,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
                 :percent="progressPct(t)"
                 :show-text="false"
                 :stroke-width="6"
-                :color="'var(--accent)'"
+                :color="'rgb(var(--primary-6))'"
               />
             </div>
             <div class="task-stats">
@@ -1002,7 +1002,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
     transform var(--dur-fast) var(--ease-jelly);
 
   &.dragging {
-    border-color: var(--accent);
+    border-color: rgb(var(--primary-6));
     background: var(--bg-active);
   }
 }
@@ -1012,7 +1012,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .url-input-icon {
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 /* 按钮 */
@@ -1026,21 +1026,21 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 /* 错误/提示消息 */
 .error-msg {
-  color: var(--danger-text); // 浅色主题深红达 AA（原亮 --danger 仅 3.8:1）
+  color: rgb(var(--danger-6)); // 浅色主题深红达 AA（原亮 --danger 仅 3.8:1）
   font-size: var(--fs-base);
   padding: 4px 0;
   white-space: pre-line;
 }
 
 .warn-msg {
-  color: var(--warn-text); // 浅色主题深琥珀达 AA（原亮 --warn 仅 2.2:1 看不清）
+  color: rgb(var(--orange-6)); // 浅色主题深琥珀达 AA（原亮 --warn 仅 2.2:1 看不清）
   font-size: var(--fs-base);
   padding: 4px 0;
 }
 
 .loading-msg,
 .empty-msg {
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   font-size: var(--fs-base);
   padding: 8px 0;
   text-align: center;
@@ -1055,8 +1055,8 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .info-tag {
-  background: var(--bg-hover);
-  color: var(--accent);
+  background: var(--color-fill-3);
+  color: rgb(var(--primary-6));
   padding: 1px 6px;
   border-radius: var(--radius-pill);
   font-size: var(--fs-xs);
@@ -1066,19 +1066,19 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 .info-id {
   font-family: var(--font-mono);
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
 }
 
 .info-file {
   font-family: var(--font-mono);
-  color: var(--accent);
+  color: rgb(var(--primary-6));
 }
 
 /* 区段标题 */
 .section-title {
   font-size: var(--fs-base);
   font-weight: 600;
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1102,36 +1102,36 @@ function quantTooltip(q: QuantizationInfo | null): string {
   gap: 4px;
   padding: 8px 10px;
   border-radius: var(--radius-row);
-  border: 1px solid var(--border);
-  background: var(--bg-input);
+  border: 1px solid var(--color-border-2);
+  background: var(--color-fill-2);
   cursor: pointer;
   text-align: left;
   transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent);
+    background: var(--color-fill-3);
+    border-color: rgb(var(--primary-6));
   }
 
 
   &.active {
     background: var(--bg-active);
-    border-color: var(--accent);
+    border-color: rgb(var(--primary-6));
   }
 }
 
 .result-name {
   font-family: var(--font-mono);
   font-size: var(--fs-base);
-  color: var(--fg-primary);
+  color: var(--color-text-1);
 }
 
 .result-meta {
   display: flex;
   gap: 12px;
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 /* 分页控件 */
@@ -1145,7 +1145,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 .dl-pager :deep(.arco-pagination-simple) {
   font-size: var(--fs-base);
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
 }
 
 /* 文件列表 */
@@ -1183,22 +1183,22 @@ function quantTooltip(q: QuantizationInfo | null): string {
   height: 24px;
   padding: 0 8px; // 筛选 chip 水平内距统一 8px（与 LogsPage .level-chip 一致；原 9px 离群，§7.5.4）
   border-radius: var(--radius-pill);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  color: var(--fg-secondary);
+  background: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
+  color: var(--color-text-2);
   font-size: var(--fs-sm);
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     color var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
-    background: var(--bg-hover);
+    background: var(--color-fill-3);
   }
 
 
   &.active {
-    background: var(--primary-bg);
-    border-color: var(--primary-bg);
+    background: rgb(var(--primary-6));
+    border-color: rgb(var(--primary-6));
     color: var(--primary-fg);
   }
 }
@@ -1207,7 +1207,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   font-size: var(--fs-xs);
   opacity: 0.75;
   /* 表面着色（跟随 chip 文本色相的半透明计数底），不纳入阴影 token */
-  background: color-mix(in srgb, var(--fg-secondary) 12%, transparent);
+  background: color-mix(in srgb, var(--color-text-2) 12%, transparent);
   border-radius: var(--radius-pill);
   padding: 0 5px;
 }
@@ -1230,25 +1230,25 @@ function quantTooltip(q: QuantizationInfo | null): string {
   gap: 8px;
   padding: 6px 10px;
   border-radius: var(--radius-row);
-  border: 1px solid var(--border);
-  background: var(--bg-input);
+  border: 1px solid var(--color-border-2);
+  background: var(--color-fill-2);
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
-    background: var(--bg-hover);
+    background: var(--color-fill-3);
   }
 
   &.checked {
-    border-color: var(--accent);
+    border-color: rgb(var(--primary-6));
     background: var(--bg-active);
   }
 
   &.recommended {
-    border-color: var(--accent);
+    border-color: rgb(var(--primary-6));
     // 推荐标记竖条：accent 蓝（统一蓝色系，原为彩虹渐变）
-    box-shadow: inset 3px 0 0 var(--accent);
+    box-shadow: inset 3px 0 0 rgb(var(--primary-6));
   }
 }
 
@@ -1260,7 +1260,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   flex: 1;
   font-family: var(--font-mono);
   font-size: var(--fs-base);
-  color: var(--fg-primary);
+  color: var(--color-text-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1271,7 +1271,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   font-size: var(--fs-xs);
   font-weight: 600;
   color: #fff;
-  background: var(--accent);
+  background: rgb(var(--primary-6));
   border-radius: var(--radius-pill);
   padding: 1px 6px;
 }
@@ -1288,7 +1288,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   &.cat-gguf { color: var(--badge-cat-gguf); background: color-mix(in srgb, var(--badge-cat-gguf) 14%, transparent); }
   &.cat-safetensors { color: var(--badge-cat-safetensors); background: color-mix(in srgb, var(--badge-cat-safetensors) 14%, transparent); }
   &.cat-bin { color: var(--badge-cat-bin); background: color-mix(in srgb, var(--badge-cat-bin) 14%, transparent); }
-  &.cat-other { color: var(--fg-muted); background: var(--bg-hover); }
+  &.cat-other { color: var(--color-text-3); background: var(--color-fill-3); }
 }
 
 /* 量化徽标：按 family 着色，便于区分 K-quants / I-quants / FP / INT 系列 */
@@ -1314,7 +1314,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .file-size {
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   font-size: var(--fs-sm);
   flex-shrink: 0;
 }
@@ -1342,7 +1342,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 .selected-count {
   font-size: var(--fs-base);
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
 }
 
 /* 下载任务 */
@@ -1350,7 +1350,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border-2);
   padding-top: 14px;
 
   // 分隔线上方 14px（容器 flex gap 8px + 6px margin），与线下方 14px 对齐；
@@ -1373,8 +1373,8 @@ function quantTooltip(q: QuantizationInfo | null): string {
   gap: 4px 8px;
   padding: 8px 10px;
   border-radius: var(--radius-row);
-  border: 1px solid var(--border);
-  background: var(--bg-input);
+  border: 1px solid var(--color-border-2);
+  background: var(--color-fill-2);
 }
 
 .task-info {
@@ -1388,7 +1388,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 .task-name {
   font-family: var(--font-mono);
   font-size: var(--fs-base);
-  color: var(--fg-primary);
+  color: var(--color-text-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1399,7 +1399,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   align-items: center;
   gap: 6px;
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 .task-progress-bar {
@@ -1421,22 +1421,22 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .task-size {
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   font-family: var(--font-mono);
 }
 
 .task-speed {
-  color: var(--accent);
+  color: rgb(var(--primary-6));
   font-family: var(--font-mono);
 }
 
 .task-eta {
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   font-family: var(--font-mono);
 }
 
 .task-error {
-  color: var(--danger-text);
+  color: rgb(var(--danger-6));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1463,8 +1463,8 @@ function quantTooltip(q: QuantizationInfo | null): string {
   padding: 4px;
   border-radius: var(--radius-row);
   // 实底浮层（STYLE_TODO #41 / §7.5.6）：可读性优先，不用半透明玻璃 + backdrop-filter
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-2);
   box-shadow: var(--shadow-dropdown);
   animation: url-history-panel-in var(--dur-fast) var(--ease-jelly);
 
@@ -1478,11 +1478,11 @@ function quantTooltip(q: QuantizationInfo | null): string {
   }
 
   &::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: var(--color-border-2);
     border-radius: var(--radius-pill);
 
     &:hover {
-      background: var(--fg-muted);
+      background: var(--color-text-3);
     }
   }
 }
@@ -1502,7 +1502,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   padding: 4px 10px 6px;
   font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   user-select: none;
@@ -1517,21 +1517,21 @@ function quantTooltip(q: QuantizationInfo | null): string {
   border: none;
   border-radius: var(--radius-pill);
   background: none;
-  color: var(--fg-primary);
+  color: var(--color-text-1);
   font-size: var(--fs-base);
   text-align: left;
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
 
   &:hover {
-    background: var(--bg-hover);
+    background: var(--color-fill-3);
   }
 
 }
 
 .url-history-icon {
   flex-shrink: 0;
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 .url-history-text {

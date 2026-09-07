@@ -57,7 +57,7 @@ async function onOpenUrl(url: string) {
   gap: 12px;
   padding-bottom: 10px;
   margin-bottom: 4px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border-2);
 }
 
 .about-brand-text {
@@ -69,21 +69,21 @@ async function onOpenUrl(url: string) {
 .about-app-name {
   font-size: var(--fs-lg);
   font-weight: 700;
-  color: var(--fg-primary);
+  color: var(--color-text-1);
 }
 
 .about-app-version {
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 .version-badge {
   font-size: var(--fs-md);
   font-family: var(--font-mono);
-  color: var(--fg-primary);
+  color: var(--color-text-1);
   padding: 2px 10px;
-  background: var(--bg-hover);
+  background: var(--color-fill-3);
   border-radius: var(--radius-pill);
 }
 </style>

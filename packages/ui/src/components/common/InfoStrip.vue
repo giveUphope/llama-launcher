@@ -2,11 +2,13 @@
 // 水平 label-value 信息行：替代 SettingsPage 的 .form-row + .field-label 重复模式。
 // 用法：
 //   <InfoStrip label="引擎目录" :value="llamaDir" mono />
-//   <InfoStrip :label="t('lbl_theme_mode')"> <select ...> </InfoStrip>
+//   <InfoStrip :label="t('lbl_theme_mode')"> <select> ... </select> </InfoStrip>
 //
-// variant：default（fg-primary 正文）/ mono（等宽，路径/数值）/ warn / success / muted
-// boxed：值盒变体——内容装入统一文本框（高 26px、胶囊、bg-input + 边框、内容省略截断），
-// 用于状态卡等需要"值盒化"展示的内容项；宽度在行内 flex:1 填满（等列）。
+// variant: default（fg-primary 正文）/ mono（等宽，路径/数值）/ warn / success / muted
+// boxed: 值盒变体——内容装入统一文本框（高 26px、胶囊、bg-input + 边框、内容省略截断），
+//        用于状态卡等需要"值盒化"展示的内容项；宽度在行内拉伸填满（等列）。
+// 实现：用 Arco Descriptions（inline-horizontal 单行）承载布局，仅保留值变体与值盒的
+// 语义覆盖（§7.5 值盒标准），不再手写 flex/对齐（见 ARCO_MIGRATION_TODO 可选优化 1a）。
 interface Props {
   label: string;
   value?: string;
@@ -20,44 +22,61 @@ const props = withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="info-strip">
-    <label class="info-label">
-      <slot name="label">{{ props.label }}</slot>
-    </label>
-    <div class="info-value" :class="[props.variant, { boxed: props.boxed }]">
-      <template v-if="props.value">{{ props.value }}</template>
-      <slot />
-    </div>
-  </div>
+  <a-descriptions
+    class="info-strip"
+    layout="inline-horizontal"
+    :column="1"
+    size="small"
+    :align="{ label: 'right' }"
+  >
+    <a-descriptions-item>
+      <template #label><slot name="label">{{ props.label }}</slot></template>
+      <div class="info-value" :class="[props.variant, { boxed: props.boxed }]">
+        <template v-if="props.value">{{ props.value }}</template>
+        <slot />
+      </div>
+    </a-descriptions-item>
+  </a-descriptions>
 </template>
 
 <style scoped lang="scss">
+// Arco 描述列表紧凑化：24px 行高、label 110px 右对齐（§7.5.4 值盒/信息行标准）
 .info-strip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  min-height: 24px;
-  line-height: 1.4; // 紧凑表单行（§7.5.1 行高语义化），不依赖字体默认 normal
-}
+  :deep(.arco-descriptions-row) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 24px;
+    line-height: 1.4;
+  }
 
-.info-label {
-  flex: 0 1 110px;
-  min-width: 64px;
-  text-align: right;
-  color: var(--fg-secondary);
-  font-size: var(--fs-base);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  :deep(.arco-descriptions-item) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  :deep(.arco-descriptions-item-label) {
+    flex: 0 1 110px;
+    min-width: 64px;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text-2);
+    font-size: var(--fs-base);
+    padding: 0;
+  }
+
+  :deep(.arco-descriptions-item-content) {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    font-size: var(--fs-base);
+    color: var(--color-text-1);
+  }
 }
 
 .info-value {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--fs-base);
-  color: var(--fg-primary);
-
   // 值盒变体：统一内容文本框（宽高/样式全库一致，见 §7.5.4 值盒标准）
   &.boxed {
     display: inline-flex;
@@ -65,8 +84,8 @@ const props = withDefaults(defineProps<Props>(), {
     gap: 6px;
     height: 26px;
     padding: 0 10px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
+    background: var(--color-fill-2);
+    border: 1px solid var(--color-border-2);
     border-radius: var(--radius-pill);
     overflow: hidden;
     white-space: nowrap;
@@ -79,9 +98,9 @@ const props = withDefaults(defineProps<Props>(), {
     white-space: nowrap;
   }
 
-  &.warn { color: var(--warn-text); }
-  &.success { color: var(--success-text); }
-  &.muted { color: var(--fg-muted); }
+  &.warn { color: rgb(var(--orange-6)); }
+  &.success { color: rgb(var(--success-6)); }
+  &.muted { color: var(--color-text-3); }
 }
 </style>
 

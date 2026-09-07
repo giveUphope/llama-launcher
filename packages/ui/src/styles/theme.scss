@@ -5,22 +5,28 @@
   --sidebar-w-collapsed: 64px;
   --statusbar-h: 28px;
   --font-mono: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
-  --success: rgb(var(--success-6));
-  --warn: rgb(var(--orange-6));
-  --danger: rgb(var(--danger-6));
-  --info: rgb(var(--arcoblue-6));
 
-  /* 迁移兼容层：业务组件完成替换前，将旧语义映射到 Arco token。 */
-  --accent: rgb(var(--primary-6));
-  --bg-app: var(--color-bg-1);
-  --bg-card: var(--color-bg-2);
-  --bg-input: var(--color-fill-2);
-  --bg-hover: var(--color-fill-3);
-  --fg-primary: var(--color-text-1);
-  --fg-secondary: var(--color-text-2);
-  --fg-muted: var(--color-text-3);
-  --border: var(--color-border-2);
-  --border-focus: rgb(var(--primary-6));
+  /* 业务/尺寸 token（NotArco）：布局尺寸与业务语义色，不依赖 Arco 设计令牌 */
+  --btn-h: 30px;                       // 行内操作按钮高（原 action-btn 高，见 docs/archive）
+  --fs-appname: 16px;                  // TopBar 应用名专用字号
+  --statusbar-blue: #007acc;           // 状态栏深蓝底（业务品牌色）
+  --statusbar-hover: rgba(255, 255, 255, 0.15); // 状态栏白字 hover（表面着色，非 elevation）
+  --bg-active: #e8f2ff;                // 选中行高亮（浅色）；深色见 :root[data-theme='dark']
+  --badge-cat-gguf: #6f4fd8;
+  --badge-cat-safetensors: #1f9d72;
+  --badge-cat-bin: #c87f0a;
+  --badge-quant-k: #2563eb;
+  --badge-quant-i: #7c3aed;
+  --badge-quant-legacy: #6b7280;
+  --badge-quant-fp8: #ea580c;
+  --badge-quant-bf16: #0d9488;
+  --badge-quant-fp16: #16a34a;
+  --badge-quant-fp32: #475569;
+  --badge-quant-int: #dc2626;
+  --badge-src-modelscope: #c87f0a;
+  --badge-src-huggingface: #2563eb;
+
+  /* 迁移兼容层：业务组件替换前，将旧语义映射到 Arco token。 */
   --radius-pill: 4px;
   --radius-row: 4px;
   --radius-control: 4px;
@@ -31,13 +37,7 @@
   --fs-lg: 14px;
   --console-bg: #1d2129;
   --console-fg: #e5e6eb;
-  --primary-bg: rgb(var(--primary-6));
   --primary-fg: #fff;
-  --primary-hover: rgb(var(--primary-5));
-  --primary-pressed: rgb(var(--primary-7));
-  --success-text: rgb(var(--success-6));
-  --warn-text: rgb(var(--orange-6));
-  --danger-text: rgb(var(--danger-6));
   --glass-bg: var(--color-bg-2);
   --glass-bg-strong: var(--color-bg-3);
   --glass-border: var(--color-border-2);
@@ -51,6 +51,7 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
+  --bg-active: #094771; // 深色主题选中行高亮（暗蓝）
 }
 
 body {

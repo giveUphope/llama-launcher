@@ -148,23 +148,23 @@ function onClear() {
               border-color var(--dur-fast) var(--ease-smooth);
 
   &:hover {
-    background: var(--bg-hover);
-    border-color: var(--border);
+    background: var(--color-fill-3);
+    border-color: var(--color-border-2);
   }
 
   &.dep-unmet {
-    border-color: var(--warn-text);
-    background: color-mix(in srgb, var(--warn) 6%, transparent);
+    border-color: rgb(var(--orange-6));
+    background: color-mix(in srgb, rgb(var(--orange-6)) 6%, transparent);
   }
 
   // 非默认值行：--warn 调整提示橙描边（与右侧还原按钮同色系）。
   // 依赖未满足时由 dep-unmet 呈现（同色描边 + 底色 + 警示图标），不重复挂类；
   // 悬停保持橙色，不回落到通用 hover 灰描边。
   &.changed {
-    border-color: var(--warn-text);
+    border-color: rgb(var(--orange-6));
 
     &:hover {
-      border-color: var(--warn-text);
+      border-color: rgb(var(--orange-6));
     }
   }
 }
@@ -188,8 +188,8 @@ function onClear() {
 .gguf-hint {
   font-size: var(--fs-xs);
   font-family: var(--font-mono);
-  color: var(--fg-muted);
-  background: var(--bg-hover);
+  color: var(--color-text-3);
+  background: var(--color-fill-3);
   padding: 0 5px;
   border-radius: var(--radius-pill);
   white-space: nowrap;
@@ -209,7 +209,7 @@ function onClear() {
   }
 
   &.applicable {
-    color: var(--accent);
+    color: rgb(var(--primary-6));
     cursor: pointer;
     text-decoration: underline dotted;
     &:hover { text-decoration: underline; }
@@ -217,7 +217,7 @@ function onClear() {
 }
 
 .dep-hint {
-  color: var(--warn-text);
+  color: rgb(var(--orange-6));
   font-size: var(--fs-sm);
   flex-shrink: 0;
   cursor: help;
@@ -236,15 +236,15 @@ function onClear() {
   border: none;
   border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   opacity: 0.55;
   cursor: pointer;
   transition: color var(--dur-fast) var(--ease-smooth), background var(--dur-fast) var(--ease-smooth),
     opacity var(--dur-fast) var(--ease-smooth);
 
   &:hover {
-    color: var(--warn-text);
-    background: color-mix(in srgb, var(--warn) 14%, transparent);
+    color: rgb(var(--orange-6));
+    background: color-mix(in srgb, rgb(var(--orange-6)) 14%, transparent);
     opacity: 1;
   }
 

@@ -78,19 +78,19 @@ function formatValue(v: unknown): string {
     </div>
     <div class="meta-body">
       <div class="meta-chips">
-        <span v-for="row in summaryRows" :key="row.labelKey" class="meta-chip">
+        <a-tag v-for="row in summaryRows" :key="row.labelKey" class="meta-chip" size="small">
           <span class="chip-key">{{ i18n.t(row.labelKey) }}</span>
           <span class="chip-eq">=</span>
           <span class="chip-val">{{ formatValue(row.value) }}</span>
-        </span>
+        </a-tag>
       </div>
       <!-- 详情常驻完整展示（无收起/展开开关）：dashed 次级分隔 -->
       <div v-if="detailRows.length" class="meta-chips details">
-        <span v-for="row in detailRows" :key="row.labelKey" class="meta-chip">
+        <a-tag v-for="row in detailRows" :key="row.labelKey" class="meta-chip" size="small">
           <span class="chip-key">{{ i18n.t(row.labelKey) }}</span>
           <span class="chip-eq">=</span>
           <span class="chip-val">{{ formatValue(row.value) }}</span>
-        </span>
+        </a-tag>
       </div>
     </div>
   </Card>
@@ -106,7 +106,7 @@ function formatValue(v: unknown): string {
 
 .meta-model-name {
   font-family: var(--font-mono);
-  color: var(--accent);
+  color: rgb(var(--primary-6));
   font-size: var(--fs-md);
   font-weight: 600;
   flex: 1;
@@ -128,33 +128,32 @@ function formatValue(v: unknown): string {
 }
 
 .meta-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  background: var(--bg-hover);
-  border-radius: var(--radius-pill);
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
+  :deep(.arco-tag-content) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
 }
 
 .chip-key {
-  color: var(--accent);
+  color: rgb(var(--primary-6));
   font-weight: 600;
 }
 
 .chip-eq {
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 .chip-val {
-  color: var(--fg-primary);
+  color: var(--color-text-1);
 }
 
 // 详情区使用更小字号和更淡的背景，与主摘要区分视觉层级
 // 次级分隔（dashed）线到内容 8px；主分隔（solid）为 14px，见 frontend.md §7.5.4
 .meta-chips.details {
   padding-top: 8px;
-  border-top: 1px dashed var(--border);
+  border-top: 1px dashed var(--color-border-2);
 }
 </style>

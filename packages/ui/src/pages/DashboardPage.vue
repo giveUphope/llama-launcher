@@ -104,7 +104,7 @@ onMounted(() => { appLog.subscribe(); });
   margin: 0;
   font-size: var(--fs-lg);
   font-weight: 600;
-  color: var(--fg-primary);
+  color: var(--color-text-1);
 }
 
 /* 迷你日志/问题区域 */
@@ -117,7 +117,7 @@ onMounted(() => { appLog.subscribe(); });
   overflow: auto;
   padding: 6px 10px;
   background: var(--console-bg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border-2);
   border-radius: var(--radius-row);
   font-family: var(--font-mono);
   font-size: var(--fs-base);
@@ -129,17 +129,17 @@ onMounted(() => { appLog.subscribe(); });
     white-space: pre-wrap;
     word-break: break-all;
     color: var(--console-fg);
-    &.kind-error { color: var(--danger); }
-    &.kind-warn { color: var(--warn); }
-    &.kind-success { color: var(--success); }
-    &.kind-info { color: var(--info); }
+    &.kind-error { color: rgb(var(--danger-6)); }
+    &.kind-warn { color: rgb(var(--orange-6)); }
+    &.kind-success { color: rgb(var(--success-6)); }
+    &.kind-info { color: rgb(var(--arcoblue-6)); }
   }
 
   .empty-text {
     /* 空态占位组件：flex 居中 + min-height 60px（父级 72px border-box − 上下 padding 12），
        垂直居中占满预留区，空态 ↔ 1–3 行条目高度恒定（#46/#47 预留位置模式；
        原定高行高方案超出预留区 12px 且违反行高语义化清单 #9，2026-09-04 改为 flex） */
-    color: var(--fg-muted);
+    color: var(--color-text-3);
     display: flex;
     align-items: center;
     justify-content: center;

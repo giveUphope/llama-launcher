@@ -145,7 +145,7 @@ const logCount = computed(() => server.outputs.length);
   gap: 8px;
   margin-bottom: 4px;
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
 }
 
 /* new-logs 左槽位常驻：预留胶囊宽度，无新日志时隐藏但占位（scroll-hint 右缘稳定） */
@@ -164,27 +164,27 @@ const logCount = computed(() => server.outputs.length);
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, rgb(var(--primary-6)) 14%, transparent);
+  color: rgb(var(--primary-6));
   border-radius: var(--radius-pill);
   cursor: pointer;
   font-weight: 600;
 
   &:hover {
-    background: color-mix(in srgb, var(--accent) 24%, transparent);
+    background: color-mix(in srgb, rgb(var(--primary-6)) 24%, transparent);
   }
 }
 
 .log-count {
   font-family: var(--font-mono);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   font-size: var(--fs-sm);
 }
 
 .console {
   background: var(--console-bg);
   color: var(--console-fg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border-2);
   border-radius: var(--radius-row);
   height: 320px;
   overflow: auto;
@@ -200,10 +200,10 @@ const logCount = computed(() => server.outputs.length);
     white-space: pre-wrap;
     word-break: break-all;
     display: block;
-    &.kind-error { color: var(--danger); }
-    &.kind-warn { color: var(--warn); }
-    &.kind-success { color: var(--success); }
-    &.kind-info { color: var(--info); }
+    &.kind-error { color: rgb(var(--danger-6)); }
+    &.kind-warn { color: rgb(var(--orange-6)); }
+    &.kind-success { color: rgb(var(--success-6)); }
+    &.kind-info { color: rgb(var(--arcoblue-6)); }
   }
 }
 </style>

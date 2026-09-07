@@ -101,7 +101,7 @@ const activeParamCount = computed(() => {
 <style scoped lang="scss">
 .summary-hint {
   font-size: var(--fs-base);
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   margin-bottom: 10px;
 }
 .summary-groups {
@@ -116,12 +116,12 @@ const activeParamCount = computed(() => {
 }
 .summary-group-title {
   font-size: var(--fs-sm);
-  color: var(--fg-secondary);
+  color: var(--color-text-2);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 600;
   padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border-2);
 }
 .summary-chips {
   display: flex;
@@ -133,12 +133,12 @@ const activeParamCount = computed(() => {
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  background: var(--bg-hover);
+  background: var(--color-fill-3);
   border-radius: var(--radius-pill);
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
 }
-.chip-key { color: var(--accent); font-weight: 600; }
-.chip-eq { color: var(--fg-muted); }
-.chip-val { color: var(--fg-primary); }
+.chip-key { color: rgb(var(--primary-6)); font-weight: 600; }
+.chip-eq { color: var(--color-text-3); }
+.chip-val { color: var(--color-text-1); }
 </style>

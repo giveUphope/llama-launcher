@@ -135,7 +135,7 @@ async function onCleanTrash() {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--fg-muted);
+  color: var(--color-text-3);
   font-size: var(--fs-sm);
   flex: 1;
   min-width: 0;
