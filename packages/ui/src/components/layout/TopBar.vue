@@ -27,6 +27,7 @@ const { applyModelPresetIfAny } = useModelPreset();
 // 模型列表（TopBar 常驻下拉用）：浅响应式——每次路由切换都会整体替换刷新，
 // 避免数百个 ModelInfo 深响应式包装的开销（与模型管理页同模式）。
 const models = shallowRef<ModelInfo[]>([]);
+// Arco Dropdown 受控显隐（trigger=click 由 a-dropdown 自行处理外部点击关闭）
 const modelDropdownOpen = ref(false);
 
 const isRunning = computed(() => server.status === 'running' || server.status === 'starting');
@@ -82,19 +83,9 @@ async function onSelectModel(path: string) {
   await applyModelPresetIfAny(path);
 }
 
-function toggleModelDropdown() {
-  modelDropdownOpen.value = !modelDropdownOpen.value;
-}
-
-// 点击外部关闭下拉
-function onDocClick() {
-  modelDropdownOpen.value = false;
-}
-
 onMounted(() => {
   void refreshModels();
   void refreshWindowState();
-  document.addEventListener('click', onDocClick);
   // 浏览器预览环境(无 Electron preload)下 window.api 未定义,需容错
   try {
     unsubModelsChanged = window.api.models.onChanged(() => {
@@ -108,7 +99,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  document.removeEventListener('click', onDocClick);
   if (unsubModelsChanged) { unsubModelsChanged(); unsubModelsChanged = null; }
   if (unsubMax) { unsubMax(); unsubMax = null; }
   if (unsubUnmax) { unsubUnmax(); unsubUnmax = null; }
@@ -174,69 +164,53 @@ async function onOpenWeb() {
       <span class="app-name">{{ APP_NAME }}</span>
     </div>
     <div class="right">
-      <!-- 模型选择常驻下拉 -->
-      <div v-if="hasModels" class="model-picker" @click.stop>
-        <button class="model-btn" @click="toggleModelDropdown" :title="currentModelName">
-          <Icon name="models" :size="14" />
+      <!-- 模型选择常驻下拉（Arco Dropdown） -->
+      <a-dropdown
+        v-if="hasModels"
+        trigger="click"
+        :popup-visible="modelDropdownOpen"
+        @popup-visible-change="(v: boolean) => (modelDropdownOpen = v)"
+      >
+        <a-button class="tb-model" :disabled="false" :title="currentModelName">
+          <template #icon><Icon name="models" :size="14" /></template>
           <span class="model-name">{{ currentModelName || i18n.t('lbl_select_model') }}</span>
-          <Icon name="chevron_down" :size="12" />
-        </button>
-        <div v-if="modelDropdownOpen" class="model-dropdown">
-          <button class="dropdown-item manage" @click="onSelectModel('')">
-            {{ i18n.t('lbl_manage_models') }}...
-          </button>
-          <div class="dropdown-divider"></div>
-          <button
+          <template #suffix><Icon name="chevron_down" :size="12" /></template>
+        </a-button>
+        <template #content>
+          <a-doption class="dd-manage" @click="onSelectModel('')">{{ i18n.t('lbl_manage_models') }}…</a-doption>
+          <a-divider class="dd-divider" />
+          <a-doption
             v-for="m in models"
             :key="m.path"
-            class="dropdown-item"
+            class="dd-item"
             :class="{ active: m.path === params.values.model }"
             @click="onSelectModel(m.path)"
-            :title="m.path"
           >
             <span class="dropdown-name">{{ m.name }}</span>
             <span class="dropdown-size">{{ m.size_str }}</span>
-          </button>
-        </div>
-      </div>
-      <button
-        class="btn btn-start"
-        :disabled="isRunning"
-        :title="i18n.t('start')"
-        @click="onStart"
-      >
-        <Icon name="play" :size="14" />
-        <span class="btn-text">{{ i18n.t('start') }}</span>
-      </button>
-      <button
-        class="btn btn-stop"
-        :disabled="!isRunning"
-        :title="i18n.t('stop')"
-        @click="onStop"
-      >
-        <Icon name="stop" :size="14" />
-        <span class="btn-text">{{ i18n.t('stop') }}</span>
-      </button>
-      <button
-        class="btn btn-restart"
-        :disabled="!isRunning"
-        :title="i18n.t('restart')"
-        @click="onRestart"
-      >
-        <Icon name="refresh" :size="14" />
-        <span class="btn-text">{{ i18n.t('restart') }}</span>
-      </button>
-      <button
-        class="btn btn-web"
-        :disabled="!isRunning"
-        :title="i18n.t('open_web')"
-        @click="onOpenWeb"
-      >
-        <Icon name="external" :size="14" />
-        <span class="btn-text">{{ i18n.t('open_web') }}</span>
-      </button>
+          </a-doption>
+        </template>
+      </a-dropdown>
 
-      <!-- 自定义窗口控制（替代原生标题栏按钮） -->
+      <!-- 服务操作（Arco Button 语义：primary 启动 / danger 停止 / warning 重启 / text 打开网页） -->
+      <a-button type="primary" :disabled="isRunning" :title="i18n.t('start')" @click="onStart">
+        <template #icon><Icon name="play" :size="14" /></template>
+        {{ i18n.t('start') }}
+      </a-button>
+      <a-button type="outline" status="danger" :disabled="!isRunning" :title="i18n.t('stop')" @click="onStop">
+        <template #icon><Icon name="stop" :size="14" /></template>
+        {{ i18n.t('stop') }}
+      </a-button>
+      <a-button type="outline" status="warning" :disabled="!isRunning" :title="i18n.t('restart')" @click="onRestart">
+        <template #icon><Icon name="refresh" :size="14" /></template>
+        {{ i18n.t('restart') }}
+      </a-button>
+      <a-button type="text" :disabled="!isRunning" :title="i18n.t('open_web')" @click="onOpenWeb">
+        <template #icon><Icon name="external" :size="14" /></template>
+        {{ i18n.t('open_web') }}
+      </a-button>
+
+      <!-- 自定义窗口控制（替代原生标题栏按钮；Electron 拖拽/窗口协议需保留定制） -->
       <div class="window-controls">
         <button class="win-btn" :title="i18n.t('win_minimize')" @click="onMinimize" aria-label="minimize">
           <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
@@ -331,8 +305,6 @@ async function onOpenWeb() {
     background: var(--bg-hover);
     color: var(--fg-primary);
   }
-
-  // 按压反馈 = 背景/边框色变化（文本按钮不再整体缩放，避免文字挤压拉伸）
 }
 
 .win-close:hover {
@@ -340,191 +312,36 @@ async function onOpenWeb() {
   color: #fff;
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 14px;
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-md);
-  color: var(--fg-primary);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  // 窄窗口下按钮文字禁止换行（此前"启动/停止/重启"被压成两行、与相邻控件重叠挤压）；
-  // 空间不足时由可收缩的模型按钮先让位
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover:not(:disabled) {
-    background: var(--bg-hover);
-  }
-
-  &:active:not(:disabled) {
-    background: var(--bg-hover);
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-}
-
-.btn-start {
-  // 主 CTA：主题化高对比按钮（深色=白底黑字 / 浅色=黑底白字，--primary-* token）
-  background: var(--primary-bg);
-  border-color: var(--primary-bg);
-  color: var(--primary-fg);
-  font-weight: 600;
-
-  &:hover:not(:disabled) {
-    background: var(--primary-hover);
-    border-color: var(--primary-hover);
-  }
-
-  &:active:not(:disabled) {
-    background: var(--primary-pressed);
-  }
-}
-
-.btn-stop {
-  color: var(--danger-text);      // 文字/描边用文字版（浅色达 AA）；hover 实底仍用亮 --danger
-  border-color: var(--danger-text);
-
-  &:hover:not(:disabled) {
-    background: var(--danger);
-    color: #fff;
-  }
-}
-
-.btn-restart {
-  color: var(--warn-text);        // 文字/描边用文字版（浅色达 AA）；hover 实底仍用亮 --warn
-  border-color: var(--warn-text);
-
-  &:hover:not(:disabled) {
-    background: var(--warn);
-    color: #1a1a1a; // warn 黄底 → 深色文字（§7.5.1：warn 底 → #1a1a1a）
-  }
-}
-
-.btn-web {
-  color: var(--accent);
-  border-color: var(--accent);
-
-  &:hover:not(:disabled) {
-    background: var(--accent);
-    color: #fff;
-  }
-}
-
-/* 模型选择常驻下拉 */
-.model-picker {
-  position: relative;
-  display: flex;
-  align-items: center;
-  // 空间不足时模型按钮先收缩（名称已有省略号），保护右侧操作按钮不换行
-  min-width: 0;
-}
-
-.model-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  color: var(--fg-primary);
-  font-size: var(--fs-base);
-  cursor: pointer;
-  max-width: 220px;
-  min-width: 0;
-  flex-shrink: 1;
-  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent);
+// 模型按钮：名称允许 220px 内收缩省略
+.tb-model {
+  :deep(.arco-btn-content) {
+    min-width: 0;
   }
 }
 
 .model-name {
-  // 同 dropdown-name：允许在 220px 按钮内收缩省略（否则长名撑出按钮描边外）
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
+  display: inline-block;
+  max-width: 180px;
 }
 
-.model-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 6px;
-  min-width: 320px;
-  max-width: 480px;
-  max-height: 360px;
-  overflow-y: auto;
-  // 浮层菜单可读性优先：实底表面。不用玻璃半透明 + backdrop-filter——
-  // ① 半透明底会让面板下方的页面/控制台内容透出，削弱文字对比度（"被遮罩影响"）；
-  // ② backdrop-filter 使面板进入独立合成层，层内文字失去亚像素抗锯齿、观感发虚。
-  // 边框/阴影保持浮层语义（STYLE_TODO #41 / §7.5.6）。
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-row);
-  box-shadow: var(--shadow-dropdown);
-  z-index: 100;
-  padding: 4px;
+// 下拉内容：普通项名称/尺寸两列；选中项 accent 淡色底 + accent 文字；管理项斜体+分割线
+.dd-manage {
+  color: var(--fg-secondary);
+  font-style: italic;
 }
-
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  border: none;
-  background: none;
-  color: var(--fg-primary);
-  font-size: var(--fs-base);
-  text-align: left;
-  cursor: pointer;
-  border-radius: var(--radius-pill);
-  transition: background var(--dur-fast) var(--ease-smooth);
-
-  &:hover {
-    background: var(--bg-hover);
-  }
-
-  &.active {
-    // 选中行：accent 淡色底 + accent 文字。原 --bg-active（深色主题 #26308F 暗蓝底）
-    // 叠 accent 蓝字对比度不足（同 STYLE_TODO #13「文字被吞」）；color-mix 淡底双主题均可读。
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    color: var(--accent);
-  }
-
-  &.manage {
-    color: var(--fg-secondary);
-    font-style: italic;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 4px;
-    // 统一圆角（原为上圆角+下方角 pill/0/0，会导致 :focus-visible 焦点环上半圆弧、下半平直，
-    // 与下方分割线叠加后"下半部分风格不统一"）。改为统一 control 圆角，焦点环各边一致，
-    // 同时用较小的圆角区别于普通下拉项的全胶囊形态，仍靠斜体/次级色/分割线维持头部语义。
-    border-radius: var(--radius-control);
-  }
+.dd-divider {
+  margin: 4px 0;
 }
-
+.dd-item.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
 .dropdown-name {
-  // flex 子项默认 min-width:auto 不收缩：长模型名会撑破面板被 overflow 裁切（尺寸列被推出面板），
-  // min-width:0 + flex:1 让省略号生效、名称列在面板内截断
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -532,16 +349,9 @@ async function onOpenWeb() {
   white-space: nowrap;
   font-family: var(--font-mono);
 }
-
 .dropdown-size {
   color: var(--fg-muted);
   font-size: var(--fs-sm);
   flex-shrink: 0;
-}
-
-.dropdown-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
 }
 </style>
