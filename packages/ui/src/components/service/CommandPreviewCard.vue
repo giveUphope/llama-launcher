@@ -83,6 +83,13 @@ onUnmounted(() => {
 
 <template>
   <Card title-key="card_cmd">
+    <!-- 复制命令上移至卡片头（与标题同行，§7.5.4 卡片头操作区） -->
+    <template #actions>
+      <a-button size="small" :disabled="!fullCommand" @click="onCopyCmd">
+        <template #icon><Icon name="copy" :size="12" /></template>
+        {{ i18n.t('copy_cmd') }}
+      </a-button>
+    </template>
     <div class="cmd-wrap">
       <!-- 内置参数命令：只读展示，随参数实时自动生成 -->
       <div class="cmd-section">
@@ -110,13 +117,6 @@ onUnmounted(() => {
           <Icon name="info" :size="11" />
           <span>{{ i18n.t('cmd_extra_hint') }}</span>
         </div>
-      </div>
-
-      <div class="cmd-actions">
-        <a-button size="small" :disabled="!fullCommand" @click="onCopyCmd">
-          <template #icon><Icon name="copy" :size="12" /></template>
-          {{ i18n.t('copy_cmd') }}
-        </a-button>
       </div>
     </div>
   </Card>
@@ -185,11 +185,5 @@ onUnmounted(() => {
   gap: 6px;
   font-size: var(--fs-sm);
   color: var(--color-text-3);
-}
-
-.cmd-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
 }
 </style>

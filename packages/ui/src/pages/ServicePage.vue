@@ -112,7 +112,8 @@ const logCount = computed(() => server.outputs.length);
       </template>
       <div class="console-header">
         <!-- 左槽位常驻：预留 new-logs 胶囊的宽度，无新日志时隐藏但占位，
-             保证右侧 scroll-hint 在 new-logs 出现/消失时水平位置稳定（不跳动）。 -->
+             保证胶囊出现/消失时不撑动布局（自动滚动状态文案已按 b8c1d59 移除，
+             暂停态由胶囊本身传达）。 -->
         <span
           class="new-logs-slot"
           :class="{ 'has-new': hasNewLogs }"
@@ -123,7 +124,6 @@ const logCount = computed(() => server.outputs.length);
             <span>{{ i18n.t('msg_new_logs') }}</span>
           </span>
         </span>
-        <span class="scroll-hint">{{ autoScroll ? i18n.t('msg_autoscroll_on') : i18n.t('msg_autoscroll_off') }}</span>
       </div>
       <div
         ref="consoleEl"
@@ -141,14 +141,14 @@ const logCount = computed(() => server.outputs.length);
 .console-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end; // 自动滚动提示已移除（b8c1d59），胶囊槽保持右侧
   gap: 8px;
   margin-bottom: 4px;
   font-size: var(--fs-sm);
   color: var(--color-text-3);
 }
 
-/* new-logs 左槽位常驻：预留胶囊宽度，无新日志时隐藏但占位（scroll-hint 右缘稳定） */
+/* new-logs 槽位常驻：预留胶囊宽度，无新日志时隐藏但占位（出现/消失不撑动布局） */
 .new-logs-slot {
   display: inline-flex;
   align-items: center;

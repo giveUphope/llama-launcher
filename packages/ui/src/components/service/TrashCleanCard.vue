@@ -111,33 +111,27 @@ async function onCleanTrash() {
 
 <template>
   <Card title-key="msg_clean_trash">
-    <div class="trash-row">
-      <div class="trash-hint">
-        <Icon name="info" :size="12" />
-        <span>{{ i18n.t('msg_trash_hint') }}</span>
-      </div>
-      <a-button type="outline" status="warning" :disabled="detecting" @click="onCleanTrash">
+    <!-- 操作按钮上移至卡片头（与标题同行，§7.5.4 卡片头操作区）；说明文字留在体内 -->
+    <template #actions>
+      <a-button type="outline" status="warning" size="small" :disabled="detecting" @click="onCleanTrash">
         <template #icon><Icon name="trash" :size="12" /></template>
         {{ detecting ? i18n.t('msg_detecting') : i18n.t('msg_detect_trash') }}
       </a-button>
+    </template>
+    <div class="trash-hint">
+      <Icon name="info" :size="12" />
+      <span>{{ i18n.t('msg_trash_hint') }}</span>
     </div>
   </Card>
 </template>
 
 <style scoped lang="scss">
-.trash-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
 .trash-hint {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   color: var(--color-text-3);
   font-size: var(--fs-sm);
-  flex: 1;
   min-width: 0;
 }
 </style>

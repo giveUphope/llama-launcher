@@ -141,6 +141,13 @@
 - [x] **mock 元数据自洽**：gguf `name` 与演示模型文件名对齐（Qwen3-32B-A3B-Instruct），建议参数 `alias` 同步为 `Qwen3-32B-A3B-Instruct-Q4_K_M`（原缺 Instruct 与列表无法对应）
 - [x] **卡片头操作区对齐**：`Card.vue` 的 `#actions` 原样塞入 arco `#extra`（无间距，按钮与计数紧贴）→ 统一包 `a-space :size="6"`（§7.5.4 卡片头操作 6px），与标题侧 a-space 同款。浏览器验证标题/按钮/计数中心线一致（799/799/799/799）、间距 6px
 
+## 收尾十二批：i18n 悬空键清理 + 卡片操作区对齐（2026-09-07）
+
+- [x] **裸键泄漏修复**：控制台渲染出原始 key `msg_autoscroll_on`——`b8c1d59` 已从 zh/en 删除该键并清理两页，Arco 迁移拉取又把引用带回。按原提交意图（暂停态由「有新日志」胶囊传达）移除 LogsPage/ServicePage 残留的 `.scroll-hint` 文案与占位样式
+- [x] **防回归检查**：新增 `scripts/verify-i18n-usage.cjs`（zh/en 键集一致性 + 源码字面量 `t('key')` 悬空引用检测），接入 `pnpm lint`；AGENTS.md 补记「删键必须清引用」约定
+- [x] **卡片操作区对齐**：`Card.vue` `#actions` 统一 `a-space :size="6"`（收尾十一批）基础上，把仍留在体内的操作按钮上移至卡片头与标题同行——CommandPreviewCard「复制命令」、TrashCleanCard「检测配置目录」（`size=small`，与控制台卡一致），体内仅保留说明文字
+- [x] 浏览器验证：服务页三张卡操作按钮与标题中心线一致（96/631/744 各自相等）；服务页与日志页 `document.body.innerText` 无任何 `msg_*/lbl_*/btn_*` 裸键泄漏；`verify-i18n-usage` 报告 zh/en 各 355 键一致、无悬空引用
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |
