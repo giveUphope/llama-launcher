@@ -77,7 +77,13 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 - **Packaging leaks**: `before-pack.cjs`/`after-pack.cjs` swap pnpm symlinks/junctions for real `dist/*.js` so `asar` excludes source/tests/config. On Windows, `fs.lstat().isSymbolicLink()` is **not** enough for junctions — the scripts use `fs.realpathSync` to detect them, and also handle broken/circular symlinks (e.g. `shamefully-hoist=true` leftovers) by falling back to root `node_modules/@llama-launcher/{core,shared}`. Keep `electron-builder.config.cjs` `signAndEditExecutable: false` (no admin signing on this setup). Because that flag also skips rcedit, `after-pack.cjs` must write the app's `VS_VERSION_INFO` (ProductName/FileDescription/OriginalFilename + app version) itself via `resedit` (pure-JS, root devDependency), then inject the icon via `inject-icon.cjs` — otherwise the packaged exe reports ProductName "Electron" in Task Manager / file properties.
 
-- **Mirrors**: `.npmrc` points electron/electron-builder at npmmirror.com — relevant if installing on a restricted network. electron 二进制缺失时（pnpm side-effects 缓存会整体跳过 electron 的 postinstall，`pnpm install`/`rebuild` 都不重下，导致无 `dist/electron.exe`）用 `pnpm reinstall:electron` 走 `.npmrc` 的 electron_mirror 补装（勿手动 `node <electron>/install.js`：不经 pnpm 拿不到镜像，会回退 GitHub 源在国内 fetch failed）。
+- **Mirrors**: `.npmrc` points electron/electron-builder at npmmirror.com — relevant if installing on a restricted network.
+
+- **Electron 二进制缺失（`pnpm dev` 报 `spawn electron ENOENT`）——按此固定流程处置，勿绕路**：
+  - **症状**：dev-watch 日志先出现 `Downloading Electron binary...` + `TypeError: fetch failed`（electron 44 的 `index.js` 在被 require 时现场下载二进制，走 GitHub 官方源），随后 `Error: spawn electron ENOENT`，dev 会话整体退出。
+  - **判定**：`apps/desktop/node_modules/electron/path.txt` 缺失（即 `dist/electron.exe` 未装）即可确诊。根因是 pnpm side-effects 缓存会整体跳过 electron 的 postinstall，`pnpm install` / `pnpm rebuild` 都不会重下。注意：`.pnpm` 下其他 electron 实例（如无后缀的 `electron@44.1.0`）存在 dist 不代表当前依赖解析实例已装，勿据此误判为已装好。
+  - **修复**：直接运行 `pnpm reinstall:electron`（读 `.npmrc` 的 `electron_mirror` 注入镜像环境变量后运行 electron 的 install.js，幂等），输出「Electron 二进制就绪」后重跑 `pnpm dev` 验证。
+  - **禁止**：手动 `node <electron>/install.js`（不经 pnpm 拿不到镜像，回退 GitHub 源在国内 fetch failed）；反复 `pnpm install` / `pnpm rebuild`（无效，不会重下）；为此改动 `scripts/dev-watch.cjs` 或硬编码二进制路径。
 
 ## Docs to read before sensitive changes
 
