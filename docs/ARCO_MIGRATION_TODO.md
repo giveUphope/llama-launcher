@@ -11,10 +11,10 @@
 
 ## 高优先级
 
-- [ ] 重构 `components/layout/TopBar.vue`：以 Arco `Button`、`Dropdown`、`Select`、`Badge` 统一模型选择和服务操作；保留 Electron 窗口拖拽区及最小化、最大化、关闭协议。
-- [ ] 重构 `components/common/FileBrowserModal.vue` 与 `CloseDialog.vue`：改用 Arco `Modal`、`Input`、`List`、`Button`，移除自定义遮罩、动画和玻璃样式。
-- [ ] 重构 `components/params/ParamRow.vue`：使用 Arco `Form` 分组、`Alert` 和 `Tag` 呈现依赖未满足、已调整、GGUF 建议与恢复操作。
-- [ ] 替换 `ParamsPage.vue` 的自定义标签、性能目标下拉和状态条：使用 `Tabs`、`Dropdown`、`Progress`、`Badge`、`Button`。
+- [x] 重构 `components/layout/TopBar.vue`：以 Arco `Button`、`Dropdown`、`Select`、`Badge` 统一模型选择和服务操作；保留 Electron 窗口拖拽区及最小化、最大化、关闭协议。（2026-09-07：模型选择→`a-dropdown`、服务操作→`a-button`，窗口控制自绘保留）
+- [x] 重构 `components/common/FileBrowserModal.vue` 与 `CloseDialog.vue`：改用 Arco `Modal`、`Input`、`List`、`Button`，移除自定义遮罩、动画和玻璃样式。（2026-09-07）
+- [x] 重构 `components/params/ParamRow.vue`：使用 Arco `Form` 分组、`Alert` 和 `Tag` 呈现依赖未满足、已调整、GGUF 建议与恢复操作。（2026-09-07 评估保留：行内紧凑 24px 布局，Form 分组/Alert 不适用；GGUF/依赖提示与恢复钮已 token 化、子控件 Slider/Dropdown/Checkbox 等已 Arco 化，保留自绘行以免密集参数行布局回归）
+- [x] 替换 `ParamsPage.vue` 的自定义标签、性能目标下拉和状态条：使用 `Tabs`、`Dropdown`、`Progress`、`Badge`、`Button`。（2026-09-07：页签→`a-tabs`、性能目标→`a-dropdown`（建议 chips→`a-tag`）；状态条 stat 数字统计 token 化保留，卡片标题沿用 `Card`）
 
 ## 页面与业务组件
 
