@@ -45,12 +45,19 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **建议修复**（若后续要求全区域达 AA-normal）：① 蓝角调更亮（如 #E7EFFA，亮度↑）使 muted≥4.5；或 ② `--fg-muted` 再降到 ~#5C6470（会压缩与 secondary 层级差）；或 ③ 给落在蓝角的 muted 文本加白底衬底/描边。
 - **修复效果验证**：node 对比度脚本核算 `--fg-muted × --bg-grad-1/3 ≥ 4.5`；双主题截图核对辅助文字（占位符/空态/时间戳）清晰；`pnpm style:audit` 全绿。
 
-### 54. Sidebar 版本号裸字号 12px — 🔴 待修复
+### 54. Sidebar 版本号裸字号 12px — 🟢 已修复（2026-09-07）
 
 - **位置**：`packages/ui/src/components/layout/Sidebar.vue:70`（`.version { font-size: 12px }`）。
 - **描述**：Arco 全站迁移后 `pnpm style:audit` 第 2 条（裸字号）的唯一残留命中点（2026-09-07 收尾二批跑审计时发现，系迁移提交带入的存量问题，非该批引入）；12px 对应语义 token `--fs-sm`（§7.5.1）。
-- **建议修复**：`font-size: 12px` → `var(--fs-sm)`（同为 12px，纯 token 化无视觉变化）。
-- **修复效果验证**：`pnpm style:audit` 第 2 条全绿；侧边栏底部版本号渲染尺寸不变（双主题目验）。
+- **修复**：`font-size: 12px` → `var(--fs-sm)`（同为 12px，纯 token 化无视觉变化）。
+- **修复效果验证**：`pnpm style:audit` 第 2 条全绿（10/10）。
+
+### 55. 设计 token 文档漂移：theme.scss 已扁平化为「纯 Arco 默认」，§7.5.3/§7.5.6 与 AGENTS.md 仍描述旧胶囊/玻璃体系 — 🟡 待确认（文档专项）
+
+- **位置**：`packages/ui/src/styles/theme.scss:29-48`（注释「迁移兼容层：业务组件替换前，将旧语义映射到 Arco token」）对照 `docs/frontend.md` §7.5.3（圆角体系：pill 999/20/10/8）、§7.5.6（glassmorphism）、AGENTS.md「UI 风格规范」条目（11–16px 字号刻度、玻璃阴影）。
+- **描述**：迁移提交（e07e465 等）将圆角三 token 统一为 4px、`--glass-blur: 0px`、`--ease-jelly/smooth: ease`、字号刻度收敛（`--fs-xs/sm` 同为 12px、`--fs-md/lg` 同为 14px）、字体栈改为 Cascadia Code mono——即运行时真实体系已是「Arco 默认 + 业务色」。但规范文档（frontend.md §7.5 主体、AGENTS.md 风格条目）仍按旧胶囊/玻璃体系描述并作为 style:audit 部分规则的依据，两套描述并存导致「按文档检查代码」与「按代码检查代码」结论不一致。`ARCO_MIGRATION_TODO.md` 已将 §7.5 回写挂为文档专项。
+- **建议修复**：文档专项一次性回写 §7.5（圆角/玻璃/动效/字号/字体小节）与 AGENTS.md 风格条目到扁平化现状，或确认恢复旧视觉体系后回滚 theme.scss 兼容层；二者取一，消除双体系并存。
+- **修复效果验证**：`pnpm docs:check` 通过；`pnpm style:audit` 各条与文档描述一致（对同一文件不再出现「文档允许、审计违规」或反向的分歧）；抽查 3 个组件（如 cat-chip 圆角、InfoStrip 值盒高度、按钮缓动）文档描述 = 计算样式。
 
 ***
 

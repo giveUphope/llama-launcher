@@ -67,6 +67,6 @@ function navigate(key: string | number) {
 
 .version {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 </style>
