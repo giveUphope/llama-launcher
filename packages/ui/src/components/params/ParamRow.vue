@@ -109,17 +109,19 @@ function onClear() {
         <FileParam v-else-if="p.type === 'file' || p.type === 'dir'" :p="p" />
         <TextParam v-else :p="p" />
       </div>
-      <span
+      <a-tag
+        v-if="ggufHint !== null"
+        size="small"
         class="gguf-hint"
-        :class="{ applicable: hasGgufSuggestion, empty: ggufHint === null }"
-        :title="hasGgufSuggestion ? i18n.t('msg_click_to_apply') : (ggufHint !== null ? i18n.t('msg_gguf_model_value') : '')"
+        :class="{ applicable: hasGgufSuggestion }"
+        :title="hasGgufSuggestion ? i18n.t('msg_click_to_apply') : i18n.t('msg_gguf_model_value')"
         @click="hasGgufSuggestion && applyGgufHint()"
-      >
-        <template v-if="ggufHint !== null">{{ ggufHint }}</template>
-      </span>
-      <span v-if="showDepWarning" class="dep-hint" :title="dependencyHint">
-        <Icon name="alert" :size="12" />
-      </span>
+      >{{ ggufHint }}</a-tag>
+      <a-tooltip v-if="showDepWarning" :content="dependencyHint">
+        <span class="dep-hint">
+          <Icon name="alert" :size="12" />
+        </span>
+      </a-tooltip>
     </div>
     <a-button
       v-if="hasChange"
@@ -188,28 +190,16 @@ function onClear() {
   }
 }
 
+// GGUF 值提示：a-tag 承载（同 meta-chip/summary-chip 范式）；有建议时可点击应用
 .gguf-hint {
   font-size: var(--fs-xs);
   font-family: var(--font-mono);
   color: var(--color-text-3);
   background: var(--color-fill-3);
-  padding: 0 5px;
-  border-radius: var(--radius-pill);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   flex: 0 1 auto;
   min-width: 44px;
   max-width: 72px;
   text-align: center;
-
-  &.empty {
-    background: none;
-    min-width: 0;
-    width: 0;
-    padding: 0;
-    max-width: 0;
-  }
 
   &.applicable {
     color: rgb(var(--primary-6));
@@ -223,6 +213,7 @@ function onClear() {
   color: rgb(var(--orange-6));
   font-size: var(--fs-sm);
   flex-shrink: 0;
+  display: inline-flex;
   cursor: help;
 }
 

@@ -72,6 +72,30 @@
 
 保留不动（均有在案记录）：`LogsPage .level-chip` 筛选 chip、`DownloadCard .result-item/.url-history-item` 列表项按钮（STYLE_TODO #135）、TopBar `win-btn` 窗口控制（高优先级批次）、`ParamRow` 24px 紧凑行布局（高优先级批次评估结论）。扫描中顺带发现的存量裸字号 `Sidebar.vue .version 12px` 登记 STYLE_TODO #54，不在本批修复。
 
+## 收尾三批：完全迁移（2026-09-07，用户确认「全部迁至 Arco」方向）
+
+逐页面/逐组件全量盘点（源码 `<a-*` 扫描 + 原生 `<input>/<select>/<textarea>/<button>` 清点 + 浏览器 DOM 计算样式核验），最后一批自绘交互控件迁移完成：
+
+- [x] `LogsPage.vue` 级别筛选 `.level-chip` 原生 button ×5 → `a-radio-group type="button" size="small"` + `a-radio`（图标+文案进 radio 插槽；选择语义由组件承载，浏览器验证 WARN 筛选生效）
+- [x] `DownloadCard.vue` URL 历史 Teleport 面板 + `.url-history-item` 原生 button → `a-dropdown`（受控 `popup-visible` + `popup-container="body"` + `a-dgroup` 标题 + `a-doption` 项）——手工定位、外点关闭、ESC、resize 监听全部删除，由 Arco Trigger 托管（浏览器验证弹层/回填/解析链路）
+- [x] `DownloadCard.vue` 搜索结果 `.result-item` 原生 button → `a-list`/`a-list-item`（`:bordered="false"` + 条目间距覆盖；demo 数据流不产生多结果列表，静态验证 + lint 覆盖）
+- [x] `ParamRow.vue` GGUF 值提示 `.gguf-hint` span → `a-tag size="small"`（applicable 态保留点击应用 + 下划线提示；空值由 `v-if` 承接，不再需要 width:0 占位）
+- [x] `ParamRow.vue` 依赖警示 `.dep-hint` 原生 title → `a-tooltip`（`content` 承载依赖说明）
+- [x] 文档专项（STYLE_TODO #55 结案）：frontend.md §7.5.1–7.5.8 按「Arco 默认 + 业务 token」现状重写；AGENTS.md 风格条目同步
+
+### 逐页面迁移矩阵（最终态）
+
+| 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |
+| --- | --- | --- |
+| 概览 Dashboard | a-button / Card(a-card) / InfoStrip(a-descriptions) / a-tag | 统计数字排版（展示层） |
+| 模型管理 | a-tabs / a-table / a-input / a-tag / a-checkbox / a-pagination / a-progress / checkable a-tag / a-list / a-dropdown+doption | `.file-item` 行选中（checkbox + 行点击，展示层） |
+| 服务 | a-alert / a-textarea / a-tag / a-button | 命令预览恒深底样式（§7.5.1 恒定深色面） |
+| 参数设置 | a-tabs / a-dropdown / a-form-item / a-slider / a-input-number / a-select / a-switch / a-checkbox / a-input-group / a-tag / a-tooltip / a-button(text/mini/circle) | ParamRow 24px 紧凑行容器（承载层，控件全 Arco） |
+| 日志 | a-radio-group(button) / a-input / a-button | 控制台行着色（恒深底语义） |
+| 内置 Web UI | a-result / WebUiFrame(iframe 生命周期) | iframe 本体 |
+| 应用设置 | a-tabs / a-select / a-radio-group / a-input / a-button / InfoStrip | — |
+| 布局 | a-layout / a-layout-sider / a-menu / a-badge / a-dropdown / a-typography / a-modal（全局弹窗） | **TopBar `win-btn` ×3**（Electron 无边框窗口协议，Arco 无对应物，唯一保留的自绘控件）；PageHost/PageFrame/AppLogo（非交互：布局壳/图片） |
+
 ## 每批验收
 
 - [x] `pnpm lint`（2026-09-07 全绿：4 包 + IPC 56 通道同步 + docs 链接 131 全有效）

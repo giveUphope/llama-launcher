@@ -26,8 +26,6 @@ const LEVELS: Array<{ key: AppLogKind | 'all'; label: string; icon: string }> = 
   { key: 'error', label: 'ERROR', icon: 'error' },
 ];
 
-const filterChips = computed(() => LEVELS);
-
 function setLevel(l: AppLogKind | 'all') {
   levelFilter.value = l;
 }
@@ -128,18 +126,18 @@ function onScroll() {
   <PageFrame>
     <!-- 级别筛选 + 搜索 + 操作按钮：同一行（按钮右对齐） -->
     <div class="filter-row">
-      <div class="level-chips">
-        <button
-          v-for="l in filterChips"
-          :key="l.key"
-          class="level-chip"
-          :class="{ active: levelFilter === l.key }"
-          @click="setLevel(l.key)"
-        >
+      <a-radio-group
+        class="level-filter"
+        type="button"
+        size="small"
+        :model-value="levelFilter"
+        @change="(v) => setLevel(v as AppLogKind | 'all')"
+      >
+        <a-radio v-for="l in LEVELS" :key="l.key" :value="l.key">
           <Icon :name="l.icon" :size="11" />
           <span>{{ l.label }}</span>
-        </button>
-      </div>
+        </a-radio>
+      </a-radio-group>
       <div class="search-box">
         <a-input
           v-model="searchQuery"
@@ -226,36 +224,14 @@ function onScroll() {
   flex-wrap: wrap;
 }
 
-.level-chips {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+// 级别筛选：Arco radio-group（button 型）替代自绘筛选 chip；
+// 仅保留换行与图标对齐覆盖，其余走 Arco 默认
+.level-filter {
   flex-wrap: wrap;
-}
-
-.level-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: var(--radius-pill);
-  background: var(--color-fill-2);
-  border: 1px solid var(--color-border-2);
-  color: var(--color-text-2);
-  font-size: var(--fs-sm);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
-    color var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover {
-    background: var(--color-fill-3);
-  }
-
-  &.active {
-    background: rgb(var(--primary-6));
-    border-color: rgb(var(--primary-6));
-    color: var(--primary-fg);
+  :deep(.arco-radio) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
 }
 

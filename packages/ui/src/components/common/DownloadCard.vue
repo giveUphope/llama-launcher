@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import { useSettingsStore } from '@/stores/settings';
@@ -42,28 +42,13 @@ const parseError = ref('');
 // 应用退出（进程结束）才清空，隐藏到托盘（进程仍在）时保留。
 const { urlHistory, rememberUrl } = useUrlHistory();
 
-// 历史面板（点击空白输入框时在下方弹出）
+// 历史面板（点击空白输入框时在下方弹出）：a-dropdown 受控模式托管弹出定位、
+// 外点关闭与 body 传送，本组件只管开合条件
 const historyOpen = ref(false);
-const urlInputRef = ref<any>(null);
-const historyPanelRef = ref<HTMLElement | null>(null);
-const historyPanelStyle = ref<Record<string, string>>({});
-
-function updateHistoryPanelPosition() {
-  const el: HTMLElement | undefined = urlInputRef.value?.$el;
-  if (!el) return;
-  const rect = el.getBoundingClientRect();
-  historyPanelStyle.value = {
-    position: 'fixed',
-    top: `${rect.bottom + 4}px`,
-    left: `${rect.left}px`,
-    minWidth: `${rect.width}px`,
-  };
-}
 
 // 输入框为空且有历史时，聚焦即弹出历史列表
 function onUrlFocus() {
   if (urlInput.value.trim() !== '' || urlHistory.value.length === 0) return;
-  updateHistoryPanelPosition();
   historyOpen.value = true;
 }
 
@@ -72,46 +57,17 @@ function onUrlInput() {
   if (urlInput.value.trim() !== '') historyOpen.value = false;
 }
 
+// a-dropdown 可见性变化：仅消费关闭事件（打开只由 onUrlFocus 的条件触发）
+function onHistoryVisibleChange(visible: boolean) {
+  if (!visible) historyOpen.value = false;
+}
+
 // 点击历史项：回填并直接解析
 function pickHistoryUrl(url: string) {
   historyOpen.value = false;
   urlInput.value = url;
   void onParseUrl();
 }
-
-// 点击外部关闭（同时检查输入行与 Teleport 到 body 的面板）
-function handleHistoryClickOutside(e: MouseEvent) {
-  const target = e.target as Node;
-  const inputEl = urlInputRef.value?.$el as HTMLElement | undefined;
-  if (inputEl?.contains(target)) return;
-  if (historyPanelRef.value?.contains(target)) return;
-  historyOpen.value = false;
-}
-
-function handleHistoryKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && historyOpen.value) {
-    historyOpen.value = false;
-  }
-}
-
-// 窗口大小变化或滚动时重新定位（或关闭）
-function onHistoryReposition() {
-  if (historyOpen.value) updateHistoryPanelPosition();
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleHistoryClickOutside);
-  document.addEventListener('keydown', handleHistoryKeydown);
-  window.addEventListener('resize', onHistoryReposition);
-  window.addEventListener('scroll', onHistoryReposition, true);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleHistoryClickOutside);
-  document.removeEventListener('keydown', handleHistoryKeydown);
-  window.removeEventListener('resize', onHistoryReposition);
-  window.removeEventListener('scroll', onHistoryReposition, true);
-});
 
 // 拖拽状态(用计数器避免子元素切换导致的闪烁)
 const dragDepth = ref(0);
@@ -695,19 +651,40 @@ function quantTooltip(q: QuantizationInfo | null): string {
         @dragleave.prevent="onDragLeave"
         @drop.prevent="onDrop"
       >
-        <a-input
-          ref="urlInputRef"
-          v-model="urlInput"
-          :allow-clear="true"
-          class="url-input"
-          :placeholder="isDragging ? i18n.t('lbl_drag_url_hint') : i18n.t('lbl_download_url_hint')"
-          @focus="onUrlFocus"
-          @click="onUrlFocus"
-          @input="onUrlInput"
-          @press-enter="onParseUrl"
+        <a-dropdown
+          class="url-dd"
+          position="bl"
+          trigger="click"
+          :popup-visible="historyOpen"
+          popup-container="body"
+          @popup-visible-change="onHistoryVisibleChange"
         >
-          <template #prefix><Icon name="link" :size="14" class="url-input-icon" /></template>
-        </a-input>
+          <a-input
+            v-model="urlInput"
+            :allow-clear="true"
+            class="url-input"
+            :placeholder="isDragging ? i18n.t('lbl_drag_url_hint') : i18n.t('lbl_download_url_hint')"
+            @focus="onUrlFocus"
+            @click="onUrlFocus"
+            @input="onUrlInput"
+            @press-enter="onParseUrl"
+          >
+            <template #prefix><Icon name="link" :size="14" class="url-input-icon" /></template>
+          </a-input>
+          <template #content>
+            <a-dgroup :title="i18n.t('lbl_recent_urls')" />
+            <a-doption
+              v-for="u in urlHistory"
+              :key="u"
+              class="url-history-item"
+              :title="u"
+              @click="pickHistoryUrl(u)"
+            >
+              <Icon name="link" :size="11" class="url-history-icon" />
+              <span class="url-history-text">{{ u }}</span>
+            </a-doption>
+          </template>
+        </a-dropdown>
         <a-button
           type="primary"
           :disabled="!urlInput.trim() || parsing"
@@ -717,29 +694,6 @@ function quantTooltip(q: QuantizationInfo | null): string {
           {{ parsing ? i18n.t('msg_parsing') : i18n.t('btn_parse_url') }}
         </a-button>
       </div>
-
-      <!-- 会话级 URL 历史面板：点击空白输入框弹出，Teleport 到 body 脱离父级层叠上下文 -->
-      <Teleport to="body">
-        <div
-          v-if="historyOpen && urlHistory.length > 0"
-          ref="historyPanelRef"
-          class="url-history-panel"
-          :style="historyPanelStyle"
-          @click.stop
-        >
-          <div class="url-history-title">{{ i18n.t('lbl_recent_urls') }}</div>
-          <button
-            v-for="u in urlHistory"
-            :key="u"
-            class="url-history-item"
-            :title="u"
-            @click="pickHistoryUrl(u)"
-          >
-            <Icon name="link" :size="11" class="url-history-icon" />
-            <span class="url-history-text">{{ u }}</span>
-          </button>
-        </div>
-      </Teleport>
 
       <!-- 错误提示 -->
       <div v-if="parseError" class="error-msg">{{ parseError }}</div>
@@ -756,8 +710,8 @@ function quantTooltip(q: QuantizationInfo | null): string {
         <div class="section-title">
           {{ i18n.t('lbl_search_results') }} ({{ searchResults.length }})
         </div>
-        <div class="result-list">
-          <button
+        <a-list class="result-list" :bordered="false" size="small">
+          <a-list-item
             v-for="m in pagedResults"
             :key="m.id"
             class="result-item"
@@ -769,8 +723,8 @@ function quantTooltip(q: QuantizationInfo | null): string {
               <span v-if="m.downloads">{{ i18n.t('col_size') }}: {{ formatBytes(m.storageSize) }}</span>
               <span v-if="m.license">{{ m.license }}</span>
             </div>
-          </button>
-        </div>
+          </a-list-item>
+        </a-list>
         <div v-if="resultsTotalPages > 1" class="pager">
           <a-pagination
             class="dl-pager"
@@ -1009,6 +963,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   }
 }
 
+// a-dropdown 触发器直接渲染（无包装层），a-input 自身 flex:1 撑满 url-row
 .url-input {
   flex: 1;
 }
@@ -1092,10 +1047,22 @@ function quantTooltip(q: QuantizationInfo | null): string {
   gap: 6px;
 }
 
+/* 搜索结果列表：a-list 承载，仅保留条目间距与紧凑化覆盖 */
 .result-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  background: none;
+
+  :deep(.arco-list-content) {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0;
+  }
+
+  :deep(.arco-list-item) {
+    padding: 0;
+    border-bottom: none;
+    background: none;
+  }
 }
 
 .result-item {
@@ -1107,9 +1074,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   border: 1px solid var(--color-border-2);
   background: var(--color-fill-2);
   cursor: pointer;
-  text-align: left;
-  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
+  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth);
 
   &:hover {
     background: var(--color-fill-3);
@@ -1453,52 +1418,11 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 </style>
 
-<!-- 历史面板样式：Teleport 到 body 后需用非 scoped 样式才能生效 -->
+<!-- URL 历史下拉样式：popup 由 a-dropdown 传送到 body，需非 scoped 样式；
+     实底浮层（STYLE_TODO #41 / §7.5.6）与阴影/圆角均走 Arco 默认，仅补条目排版。
+     Dgroup 渲染为 Fragment（标题 li 直接暴露），故按 .arco-dropdown-group-title 覆盖 -->
 <style lang="scss">
-.url-history-panel {
-  z-index: 9999;
-  max-height: 240px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 4px;
-  border-radius: var(--radius-row);
-  // 实底浮层（STYLE_TODO #41 / §7.5.6）：可读性优先，不用半透明玻璃 + backdrop-filter
-  background: var(--color-bg-2);
-  border: 1px solid var(--color-border-2);
-  box-shadow: var(--shadow-dropdown);
-  animation: url-history-panel-in var(--dur-fast) var(--ease-jelly);
-
-  &::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--color-border-2);
-    border-radius: var(--radius-pill);
-
-    &:hover {
-      background: var(--color-text-3);
-    }
-  }
-}
-
-@keyframes url-history-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.url-history-title {
+.arco-dropdown-group-title {
   padding: 4px 10px 6px;
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -1508,25 +1432,11 @@ function quantTooltip(q: QuantizationInfo | null): string {
   user-select: none;
 }
 
-.url-history-panel .url-history-item {
+.arco-dropdown-option.url-history-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: none;
-  color: var(--color-text-1);
-  font-size: var(--fs-base);
-  text-align: left;
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover {
-    background: var(--color-fill-3);
-  }
-
+  max-width: 480px;
 }
 
 .url-history-icon {

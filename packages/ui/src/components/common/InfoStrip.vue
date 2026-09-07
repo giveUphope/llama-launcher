@@ -2,7 +2,7 @@
 // 水平 label-value 信息行：替代 SettingsPage 的 .form-row + .field-label 重复模式。
 // 用法：
 //   <InfoStrip label="引擎目录" :value="llamaDir" mono />
-//   <InfoStrip :label="t('lbl_theme_mode')"> <select> ... </select> </InfoStrip>
+//   <InfoStrip :label="t('lbl_theme_mode')"> <a-select> ... </a-select> </InfoStrip>
 //
 // variant: default（fg-primary 正文）/ mono（等宽，路径/数值）/ warn / success / muted
 // boxed: 值盒变体——内容装入统一文本框（高 26px、胶囊、bg-input + 边框、内容省略截断），

@@ -52,12 +52,12 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：`font-size: 12px` → `var(--fs-sm)`（同为 12px，纯 token 化无视觉变化）。
 - **修复效果验证**：`pnpm style:audit` 第 2 条全绿（10/10）。
 
-### 55. 设计 token 文档漂移：theme.scss 已扁平化为「纯 Arco 默认」，§7.5.3/§7.5.6 与 AGENTS.md 仍描述旧胶囊/玻璃体系 — 🟡 待确认（文档专项）
+### 55. 设计 token 文档漂移：theme.scss 已扁平化为「纯 Arco 默认」，§7.5.3/§7.5.6 与 AGENTS.md 仍描述旧胶囊/玻璃体系 — 🟢 已修复（2026-09-07，方向确认：完全迁移至 Arco）
 
-- **位置**：`packages/ui/src/styles/theme.scss:29-48`（注释「迁移兼容层：业务组件替换前，将旧语义映射到 Arco token」）对照 `docs/frontend.md` §7.5.3（圆角体系：pill 999/20/10/8）、§7.5.6（glassmorphism）、AGENTS.md「UI 风格规范」条目（11–16px 字号刻度、玻璃阴影）。
-- **描述**：迁移提交（e07e465 等）将圆角三 token 统一为 4px、`--glass-blur: 0px`、`--ease-jelly/smooth: ease`、字号刻度收敛（`--fs-xs/sm` 同为 12px、`--fs-md/lg` 同为 14px）、字体栈改为 Cascadia Code mono——即运行时真实体系已是「Arco 默认 + 业务色」。但规范文档（frontend.md §7.5 主体、AGENTS.md 风格条目）仍按旧胶囊/玻璃体系描述并作为 style:audit 部分规则的依据，两套描述并存导致「按文档检查代码」与「按代码检查代码」结论不一致。`ARCO_MIGRATION_TODO.md` 已将 §7.5 回写挂为文档专项。
-- **建议修复**：文档专项一次性回写 §7.5（圆角/玻璃/动效/字号/字体小节）与 AGENTS.md 风格条目到扁平化现状，或确认恢复旧视觉体系后回滚 theme.scss 兼容层；二者取一，消除双体系并存。
-- **修复效果验证**：`pnpm docs:check` 通过；`pnpm style:audit` 各条与文档描述一致（对同一文件不再出现「文档允许、审计违规」或反向的分歧）；抽查 3 个组件（如 cat-chip 圆角、InfoStrip 值盒高度、按钮缓动）文档描述 = 计算样式。
+- **位置**：`packages/ui/src/styles/theme.scss:29-48`（注释「迁移兼容层：业务组件替换前，将旧语义映射到 Arco token」）对照 `docs/frontend.md` §7.5.3（圆角体系：pill 999/20/10/8）、§7.5.6（glassmorphism）、AGENTS.md「UI 风格规范」条目。
+- **描述**：迁移提交（e07e465 等）将圆角三 token 统一为 4px、`--glass-blur: 0px`、`--ease-jelly/smooth: ease`、字号刻度收敛、字体栈改为 Cascadia Code mono——运行时真实体系已是「Arco 默认 + 业务色」，而规范文档仍按旧胶囊/玻璃体系描述。
+- **修复**：用户确认方向为「完全迁移至 Arco」→ 文档回写：frontend.md §7.5.1/7.5.2/7.5.3/7.5.5/7.5.6/7.5.7/7.5.8 按「Arco 默认 + 业务 token」现状重写；AGENTS.md 风格条目同步。
+- **修复效果验证**：`pnpm docs:check` 通过；`pnpm style:audit` 全绿；抽查组件计算样式与文档描述一致（cat-chip 圆角 4px、InfoStrip 值盒 26px、按钮 Arco 默认态）。
 
 ***
 
@@ -148,3 +148,4 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - 本清单历史修复项（#1–#53）继续有效；新增或回归的手写样式应先对照 §7.5 与上述迁移边界。
 - 2026-09-07 补充：残留 `action-btn`/`mini-btn`/`tab-btn`/`theme-opt` 按钮已全部迁移到 `a-button`/`a-tabs`/`a-radio-group`（这些类原先依赖已删除的 `buttons.scss`，迁移前为无样式裸元素）；仅保留窗口控制 `win-btn`、列表项类按钮（`.result-item`/`.url-history-item`）与带 scoped 样式的筛选 chip（`.level-chip`）。
 - 2026-09-07 收尾二批（迁移后原生控件残留审计，明细见 `../ARCO_MIGRATION_TODO.md` 同名节）：`path-input` ×3 → `a-input`、`cmd-preview` 原生 textarea ×2 → `a-textarea`、`summary-chip` → `a-tag`、DownloadCard 类别筛选 `.chip` → checkable `a-tag`（更名 `.cat-chip`）、`ParamRow .clear-btn` → `a-button text/mini/circle`；§7.5.4 ⑥ 的 DownloadCard chip 类名引用同步更名。
+- 2026-09-07 收尾三批（完全迁移，用户确认方向）：最后一批自绘交互控件清零——`LogsPage .level-chip` 筛选 chip → `a-radio-group type="button"`、`DownloadCard .url-history-item` → `a-dropdown` + `a-doption`（含 `.arco-dropdown-group-title` 标题）、`.result-item` → `a-list`/`a-list-item`、`ParamRow .gguf-hint` → `a-tag`、`.dep-hint` → `a-tooltip`。**唯一保留的自绘控件 = TopBar `win-btn` 窗口控制**（Electron 无边框窗口协议，Arco 无对应物）；AppLogo（img）、PageHost/PageFrame（布局壳）非交互控件，不属迁移范畴。
