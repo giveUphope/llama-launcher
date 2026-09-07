@@ -3,7 +3,6 @@
 // 设计稿 §14.10：检查更新（仓库未提供能力时不实现）放入此分组。
 import { computed } from 'vue';
 import Card from '@/components/common/Card.vue';
-import InfoStrip from '@/components/common/InfoStrip.vue';
 import Icon from '@/components/common/Icon.vue';
 import AppLogo from '@/components/common/AppLogo.vue';
 import { APP_NAME, APP_VERSION } from '@llama-launcher/shared';
@@ -31,21 +30,23 @@ async function onOpenUrl(url: string) {
         <span class="about-app-version">v{{ versionLabel }}</span>
       </div>
     </div>
-    <InfoStrip :label="i18n.t('msg_about_version')">
-      <span class="version-badge">{{ versionLabel }}</span>
-    </InfoStrip>
-    <InfoStrip :label="i18n.t('msg_about_repo')">
-      <a-button type="text" size="small" @click="onOpenUrl(repoUrl)">
-        <template #icon><Icon name="external" :size="12" /></template>
-        <span>{{ repoUrl }}</span>
-      </a-button>
-    </InfoStrip>
-    <InfoStrip :label="i18n.t('msg_about_releases')">
-      <a-button type="text" size="small" @click="onOpenUrl(releasesUrl)">
-        <template #icon><Icon name="external" :size="12" /></template>
-        <span>{{ releasesUrl }}</span>
-      </a-button>
-    </InfoStrip>
+    <a-descriptions class="about-desc" :column="1" size="small" :align="{ label: 'right' }">
+      <a-descriptions-item :label="i18n.t('msg_about_version')">
+        <span class="version-badge">{{ versionLabel }}</span>
+      </a-descriptions-item>
+      <a-descriptions-item :label="i18n.t('msg_about_repo')">
+        <a-button type="text" size="small" @click="onOpenUrl(repoUrl)">
+          <template #icon><Icon name="external" :size="12" /></template>
+          <span>{{ repoUrl }}</span>
+        </a-button>
+      </a-descriptions-item>
+      <a-descriptions-item :label="i18n.t('msg_about_releases')">
+        <a-button type="text" size="small" @click="onOpenUrl(releasesUrl)">
+          <template #icon><Icon name="external" :size="12" /></template>
+          <span>{{ releasesUrl }}</span>
+        </a-button>
+      </a-descriptions-item>
+    </a-descriptions>
   </Card>
 </template>
 

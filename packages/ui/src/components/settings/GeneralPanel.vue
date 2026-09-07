@@ -4,7 +4,6 @@
 // 原独立「llama.cpp」标签（LlamaPanel）已整合为本卡片内的引擎目录行。
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import Card from '@/components/common/Card.vue';
-import InfoStrip from '@/components/common/InfoStrip.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
 import { useSettingsStore } from '@/stores/settings';
@@ -178,43 +177,47 @@ const closeBehavior = computed<CloseBehavior>({
       </span>
     </template>
 
-    <InfoStrip :label="i18n.t('lbl_dir_path')">
-      <div class="path-row">
-        <a-input v-model="modelsDir" class="path-input" size="small" />
-        <a-button size="small" @click="onBrowseModelDir">
-          <template #icon><Icon name="folder" :size="12" /></template>
-          {{ i18n.t('btn_change_dir') }}
-        </a-button>
-        <a-button size="small" :disabled="!modelsDir" @click="onOpenModelDir" :title="i18n.t('btn_open_dir')">
-          <template #icon><Icon name="folder_open" :size="12" /></template>
-          {{ i18n.t('btn_open_dir') }}
-        </a-button>
-      </div>
-    </InfoStrip>
+    <a-form :model="{}" layout="horizontal" label-align="right"
+            :label-col-style="{ flex: '0 1 110px', minWidth: '64px', marginRight: '8px' }"
+            :wrapper-col-style="{ flex: '1 1 0', minWidth: '0' }">
+      <a-form-item :label="i18n.t('lbl_dir_path')">
+        <div class="path-row">
+          <a-input v-model="modelsDir" class="path-input" size="small" />
+          <a-button size="small" @click="onBrowseModelDir">
+            <template #icon><Icon name="folder" :size="12" /></template>
+            {{ i18n.t('btn_change_dir') }}
+          </a-button>
+          <a-button size="small" :disabled="!modelsDir" @click="onOpenModelDir" :title="i18n.t('btn_open_dir')">
+            <template #icon><Icon name="folder_open" :size="12" /></template>
+            {{ i18n.t('btn_open_dir') }}
+          </a-button>
+        </div>
+      </a-form-item>
 
-    <InfoStrip :label="i18n.t('lbl_exe_dir')">
-      <div class="path-row">
-        <a-input v-model="llamaDir" class="path-input" size="small" />
-        <a-button size="small" @click="onBrowseExeDir">
-          <template #icon><Icon name="folder" :size="12" /></template>
-          {{ i18n.t('btn_change_dir') }}
-        </a-button>
-        <ToolTip v-if="exeBadge" :text="exeBadge.tip">
-          <span class="exe-status" :class="exeBadge.cls">
-            <Icon :name="exeBadge.icon" :size="12" :class="{ spinning: exeBadge.spin }" />
-            <span>{{ exeBadge.label }}</span>
-          </span>
-        </ToolTip>
-      </div>
-    </InfoStrip>
+      <a-form-item :label="i18n.t('lbl_exe_dir')">
+        <div class="path-row">
+          <a-input v-model="llamaDir" class="path-input" size="small" />
+          <a-button size="small" @click="onBrowseExeDir">
+            <template #icon><Icon name="folder" :size="12" /></template>
+            {{ i18n.t('btn_change_dir') }}
+          </a-button>
+          <ToolTip v-if="exeBadge" :text="exeBadge.tip">
+            <span class="exe-status" :class="exeBadge.cls">
+              <Icon :name="exeBadge.icon" :size="12" :class="{ spinning: exeBadge.spin }" />
+              <span>{{ exeBadge.label }}</span>
+            </span>
+          </ToolTip>
+        </div>
+      </a-form-item>
 
-    <InfoStrip :label="i18n.t('lbl_close_behavior')">
-      <a-select class="fc-select" v-model="closeBehavior" :style="{ width: '160px' }">
-        <a-option value="ask">{{ i18n.t('opt_close_ask') }}</a-option>
-        <a-option value="exit">{{ i18n.t('opt_close_exit') }}</a-option>
-        <a-option value="tray">{{ i18n.t('opt_close_tray') }}</a-option>
-      </a-select>
-    </InfoStrip>
+      <a-form-item :label="i18n.t('lbl_close_behavior')">
+        <a-select class="fc-select" v-model="closeBehavior" :style="{ width: '160px' }">
+          <a-option value="ask">{{ i18n.t('opt_close_ask') }}</a-option>
+          <a-option value="exit">{{ i18n.t('opt_close_exit') }}</a-option>
+          <a-option value="tray">{{ i18n.t('opt_close_tray') }}</a-option>
+        </a-select>
+      </a-form-item>
+    </a-form>
 
     <Teleport to="body">
       <div v-if="helpVisible" class="exe-help-panel" :style="helpPanelStyle"

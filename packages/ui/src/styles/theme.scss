@@ -71,3 +71,12 @@ body[arco-theme='dark'] {
 .fc-select .arco-select-view > .arco-select-view-icon {
   line-height: 26px;
 }
+
+/* 设置面板 a-form 行距（标签定宽/右对齐走组件 label-col-style / label-align 原生 props，§7.5.4） */
+.arco-card-body > .arco-form .arco-form-item {
+  margin-bottom: 4px;
+}
+.arco-card-body > .arco-form .arco-form-item-label {
+  width: 100%;
+  text-align: right;
+}

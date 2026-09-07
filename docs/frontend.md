@@ -123,7 +123,7 @@
 - **常用控件高度**：一律 Arco 组件默认（`a-button size=small` 28 / 输入 `a-input size=small` 28 / 默认 32；自建浮层内按钮 28–32）；仅 TopBar 主操作与 `--btn-h`(30) 为业务约定；win-btn（窗口控制）46 宽为 Electron 专属例外。
 - **表格**：`padding: 6px 8px` 单元格；`thead` sticky + `background: var(--bg-card)`；列固定宽度用 `col-*` class。
 - **统一控件宽度**：参数控件 `label-col` `flex: 0 1 110px`（min-width 64px，**右对齐** + `padding-right: 8px`，长标签省略号截断）、num-input 100px、下拉触发器 `dropdown-trigger` 宽 100%（下拉面板 fixed 定位）、gguf-hint `flex: 0 1 auto`（min 44px / max 72px）。**标签等列逻辑（2026-08-29 用户决策，替代 #25 的贴文字方向）**：全部"选项行"（`InfoStrip .info-label`）与参数行同配方——`flex: 0 1 110px`（min-width 64px）+ `text-align: right`，标签占等宽列、内容起点跨行对齐；长标签面板级 `:deep(.info-label)` 覆盖（如 AdvancedPanel 140px）。容器过窄省略号截断。
-- **值盒标准（内容文本框统一，2026-08-29，见 STYLE_TODO #37）**：展示类内容值盒统一使用 `InfoStrip` 的 **`boxed` 变体**——高 **26px**、`padding: 0 10px`、`bg-input` + 1px 边框、胶囊圆角、行内 flex 填满（同组行左缘/宽跨行对齐）、内容省略截断。适用：状态卡当前模型/API 地址/运行时详情等。禁止同类内容项回退纯文本或自造异形盒（高度/内距各写一套）。
+- **展示字段与表单行（2026-09-07 原生化，值盒标准废止）**：只读字段区用 `a-descriptions`（多列 `:column` + `:span` 整行字段；可复制值用 `a-typography-text copyable`，`@copy` 内走 Electron 剪贴板兜底）；设置表单行用 `a-form`/`a-form-item`（标签定宽右对齐走组件原生 `label-align` + `label-col-style`，行距 4px）。旧 boxed 值盒（26px 胶囊）与 InfoStrip 组件已删除，禁止复刻同类自绘布局。
 
 #### 7.5.5 按钮规范（2026-09 全站 `a-button` 化）
 

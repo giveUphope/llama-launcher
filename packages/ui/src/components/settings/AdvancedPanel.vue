@@ -2,7 +2,6 @@
 // 阶段三：设置页「高级」分组 —— HF 镜像、下载并发、危险设置单独分组（设计稿 §14.10）。
 import { computed } from 'vue';
 import Card from '@/components/common/Card.vue';
-import InfoStrip from '@/components/common/InfoStrip.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useI18nStore } from '@/stores/i18n';
 
@@ -27,20 +26,24 @@ const concurrentOptions = [1, 2, 3, 4, 5];
 <template>
   <Card title-key="nav_settings_advanced">
     <!-- 长标签（'HuggingFace 镜像源'≈122px）超出等列 110px，本面板标签列加宽至 140px 保持等列且不截断 -->
-    <InfoStrip :label="i18n.t('lbl_hf_mirror')">
-      <a-input v-model="hfMirrorHost" class="path-input" size="small"
-               :placeholder="i18n.t('lbl_hf_mirror_placeholder')"
-               :title="i18n.t('lbl_hf_mirror_hint')" />
-    </InfoStrip>
-    <InfoStrip :label="i18n.t('lbl_max_concurrent')">
-      <div class="select-row">
-        <a-select class="fc-select" :model-value="maxConcurrent" :style="{ width: '80px' }"
-                  @change="(v) => (maxConcurrent = v as number)">
-          <a-option v-for="n in concurrentOptions" :key="n" :value="n">{{ n }}</a-option>
-        </a-select>
-        <span class="field-hint">{{ i18n.t('lbl_max_concurrent_hint') }}</span>
-      </div>
-    </InfoStrip>
+    <a-form :model="{}" layout="horizontal" label-align="right"
+            :label-col-style="{ flex: '0 1 140px', minWidth: '64px', marginRight: '8px' }"
+            :wrapper-col-style="{ flex: '1 1 0', minWidth: '0' }">
+      <a-form-item :label="i18n.t('lbl_hf_mirror')">
+        <a-input v-model="hfMirrorHost" class="path-input" size="small"
+                 :placeholder="i18n.t('lbl_hf_mirror_placeholder')"
+                 :title="i18n.t('lbl_hf_mirror_hint')" />
+      </a-form-item>
+      <a-form-item :label="i18n.t('lbl_max_concurrent')">
+        <div class="select-row">
+          <a-select class="fc-select" :model-value="maxConcurrent" :style="{ width: '80px' }"
+                    @change="(v) => (maxConcurrent = v as number)">
+            <a-option v-for="n in concurrentOptions" :key="n" :value="n">{{ n }}</a-option>
+          </a-select>
+          <span class="field-hint">{{ i18n.t('lbl_max_concurrent_hint') }}</span>
+        </div>
+      </a-form-item>
+    </a-form>
   </Card>
 </template>
 
@@ -65,10 +68,5 @@ const concurrentOptions = [1, 2, 3, 4, 5];
 .field-hint {
   font-size: var(--fs-sm);
   color: var(--color-text-3);
-}
-// 长标签等列：本面板标签列 140px（全局等列默认 110px 会截断 'HuggingFace 镜像源'）；
-// 标签是 InfoStrip 内部元素，scoped 需 :deep() 命中
-:deep(.info-label) {
-  flex-basis: 140px;
 }
 </style>

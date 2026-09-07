@@ -7,7 +7,6 @@ import { computed, onActivated, onDeactivated, onUnmounted, ref, watch } from 'v
 import { useRouter } from 'vue-router';
 import Card from '@/components/common/Card.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
-import InfoStrip from '@/components/common/InfoStrip.vue';
 import Icon from '@/components/common/Icon.vue';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
@@ -87,27 +86,10 @@ watch(() => server.status, (s) => {
   }
 });
 
-// ---- 复制地址 / 模型名 ----
-const copied = ref(false);
-let copyTimer: ReturnType<typeof setTimeout> | null = null;
-
-async function copyUrl() {
-  if (!server.apiUrl) return;
-  await window.api.clipboard.write(server.apiUrl);
-  copied.value = true;
-  if (copyTimer) clearTimeout(copyTimer);
-  copyTimer = setTimeout(() => { copied.value = false; copyTimer = null; }, 1500);
-}
-
-const modelCopied = ref(false);
-let modelCopyTimer: ReturnType<typeof setTimeout> | null = null;
-
-async function copyModelName() {
-  if (!currentModel.value) return;
-  await window.api.clipboard.write(currentModel.value);
-  modelCopied.value = true;
-  if (modelCopyTimer) clearTimeout(modelCopyTimer);
-  modelCopyTimer = setTimeout(() => { modelCopied.value = false; modelCopyTimer = null; }, 1500);
+// ---- 复制（a-typography copyable 图标触发；Arco 自带复制，这里再走 Electron 剪贴板兜底）----
+async function copyViaApi(text: string | undefined) {
+  if (!text) return;
+  try { await window.api.clipboard.write(text); } catch { /* Arco 已复制或环境不支持 */ }
 }
 
 // ---- OOM 归因：启动失败/崩溃时扫描输出尾部的显存不足特征，给出可执行的缓解建议 ----
@@ -136,59 +118,44 @@ function onOomKvQuant() {
 
 <template>
   <Card title-key="card_service_status">
-    <!-- 单行单内容：运行状态 / 当前模型 / API 地址 / 运行时详情各自独立成行；
-         内容值盒统一 boxed InfoStrip（宽/高/样式全库一致，§7.5.4 值盒标准） -->
-    <div class="status-row">
+    <!-- 运行状态：a-tag 独立行 -->
+    <a-space :size="8" class="status-row">
       <StatusTag :status="statusInfo.status" :label="statusInfo.label" />
-    </div>
-    <!-- 当前模型：标签位常驻；无模型时值盒占位文案，复制按钮常驻（无值禁用），行结构不变 -->
-    <div class="detail-row">
-      <InfoStrip :label="i18n.t('lbl_dash_model')" mono boxed>
-        <span v-if="currentModel" class="model-inline">
+    </a-space>
+
+    <!-- 字段区：单个 a-descriptions 原生多列承载（模型/地址整行，主机/端口/PID/时长两列）；
+         可复制值用 a-typography-text copyable（原生复制图标，@copy 走 Electron 剪贴板兜底） -->
+    <a-descriptions class="status-desc" :column="2" size="small">
+      <a-descriptions-item :label="i18n.t('lbl_dash_model')" :span="2">
+        <a-typography-text v-if="currentModel" copyable :copy-text="currentModel" @copy="copyViaApi(currentModel)">
           <Icon name="models" :size="13" />
-          <span class="model-text" :title="currentModel">{{ currentModel }}</span>
-        </span>
+          <span class="mono-val ellipsis" :title="currentModel">{{ currentModel }}</span>
+        </a-typography-text>
         <span v-else class="empty-val">{{ i18n.t('status_model_none') }}</span>
-      </InfoStrip>
-      <a-button size="small" class="copy-btn" :disabled="!currentModel" @click="copyModelName" :title="i18n.t('copy_model')">
-        <template #icon><Icon name="copy" :size="12" /></template>
-        {{ modelCopied ? i18n.t('msg_model_copied') : i18n.t('copy_model') }}
-      </a-button>
-    </div>
-    <!-- API 地址：标签位常驻；未运行时值盒占位，复制按钮常驻（无值禁用） -->
-    <div class="detail-row">
-      <InfoStrip :label="i18n.t('card_dash_api')" mono boxed>
-        <span v-if="server.apiUrl" class="model-inline">
+      </a-descriptions-item>
+      <a-descriptions-item :label="i18n.t('card_dash_api')" :span="2">
+        <a-typography-text v-if="server.apiUrl" copyable :copy-text="server.apiUrl" @copy="copyViaApi(server.apiUrl)">
           <Icon name="link" :size="13" />
-          <span class="url-text" :title="server.apiUrl">{{ server.apiUrl }}</span>
-        </span>
+          <span class="mono-val ellipsis" :title="server.apiUrl">{{ server.apiUrl }}</span>
+        </a-typography-text>
         <span v-else class="empty-val">—</span>
-      </InfoStrip>
-      <a-button size="small" class="copy-btn" :disabled="!server.apiUrl" @click="copyUrl" :title="i18n.t('copy_url')">
-        <template #icon><Icon name="copy" :size="12" /></template>
-        {{ copied ? i18n.t('msg_url_copied') : i18n.t('copy_url') }}
-      </a-button>
-    </div>
-    <!-- 运行时详情：网格常驻（各标签位预留）。主机/端口为配置类项——与运行状态无关、
-         始终显示真实配置值；PID/时长为运行时事实，未运行以 — 占位。
-         运行前后行结构与标签位置完全不变，仅值文本变化 -->
-    <div class="runtime-details">
-      <InfoStrip :label="i18n.t('lbl_host')" mono boxed>
-        <span>{{ server.host }}</span>
-      </InfoStrip>
-      <InfoStrip :label="i18n.t('lbl_port')" mono boxed>
-        <span>{{ server.port }}</span>
-      </InfoStrip>
-      <InfoStrip label="PID" mono boxed>
-        <span :class="{ 'empty-val': !server.pid }">{{ server.pid ?? '—' }}</span>
-      </InfoStrip>
-      <!-- 运行时长：并入运行时详情（单行单内容） -->
-      <InfoStrip :label="i18n.t('lbl_run_duration')" mono boxed>
-        <span :class="{ 'empty-val': !durationSec }">{{ durationSec ? formatDuration(durationSec) : '—' }}</span>
-      </InfoStrip>
-    </div>
+      </a-descriptions-item>
+      <a-descriptions-item :label="i18n.t('lbl_host')">
+        <span class="mono-val">{{ server.host }}</span>
+      </a-descriptions-item>
+      <a-descriptions-item :label="i18n.t('lbl_port')">
+        <span class="mono-val">{{ server.port }}</span>
+      </a-descriptions-item>
+      <a-descriptions-item label="PID">
+        <span class="mono-val" :class="{ 'empty-val': !server.pid }">{{ server.pid ?? '—' }}</span>
+      </a-descriptions-item>
+      <a-descriptions-item :label="i18n.t('lbl_run_duration')">
+        <span class="mono-val" :class="{ 'empty-val': !durationSec }">{{ durationSec ? formatDuration(durationSec) : '—' }}</span>
+      </a-descriptions-item>
+    </a-descriptions>
+
     <!-- 快捷操作（自原概览 Q2/Q3 保留）：按钮不属于信息展示，不构成重复 -->
-    <div class="quick-actions">
+    <a-space :size="8" class="quick-actions">
       <a-button type="primary" size="small" :disabled="!isRunning" @click="router.push('/webui')" :title="i18n.t('open_web')">
         <template #icon><Icon name="external" :size="13" /></template>
         {{ i18n.t('open_web') }}
@@ -197,7 +164,7 @@ function onOomKvQuant() {
         <template #icon><Icon name="models" :size="13" /></template>
         {{ i18n.t('lbl_manage_models') }}
       </a-button>
-    </div>
+    </a-space>
     <!-- 失败/异常退出提示（设计稿 §8.4：错误摘要 + 解决方案）。
          ⚠️ 布局防跳动：外层 slot 常驻并预留与 banner 等高的固定高度，
          仅当失败时插入 banner——下方内容位置保持稳定，出现/消失不再下推。 -->
@@ -222,67 +189,49 @@ function onOomKvQuant() {
 <style scoped lang="scss">
 /* 运行状态行 */
 .status-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
   margin-bottom: 8px;
 }
 
-/* 内容行：boxed InfoStrip（值盒 flex 填满）+ 行尾操作按钮 */
-.detail-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  min-width: 0;
+/* a-descriptions 字段表：标签列定宽右对齐（原生组件，仅调间距节奏） */
+.status-desc {
+  margin-bottom: 12px;
 
-  .info-strip {
-    flex: 1;
+  :deep(.arco-descriptions-item-label) {
+    min-width: 88px;
+    color: var(--color-text-2);
+  }
+
+  :deep(.arco-descriptions-item-value-block) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     min-width: 0;
   }
 }
 
-// 值缺省占位（未运行/无值）：次级灰，与有值时的主色形成对比但保持行结构不变
+// 数值/路径用 mono（§7.5.1）
+.mono-val {
+  font-family: var(--font-mono);
+}
+
+// 超长值省略（模型名/地址），防撑破 descriptions 列
+.ellipsis {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+// 值缺省占位（未运行/无值）：次级灰
 .empty-val {
   color: var(--color-text-3);
 }
 
-// 值盒内联元素：flex 收缩 + 超长省略，防止溢出值盒
-.model-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.model-inline .model-text,
-.model-inline .url-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.runtime-details {
-  display: grid;
-  // 列宽 ≥ 280：等列 110 标签 + 值盒有舒展空间（值盒全库统一 26px 高）
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-// 快捷操作行：按钮组 flex; gap: 8px（§7.5）
+// 快捷操作行：a-space（gap 8px，§7.5.5）
 .quick-actions {
-  display: flex;
-  gap: 8px;
   margin-bottom: 8px;
-}
-
-// 复制按钮等宽：值盒右缘跨行对齐（文案长度差异不影响盒子宽度）
-.copy-btn {
-  font-size: var(--fs-md);
-  min-width: 112px;
-  justify-content: center;
 }
 
 /* 失败提示槽位：常驻预留 banner 等高的固定高度（防出现/消失时下推下方内容）。

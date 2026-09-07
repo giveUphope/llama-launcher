@@ -83,17 +83,25 @@
 - [x] `ParamRow.vue` 依赖警示 `.dep-hint` 原生 title → `a-tooltip`（`content` 承载依赖说明）
 - [x] 文档专项（STYLE_TODO #55 结案）：frontend.md §7.5.1–7.5.8 按「Arco 默认 + 业务 token」现状重写；AGENTS.md 风格条目同步
 
+## 收尾四批：布局原生化（2026-09-07，拆除旧布局载体）
+
+用户反馈「风格已 Arco 化，但原有设计的控件布局仍残留并影响实际展示」（概览服务状态卡：每字段独立 a-descriptions 表格 + 自绘 26px 值盒胶囊 + 行尾等宽复制按钮）。本批拆除残余布局载体：
+
+- [x] `ServiceStatusCard.vue` 原生化重构：6 个字段收敛为**单个 `a-descriptions :column="2"`**（模型/地址 `:span="2"` 整行）；复制改 `a-typography-text copyable`（原生复制图标，`@copy` 内走 Electron 剪贴板兜底，删除自绘「已复制」按钮态）；操作组 `a-space`；删除 `.detail-row`/`.runtime-details`/`.copy-btn`/boxed 值盒样式
+- [x] 设置 4 面板（General/Advanced/Appearance/About）：InfoStrip 逐行表格 → `a-form`/`a-form-item`（标签定宽右对齐用组件原生 `label-align` + `label-col-style`，Advanced 长标签 140px 同法；无 model 场景传 `:model="{}"`）；About 只读行 → `a-descriptions :column="1"`
+- [x] **`InfoStrip.vue` 删除**（孤儿组件，全仓库零引用）；§7.5.4「值盒标准」废止改写为「展示字段用 a-descriptions / 表单行用 a-form-item」
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |
 | --- | --- | --- |
-| 概览 Dashboard | a-button / Card(a-card) / InfoStrip(a-descriptions) / a-tag | 统计数字排版（展示层） |
+| 概览 Dashboard | a-button / Card(a-card) / a-descriptions / a-typography-text(copyable) / a-space / a-tag | 统计数字排版（展示层） |
 | 模型管理 | a-tabs / a-table / a-input / a-tag / a-checkbox / a-pagination / a-progress / checkable a-tag / a-list / a-dropdown+doption | `.file-item` 行选中（checkbox + 行点击，展示层） |
 | 服务 | a-alert / a-textarea / a-tag / a-button | 命令预览恒深底样式（§7.5.1 恒定深色面） |
 | 参数设置 | a-tabs / a-dropdown / a-form-item / a-slider / a-input-number / a-select / a-switch / a-checkbox / a-input-group / a-tag / a-tooltip / a-button(text/mini/circle) | ParamRow 24px 紧凑行容器（承载层，控件全 Arco） |
 | 日志 | a-radio-group(button) / a-input / a-button | 控制台行着色（恒深底语义） |
 | 内置 Web UI | a-result / WebUiFrame(iframe 生命周期) | iframe 本体 |
-| 应用设置 | a-tabs / a-select / a-radio-group / a-input / a-button / InfoStrip | — |
+| 应用设置 | a-tabs / a-form(a-form-item) / a-descriptions / a-select / a-radio-group / a-input / a-button | — |
 | 布局 | a-layout / a-layout-sider / a-menu / a-badge / a-dropdown / a-typography / a-modal（全局弹窗） | **TopBar `win-btn` ×3**（Electron 无边框窗口协议，Arco 无对应物，唯一保留的自绘控件）；PageHost/PageFrame/AppLogo（非交互：布局壳/图片） |
 
 ## 每批验收
