@@ -34,6 +34,31 @@
 - [ ] 增加 `happy-dom` 或 `jsdom` 组件测试环境，覆盖 Arco 主题切换、确认队列、参数控件映射与关键弹窗行为。
 - [ ] 更新 `docs/frontend.md` 的旧样式章节，删除玻璃拟态、旧按钮分类和兼容层说明；同步更新 `docs/style/STYLE_TODO.md`。
 
+## Arco 主题对齐（调研结论 2026-09-07）
+
+基础接入时已在 theme.scss 走「对齐 Arco 设计令牌」路线，主题切换由 Arco `body[arco-theme]` 驱动。以下调研用于判断「不建议替换」的自定义组件是否仍需进一步对齐。
+
+### 体系现状（已确认，无需改动）
+
+- Arco 主题定制有两条官方路径：Less `modifyVars`（编译期）与 CSS 设计令牌（运行时）。本项目引入编译好的 `arco.css`，走**运行时 CSS 令牌**路径：`rgb(var(--arcoblue-*))`、`--color-text-*`、`--color-fill-*`、`--color-border-*`、`--color-bg-*`。
+- theme.scss 已把旧业务 token 映射到 Arco 令牌：`--accent: rgb(var(--primary-6))`、`--fg-primary: var(--color-text-1)`、`--bg-input: var(--color-fill-2)`、`--primary-*/--primary-bg` 等（`#L13-L49`）。
+- 暗色主题：settings store 设置 `body[arco-theme='dark']`，Arco 自动切换 `--color-*` / `rgb(var(--arcoblue-N))`，自定义组件只要引用这些令牌即自动双主题。
+- 残留硬编码色仅需保留业务例外：`--console-bg #1d2129` / `--console-fg #e5e6eb`（控制台恒定深底）、`--primary-fg #fff`（主按钮文字）。其余自定义组件已在令牌体系内。
+
+### 不建议替换组件 → Arco 对应（依据）
+
+| 自定义组件 | Arco 对应组件 | 官方最佳实践依据 | 结论 |
+| --- | --- | --- | --- |
+| InfoStrip 值盒/标签行 | `a-descriptions` `inline-horizontal` + `:column` + `align` | 官方场景即「详情页只读字段成组展示」；支持标签右对齐、响应式列 | 语义匹配，但项目值盒是**全库统一 26px 高胶囊**（§7.5.4 值盒标准），迁移需保留样式覆盖；**可选优化，非必须** |
+| ModelMetaCard meta-chip | `a-tag`（`color` 预设/自定义、`bordered`、`size`） | 预设色 + 自定义色值、bordered | 可迁但低收益：已用 `--accent`/`--bg-hover` 自动跟随主题 |
+| StatusTag | `a-tag`（已在用：`color=success/procecessing/gray` + `a-spin`） | — | 已完全 Arco 化，无需再动 |
+| failure-banner | `a-alert` | banner 语义天然匹配 | 属「高优先级」迁移范围，非本轮 |
+
+### 本次待办
+
+- [ ] 若后续追求「少维护自定义 CSS」：将 InfoStrip 值盒迁移到 `a-descriptions`（保留 26px 高胶囊覆盖）、meta-chip 迁移到 `a-tag`（key=val 走插槽）、失败提示迁移到 `a-alert`。
+- [ ] 可选：把 theme.scss 的映射层（`--fg-*/--bg-*` 等）在业务组件全部 Arco 化后删除，直接引用 `--color-text-*` 等原始令牌，收敛为单一 token 体系。
+
 ## 每批验收
 
 - [ ] `pnpm lint`
