@@ -113,11 +113,13 @@ const { estimate: vramEstimate } = useVramEstimate(vramModelPath, kvDtype, perfT
 const vramOcc = computed(() => vramEstimate.value?.occupancy ?? null);
 
 // stat 值：显存占用占设备容量百分比（容量未知时显示 GiB），不可估算为 null → 显示 —
-const vramStatValue = computed(() => {
+// a-statistic :value 仅支持 number|Date（字符串走其内部 dayjs 分支会渲染 Invalid Date），
+// 故拆数值 + 单位后缀；无估算值时 :value 为 undefined → 走原生 placeholder 渲染 —
+const vramStatValue = computed<{ num: number; unit: string } | null>(() => {
   const o = vramOcc.value;
   if (!o || o.vram.totalMiB === null) return null;
-  if (o.vram.capacityMiB) return `${Math.round((o.vram.totalMiB / o.vram.capacityMiB) * 100)}%`;
-  return `${(o.vram.totalMiB / 1024).toFixed(1)}G`;
+  if (o.vram.capacityMiB) return { num: Math.round((o.vram.totalMiB / o.vram.capacityMiB) * 100), unit: '%' };
+  return { num: Number((o.vram.totalMiB / 1024).toFixed(1)), unit: 'G' };
 });
 
 // 显存总占用超出设备空闲即警示
@@ -237,9 +239,13 @@ async function onClearSession() {
       <a-divider class="stat-divider" direction="vertical" />
       <div class="stat" :class="{ warn: vramWarn }" :title="vramTooltip">
         <Icon :name="vramWarn ? 'alert' : 'info'" :size="14" />
-        <!-- 字符串值（GB 估算/—）经 #suffix 插槽渲染，muted 态挂组件根 -->
-        <a-statistic :title="i18n.t('lbl_vram_occupancy')" :class="{ muted: !vramStatValue }">
-          <template #suffix>{{ vramStatValue ?? '—' }}</template>
+        <a-statistic
+          :title="i18n.t('lbl_vram_occupancy')"
+          :value="vramStatValue?.num"
+          placeholder="—"
+          :class="{ muted: !vramStatValue }"
+        >
+          <template #suffix>{{ vramStatValue?.unit }}</template>
         </a-statistic>
       </div>
       <!-- 性能目标选择器：四档目标联动关键杠杆建议（Arco Dropdown 承接；建议 chips 走 a-tag） -->

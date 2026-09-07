@@ -85,12 +85,29 @@ const filteredModels = computed(() => {
   return models.value.filter((m) => m.name.toLowerCase().includes(q));
 });
 
-const totalSizeStr = computed(() => {
+// 表格列定义：columns prop 模式（a-table-column 子组件模式在当前版本组合下渲染为空）
+const tableColumns = computed(() => [
+  { title: i18n.t('col_name'), slotName: 'name' },
+  { title: i18n.t('col_size'), dataIndex: 'size_str', width: 90 },
+  { title: i18n.t('col_actions'), slotName: 'actions', width: 84 },
+]);
+
+// 当前选中模型行高亮（rowClass：arco Table 合法 prop，替代串成 DOM 属性的 row-class-name）
+function rowClass(record: any): string {
+  return record.path === modelPath.value ? 'row-selected' : '';
+}
+
+// a-statistic 的 :value 仅支持 number|Date（字符串会被其内部 dayjs 分支格式化成
+// Invalid Date），故拆为数值 + 单位后缀（#suffix 仅在 value 有定义时渲染）
+const totalSize = computed(() => {
   const bytes = models.value.reduce((sum, m) => sum + m.size, 0);
-  if (bytes === 0) return '0 B';
+  if (bytes === 0) return { num: 0, unit: ' B' };
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
+  return {
+    num: Number((bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)),
+    unit: ' ' + units[i],
+  };
 });
 
 // GGUF 元数据/建议/加载状态统一由 params store 管理（applyModel 加载），
@@ -375,9 +392,8 @@ onUnmounted(() => {
         <a-divider class="stat-divider" direction="vertical" />
         <div class="stat">
           <Icon name="disk" :size="14" />
-          <!-- 字符串值（52.3 GB）不走 :value（限 number|Date），经 #suffix 插槽继承数值样式 -->
-          <a-statistic :title="i18n.t('lbl_total_size')">
-            <template #suffix>{{ totalSizeStr }}</template>
+          <a-statistic :title="i18n.t('lbl_total_size')" :value="totalSize.num">
+            <template #suffix>{{ totalSize.unit }}</template>
           </a-statistic>
         </div>
         <!-- 已选统计与刷新按钮已移除：选中态见当前模型胶囊；列表由文件监听自动维护 -->
@@ -393,52 +409,50 @@ onUnmounted(() => {
             {{ filteredModels.length }} / {{ models.length }}
           </span>
         </div>
+        <!-- 表格列用 columns prop（a-table-column 子组件模式在当前版本组合下渲染为空）；
+             行选中态走 :row-class（row-class-name 非合法 prop，会串成 DOM 属性） -->
         <a-table
           class="models-table"
+          :columns="tableColumns"
           :data="filteredModels"
           row-key="path"
           :pagination="false"
           :loading="scanning"
           :scroll="{ y: 320 }"
           :bordered="false"
-          :row-class-name="(record: any) => (record as ModelInfo).path === modelPath ? 'row-selected' : ''"
+          :row-class="rowClass"
           @row-click="(record: any) => handleSelect(record as ModelInfo)"
         >
-          <a-table-column field="name" :title="i18n.t('col_name')">
-            <template #cell="{ record }">
-              <div class="model-name-cell">
-                <Icon v-if="record.path === modelPath" name="star" :size="12" class="selected-icon" />
-                <div class="model-name-row" :title="record.path">{{ record.name }}</div>
-              </div>
-              <!-- 伴随文件标签 + 显存适配 + 体检结果合并同一行 -->
-              <div v-if="(record.tags && record.tags.length) || fitOf(record)?.verdict || benchBadge(record)" class="model-tags">
-                <a-tag v-for="t in record.tags ?? []" :key="t" size="small" :color="tagColor(t)">{{ t }}</a-tag>
-                <a-tag v-if="fitOf(record)?.verdict" size="small" :color="fitColor(record)" :title="fitTitle(record)">
-                  {{ fitBadge(record) }}
-                </a-tag>
-                <a-tag v-if="benchBadge(record)" size="small" color="gray" :title="benchTitle(record)">
-                  {{ benchBadge(record) }}
-                </a-tag>
-              </div>
-            </template>
-          </a-table-column>
-          <a-table-column field="size_str" :title="i18n.t('col_size')" :width="90" />
-          <a-table-column :title="i18n.t('col_actions')" :width="84">
-            <template #cell="{ record }">
-              <div class="row-actions">
-                <a-button size="mini" shape="circle" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(record)">
-                  <Icon name="folder_open" :size="13" />
-                </a-button>
-                <a-button size="mini" shape="circle" :title="i18n.t('bench_llama_title')"
-                          :disabled="benchJobs[record.path]?.state === 'running'" @click.stop="onBench(record)">
-                  <Icon name="clock" :size="13" />
-                </a-button>
-                <a-button size="mini" shape="circle" status="danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(record)">
-                  <Icon name="trash" :size="13" />
-                </a-button>
-              </div>
-            </template>
-          </a-table-column>
+          <template #name="{ record }">
+            <div class="model-name-cell">
+              <Icon v-if="record.path === modelPath" name="star" :size="12" class="selected-icon" />
+              <div class="model-name-row" :title="record.path">{{ record.name }}</div>
+            </div>
+            <!-- 伴随文件标签 + 显存适配 + 体检结果合并同一行 -->
+            <div v-if="(record.tags && record.tags.length) || fitOf(record)?.verdict || benchBadge(record)" class="model-tags">
+              <a-tag v-for="t in record.tags ?? []" :key="t" size="small" :color="tagColor(t)">{{ t }}</a-tag>
+              <a-tag v-if="fitOf(record)?.verdict" size="small" :color="fitColor(record)" :title="fitTitle(record)">
+                {{ fitBadge(record) }}
+              </a-tag>
+              <a-tag v-if="benchBadge(record)" size="small" color="gray" :title="benchTitle(record)">
+                {{ benchBadge(record) }}
+              </a-tag>
+            </div>
+          </template>
+          <template #actions="{ record }">
+            <div class="row-actions">
+              <a-button size="mini" shape="circle" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(record)">
+                <Icon name="folder_open" :size="13" />
+              </a-button>
+              <a-button size="mini" shape="circle" :title="i18n.t('bench_llama_title')"
+                        :disabled="benchJobs[record.path]?.state === 'running'" @click.stop="onBench(record)">
+                <Icon name="clock" :size="13" />
+              </a-button>
+              <a-button size="mini" shape="circle" status="danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(record)">
+                <Icon name="trash" :size="13" />
+              </a-button>
+            </div>
+          </template>
         </a-table>
       </Card>
 

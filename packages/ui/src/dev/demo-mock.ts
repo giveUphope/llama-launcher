@@ -87,7 +87,8 @@ const DEMO_GGUF: GgufReadResult = {
     metadata_kv_count: 39,
     metadata: {} as never,
     architecture: 'qwen3',
-    name: 'Qwen3 32B A3B Instruct',
+    // 与首个演示模型的文件名（去 .gguf）一致，保证模型列表 / 内置信息 / 建议参数互相对应
+    name: 'Qwen3-32B-A3B-Instruct',
     quantization: 'Q4_K_M',
     file_type: 15,
     quantization_version: 2,
@@ -116,7 +117,7 @@ const DEMO_GGUF: GgufReadResult = {
   suggestions: [
     { key: 'temperature', value: 1, source: 'general.sampling.temp', description: '模型推荐的采样温度' },
     { key: 'top_k', value: 20, source: 'general.sampling.top_k', description: '模型推荐的 top-k 采样值' },
-    { key: 'alias', value: 'Qwen3-32B-A3B-Q4_K_M', source: 'general.name+file_type+filename', description: '使用"模型名称-量化版本"作为服务器别名: Qwen3-32B-A3B-Q4_K_M' },
+    { key: 'alias', value: 'Qwen3-32B-A3B-Instruct-Q4_K_M', source: 'general.name+file_type+filename', description: '使用"模型名称-量化版本"作为服务器别名: Qwen3-32B-A3B-Instruct-Q4_K_M' },
     { key: 'cache_type_k', value: 'q8_0', source: 'general.file_type', description: '模型已量化为 Q4_K_M，建议 KV cache K 使用 q8_0 节省显存' },
     { key: 'cache_type_v', value: 'q8_0', source: 'general.file_type', description: '模型已量化为 Q4_K_M，建议 KV cache V 使用 q8_0 节省显存' },
     { key: 'flash_attn', value: 'on', source: 'qwen3.context_length', description: '上下文长度较大，建议启用 Flash Attention 以减少显存占用' },

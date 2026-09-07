@@ -132,6 +132,15 @@
 - [x] `empty` → `IconEmpty`（官方空态图标）
 - [x] 效果（浏览器验证）：侧边栏 7 项图标两两不同形（dashboard/robot/cloud/tool/code-block/public/settings），全页 26 个 SVG 均带 `arco-icon` 类、非 Arco 内联 SVG = 0
 
+## 收尾十一批：mock 数据对应与卡片头对齐修复（2026-09-07）
+
+用户反馈模型列表与提示条内容无法对应、计数贴按钮。根因均为 Arco 组件用法不当 + mock 元数据不自洽：
+
+- [x] **模型列表表格空白**：`a-table` 的 `a-table-column` 子组件模式在当前版本组合（`:scroll` 等）下渲染为空（无 thead 无行）→ 迁移到官方 **`columns` prop + 具名插槽**模式；`row-class-name` 非法 prop（曾串成 DOM 属性）→ 改用合法 `:row-class`。浏览器验证 6 行渲染 + 选中行高亮
+- [x] **统计值空/Invalid Date**：`a-statistic` 的 `:value` 仅支持 number|Date（字符串走其内部 dayjs 分支渲染 Invalid Date；不传 value 时 `#suffix` 插槽根本不渲染）→ 总大小/显存占用改为「数值 `:value` + 单位 `#suffix`」原生用法，无估算值走 `placeholder`。浏览器验证 52 GB / 119%
+- [x] **mock 元数据自洽**：gguf `name` 与演示模型文件名对齐（Qwen3-32B-A3B-Instruct），建议参数 `alias` 同步为 `Qwen3-32B-A3B-Instruct-Q4_K_M`（原缺 Instruct 与列表无法对应）
+- [x] **卡片头操作区对齐**：`Card.vue` 的 `#actions` 原样塞入 arco `#extra`（无间距，按钮与计数紧贴）→ 统一包 `a-space :size="6"`（§7.5.4 卡片头操作 6px），与标题侧 a-space 同款。浏览器验证标题/按钮/计数中心线一致（799/799/799/799）、间距 6px
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |
