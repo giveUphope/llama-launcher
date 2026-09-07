@@ -63,6 +63,8 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 - **每轮任务完成后提交到本地，勿推送远端。** Agent 每完成一轮任务应 `git add` + `git commit` 到本地仓库（提交信息沿用仓库既有的 Conventional Commits 中文风格：`feat:`/`fix:`/`chore:`/`test:`/`docs:` 等，参考 `git log`），但**绝不** `git push`——推送 `main` 会触发上一条的自动 bump + Release。是否推送、何时推送由用户显式决定。
 
+- **每轮任务完成后，在内置浏览器显示 mock 页面供用户校验目测。** 启动 `pnpm --filter @llama-launcher/ui dev`（纯前端 vite + `src/dev/demo-mock` 演示数据，`127.0.0.1:5173`，不启动 Electron），在内置浏览器打开应用并导航到**本轮改动的页面**，标签 `markHandoff` 保留、服务常驻——**收尾时勿 TaskStop vite、勿关闭标签**（历史上曾每次收尾关闭，导致用户无法目测）。涉及 Electron 主进程/IPC 的改动仍需用户自行 `pnpm dev` 交互验证，mock 预览仅覆盖渲染层。
+
 ## Conventions & gotchas
 
 - **UI 风格规范（完整版见 [docs/frontend.md §7.5](docs/frontend.md#75-样式系统arco-design-vue)，审计发现的不一致项登记 `docs/style/STYLE_TODO.md`）**：`@arco-design/web-vue` 是唯一的通用 UI 与设计 Token 基础（2026-09 全站迁移完成）。界面交互控件一律 Arco 组件（按钮/输入/下拉/开关/弹窗/浮层/页签/表格/列表），不得新增自定义交互控件或并行主题 Token；颜色直接引用 Arco CSS Variables，`theme.scss` 仅保留 Electron 布局尺寸、业务语义色（徽章/控制台/状态栏）与 4px 扁平化圆角兼容层。玻璃拟态与旧胶囊圆角体系已移除，禁止 `backdrop-filter`。主题切换须同时验证 `html[data-theme]` 和 `body[arco-theme]`。Electron 窗口拖拽区与 win-btn 窗口控制为唯一保留的自绘控件。改动 UI 前后对照 §7.5.8 检查清单；发现风格不一致时先记录到 `docs/style/STYLE_TODO.md`（描述 + 修复效果验证方式）再决定是否修复。
