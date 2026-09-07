@@ -2,197 +2,63 @@
 import { computed } from 'vue';
 import { useI18nStore } from '@/stores/i18n';
 import { useConfirmQueue, type ConfirmVariant } from '@/composables/useConfirm';
-import Icon from './Icon.vue';
 
 const i18n = useI18nStore();
 const { queue, resolve } = useConfirmQueue();
-
-// 仅展示队首弹窗（其余排队等待）
 const current = computed(() => queue.value[0] ?? null);
 
-// 弹窗类型 → Icon 图标名（§7「不使用 Emoji 作为正式功能图标」）
-const iconMap: Record<ConfirmVariant, string> = {
-  info: 'info',
-  warning: 'alert',
-  danger: 'error',
-};
-
-function confirmText(key?: string): string {
-  return i18n.t(key ?? 'dlg_confirm');
-}
-function cancelText(key?: string): string {
-  return i18n.t(key ?? 'dlg_cancel');
+function buttonStatus(variant?: ConfirmVariant | 'primary' | 'danger' | 'warning' | 'ghost') {
+  return variant === 'danger' ? 'danger' : variant === 'warning' ? 'warning' : undefined;
 }
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="modal-fade">
-      <div v-if="current" class="modal-backdrop" @click.self="resolve(current.id, current.actions?.length ? '' : false)">
-        <div class="modal-panel" :class="`variant-${current.variant ?? 'info'}`" role="dialog" aria-modal="true">
-          <div class="modal-head">
-            <span class="modal-icon">
-              <Icon :name="iconMap[(current.variant ?? 'info') as ConfirmVariant]" :size="20" />
-            </span>
-            <h3 class="modal-title">{{ current.title }}</h3>
-          </div>
-          <div class="modal-body">
-            <p class="modal-message">{{ current.message }}</p>
-          </div>
-          <div class="modal-actions" :class="{ multi: current.actions?.length }">
-            <template v-if="current.actions?.length">
-              <button
-                v-for="act in current.actions"
-                :key="act.key"
-                class="modal-btn"
-                :class="[act.variant ?? 'primary', act.variant === 'danger' ? 'danger' : '', act.variant === 'warning' ? 'warning' : '']"
-                @click="resolve(current.id, act.key)"
-              >{{ i18n.t(act.labelKey) }}</button>
-            </template>
-            <template v-else>
-              <button
-                v-if="current.showCancel !== false"
-                class="modal-btn ghost"
-                @click="resolve(current.id, false)"
-              >{{ cancelText(current.cancelKey) }}</button>
-              <button
-                class="modal-btn primary"
-                :class="{ danger: current.variant === 'danger', warning: current.variant === 'warning' }"
-                @click="resolve(current.id, true)"
-              >{{ confirmText(current.confirmKey) }}</button>
-            </template>
-          </div>
-        </div>
+  <a-modal
+    :visible="Boolean(current)"
+    :title="current?.title"
+    :mask-closable="true"
+    :esc-to-close="true"
+    :closable="false"
+    :footer="false"
+    @cancel="current && resolve(current.id, current.actions?.length ? '' : false)"
+  >
+    <p v-if="current" class="confirm-message">{{ current.message }}</p>
+    <template v-if="current">
+      <div class="confirm-actions">
+        <template v-if="current.actions?.length">
+          <a-button
+            v-for="action in current.actions"
+            :key="action.key"
+            :type="action.variant === 'ghost' ? 'secondary' : 'primary'"
+            :status="buttonStatus(action.variant)"
+            @click="resolve(current.id, action.key)"
+          >{{ i18n.t(action.labelKey) }}</a-button>
+        </template>
+        <template v-else>
+          <a-button v-if="current.showCancel !== false" @click="resolve(current.id, false)">
+            {{ i18n.t(current.cancelKey ?? 'dlg_cancel') }}
+          </a-button>
+          <a-button type="primary" :status="buttonStatus(current.variant)" @click="resolve(current.id, true)">
+            {{ i18n.t(current.confirmKey ?? 'dlg_confirm') }}
+          </a-button>
+        </template>
       </div>
-    </Transition>
-  </Teleport>
+    </template>
+  </a-modal>
 </template>
 
-<style scoped lang="scss">
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  // 遮罩暗底 + 模糊移到 ::before 独立叶子层：panel 文字不再落入 backdrop-filter 合成层
-  // 而失去亚像素抗锯齿发虚（与 #41「下拉实底」同理；§7.5.6 弹窗背板 blur 视觉语义不变）
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--overlay);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-  }
-}
-
-.modal-panel {
-  position: relative; // 置于 backdrop::before 遮罩层之上（文字保持锐利）
-  z-index: 1;
-  width: min(440px, calc(100vw - 48px));
-  max-height: calc(100vh - 64px);
-  overflow: auto;
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-modal);
-  box-shadow: var(--shadow-modal);
-  padding: 18px 20px 16px;
-  color: var(--fg-primary);
-}
-
-.modal-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.modal-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-}
-.variant-warning .modal-icon { color: var(--warn-text); }
-.variant-danger .modal-icon { color: var(--danger-text); }
-
-.modal-title {
+<style scoped>
+.confirm-message {
   margin: 0;
-  font-size: var(--fs-lg);
-  font-weight: 700;
-  color: var(--fg-primary);
-}
-
-.modal-message {
-  margin: 0;
-  font-size: var(--fs-base);
-  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
-  color: var(--fg-secondary);
 }
 
-.modal-actions {
-  margin-top: 18px;
+.confirm-actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 10px;
-}
-
-.modal-btn {
-  min-width: 84px;
-  height: 32px;
-  padding: 0 16px;
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-base);
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: background-color var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
-
-}
-
-.modal-btn.primary {
-  background: var(--primary-bg);
-  color: var(--primary-fg);
-  &:hover { background: var(--primary-hover); }
-  &:active { background: var(--primary-pressed); }
-}
-.modal-btn.primary.warning {
-  background: var(--warn);
-  color: #1a1a1a;
-  &:hover { filter: brightness(1.08); }
-}
-.modal-btn.primary.danger {
-  background: var(--danger);
-  color: #fff;
-  &:hover { background: var(--danger-hover); }
-}
-
-.modal-btn.ghost {
-  background: transparent;
-  border-color: var(--border);
-  color: var(--fg-secondary);
-  &:hover { background: var(--bg-hover); }
-}
-
-.modal-fade-enter-active,
-.modal-fade-leave-active {
-  transition: opacity var(--dur-med) var(--ease-smooth);
-}
-.modal-fade-enter-from,
-.modal-fade-leave-to {
-  opacity: 0;
-}
-.modal-fade-enter-active .modal-panel,
-.modal-fade-leave-active .modal-panel {
-  transition: transform var(--dur-med) var(--ease-jelly);
-}
-.modal-fade-enter-from .modal-panel,
-.modal-fade-leave-to .modal-panel {
-  transform: translateY(12px) scale(0.96);
+  gap: 12px;
+  margin-top: 20px;
 }
 </style>

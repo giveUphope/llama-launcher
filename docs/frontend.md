@@ -54,10 +54,10 @@
 
 | 组件 | 用途 |
 |------|------|
-| `PageFrame` | 统一页面容器：`padding` 引用 `$layout-page-padding`；分区风格纵向 `gap: 0`，块间距由实线承担 |
-| `Card` | 内容分区容器：带标题和 actions 插槽；**分区风格**——透明背景、无圆角/阴影，相邻区块以底边 1px 实线分隔（`:last-child` 无线） |
-| `Icon` | 内联 SVG 图标库（字典 36 项，未引用项随清理删除） |
-| `ToolTip` | 悬停提示 |
+| `PageFrame` | 基于 Arco `LayoutContent` 的统一页面容器 |
+| `Card` | 基于 Arco `Card` 的标题、内容与 actions 容器 |
+| `Icon` | Arco 图标适配器，维持业务图标名称映射 |
+| `ToolTip` | Arco `Tooltip` 适配器 |
 | `NavButton` | 侧边栏导航按钮（一级项，激活 = path 命中；支持收起态图标形态与调整橙点角标） |
 | `StatusTag` | 状态标签（状态点 + 文字，ok/warn/error/idle/loading 变体） |
 | `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签 / 当前模型 / API 地址（boxed InfoStrip + 复制按钮）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ 快捷操作（打开 Web UI·管理模型） |
@@ -70,9 +70,11 @@
 | `PresetsPanel` | 预设管理面板（低摩擦）：智能命名（alias→模型文件名自动同步输入框）+ **自适应保存按钮**（输入名已存在时自动变「覆盖预设」，同一入口完成保存/覆盖）；行内操作（应用/删除 `mini-btn`，删除带确认）+ **双击行直接应用**；列表 `onActivated` 与增删改后自动刷新（无手动刷新按钮）；保留名称↔绑定模型一致性确认（防「应用其他预设切换模型后沿用旧名保存」的错绑） |
 | `ParamRow` + 控件 | 参数行容器 + `TextParam`/`IntEntryParam`/`SliderParam`/`CheckboxParam`/`DropdownParam`/`FileParam` 六类控件 |
 
-### 7.5 样式系统（UI 风格规范）
+### 7.5 样式系统（Arco Design Vue）
 
-> 本文是 UI 风格的**唯一权威来源**（single source of truth）。新增/修改 UI 时必须遵循以下规范，并保持与既有页面一致；发现不一致项请登记到 `docs/style/STYLE_TODO.md`（含修复效果验证方式），不要静默引入新风格。
+> `@arco-design/web-vue` 是 UI 的唯一组件与设计 Token 基础。主题由 `stores/settings.ts` 同时写入 `html[data-theme]` 与 `body[arco-theme]`；旧 `--*` 变量仅作为尚未迁移的业务组件兼容层，禁止在新增 UI 中使用。
+>
+> 新增 UI 必须优先使用 Arco 的 `Button`、`Form`、`Input`、`Select`、`Modal`、`Table`、`Tooltip`、`Tag` 等组件及其 CSS Variables。玻璃拟态、手写按钮体系和自定义浮层已停止加载；以下旧规范仅供剩余业务组件迁移期间参考。
 
 #### 7.5.1 设计 Token（`packages/ui/src/styles/`）
 

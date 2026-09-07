@@ -76,6 +76,7 @@ export const useSettingsStore = defineStore('settings', () => {
         ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
         : themeMode.value;
     document.documentElement.setAttribute('data-theme', resolved);
+    document.body?.setAttribute('arco-theme', resolved === 'dark' ? 'dark' : '');
     ensureSystemThemeWatcher();
   }
 

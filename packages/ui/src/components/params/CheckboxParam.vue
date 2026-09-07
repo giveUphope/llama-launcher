@@ -11,121 +11,31 @@ const i18n = useI18nStore();
 
 const model = computed<boolean>({
   get: () => Boolean(params.values[props.p.key]),
-  set: (v) => params.set(props.p.key, v),
+  set: (value) => params.set(props.p.key, value),
 });
-
-const defaultLabel = computed(() => {
-  return props.p.default ? i18n.t('default_on') : i18n.t('default_off');
-});
-
 const label = computed(() => i18n.paramLabel(props.p.key));
-
-// 悬停提示 = 标签 + 帮助描述（paramHelp 为空时仅标签），与其余参数控件一致
 const tip = computed(() => {
-  const h = i18n.paramHelp(props.p.key);
-  return h ? `${label.value}\n${h}` : label.value;
+  const help = i18n.paramHelp(props.p.key);
+  return help ? `${label.value}\n${help}` : label.value;
 });
 </script>
 
 <template>
-  <div class="param-row">
-    <div class="label-col">
-      <ToolTip :text="tip">
-        <span class="label-text">{{ label }}</span>
-      </ToolTip>
-    </div>
-    <div class="ctrl-col">
-      <button
-        class="switch"
-        :class="{ on: model }"
-        role="switch"
-        :aria-checked="model"
-        @click="model = !model"
-      >
-        <span class="switch-btn"></span>
-      </button>
-      <span class="default-tag">{{ defaultLabel }}</span>
-    </div>
-  </div>
+  <a-form-item :label="label" class="param-control">
+    <template #label>
+      <ToolTip :text="tip"><span>{{ label }}</span></ToolTip>
+    </template>
+    <a-space>
+      <a-switch v-model="model" type="round" />
+      <a-typography-text type="secondary">
+        {{ p.default ? i18n.t('default_on') : i18n.t('default_off') }}
+      </a-typography-text>
+    </a-space>
+  </a-form-item>
 </template>
 
-<style scoped lang="scss">
-.param-row {
-  display: flex;
-  align-items: center;
-  min-height: 24px;
-  width: 100%;
-}
-
-.label-col {
-  flex: 0 1 110px;
-  min-width: 64px;
-  text-align: right;
-  padding-right: 8px;
-}
-
-.label-text {
-  font-size: var(--fs-base);
-  color: var(--fg-secondary);
-  cursor: help;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: inline-block;
-  max-width: 100%;
-  vertical-align: middle;
-}
-
-.ctrl-col {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.switch {
-  position: relative;
-  width: 38px;
-  height: 20px;
-  border-radius: var(--radius-pill);
-  background: var(--switch-track);
-  border: 1px solid var(--border);
-  padding: 0;
-  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
-  flex-shrink: 0;
-
-  &:active {
-    transform: scale(0.96);
-  }
-
-  &.on {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
-}
-
-.switch-btn {
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--switch-btn);
-  transition: transform var(--dur-fast) var(--ease-jelly);
-  box-shadow: var(--shadow-control);
-}
-
-.switch.on .switch-btn {
-  transform: translateX(18px);
-}
-
-.default-tag {
-  font-size: var(--fs-base);
-  color: var(--fg-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
+<style scoped>
+.param-control {
+  margin-bottom: 12px;
 }
 </style>

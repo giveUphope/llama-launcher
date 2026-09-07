@@ -65,7 +65,7 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 ## Conventions & gotchas
 
-- **UI 风格规范（完整版见** **[docs/frontend.md §7.5](docs/frontend.md#75-样式系统ui-风格规范)，审计发现的不一致项登记** **`docs/style/STYLE_TODO.md`）**：所有颜色必须走 CSS 变量（`--bg-*`、`--fg-*`、`--border`、`--accent`、`--success`/`--warn`/`--danger`/`--info`、`--badge-*` 徽章色）；浮层阴影/遮罩必须走 `--shadow-tooltip/dropdown/modal/control` 与 `--overlay`；`#fff`/`#1a1a1a` 仅允许作为彩色按钮文字色（accent/danger/success 底→`#fff`，warn 底→`#1a1a1a`）。字号必须走 `--fs-xs/sm/base/md/lg/appname`（11–16px，2026-08 上调），禁止裸 px。间距：页面 `20px 24px 24px`、页面块间距 `gap: 0`（分区风格以 Card 底边实线分隔，14px 为分区体底距/线到内容距）、按钮组 `flex; gap: 8px`（弹窗 10px）。圆角走 token：`--radius-pill`（999px，按钮/tab/chip/开关等交互元素）、`--radius-modal`（20px，弹窗）、`--radius-row`（10px，下拉面板/参数行/控制台）、`--radius-control`（8px，小控件），例外仅 2px 轨道与 50% 圆形；分区卡片 `border-radius: 0`。按钮复用既有类（`btn`/`action-btn`/`mini-btn`/`tab-btn`/`modal-btn`/`win-btn`），不另造同义类；`action-btn` 高度统一引用 `--btn-h`；描边变体按语义用 accent/danger/warn。数值与路径用 `--font-mono`，正文用 `--font-family`（Inter/SF Pro Display 首选 + Segoe UI Variable + CJK 栈）。深浅主题都要验证（控制台/工具提示为恒定深色，侧边栏随主题切换）。按钮不做按压缩放动效（`:active` 不用 scale）。改动 UI 前后对照 §7.5.8 检查清单；发现风格不一致时先记录到 `docs/style/STYLE_TODO.md`（描述 + 修复效果验证方式）再决定是否修复。
+- **UI 风格规范（完整版见 [docs/frontend.md §7.5](docs/frontend.md#75-样式系统arco-design-vue)，审计发现的不一致项登记 `docs/style/STYLE_TODO.md`）**：`@arco-design/web-vue` 是唯一的通用 UI 与设计 Token 基础。新增界面优先使用 Arco 的组件和 CSS Variables，不得新增自定义按钮、下拉、开关、浮层或并行主题 Token；旧 `--*` 变量只供未迁移业务组件兼容。主题切换须同时验证 `html[data-theme]` 和 `body[arco-theme]`。Electron 窗口拖拽区与窗口控制按钮可保留定制。
 
 - **i18n**: all user-facing strings go through `shared/src/i18n` (zh/en). Add a key there rather than a literal string.
 
