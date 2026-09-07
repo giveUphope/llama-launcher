@@ -87,11 +87,11 @@ const activeParamCount = computed(() => {
       <div v-for="g in summaryGroups" :key="g.groupKey" class="summary-group">
         <div class="summary-group-title">{{ i18n.t(g.labelKey) }}</div>
         <div class="summary-chips">
-          <span v-for="r in g.rows" :key="r.key" class="summary-chip" :title="r.flag">
+          <a-tag v-for="r in g.rows" :key="r.key" class="summary-chip" size="small" :title="r.flag">
             <span class="chip-key">{{ r.label }}</span>
             <span class="chip-eq">=</span>
             <span class="chip-val">{{ r.value }}</span>
-          </span>
+          </a-tag>
         </div>
       </div>
     </div>
@@ -128,15 +128,16 @@ const activeParamCount = computed(() => {
   flex-wrap: wrap;
   gap: 6px;
 }
+// 参数摘要 chip：Arco a-tag 承载（同 ModelMetaCard meta-chip 范式），仅补 mono 字体
+// 与内容排列；key/eq/val 三段配色与原自绘一致
 .summary-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  background: var(--color-fill-3);
-  border-radius: var(--radius-pill);
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
+  :deep(.arco-tag-content) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
 }
 .chip-key { color: rgb(var(--primary-6)); font-weight: 600; }
 .chip-eq { color: var(--color-text-3); }

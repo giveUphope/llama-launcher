@@ -121,14 +121,17 @@ function onClear() {
         <Icon name="alert" :size="12" />
       </span>
     </div>
-    <button
+    <a-button
       v-if="hasChange"
       class="clear-btn"
+      type="text"
+      size="mini"
+      shape="circle"
       :title="i18n.t('msg_clear_param')"
       @click="onClear"
     >
       <Icon name="close" :size="12" />
-    </button>
+    </a-button>
   </div>
 </template>
 
@@ -223,22 +226,17 @@ function onClear() {
   cursor: help;
 }
 
-// 参数还原按钮：20px 胶囊幽灵图标按钮（统一小图标可供性语言）。
+// 参数还原按钮：a-button text/mini/circle 压成 20px 幽灵图标钮（统一小图标可供性语言）。
 // 默认弱化（半透明、随行悬停渐显），悬停软 warn 色调（非实心黄底，
 // 密集参数页中逐行实心圆点视觉突兀）；键盘聚焦时保持可见。
 .clear-btn {
   flex-shrink: 0;
   width: 20px;
   height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: transparent;
+  padding: 0;
   color: var(--color-text-3);
+  background: transparent;
   opacity: 0.55;
-  cursor: pointer;
   transition: color var(--dur-fast) var(--ease-smooth), background var(--dur-fast) var(--ease-smooth),
     opacity var(--dur-fast) var(--ease-smooth);
 

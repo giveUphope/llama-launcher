@@ -810,26 +810,28 @@ function quantTooltip(q: QuantizationInfo | null): string {
           </a-button>
         </div>
 
-        <!-- 类别筛选 -->
+        <!-- 类别筛选：checkable a-tag（单选语义，@check 忽略布尔参数保持"恒有选中"） -->
         <div v-if="modelFiles.length > 0" class="cat-filter">
-          <button
-            class="chip"
-            :class="{ active: categoryFilter === 'all' }"
-            @click="setCategory('all')"
+          <a-tag
+            class="cat-chip"
+            checkable
+            :checked="categoryFilter === 'all'"
+            @check="setCategory('all')"
           >
             {{ i18n.t('lbl_filter_all') }}
             <span class="chip-count">{{ fileCategoryCounts.all }}</span>
-          </button>
-          <button
+          </a-tag>
+          <a-tag
             v-for="c in presentCategories"
             :key="c"
-            class="chip"
-            :class="{ active: categoryFilter === c }"
-            @click="setCategory(c)"
+            class="cat-chip"
+            checkable
+            :checked="categoryFilter === c"
+            @check="setCategory(c)"
           >
             {{ categoryLabel(c) }}
             <span class="chip-count">{{ fileCategoryCounts[c] }}</span>
-          </button>
+          </a-tag>
         </div>
 
         <div v-if="loadingFiles" class="loading-msg">{{ i18n.t('msg_parsing') }}</div>
@@ -1176,30 +1178,28 @@ function quantTooltip(q: QuantizationInfo | null): string {
   gap: 4px; // 与页内选项胶囊组间距统一（tab-strip / level-chips 同为 4px）
 }
 
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px; // 胶囊内 icon/计数间距与其他筛选 chip（level-chip）一致
-  height: 24px;
-  padding: 0 8px; // 筛选 chip 水平内距统一 8px（与 LogsPage .level-chip 一致；原 9px 离群，§7.5.4）
+// 类别筛选 chip：checkable a-tag 承载（a-tag medium 默认即高 24px / 内距 0 8px，
+// 符合 §7.5.4 ⑥），仅补胶囊圆角、内距 gap 与实底主色激活态（§7.5.1 筛选 chip
+// 选中 = --primary-* 黑白高对比，不用 Arco 默认淡蓝 checked 底）
+.cat-chip {
+  gap: 4px;
   border-radius: var(--radius-pill);
-  background: var(--color-fill-2);
-  border: 1px solid var(--color-border-2);
-  color: var(--color-text-2);
-  font-size: var(--fs-sm);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
-    color var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
 
-  &:hover {
+  &:hover:not(.arco-tag-checked) {
     background: var(--color-fill-3);
   }
 
-
-  &.active {
+  &.arco-tag-checked {
     background: rgb(var(--primary-6));
     border-color: rgb(var(--primary-6));
     color: var(--primary-fg);
+
+    &:hover {
+      background: rgb(var(--primary-5));
+      border-color: rgb(var(--primary-5));
+      color: var(--primary-fg);
+    }
   }
 }
 
@@ -1212,7 +1212,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   padding: 0 5px;
 }
 
-.chip.active .chip-count {
+.cat-chip.arco-tag-checked .chip-count {
   opacity: 0.85;
   /* 激活态 chip 为 --primary-bg，计数底跟随主按钮文字色，双主题下均可见 */
   background: color-mix(in srgb, var(--primary-fg) 22%, transparent);

@@ -180,7 +180,7 @@ const closeBehavior = computed<CloseBehavior>({
 
     <InfoStrip :label="i18n.t('lbl_dir_path')">
       <div class="path-row">
-        <input class="path-input" type="text" v-model="modelsDir" />
+        <a-input v-model="modelsDir" class="path-input" size="small" />
         <a-button size="small" @click="onBrowseModelDir">
           <template #icon><Icon name="folder" :size="12" /></template>
           {{ i18n.t('btn_change_dir') }}
@@ -194,7 +194,7 @@ const closeBehavior = computed<CloseBehavior>({
 
     <InfoStrip :label="i18n.t('lbl_exe_dir')">
       <div class="path-row">
-        <input class="path-input" type="text" v-model="llamaDir" />
+        <a-input v-model="llamaDir" class="path-input" size="small" />
         <a-button size="small" @click="onBrowseExeDir">
           <template #icon><Icon name="folder" :size="12" /></template>
           {{ i18n.t('btn_change_dir') }}
@@ -241,19 +241,16 @@ const closeBehavior = computed<CloseBehavior>({
   flex-wrap: wrap;
 }
 
+// 路径输入：Arco a-input（small=28px 与原自绘同高），仅保留布局尺寸与 mono 字体覆盖
+// （input 原生不继承 font，mono 需打在内层 .arco-input 上，§7.5.1 路径一律 --font-mono）
 .path-input {
   flex: 1 1 200px;
   min-width: 160px;
   max-width: 460px; // 限制最大宽度：避免宽窗口下路径输入框拉满整行，表单行节奏更紧凑
-  height: 28px;
-  padding: 0 12px;
-  background: var(--color-fill-2);
-  border: 1px solid var(--color-border-2);
-  border-radius: var(--radius-pill);
-  color: var(--color-text-1);
-  font-size: var(--fs-md);
-  font-family: var(--font-mono);
-  &:focus { border-color: rgb(var(--primary-6)); outline: none; }
+  :deep(.arco-input) {
+    font-family: var(--font-mono);
+    font-size: var(--fs-md);
+  }
 }
 
 .exe-status {

@@ -45,6 +45,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **建议修复**（若后续要求全区域达 AA-normal）：① 蓝角调更亮（如 #E7EFFA，亮度↑）使 muted≥4.5；或 ② `--fg-muted` 再降到 ~#5C6470（会压缩与 secondary 层级差）；或 ③ 给落在蓝角的 muted 文本加白底衬底/描边。
 - **修复效果验证**：node 对比度脚本核算 `--fg-muted × --bg-grad-1/3 ≥ 4.5`；双主题截图核对辅助文字（占位符/空态/时间戳）清晰；`pnpm style:audit` 全绿。
 
+### 54. Sidebar 版本号裸字号 12px — 🔴 待修复
+
+- **位置**：`packages/ui/src/components/layout/Sidebar.vue:70`（`.version { font-size: 12px }`）。
+- **描述**：Arco 全站迁移后 `pnpm style:audit` 第 2 条（裸字号）的唯一残留命中点（2026-09-07 收尾二批跑审计时发现，系迁移提交带入的存量问题，非该批引入）；12px 对应语义 token `--fs-sm`（§7.5.1）。
+- **建议修复**：`font-size: 12px` → `var(--fs-sm)`（同为 12px，纯 token 化无视觉变化）。
+- **修复效果验证**：`pnpm style:audit` 第 2 条全绿；侧边栏底部版本号渲染尺寸不变（双主题目验）。
+
 ***
 
 ## 🟢 已修复索引
@@ -133,3 +140,4 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - 工程：UI 包加 happy-dom 组件测试环境（`arco-theme`/`status-tag` 测试），Arco 按需导入经评估保留全量（桌面端体积可接受）。
 - 本清单历史修复项（#1–#53）继续有效；新增或回归的手写样式应先对照 §7.5 与上述迁移边界。
 - 2026-09-07 补充：残留 `action-btn`/`mini-btn`/`tab-btn`/`theme-opt` 按钮已全部迁移到 `a-button`/`a-tabs`/`a-radio-group`（这些类原先依赖已删除的 `buttons.scss`，迁移前为无样式裸元素）；仅保留窗口控制 `win-btn`、列表项类按钮（`.result-item`/`.url-history-item`）与带 scoped 样式的筛选 chip（`.level-chip`）。
+- 2026-09-07 收尾二批（迁移后原生控件残留审计，明细见 `../ARCO_MIGRATION_TODO.md` 同名节）：`path-input` ×3 → `a-input`、`cmd-preview` 原生 textarea ×2 → `a-textarea`、`summary-chip` → `a-tag`、DownloadCard 类别筛选 `.chip` → checkable `a-tag`（更名 `.cat-chip`）、`ParamRow .clear-btn` → `a-button text/mini/circle`；§7.5.4 ⑥ 的 DownloadCard chip 类名引用同步更名。

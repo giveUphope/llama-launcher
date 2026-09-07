@@ -28,9 +28,9 @@ const concurrentOptions = [1, 2, 3, 4, 5];
   <Card title-key="nav_settings_advanced">
     <!-- 长标签（'HuggingFace 镜像源'≈122px）超出等列 110px，本面板标签列加宽至 140px 保持等列且不截断 -->
     <InfoStrip :label="i18n.t('lbl_hf_mirror')">
-      <input class="path-input" type="text" v-model="hfMirrorHost"
-             :placeholder="i18n.t('lbl_hf_mirror_placeholder')"
-             :title="i18n.t('lbl_hf_mirror_hint')" />
+      <a-input v-model="hfMirrorHost" class="path-input" size="small"
+               :placeholder="i18n.t('lbl_hf_mirror_placeholder')"
+               :title="i18n.t('lbl_hf_mirror_hint')" />
     </InfoStrip>
     <InfoStrip :label="i18n.t('lbl_max_concurrent')">
       <div class="select-row">
@@ -45,19 +45,16 @@ const concurrentOptions = [1, 2, 3, 4, 5];
 </template>
 
 <style scoped lang="scss">
+// 路径输入：Arco a-input（small=28px 与原自绘同高），仅保留布局尺寸与 mono 字体覆盖
+// （input 原生不继承 font，mono 需打在内层 .arco-input 上，§7.5.1 路径一律 --font-mono）
 .path-input {
   flex: 1 1 240px;
   min-width: 240px; // 放得下完整 placeholder（实测文本宽约 223px + 左右 padding 24px）
   max-width: 460px; // 限制最大宽度：避免拉满整行，同时保证 placeholder 全文可见
-  height: 28px;
-  padding: 0 12px;
-  background: var(--color-fill-2);
-  border: 1px solid var(--color-border-2);
-  border-radius: var(--radius-pill);
-  color: var(--color-text-1);
-  font-size: var(--fs-md);
-  font-family: var(--font-mono);
-  &:focus { border-color: rgb(var(--primary-6)); outline: none; }
+  :deep(.arco-input) {
+    font-family: var(--font-mono);
+    font-size: var(--fs-md);
+  }
 }
 .select-row {
   display: flex;

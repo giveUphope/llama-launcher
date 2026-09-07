@@ -87,26 +87,25 @@ onUnmounted(() => {
       <!-- 内置参数命令：只读展示，随参数实时自动生成 -->
       <div class="cmd-section">
         <span class="cmd-section-label">{{ i18n.t('lbl_cmd_builtin') }}</span>
-        <textarea
+        <a-textarea
           class="cmd-preview"
-          :value="commandPreview"
+          :model-value="commandPreview"
           :placeholder="i18n.t('msg_cmd_preview_placeholder')"
-          rows="4"
-          spellcheck="false"
-          readonly
-        ></textarea>
+          :auto-size="{ minRows: 4, maxRows: 12 }"
+          :textarea-attrs="{ readonly: true, spellcheck: false }"
+        />
       </div>
 
       <!-- 扩展参数：唯一可编辑区，持久化，追加到实际启动命令末尾 -->
       <div class="cmd-section">
         <span class="cmd-section-label">{{ i18n.t('lbl_cmd_extra') }}</span>
-        <textarea
+        <a-textarea
           class="cmd-preview"
           v-model="extraArgs"
           :placeholder="i18n.t('cmd_extra_placeholder')"
-          rows="2"
-          spellcheck="false"
-        ></textarea>
+          :auto-size="{ minRows: 2, maxRows: 8 }"
+          :textarea-attrs="{ spellcheck: false }"
+        />
         <div class="cmd-hint">
           <Icon name="info" :size="11" />
           <span>{{ i18n.t('cmd_extra_hint') }}</span>
@@ -142,37 +141,40 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
+// 命令预览框：Arco a-textarea（class 落在 wrapper）+ 恒定深色控制台表面（§7.5.1，
+// 双主题不变）。auto-size 按内容自动增高（min/max 行数封顶），多行容器圆角走
+// --radius-row（§7.5.3 禁 pill）。
 .cmd-preview {
-  width: 100%;
-  resize: vertical;
-  min-height: 64px;
-  padding: 8px 10px;
   background: var(--console-bg);
-  color: var(--console-fg);
   border: 1px solid var(--color-border-2);
   border-radius: var(--radius-row);
-  font-family: var(--font-mono);
-  font-size: var(--fs-base);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-all;
 
-  // 占位符：恒深底上统一对比度（console-fg 半透明），避免空态两框观感不一致
-  &::placeholder {
-    color: color-mix(in srgb, var(--console-fg) 60%, transparent);
-    opacity: 1; // Firefox 默认把 placeholder 再降 opacity
-  }
-
-  // 只读内置命令：不可编辑，光标默认、文字仍可选中复制。
-  // 文字色与可编辑框统一用 --console-fg（配合恒定深底 --console-bg），
-  // 不能用 --fg-secondary——浅色主题下它是深灰，深底上对比度不足。
-  &[readonly] {
-    cursor: default;
+  :deep(.arco-textarea) {
+    padding: 8px 10px;
+    background: transparent;
     color: var(--console-fg);
+    font-family: var(--font-mono);
+    font-size: var(--fs-base);
+    line-height: 1.5;
+    resize: none; // auto-size 已按内容增高，禁手动拖拽（避免与 mirror 高度互相打架）
+    word-break: break-all;
+
+    // 占位符：恒深底上统一对比度（console-fg 半透明），避免空态两框观感不一致
+    &::placeholder {
+      color: color-mix(in srgb, var(--console-fg) 60%, transparent);
+      opacity: 1; // Firefox 默认把 placeholder 再降 opacity
+    }
+
+    // 只读内置命令：不可编辑，光标默认、文字仍可选中复制。
+    // 文字色与可编辑框统一用 --console-fg（配合恒定深底 --console-bg），
+    // 不能用 --fg-secondary——浅色主题下它是深灰，深底上对比度不足。
+    &[readonly] {
+      cursor: default;
+    }
   }
 
-  &:focus {
-    outline: none;
+  // 聚焦描边打在 wrapper 边框上（边框由 wrapper 承载，内层无边框）
+  &:focus-within {
     border-color: rgb(var(--primary-6));
   }
 }

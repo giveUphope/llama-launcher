@@ -59,6 +59,19 @@
 - [x] 若后续追求「少维护自定义 CSS」：将 InfoStrip 值盒迁移到 `a-descriptions`（保留 26px 高胶囊覆盖）、meta-chip 迁移到 `a-tag`（key=val 走插槽）、失败提示迁移到 `a-alert`。（2026-09-07 完成：InfoStrip 内部改 a-descriptions 承载并删手写 flex 布局、ModelMetaCard meta-chip→a-tag；失败提示 a-alert 已随 B1 完成）
 - [x] 可选：把 theme.scss 的映射层（`--fg-*/--bg-*` 等）在业务组件全部 Arco 化后删除，直接引用 `--color-text-*` 等原始令牌，收敛为单一 token 体系。（2026-09-07 完成：20 个纯映射别名 248 处/24 文件扁平化为 Arco 令牌，theme.scss 删除别名定义，仅保留业务/布局 token；顺带补回 `31273e4` 误删的 `--badge-*`/`--bg-active`(双主题)/`--btn-h`/`--statusbar-*`/`--fs-appname` 定义，核查脚本确认无「未定义且非 Arco 命名空间」token 残留）
 
+## 收尾二批：原生控件残留清零（2026-09-07，全站迁移完成后审计）
+
+对 43 个 `.vue` 做两维度扫描（`<a-*` 使用统计 + 原生 `<input>/<textarea>/<button>` 残留定位），发现「已 Arco 化组件内仍嵌原生控件」6 处并全部完成：
+
+- [x] `GeneralPanel.vue` 模型/exe 目录自绘 `path-input` ×2 → `a-input size="small"`（28px 同高；input 原生不继承 font，mono 覆盖打在 `:deep(.arco-input)`，§7.5.1 路径一律 `--font-mono`）
+- [x] `AdvancedPanel.vue` HF 镜像源自绘 `path-input` → `a-input size="small"`（同上）
+- [x] `CommandPreviewCard.vue` 命令预览/扩展参数原生 `<textarea>` ×2 → `a-textarea`：`auto-size`（min/maxRows）按内容自动增高替代固定 rows+手动 resize；`readonly`/`spellcheck` 经官方 `textarea-attrs` prop 传入（attrs 只落 wrapper，直写不达内层）；恒深控制台表面 `--console-bg/--console-fg` 保留（§7.5.1 恒定深色面）
+- [x] `ParamSummaryCard.vue` 自绘 `summary-chip` 胶囊 → `a-tag size="small"`（同 meta-chip 既有范式：mono 字体 + key/eq/val 三段配色）
+- [x] `DownloadCard.vue` 类别筛选原生 `<button>.chip` → `a-tag checkable`（更名 `.cat-chip`）：单选语义 `@check="setCategory(c)"` 忽略布尔参数保持「恒有选中」；checked 态覆盖为 `--primary-*` 实底（§7.5.1 筛选 chip 选中不用 Arco 默认淡蓝底）；a-tag medium 默认 24px/`0 8px` 恰合 §7.5.4 ⑥
+- [x] `ParamRow.vue` 参数还原 `clear-btn` 原生 `<button>` → `a-button type="text" size="mini" shape="circle"`（保留 20px 幽灵样式、warn 悬停与行悬停渐显）
+
+保留不动（均有在案记录）：`LogsPage .level-chip` 筛选 chip、`DownloadCard .result-item/.url-history-item` 列表项按钮（STYLE_TODO #135）、TopBar `win-btn` 窗口控制（高优先级批次）、`ParamRow` 24px 紧凑行布局（高优先级批次评估结论）。扫描中顺带发现的存量裸字号 `Sidebar.vue .version 12px` 登记 STYLE_TODO #54，不在本批修复。
+
 ## 每批验收
 
 - [x] `pnpm lint`（2026-09-07 全绿：4 包 + IPC 56 通道同步 + docs 链接 131 全有效）
