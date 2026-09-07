@@ -180,6 +180,23 @@ function onClear() {
   gap: 4px;
   flex: 1;
   min-width: 0;
+
+  // 行距自持：清零子控件 a-form-item 的默认外距（迁移残留 12/20px 曾把 24px
+  // 参数行撑到 54px，悬浮高亮下方出现大片空白）与 wrapper/content 最小高度（32px）
+  .param-control {
+    margin-bottom: 0;
+  }
+
+  :deep(.arco-form-item-wrapper-col),
+  :deep(.arco-form-item-content) {
+    min-height: 0;
+  }
+
+  // Arco 标签列基础 line-height 32px（无 form size 时），压回行内语义行高
+  :deep(.arco-form-item-label-col),
+  :deep(.arco-form-item-label) {
+    line-height: 1.3;
+  }
 }
 
 .param-control {

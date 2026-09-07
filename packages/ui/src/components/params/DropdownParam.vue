@@ -30,6 +30,7 @@ function optionLabel(option: string, index: number) {
       <ToolTip :text="tip"><span>{{ label }}</span></ToolTip>
     </template>
     <a-select
+      size="small"
       v-model="model"
       :allow-search="Boolean(p.editable)"
       :allow-create="Boolean(p.editable)"
@@ -43,7 +44,4 @@ function optionLabel(option: string, index: number) {
 </template>
 
 <style scoped>
-.param-control {
-  margin-bottom: 12px;
-}
 </style>

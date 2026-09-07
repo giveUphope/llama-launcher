@@ -39,12 +39,11 @@ async function onBrowse() {
   <a-form-item :label="label" class="param-control">
     <template #label><ToolTip :text="tip"><span>{{ label }}</span></ToolTip></template>
     <a-input-group compact>
-      <a-input v-model="model" />
-      <a-button type="primary" @click="onBrowse">{{ i18n.t('browse') }}</a-button>
+      <a-input v-model="model" size="small" />
+      <a-button type="primary" size="small" @click="onBrowse">{{ i18n.t('browse') }}</a-button>
     </a-input-group>
   </a-form-item>
 </template>
 
 <style scoped>
-.param-control { margin-bottom: 12px; }
 </style>

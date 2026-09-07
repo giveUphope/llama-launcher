@@ -35,10 +35,9 @@ const error = computed<string>(() => {
 <template>
   <a-form-item :label="label" :validate-status="error ? 'error' : undefined" :help="error" class="param-control">
     <template #label><ToolTip :text="tip"><span>{{ label }}</span></ToolTip></template>
-    <a-input v-model="model" allow-clear />
+    <a-input v-model="model" allow-clear size="small" />
   </a-form-item>
 </template>
 
 <style scoped>
-.param-control { margin-bottom: 12px; }
 </style>

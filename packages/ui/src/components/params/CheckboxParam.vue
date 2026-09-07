@@ -35,7 +35,4 @@ const tip = computed(() => {
 </template>
 
 <style scoped>
-.param-control {
-  margin-bottom: 12px;
-}
 </style>

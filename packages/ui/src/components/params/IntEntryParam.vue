@@ -24,12 +24,11 @@ const tip = computed(() => {
   <a-form-item :label="label" class="param-control">
     <template #label><ToolTip :text="tip"><span>{{ label }}</span></ToolTip></template>
     <a-space>
-      <a-input-number v-model="model" :min="p.min" :max="p.max" :precision="0" />
+      <a-input-number v-model="model" size="small" :min="p.min" :max="p.max" :precision="0" />
       <a-typography-text v-if="showAutoHint" type="secondary">{{ i18n.t('auto') }}</a-typography-text>
     </a-space>
   </a-form-item>
 </template>
 
 <style scoped>
-.param-control { margin-bottom: 12px; }
 </style>

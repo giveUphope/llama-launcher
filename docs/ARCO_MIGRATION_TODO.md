@@ -102,6 +102,12 @@
 
 - [x] `TopBar.vue` 窗口控制（最小化/最大化/关闭 `win-btn` ×3）：原生 `<button>` → `a-button type="text"` 基座，保留窗口铬专属覆盖——46×52 贴边热区、`--radius-control`(4px) 圆角、关闭钮红色 hover（`rgb(var(--danger-6))` + 白色图标）；点击仍走 Electron 窗口协议（`window.api` 最小化/最大化/关闭），拖拽区保留定制。至此**全应用不存在原生 `<button>` 交互控件**（浏览器验证：3 个按钮均为 `arco-btn arco-btn-text`，46×52/4px）
 
+## 收尾七批：参数行高度回归（2026-09-07，用户反馈悬浮高亮下方大片空白）
+
+- [x] 确认为迁移引入的样式回归：参数控件包 `a-form-item` 后叠加三处高度残留——子控件 `.param-control { margin-bottom: 12px }`（独立使用时代残留 ×6 文件）、Arco form-item 默认 `margin-bottom: 20px`、标签列基础 `line-height: 32px` + wrapper/content `min-height: 32px`，把 24px 参数行撑到 54px
+- [x] 修复：删除 6 个控件组件的残留 margin；ParamRow 行内清零 form-item 外距 / wrapper·content 最小高度 / 标签列行高（压回 1.3）；控件统一 `size="small"`（28px，对齐 §7.5.4「输入框 26–28」与设置面板）
+- [x] 效果（浏览器实测）：行高 54px → 34px（开关行）/ 38px（输入·下拉行），悬浮高亮上下各 5px 即行内距，无空白残留
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |

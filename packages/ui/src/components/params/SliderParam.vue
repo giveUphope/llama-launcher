@@ -28,13 +28,12 @@ const tip = computed(() => {
     <template #label><ToolTip :text="tip"><span>{{ label }}</span></ToolTip></template>
     <a-space class="slider-control">
       <a-slider v-model="model" :min="min" :max="max" :step="step" show-ticks />
-      <a-input-number v-model="model" :min="min" :max="max" :step="step" :precision="isFloat ? 2 : 0" />
+      <a-input-number v-model="model" size="small" :min="min" :max="max" :step="step" :precision="isFloat ? 2 : 0" />
     </a-space>
   </a-form-item>
 </template>
 
 <style scoped>
-.param-control { margin-bottom: 12px; }
 .slider-control { display: flex; width: 100%; }
 .slider-control :deep(.arco-slider) { flex: 1; min-width: 160px; }
 </style>
