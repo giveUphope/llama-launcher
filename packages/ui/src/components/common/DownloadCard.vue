@@ -44,13 +44,14 @@ const { urlHistory, rememberUrl } = useUrlHistory();
 
 // 历史面板（点击空白输入框时在下方弹出）
 const historyOpen = ref(false);
-const urlInputRef = ref<HTMLInputElement | null>(null);
+const urlInputRef = ref<any>(null);
 const historyPanelRef = ref<HTMLElement | null>(null);
 const historyPanelStyle = ref<Record<string, string>>({});
 
 function updateHistoryPanelPosition() {
-  if (!urlInputRef.value) return;
-  const rect = urlInputRef.value.getBoundingClientRect();
+  const el: HTMLElement | undefined = urlInputRef.value?.$el;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
   historyPanelStyle.value = {
     position: 'fixed',
     top: `${rect.bottom + 4}px`,
@@ -81,7 +82,8 @@ function pickHistoryUrl(url: string) {
 // 点击外部关闭（同时检查输入行与 Teleport 到 body 的面板）
 function handleHistoryClickOutside(e: MouseEvent) {
   const target = e.target as Node;
-  if (urlInputRef.value?.contains(target)) return;
+  const inputEl = urlInputRef.value?.$el as HTMLElement | undefined;
+  if (inputEl?.contains(target)) return;
   if (historyPanelRef.value?.contains(target)) return;
   historyOpen.value = false;
 }
@@ -572,10 +574,10 @@ async function onOpenModelsDir() {
   }
 }
 
-// 格式化进度百分比
-function progressPercent(task: DownloadTask): string {
-  if (task.totalSize <= 0) return '0%';
-  return `${Math.min(100, (task.downloadedSize / task.totalSize) * 100).toFixed(1)}%`;
+// 任务进度(0-100 数值,供 a-progress 使用)
+function progressPct(task: DownloadTask): number {
+  if (task.totalSize <= 0) return 0;
+  return Math.min(100, (task.downloadedSize / task.totalSize) * 100);
 }
 
 // 格式化速度
@@ -693,24 +695,27 @@ function quantTooltip(q: QuantizationInfo | null): string {
         @dragleave.prevent="onDragLeave"
         @drop.prevent="onDrop"
       >
-        <input
+        <a-input
           ref="urlInputRef"
           v-model="urlInput"
+          :allow-clear="true"
           class="url-input"
           :placeholder="isDragging ? i18n.t('lbl_drag_url_hint') : i18n.t('lbl_download_url_hint')"
           @focus="onUrlFocus"
           @click="onUrlFocus"
           @input="onUrlInput"
-          @keyup.enter="onParseUrl"
-        />
-        <button
-          class="dl-btn primary"
+          @press-enter="onParseUrl"
+        >
+          <template #prefix><Icon name="link" :size="14" class="url-input-icon" /></template>
+        </a-input>
+        <a-button
+          type="primary"
           :disabled="!urlInput.trim() || parsing"
           @click="onParseUrl"
         >
           <Icon v-if="parsing" name="refresh" :size="12" class="spinning" />
-          <span>{{ parsing ? i18n.t('msg_parsing') : i18n.t('btn_parse_url') }}</span>
-        </button>
+          {{ parsing ? i18n.t('msg_parsing') : i18n.t('btn_parse_url') }}
+        </a-button>
       </div>
 
       <!-- 会话级 URL 历史面板：点击空白输入框弹出，Teleport 到 body 脱离父级层叠上下文 -->
@@ -767,13 +772,14 @@ function quantTooltip(q: QuantizationInfo | null): string {
           </button>
         </div>
         <div v-if="resultsTotalPages > 1" class="pager">
-          <button class="dl-btn small" :disabled="resultsPage <= 1" @click="resultsPage--">
-            <Icon name="chevron_left" :size="12" />
-          </button>
-          <span class="page-ind">{{ i18n.t('lbl_page', [resultsPage, resultsTotalPages]) }}</span>
-          <button class="dl-btn small" :disabled="resultsPage >= resultsTotalPages" @click="resultsPage++">
-            <Icon name="chevron_right" :size="12" />
-          </button>
+          <a-pagination
+            class="dl-pager"
+            simple
+            :current="resultsPage"
+            :page-size="RESULTS_PER_PAGE"
+            :total="searchResults.length"
+            @change="(p: any) => (resultsPage = p)"
+          />
         </div>
       </div>
 
@@ -784,24 +790,24 @@ function quantTooltip(q: QuantizationInfo | null): string {
             {{ i18n.t('lbl_model_files') }}
             <span class="source-badge" :class="`src-${currentSource}`">{{ sourceLabel(currentSource) }}</span>
           </span>
-          <button
+          <a-button
             v-if="currentSource === 'huggingface'"
-            class="dl-btn small"
+            size="small"
             @click="onOpenHfMirror"
             :title="i18n.t('btn_open_hf_mirror')"
           >
-            <Icon name="external" :size="12" />
-            <span>HF Mirror</span>
-          </button>
-          <button
+            <template #icon><Icon name="external" :size="12" /></template>
+            HF Mirror
+          </a-button>
+          <a-button
             v-else
-            class="dl-btn small"
+            size="small"
             @click="onOpenModelScope"
             :title="i18n.t('btn_open_modelscope')"
           >
-            <Icon name="external" :size="12" />
-            <span>ModelScope</span>
-          </button>
+            <template #icon><Icon name="external" :size="12" /></template>
+            ModelScope
+          </a-button>
         </div>
 
         <!-- 类别筛选 -->
@@ -831,15 +837,17 @@ function quantTooltip(q: QuantizationInfo | null): string {
         <div v-else-if="modelFiles.length === 0" class="empty-msg">{{ i18n.t('msg_no_files') }}</div>
         <div v-else-if="pagedFiles.length === 0" class="empty-msg">{{ i18n.t('msg_no_files_in_cat') }}</div>
         <div v-else class="file-list">
-          <label
+          <div
             v-for="f in pagedFiles"
             :key="f.path"
             class="file-item"
             :class="{ checked: selectedFiles.has(f.path), recommended: f.path === recommendedPath }"
+            @click="toggleFile(f.path)"
           >
-            <input
-              type="checkbox"
-              :checked="selectedFiles.has(f.path)"
+            <a-checkbox
+              class="file-check"
+              :model-value="selectedFiles.has(f.path)"
+              @click.stop
               @change="toggleFile(f.path)"
             />
             <span class="file-name" :title="f.path">{{ f.name }}</span>
@@ -852,18 +860,19 @@ function quantTooltip(q: QuantizationInfo | null): string {
             <span v-if="f.path === recommendedPath" class="rec-badge">{{ i18n.t('lbl_recommended') }}</span>
             <span class="file-cat" :class="`cat-${f.category}`">{{ categoryLabel(f.category) }}</span>
             <span class="file-size">{{ f.sizeStr }}</span>
-          </label>
+          </div>
         </div>
 
         <!-- 文件分页 -->
         <div v-if="filesTotalPages > 1" class="pager">
-          <button class="dl-btn small" :disabled="filesPage <= 1" @click="filesPage--">
-            <Icon name="chevron_left" :size="12" />
-          </button>
-          <span class="page-ind">{{ i18n.t('lbl_page', [filesPage, filesTotalPages]) }}</span>
-          <button class="dl-btn small" :disabled="filesPage >= filesTotalPages" @click="filesPage++">
-            <Icon name="chevron_right" :size="12" />
-          </button>
+          <a-pagination
+            class="dl-pager"
+            simple
+            :current="filesPage"
+            :page-size="FILES_PER_PAGE"
+            :total="sortedFiles.length"
+            @change="(p: any) => (filesPage = p)"
+          />
         </div>
 
         <!-- 下载按钮 -->
@@ -871,14 +880,14 @@ function quantTooltip(q: QuantizationInfo | null): string {
           <span class="selected-count">
             {{ i18n.t('lbl_selected') }}: {{ selectedFiles.size }}/{{ modelFiles.length }}
           </span>
-          <button
-            class="dl-btn primary"
+          <a-button
+            type="primary"
             :disabled="selectedFiles.size === 0 || !modelsDir"
             @click="onDownloadSelected"
           >
-            <Icon name="download" :size="12" />
-            <span>{{ i18n.t('btn_download_selected') }}</span>
-          </button>
+            <template #icon><Icon name="download" :size="12" /></template>
+            {{ i18n.t('btn_download_selected') }}
+          </a-button>
         </div>
         <div v-if="!modelsDir" class="warn-msg">{{ i18n.t('msg_no_models_dir') }}</div>
       </div>
@@ -889,18 +898,18 @@ function quantTooltip(q: QuantizationInfo | null): string {
         <div class="tasks-header">
           <span v-if="mode !== 'tasks'" class="section-title">{{ i18n.t('lbl_download_tasks') }} ({{ tasks.length }})</span>
           <div class="tasks-actions">
-            <button
+            <a-button
               v-if="modelsDir"
-              class="dl-btn small"
+              size="small"
               @click="onOpenModelsDir"
               :title="i18n.t('btn_open_dir')"
             >
-              <Icon name="folder_open" :size="12" />
-              <span>{{ i18n.t('btn_open_dir') }}</span>
-            </button>
-            <button class="dl-btn small" @click="onClearCompleted">
+              <template #icon><Icon name="folder_open" :size="12" /></template>
+              {{ i18n.t('btn_open_dir') }}
+            </a-button>
+            <a-button size="small" @click="onClearCompleted">
               {{ i18n.t('btn_clear_completed') }}
-            </button>
+            </a-button>
           </div>
         </div>
         <div class="task-list">
@@ -919,12 +928,12 @@ function quantTooltip(q: QuantizationInfo | null): string {
               </span>
             </div>
             <div class="task-progress-bar">
-              <div
-                class="task-progress-fill"
-                :style="{
-                  width: progressPercent(t),
-                }"
-              ></div>
+              <a-progress
+                :percent="progressPct(t)"
+                :show-text="false"
+                :stroke-width="6"
+                :color="'var(--accent)'"
+              />
             </div>
             <div class="task-stats">
               <span class="task-status" :style="{ color: statusColor(t.status) }">
@@ -936,36 +945,38 @@ function quantTooltip(q: QuantizationInfo | null): string {
               <span v-if="t.status === 'error'" class="task-error" :title="t.error">{{ errorDisplay(t) }}</span>
             </div>
             <div class="task-actions">
-              <button
+              <a-button
                 v-if="t.status === 'downloading' || t.status === 'queued'"
-                class="dl-btn small"
+                size="small"
                 @click="onPauseDownload(t.id)"
               >
                 {{ i18n.t('btn_pause_download') }}
-              </button>
-              <button
+              </a-button>
+              <a-button
                 v-if="t.status === 'paused' || t.status === 'error'"
-                class="dl-btn small primary"
+                size="small"
+                type="primary"
                 @click="onResumeDownload(t.id)"
               >
                 {{ t.status === 'error' ? i18n.t('btn_retry_download') : i18n.t('btn_resume_download') }}
-              </button>
-              <button
+              </a-button>
+              <a-button
                 v-if="t.status === 'downloading' || t.status === 'queued' || t.status === 'paused' || t.status === 'error'"
-                class="dl-btn small danger"
+                size="small"
+                status="danger"
                 @click="onCancelDownload(t.id)"
               >
                 {{ i18n.t('btn_cancel_download') }}
-              </button>
-              <button
+              </a-button>
+              <a-button
                 v-if="t.status === 'completed'"
-                class="dl-btn small"
+                size="small"
                 @click="onOpenDir(t)"
                 :title="i18n.t('btn_open_dir')"
               >
-                <Icon name="folder_open" :size="12" />
-                <span>{{ i18n.t('btn_open_dir') }}</span>
-              </button>
+                <template #icon><Icon name="folder_open" :size="12" /></template>
+                {{ i18n.t('btn_open_dir') }}
+              </a-button>
             </div>
           </div>
         </div>
@@ -998,80 +1009,13 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 .url-input {
   flex: 1;
-  height: 30px;
-  padding: 0 10px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--fg-primary);
-  font-size: var(--fs-md);
-  font-family: var(--font-family);
+}
 
-  &:focus {
-    border-color: var(--accent);
-    outline: none;
-  }
-
-  &::placeholder {
-    color: var(--fg-muted);
-  }
+.url-input-icon {
+  color: var(--fg-muted);
 }
 
 /* 按钮 */
-.dl-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  color: var(--fg-primary);
-  font-size: var(--fs-md);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
-    color var(--dur-fast) var(--ease-smooth), transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover:not(:disabled) {
-    background: var(--bg-hover);
-  }
-
-
-  &.small {
-    height: 24px;
-    padding: 0 8px;
-    font-size: var(--fs-base);
-  }
-
-  &.primary {
-    background: var(--primary-bg);
-    border-color: var(--primary-bg);
-    color: var(--primary-fg);
-
-    &:hover:not(:disabled) {
-      background: var(--primary-hover);
-      border-color: var(--primary-hover);
-    }
-  }
-
-  &.danger {
-    color: var(--danger-text);
-    border-color: var(--danger-text);
-
-    &:hover:not(:disabled) {
-      background: var(--danger);
-      color: #fff;
-    }
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-}
-
 .spinning {
   animation: spin 1s linear infinite;
 }
@@ -1199,11 +1143,9 @@ function quantTooltip(q: QuantizationInfo | null): string {
   padding: 4px 0;
 }
 
-.page-ind {
+.dl-pager :deep(.arco-pagination-simple) {
   font-size: var(--fs-base);
   color: var(--fg-secondary);
-  min-width: 64px;
-  text-align: center;
 }
 
 /* 文件列表 */
@@ -1308,14 +1250,10 @@ function quantTooltip(q: QuantizationInfo | null): string {
     // 推荐标记竖条：accent 蓝（统一蓝色系，原为彩虹渐变）
     box-shadow: inset 3px 0 0 var(--accent);
   }
+}
 
-  input[type='checkbox'] {
-    width: 14px;
-    height: 14px;
-    accent-color: var(--accent);
-    cursor: pointer;
-    flex-shrink: 0;
-  }
+.file-check {
+  flex-shrink: 0;
 }
 
 .file-name {
@@ -1467,18 +1405,6 @@ function quantTooltip(q: QuantizationInfo | null): string {
 .task-progress-bar {
   grid-column: 1;
   grid-row: 2;
-  height: 6px;
-  background: var(--bg-hover);
-  border-radius: var(--radius-pill);
-  overflow: hidden;
-}
-
-.task-progress-fill {
-  height: 100%;
-  /* accent 蓝填充（统一蓝色系，原为彩虹渐变）；宽度过渡为进度跟随展示（与 Progress.vue 一致） */
-  background: var(--accent);
-  border-radius: var(--radius-pill);
-  transition: width var(--dur-med) var(--ease-smooth);
 }
 
 .task-stats {
