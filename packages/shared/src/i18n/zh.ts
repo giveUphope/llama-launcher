@@ -208,6 +208,8 @@ export const zh = {
   msg_fit_partial_tip: '显存估算：权重超出空闲显存，需部分卸载；上下文上限 ~{0}',
   msg_fit_no_tip: '显存估算：权重远超全部设备总显存，建议更小量化',
   bench_llama_title: '模型体检',
+  act_dir: '目录',
+  act_bench: '体检',
   bench_llama_confirm: '将运行 llama-bench（pp512 / tg128，全卸载）实测 prefill / decode 速度。期间占用 GPU，预计 1–3 分钟；服务运行中可能互相影响。继续？',
   bench_llama_running: '体检中…',
   bench_llama_failed: '体检失败',

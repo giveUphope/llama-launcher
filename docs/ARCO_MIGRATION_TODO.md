@@ -164,6 +164,8 @@
 - [x] 浏览器全区域盘点：19 按钮全 `arco-btn`（非 Arco 0）、输入框全 `arco-input-wrapper`（非 Arco 0）、建议 chips 6/6 为 `arco-tag`（原生 fill-2 底/2px 圆角）、22 标签、2 统计、1 表格
 - [x] **图标语义审查**（用户追问行操作图标是否 Arco 原生）：确认全部为 `@arco-design/web-vue/es/icon` 官方图标；但发现 2 处字形与动作语义错配并修正——`folder_open` 原映射 `IconFolderAdd`（+ 号误导为"新建文件夹"，5 处用法全是打开目录/浏览）→ `IconFolder`；模型体检按钮原用 `clock`（时钟仅表时长）→ 新增 `bench: IconExperiment`（烧杯）。Icon.vue 注释补约定：字形必须与动作语义一致。浏览器验证行操作字形 folder/experiment/delete，全页 SVG 均 arco-icon
 
+- [x] **行操作按钮样式更新**（用户追问：图标原生后按钮样式也应跟上）：三个纯图标圆形钮（`size=mini shape=circle`，违反 §7.5.5「内容区操作按钮一律文本内联」，且与预设面板行操作不一致）→ 文本内联小按钮（`size=small` + 图标 + 短标签 目录/体检/移除，移除保留 danger），操作列 84→190px；新增 i18n 短键 `act_dir`/`act_bench`（zh/en 同步）。浏览器验证：3 按钮全 `arco-btn-size-small`、图标+文案、danger 态、列宽 190px
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |

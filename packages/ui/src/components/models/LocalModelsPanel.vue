@@ -89,7 +89,7 @@ const filteredModels = computed(() => {
 const tableColumns = computed(() => [
   { title: i18n.t('col_name'), slotName: 'name' },
   { title: i18n.t('col_size'), dataIndex: 'size_str', width: 90 },
-  { title: i18n.t('col_actions'), slotName: 'actions', width: 84 },
+  { title: i18n.t('col_actions'), slotName: 'actions', width: 190 },
 ]);
 
 // 当前选中模型行高亮（rowClass：arco Table 合法 prop，替代串成 DOM 属性的 row-class-name）
@@ -440,16 +440,20 @@ onUnmounted(() => {
             </div>
           </template>
           <template #actions="{ record }">
+            <!-- 行操作：文本内联小按钮（§7.5.5 禁止纯图标操作按钮，预设面板同款范式） -->
             <div class="row-actions">
-              <a-button size="mini" shape="circle" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(record)">
-                <Icon name="folder_open" :size="13" />
+              <a-button size="small" class="row-action" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(record)">
+                <Icon name="folder_open" :size="11" />
+                {{ i18n.t('act_dir') }}
               </a-button>
-                <a-button size="mini" shape="circle" :title="i18n.t('bench_llama_title')"
-                          :disabled="benchJobs[record.path]?.state === 'running'" @click.stop="onBench(record)">
-                  <Icon name="bench" :size="13" />
-                </a-button>
-              <a-button size="mini" shape="circle" status="danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(record)">
-                <Icon name="trash" :size="13" />
+              <a-button size="small" class="row-action" :title="i18n.t('bench_llama_title')"
+                        :disabled="benchJobs[record.path]?.state === 'running'" @click.stop="onBench(record)">
+                <Icon name="bench" :size="11" />
+                {{ i18n.t('act_bench') }}
+              </a-button>
+              <a-button size="small" class="row-action" status="danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(record)">
+                <Icon name="trash" :size="11" />
+                {{ i18n.t('btn_remove_model') }}
               </a-button>
             </div>
           </template>
@@ -560,7 +564,7 @@ onUnmounted(() => {
 .row-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 4px;
+  gap: 6px;
 }
 
 /* 模型名 + 伴随文件标签 */

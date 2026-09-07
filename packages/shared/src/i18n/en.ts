@@ -210,6 +210,8 @@ export const en: Dict = {
   msg_fit_partial_tip: 'VRAM estimate: weights exceed free VRAM — partial offload needed; context cap ~{0}',
   msg_fit_no_tip: 'VRAM estimate: weights far exceed total VRAM — consider a smaller quant',
   bench_llama_title: 'Model Check',
+  act_dir: 'Dir',
+  act_bench: 'Bench',
   bench_llama_confirm: 'Runs llama-bench (pp512 / tg128, full offload) to measure prefill / decode speed. Occupies the GPU for 1–3 min; may contend with a running server. Continue?',
   bench_llama_running: 'Checking…',
   bench_llama_failed: 'Check failed',
