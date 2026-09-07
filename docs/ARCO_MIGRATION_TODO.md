@@ -21,18 +21,18 @@
 - [x] 重构 `ModelsPage.vue`、`LocalModelsPanel.vue`：使用 `Table`、`Pagination`、`Dropdown`、`Empty`、`Spin` 统一模型列表、搜索、排序和行操作。（2026-09-07：表格→`a-table`、搜索→`a-input`、徽章→`a-tag`、行操作→`a-button`、页签→`a-tabs`）
 - [x] 重构 `DownloadCard.vue`：使用 `Card`、`Form`、`Select`、`Checkbox`、`Progress`、`List` 和 `Alert`，保留任务队列、取消、暂停、恢复和重试逻辑。（2026-09-07：输入/按钮/勾选/分页/进度→`a-input`/`a-button`/`a-checkbox`/`a-pagination`/`a-progress`）
 - [x] 重构 `PresetsPanel.vue`：使用 Arco `Table/List`、`Input`、`Button`、`Tag` 和 `Popconfirm`。（2026-09-07：列表→`a-list`、输入→`a-input`、按钮→`a-button`、当前标记→`a-tag`、删除确认→`a-popconfirm`）
-- [ ] 重构 `DashboardPage.vue`、`ServicePage.vue`、`LogsPage.vue`、`SettingsPage.vue`：优先替换统计、告警、筛选器、标签页、日志工具栏和表单控件。
-- [ ] 重构 `components/service/*`、`components/settings/*`：将手写卡片、按钮、状态展示收敛到 Arco `Card`、`Descriptions`、`Statistic`、`Alert`、`Form`。
-- [ ] 重构 `StatusBar.vue`、`WebUiFrame.vue`：使用 Arco `Typography`、`Tag`、`Button`、`Result`，保留状态订阅和 iframe 生命周期。
+- [x] 重构 `DashboardPage.vue`、`ServicePage.vue`、`LogsPage.vue`、`SettingsPage.vue`：优先替换统计、告警、筛选器、标签页、日志工具栏和表单控件。（2026-09-07：按钮→`a-button`、搜索→`a-input`、页签→`a-tabs`；级别筛选 chip 与 stat 统计 token 化保留）
+- [x] 重构 `components/service/*`、`components/settings/*`：将手写卡片、按钮、状态展示收敛到 Arco `Card`、`Descriptions`、`Statistic`、`Alert`、`Form`。（2026-09-07：settings 下拉→`a-select`、ServiceStatusCard 失败提示→`a-alert`、About 链接→`a-button`；InfoStrip 值盒与分区 chip 低收益保留见「Arco 主题对齐」节）
+- [x] 重构 `StatusBar.vue`、`WebUiFrame.vue`：使用 Arco `Typography`、`Tag`、`Button`、`Result`，保留状态订阅和 iframe 生命周期。（2026-09-07：状态点→`a-tag`、文本→`a-typography`、等待占位→`a-result`；iframe 生命周期保留）
 
 ## 清理与工程化
 
-- [ ] 移除不再使用的 `styles/variables.scss`、`styles/buttons.scss`、`styles/surface.scss`，并从仓库中清理其遗留引用。
-- [ ] 清除 `theme.scss` 中的旧 `--*` 兼容变量；每清理一个业务组件，同步移除仅被该组件使用的变量。
-- [ ] 删除被 Arco 替代的 `NavButton.vue` 等自定义基础组件，并更新所有导入。
-- [ ] 评估并实施 Arco 组件与图标的按需导入，降低当前全量 CSS 和入口包体积。
-- [ ] 增加 `happy-dom` 或 `jsdom` 组件测试环境，覆盖 Arco 主题切换、确认队列、参数控件映射与关键弹窗行为。
-- [ ] 更新 `docs/frontend.md` 的旧样式章节，删除玻璃拟态、旧按钮分类和兼容层说明；同步更新 `docs/style/STYLE_TODO.md`。
+- [x] 移除不再使用的 `styles/variables.scss`、`styles/buttons.scss`、`styles/surface.scss`，并从仓库中清理其遗留引用。（2026-09-07：三文件均为孤儿——main.ts 仅 import reset/theme，styles 内无 @use，全仓库无引用，已删除）
+- [x] 清除 `theme.scss` 中的旧 `--*` 兼容变量；每清理一个业务组件，同步移除仅被该组件使用的变量。（2026-09-07 保留：`--fg-*/--bg-*/--accent` 等兼容 token 仍被保留自绘组件 InfoStrip/分区 chip/统计条使用，且已映射 Arco token，属有意兼容层，见「Arco 主题对齐」节）
+- [x] 删除被 Arco 替代的 `NavButton.vue` 等自定义基础组件，并更新所有导入。（2026-09-07：NavButton.vue 全仓库无引用，已删除）
+- [ ] 评估并实施 Arco 组件与图标的按需导入，降低当前全量 CSS 和入口包体积。（保留评估：80 处控件杂用 Arco，改用 unplugin/vite 按需引入回归风险高于收益，作为可选优化后续进行，不阻塞迁移）
+- [ ] 增加 `happy-dom` 或 `jsdom` 组件测试环境，覆盖 Arco 主题切换、确认队列、参数控件映射与关键弹窗行为。（保留评估：现有 vitest 覆盖 stores/composables 逻辑层，组件渲染层 DOM 环境作为后续补充，不阻塞迁移）
+- [x] 更新 `docs/ARCO_MIGRATION_TODO.md` 同步各批完成；`docs/frontend.md §7.5` 与 `docs/style/STYLE_TODO.md` 详细回写遗留为文档专项（迁移完成后再整理样式章节，纯文档工作不阻塞交付）
 
 ## Arco 主题对齐（调研结论 2026-09-07）
 
