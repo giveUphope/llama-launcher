@@ -45,10 +45,10 @@ const language = computed<Language>({
       </div>
     </InfoStrip>
     <InfoStrip :label="i18n.t('lbl_language')">
-      <select class="settings-select" v-model="language">
-        <option value="zh">{{ i18n.t('opt_lang_zh') }}</option>
-        <option value="en">{{ i18n.t('opt_lang_en') }}</option>
-      </select>
+      <a-select class="fc-select" v-model="language" :style="{ width: '140px' }">
+        <a-option value="zh">{{ i18n.t('opt_lang_zh') }}</a-option>
+        <a-option value="en">{{ i18n.t('opt_lang_en') }}</a-option>
+      </a-select>
     </InfoStrip>
   </Card>
 </template>
@@ -91,17 +91,5 @@ const language = computed<Language>({
     color: var(--primary-fg);
     font-weight: 600;
   }
-}
-
-.settings-select {
-  min-width: 140px;
-  height: 28px;
-  padding: 0 12px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--fg-primary);
-  font-size: var(--fs-md);
-  &:focus { border-color: var(--accent); outline: none; }
 }
 </style>

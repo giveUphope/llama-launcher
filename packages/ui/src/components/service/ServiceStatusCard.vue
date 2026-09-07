@@ -296,17 +296,17 @@ function onOomKvQuant() {
   }
 }
 
-.failure-banner {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+/* Arco Alert 承载失败提示：覆盖内边距与文字对比色，保持 banner 高 ≈ slot 预留 30px（防跳动） */
+.fc-banner {
   padding: 6px 12px;
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
-  color: var(--danger-text); // 文字用深红达 AA；底/边保留亮 --danger 语义
-  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
   border-radius: var(--radius-pill);
   font-size: var(--fs-base);
   font-weight: 600;
+
+  :deep(.arco-alert-content) {
+    line-height: 1.4;
+    color: var(--danger-text); // 深红达 AA（见 style-audit #53），兼容浅/深主题
+  }
 }
 
 // OOM 归因建议行：紧随失败 banner 的次级提示 + 行内缓解按钮

@@ -60,3 +60,13 @@ body {
 body[arco-theme='dark'] {
   color-scheme: dark;
 }
+
+/* Arco 表单下拉（fc-select）：设置面板控件高对齐 28px（Arco 默认 medium 32px，见 §7.5） */
+.fc-select.arco-select-view,
+.fc-select .arco-select-view {
+  height: 28px;
+}
+.fc-select .arco-select-view-value,
+.fc-select .arco-select-view > .arco-select-view-icon {
+  line-height: 26px;
+}

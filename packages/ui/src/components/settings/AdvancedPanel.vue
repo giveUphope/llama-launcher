@@ -34,9 +34,10 @@ const concurrentOptions = [1, 2, 3, 4, 5];
     </InfoStrip>
     <InfoStrip :label="i18n.t('lbl_max_concurrent')">
       <div class="select-row">
-        <select class="settings-select" v-model.number="maxConcurrent">
-          <option v-for="n in concurrentOptions" :key="n" :value="n">{{ n }}</option>
-        </select>
+        <a-select class="fc-select" :model-value="maxConcurrent" :style="{ width: '80px' }"
+                  @change="(v) => (maxConcurrent = v as number)">
+          <a-option v-for="n in concurrentOptions" :key="n" :value="n">{{ n }}</a-option>
+        </a-select>
         <span class="field-hint">{{ i18n.t('lbl_max_concurrent_hint') }}</span>
       </div>
     </InfoStrip>
@@ -56,17 +57,6 @@ const concurrentOptions = [1, 2, 3, 4, 5];
   color: var(--fg-primary);
   font-size: var(--fs-md);
   font-family: var(--font-mono);
-  &:focus { border-color: var(--accent); outline: none; }
-}
-.settings-select {
-  min-width: 140px;
-  height: 28px;
-  padding: 0 12px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--fg-primary);
-  font-size: var(--fs-md);
   &:focus { border-color: var(--accent); outline: none; }
 }
 .select-row {

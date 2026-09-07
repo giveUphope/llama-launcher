@@ -209,11 +209,11 @@ const closeBehavior = computed<CloseBehavior>({
     </InfoStrip>
 
     <InfoStrip :label="i18n.t('lbl_close_behavior')">
-      <select class="settings-select" v-model="closeBehavior">
-        <option value="ask">{{ i18n.t('opt_close_ask') }}</option>
-        <option value="exit">{{ i18n.t('opt_close_exit') }}</option>
-        <option value="tray">{{ i18n.t('opt_close_tray') }}</option>
-      </select>
+      <a-select class="fc-select" v-model="closeBehavior" :style="{ width: '160px' }">
+        <a-option value="ask">{{ i18n.t('opt_close_ask') }}</a-option>
+        <a-option value="exit">{{ i18n.t('opt_close_exit') }}</a-option>
+        <a-option value="tray">{{ i18n.t('opt_close_tray') }}</a-option>
+      </a-select>
     </InfoStrip>
 
     <Teleport to="body">
@@ -253,19 +253,6 @@ const closeBehavior = computed<CloseBehavior>({
   color: var(--fg-primary);
   font-size: var(--fs-md);
   font-family: var(--font-mono);
-  &:focus { border-color: var(--accent); outline: none; }
-}
-
-.settings-select {
-  min-width: 160px;
-  max-width: 260px; // 下拉内容较短，无需占满整行
-  height: 28px;
-  padding: 0 12px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--fg-primary);
-  font-size: var(--fs-md);
   &:focus { border-color: var(--accent); outline: none; }
 }
 
