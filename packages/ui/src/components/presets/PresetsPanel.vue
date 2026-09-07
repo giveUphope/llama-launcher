@@ -163,11 +163,9 @@ onActivated(() => { void onRefreshList(); });
       <template #actions>
         <span class="list-hint">{{ i18n.t('preset_dblclick_hint') }}</span>
       </template>
-      <!-- 应用提示防跳动：外层槽位常驻并与提示行等高（padding 6×2 + fs-base 行高 ≈ 32px），
-           无提示时隐藏但占满高度——提示条出现/消失时下方表格不再下移（#42 预留位置模式）。 -->
-      <div class="applied-msg-slot" :class="{ 'has-msg': !!appliedMsg }">
-        <div v-if="appliedMsg" class="applied-msg">{{ appliedMsg }}</div>
-      </div>
+      <!-- 应用提示：仅在有提示时渲染（原常驻占位槽会在卡片体顶部留下永久空白，
+           2026-09-07 移除；提示为用户操作后的瞬时反馈，出现时列表下移可接受） -->
+      <div v-if="appliedMsg" class="applied-msg">{{ appliedMsg }}</div>
       <div class="list-wrap">
         <a-empty v-if="!presets.length" class="empty" :description="i18n.t('preset_empty')" />
         <a-list v-else :bordered="false" size="small" class="preset-list">
@@ -243,16 +241,8 @@ onActivated(() => { void onRefreshList(); });
   color: var(--color-text-3);
 }
 
-.applied-msg-slot {
-  margin-bottom: 8px;
-  min-height: 32px; // = 提示行实际高度（padding 6px×2 + fs-base 13 × 行高 1.5 ≈ 31.5px）
-
-  &:not(.has-msg) {
-    visibility: hidden;
-  }
-}
-
 .applied-msg {
+  margin-bottom: 8px;
   padding: 6px 10px;
   border-radius: var(--radius-row);
   background: color-mix(in srgb, rgb(var(--success-6)) 12%, transparent);

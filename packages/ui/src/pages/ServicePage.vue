@@ -110,16 +110,11 @@ const logCount = computed(() => server.outputs.length);
         </a-button>
         <span class="log-count">{{ logCount }} {{ i18n.t('col_lines') }}</span>
       </template>
-      <div class="console-header">
-        <!-- 左槽位常驻：预留 new-logs 胶囊的宽度，无新日志时隐藏但占位，
-             保证胶囊出现/消失时不撑动布局（自动滚动状态文案已按 b8c1d59 移除，
-             暂停态由胶囊本身传达）。 -->
-        <span
-          class="new-logs-slot"
-          :class="{ 'has-new': hasNewLogs }"
-          @click="hasNewLogs && void scrollConsoleToBottom()"
-        >
-          <span v-if="hasNewLogs" class="new-logs">
+      <!-- 有新日志胶囊：仅在有提示时渲染（原常驻占位行会在卡片体顶部留下空白条，
+           2026-09-07 移除占位；胶囊为用户滚动离底后的瞬时反馈，出现时轻微下移可接受） -->
+      <div v-if="hasNewLogs" class="console-header">
+        <span class="new-logs-slot has-new" @click="void scrollConsoleToBottom()">
+          <span class="new-logs">
             <Icon name="chevron_down" :size="12" />
             <span>{{ i18n.t('msg_new_logs') }}</span>
           </span>
@@ -148,15 +143,11 @@ const logCount = computed(() => server.outputs.length);
   color: var(--color-text-3);
 }
 
-/* new-logs 槽位常驻：预留胶囊宽度，无新日志时隐藏但占位（出现/消失不撑动布局） */
+/* 有新日志胶囊行：仅提示时渲染（不再常驻占位，卡片体顶部无空白条） */
 .new-logs-slot {
   display: inline-flex;
   align-items: center;
-  min-height: 22px; // 与胶囊行高一致，避免出现时撑高 header
-
-  &:not(.has-new) {
-    visibility: hidden; // 保留宽度占位，隐藏胶囊
-  }
+  min-height: 22px;
 }
 
 .new-logs {

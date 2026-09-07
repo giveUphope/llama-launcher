@@ -147,6 +147,7 @@
 - [x] **防回归检查**：新增 `scripts/verify-i18n-usage.cjs`（zh/en 键集一致性 + 源码字面量 `t('key')` 悬空引用检测），接入 `pnpm lint`；AGENTS.md 补记「删键必须清引用」约定
 - [x] **卡片操作区对齐**：`Card.vue` `#actions` 统一 `a-space :size="6"`（收尾十一批）基础上，把仍留在体内的操作按钮上移至卡片头与标题同行——CommandPreviewCard「复制命令」、TrashCleanCard「检测配置目录」（`size=small`，与控制台卡一致），体内仅保留说明文字
 - [x] 浏览器验证：服务页三张卡操作按钮与标题中心线一致（96/631/744 各自相等）；服务页与日志页 `document.body.innerText` 无任何 `msg_*/lbl_*/btn_*` 裸键泄漏；`verify-i18n-usage` 报告 zh/en 各 355 键一致、无悬空引用
+- [x] **内容顶部空白修复（占位槽滥用）**：「防跳动预留槽」（#42 模式）用在卡片体首元素时只会产生永久空白——移除三处：PresetsPanel `.applied-msg-slot`（报告点，32px）、ServicePage `.console-header` 占位行（scroll-hint 移除后仅剩胶囊占位）、LogsPage `.new-logs-slot` 占位行（26px）。原则：瞬时反馈类内容（应用提示/新日志胶囊）条件渲染、不常驻占位；占位防跳动仅用于内容区中下部两侧均有稳定内容的槽位（DashboardPage 问题操作行、ServiceStatusCard 失败横幅保留）
 
 ### 逐页面迁移矩阵（最终态）
 
