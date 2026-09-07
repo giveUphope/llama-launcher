@@ -467,3 +467,14 @@ async function onClearSession() {
   font-size: var(--fs-base);
 }
 </style>
+
+<!-- 性能目标下拉弹层样式：popup 由 a-dropdown 传送到 body，需非 scoped 样式。
+     菜单含「目标项 + 建议区 + 应用按钮」，高度可变且必须完整展示——禁用 Arco 默认
+     206px 滚动裁剪（.arco-dropdown-list-wrapper max-height），弹层随内容完整展开；
+     :has(.target-menu) 精确圈定本弹层，不影响模型选择/URL 历史等长列表下拉的正常滚动。 -->
+<style lang="scss">
+.arco-dropdown-list-wrapper:has(.target-menu) {
+  max-height: none;
+  overflow: visible;
+}
+</style>

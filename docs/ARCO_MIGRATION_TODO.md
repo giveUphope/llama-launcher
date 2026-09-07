@@ -96,6 +96,7 @@
 - [x] `LocalModelsPanel.vue` 模型统计条（模型数/总大小）：自绘 `.stat-value/.stat-label/.stat-divider` → `a-statistic` + `a-divider direction="vertical"`（数值语义覆盖走 :deep，字符串值「52.3 GB」经 `#suffix` 插槽渲染——`:value` 限 number|Date）
 - [x] `ParamsPage.vue` 参数状态条（总数/已调整/分组/显存估算）：同法迁移，warn/muted 态以语义类挂 `.stat`/组件根（浏览器验证 4 统计 + 3 分隔线 + warn 生效）
 - [x] 死 token 清理：`--font-family`（扁平化时已删定义）在 `StatusBar.vue`/`DashboardPage.vue` 的失效引用移除，字体自然继承 Arco 默认栈
+- [x] 性能目标下拉滚动裁剪修复：自定义内容（目标项 + 建议区 + 应用按钮）被 Arco 默认 `.arco-dropdown-list-wrapper`（206px max-height）裁剪滚动——`:has(.target-menu)` 精确圈定该弹层禁用滚动（`max-height: none`），模型选择/URL 历史等长列表下拉的正常滚动不受影响（浏览器验证内容 229px 完整展开）
 
 ### 逐页面迁移矩阵（最终态）
 
