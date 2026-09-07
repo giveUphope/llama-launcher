@@ -124,14 +124,8 @@ async function onApplyPreset(name: string) {
   }
 }
 
+// 删除不可恢复，二次确认由行内按钮的 a-popconfirm 承担（迁移 Arco 后不再走 useConfirm 弹窗）
 async function onDeletePreset(name: string) {
-  // 删除不可恢复，确认后执行（原实现无确认，误触即丢预设）
-  const ok = await confirm({
-    title: i18n.t('msg_preset_delete_title'),
-    message: i18n.t('msg_preset_delete').replace('{0}', name),
-    variant: 'warning',
-  });
-  if (!ok) return;
   await window.api.presets.delete(name);
   await onRefreshList();
 }
@@ -153,10 +147,15 @@ onActivated(() => { void onRefreshList(); });
     <Card title-key="card_save">
       <div class="save-row">
         <label class="field-label">{{ i18n.t('lbl_preset_name') }}</label>
-        <input class="name-input" type="text" v-model="presetName" :placeholder="autoPresetName" @keydown.enter="onSavePreset" />
-        <button class="action-btn primary" :disabled="!presetName.trim()" @click="onSavePreset">
+        <a-input
+          class="name-input"
+          v-model="presetName"
+          :placeholder="autoPresetName"
+          @press-enter="onSavePreset"
+        />
+        <a-button type="primary" :disabled="!presetName.trim()" @click="onSavePreset">
           {{ i18n.t(isOverwriteName ? 'overwrite_preset' : 'save_preset') }}
-        </button>
+        </a-button>
       </div>
     </Card>
 
@@ -169,47 +168,44 @@ onActivated(() => { void onRefreshList(); });
       <div class="applied-msg-slot" :class="{ 'has-msg': !!appliedMsg }">
         <div v-if="appliedMsg" class="applied-msg">{{ appliedMsg }}</div>
       </div>
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>{{ i18n.t('col_name') }}</th>
-              <th class="col-time">{{ i18n.t('col_time') }}</th>
-              <th class="col-model">{{ i18n.t('col_model') }}</th>
-              <th class="col-actions">{{ i18n.t('col_actions') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="!presets.length">
-              <td colspan="4" class="empty">{{ i18n.t('preset_empty') }}</td>
-            </tr>
-            <tr
-              v-for="p in presets"
-              :key="p.name"
-              :class="{ active: p.name === activePresetName }"
-              @dblclick="onApplyPreset(p.name)"
-            >
-              <td>
+      <div class="list-wrap">
+        <a-empty v-if="!presets.length" class="empty" :description="i18n.t('preset_empty')" />
+        <a-list v-else :bordered="false" size="small" class="preset-list">
+          <a-list-item
+            v-for="p in presets"
+            :key="p.name"
+            class="preset-row"
+            :class="{ active: p.name === activePresetName }"
+            @dblclick="onApplyPreset(p.name)"
+          >
+            <div class="preset-row-inner">
+              <span class="col-name">
                 <span class="preset-name">{{ p.name }}</span>
-                <span v-if="p.name === activePresetName" class="active-badge">{{ i18n.t('preset_active') }}</span>
-              </td>
-              <td class="col-time">{{ formatRelativeTime(p.saved_at, settings.language) }}</td>
-              <td class="col-model">{{ modelLabel(p) }}</td>
-              <td class="col-actions">
-                <div class="row-actions">
-                  <button class="mini-btn accent" @click="onApplyPreset(p.name)" :title="i18n.t('preset_apply')" :aria-label="i18n.t('preset_apply')">
-                    <Icon name="play" :size="11" />
-                    <span>{{ i18n.t('preset_apply') }}</span>
-                  </button>
-                  <button class="mini-btn danger" @click="onDeletePreset(p.name)" :title="i18n.t('preset_delete')" :aria-label="i18n.t('preset_delete')">
+                <a-tag v-if="p.name === activePresetName" size="small" color="arcoblue" class="active-badge">
+                  {{ i18n.t('preset_active') }}
+                </a-tag>
+              </span>
+              <span class="col-time">{{ formatRelativeTime(p.saved_at, settings.language) }}</span>
+              <span class="col-model" :title="modelLabel(p)">{{ modelLabel(p) }}</span>
+              <span class="col-actions">
+                <a-button size="small" type="primary" class="row-action" :title="i18n.t('preset_apply')" @click="onApplyPreset(p.name)">
+                  <Icon name="play" :size="11" />
+                  {{ i18n.t('preset_apply') }}
+                </a-button>
+                <a-popconfirm
+                  :title="i18n.t('msg_preset_delete_title')"
+                  :content="i18n.t('msg_preset_delete').replace('{0}', p.name)"
+                  @ok="onDeletePreset(p.name)"
+                >
+                  <a-button size="small" status="danger" class="row-action" :title="i18n.t('preset_delete')">
                     <Icon name="trash" :size="11" />
-                    <span>{{ i18n.t('preset_delete') }}</span>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                    {{ i18n.t('preset_delete') }}
+                  </a-button>
+                </a-popconfirm>
+              </span>
+            </div>
+          </a-list-item>
+        </a-list>
       </div>
     </Card>
   </div>
@@ -239,18 +235,6 @@ onActivated(() => { void onRefreshList(); });
 .name-input {
   flex: 1;
   min-width: 200px;
-  height: 28px;
-  padding: 0 8px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--fg-primary);
-  font-size: var(--fs-md);
-
-  &:focus {
-    border-color: var(--accent);
-    outline: none;
-  }
 }
 
 // 列表卡右上角操作提示：次级弱化文案（双击应用 / 同名保存即覆盖）
@@ -277,91 +261,78 @@ onActivated(() => { void onRefreshList(); });
   font-size: var(--fs-base);
 }
 
-.table-wrap {
+.list-wrap {
   max-height: 360px;
   overflow: auto;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--fs-base);
+// 预设列表行：覆盖 a-list-item 默认内边距，改由行内 wrapper 控制（接近原表格 6×8 紧凑布局）
+.preset-row {
+  padding: 0;
+  cursor: pointer; // 双击应用的可点击暗示
 
-  thead th {
-    text-align: left;
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--glass-border);
-    color: var(--fg-secondary);
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    /* 粘性表头必须不透明：行滚动穿过表头时半透明玻璃会透底（且滚动容器禁 blur） */
-    background: var(--bg-card);
+  :deep(.arco-list-item) {
+    padding: 0;
   }
 
-  tbody td {
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--border);
-    color: var(--fg-primary);
+  &:hover {
+    background: var(--bg-hover);
   }
 
-  tbody tr {
-    cursor: pointer; // 双击应用的可点击暗示
-
-    &:hover {
-      background: var(--bg-hover);
-    }
-
-    // 当前应用的预设行：accent 色调底纹
-    &.active {
-      background: color-mix(in srgb, var(--accent) 10%, transparent);
-    }
+  // 当前应用的预设行：accent 色调底纹
+  &.active {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
   }
+}
+
+.preset-row-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  min-width: 0;
+}
+
+.col-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 
   .preset-name {
-    margin-right: 6px;
-  }
-
-  .active-badge {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: var(--radius-pill);
-    background: var(--accent);
-    color: #fff;
-    font-size: var(--fs-xs);
-    line-height: 1.4;
-    vertical-align: middle;
-  }
-
-  .col-time {
-    // 短时间文本（MM-DD HH:MM）：压缩到恰好容纳，把空间让给弹性名称列
-    width: 110px;
-    white-space: nowrap;
-  }
-
-  .col-model {
-    // 长模型名单行截断：固定列宽内不再换行/溢出挤压相邻列
-    width: 190px;
-    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  // 操作列：紧凑收纳行内按钮，避免挤压名称/模型列
-  .col-actions {
-    width: 140px;
     white-space: nowrap;
   }
+}
 
-  .row-actions {
-    display: flex;
-    gap: 6px;
-  }
+.col-time {
+  // 短时间文本（MM-DD HH:MM）：压缩到恰好容纳，把空间让给弹性名称列
+  width: 110px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: var(--fg-secondary);
+}
 
-  .empty {
-    text-align: center;
-    color: var(--fg-muted);
-    padding: 20px;
-  }
+.col-model {
+  // 长模型名单行截断：固定列宽内不再换行/溢出挤压相邻列
+  width: 190px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+// 操作列：紧凑收纳行内按钮，避免挤压名称/模型列
+.col-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.empty {
+  padding: 20px;
 }
 </style>
