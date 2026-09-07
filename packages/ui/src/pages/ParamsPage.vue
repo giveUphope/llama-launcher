@@ -248,8 +248,10 @@ async function onClearSession() {
           <template #suffix>{{ vramStatValue?.unit }}</template>
         </a-statistic>
       </div>
-      <!-- 性能目标选择器：四档目标联动关键杠杆建议（Arco Dropdown 承接；建议 chips 走 a-tag） -->
-      <a-dropdown trigger="click" :popup-visible="targetOpen" @popup-visible-change="(v: any) => (targetOpen = v)">
+      <!-- 性能目标选择器：四档目标联动关键杠杆建议（Arco Dropdown 承接；建议 chips 走 a-tag）。
+           hide-on-select=false：点击目标仅切换选中并刷新建议区，面板保持展开，
+           由用户主动点「应用到参数」（应用后收起）或点击外部关闭 -->
+      <a-dropdown trigger="click" :popup-visible="targetOpen" :hide-on-select="false" @popup-visible-change="(v: any) => (targetOpen = v)">
         <a-button size="small" :title="i18n.t('target_picker_title')">
           <template #icon><Icon name="presets" :size="11" /></template>
           {{ i18n.t('lbl_perf_target') }}: {{ targetLabel }}

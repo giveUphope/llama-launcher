@@ -153,6 +153,7 @@
 
 - [x] `ParamRow.vue` `.gguf-hint`：移除自定义 `background: --color-fill-3` / `color: --color-text-3` / 虚线下划线覆盖（与 Arco 非 checkable 标签恒带 `arco-tag-checked` 的原生外观冲突，产生观感异常）→ 中性提示用默认 `a-tag`（原生 fill-2 底），可点击建议用原生 `color="arcoblue"`；`applicable` 仅保留 `cursor: pointer`
 - [x] 浏览器验证：中性标签 `rgba(255,255,255,.08)` 底 / 原生文字色；建议标签 `arco-tag-arcoblue` 蓝底蓝字；mono 字体保留；8 个提示（6 可应用）渲染正常
+- [x] 性能目标下拉点击即收起修复：Arco Dropdown `hide-on-select` 默认 true，点击目标项会连带关闭面板（用户尚未看到建议/未点应用）→ `:hide-on-select="false"`，面板保持展开仅切换选中并刷新建议区；「应用到参数」成功后主动收起（原有逻辑），点击外部仍可关闭。浏览器验证：点击「最低延迟」面板保持展开、选中与建议 chips 同步更新
 
 ### 逐页面迁移矩阵（最终态）
 
