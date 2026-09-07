@@ -176,6 +176,7 @@ function selectTarget(t: PerfTarget) {
   perfTarget.value = t; // 面板保持展开，随估算刷新显示该目标下的建议
 }
 
+// 面板展开/收起由 Arco Dropdown 受控（popup-visible-change 同步），无需手动监听外部点击
 async function applyTargetRecs() {
   const recs = targetRecs.value;
   if (!recs.length) return;
@@ -189,13 +190,6 @@ async function applyTargetRecs() {
   for (const r of recs) params.set(r.key, r.value);
   targetOpen.value = false;
 }
-
-// 点击面板外关闭（与 TopBar 模型下拉同模式）
-function onDocClick() {
-  targetOpen.value = false;
-}
-onMounted(() => { document.addEventListener('click', onDocClick); });
-onUnmounted(() => { document.removeEventListener('click', onDocClick); });
 
 // 清除会话参数：回出厂默认 + 清空基线（双确认防误触）
 async function onClearSession() {
@@ -211,21 +205,15 @@ async function onClearSession() {
 
 <template>
   <PageFrame>
-    <!-- 页内页签（与设置页同一体例）：参数预设 / 自定义参数 -->
-    <div class="tab-strip" role="tablist">
-      <button
-        v-for="t in TABS"
-        :key="t.key"
-        class="tab-btn"
-        :class="{ active: activeTab === t.key }"
-        :aria-selected="activeTab === t.key"
-        role="tab"
-        @click="setTab(t.key)"
-      >
-        <Icon :name="t.icon" :size="13" />
-        <span>{{ i18n.t(t.labelKey) }}</span>
-      </button>
-    </div>
+    <!-- 页内页签（与设置页同一体例）：参数预设 / 自定义参数（Arco Tabs） -->
+    <a-tabs class="page-tabs" :active-key="activeTab" @change="(k) => setTab(k as TabKey)">
+      <a-tab-pane v-for="t in TABS" :key="t.key" :key-value="t.key">
+        <template #title>
+          <Icon :name="t.icon" :size="13" />
+          <span>{{ i18n.t(t.labelKey) }}</span>
+        </template>
+      </a-tab-pane>
+    </a-tabs>
 
     <!-- 参数预览条仅在「自定义参数」标签展示（预设界面聚焦预设编辑，不显示参数统计） -->
     <div v-if="activeTab === 'custom'" class="params-status-bar">
@@ -262,37 +250,41 @@ async function onClearSession() {
           <span class="stat-label">{{ i18n.t('lbl_vram_occupancy') }}</span>
         </div>
       </div>
-      <!-- 性能目标选择器：四档目标联动关键杠杆建议（点击外部关闭，与 TopBar 模型下拉同模式） -->
-      <div class="target-wrap" @click.stop>
-        <button class="mini-btn" :title="i18n.t('target_picker_title')" @click="targetOpen = !targetOpen">
-          <Icon name="presets" :size="11" />
-          <span>{{ i18n.t('lbl_perf_target') }}: {{ targetLabel }}</span>
-          <Icon name="chevron_down" :size="11" />
-        </button>
-        <div v-if="targetOpen" class="target-panel">
-          <button
-            v-for="t in PERF_TARGET_ITEMS"
-            :key="t.key"
-            class="target-item"
-            :class="{ active: t.key === perfTarget }"
-            @click="selectTarget(t.key)"
-          >
-            <span>{{ i18n.t(t.labelKey) }}</span>
-            <Icon v-if="t.key === perfTarget" name="check" :size="12" />
-          </button>
-          <div v-if="targetRecs.length" class="target-recs">
-            <div class="target-rec-chips">
-              <span v-for="r in targetRecs" :key="r.key" class="rec-chip" :title="r.reason">
-                {{ r.key }} = {{ r.value }}
-              </span>
-            </div>
-            <button class="action-btn primary" @click="applyTargetRecs">
-              {{ i18n.t('target_apply') }} ({{ targetRecs.length }})
-            </button>
+      <!-- 性能目标选择器：四档目标联动关键杠杆建议（Arco Dropdown 承接；建议 chips 走 a-tag） -->
+      <a-dropdown trigger="click" :popup-visible="targetOpen" @popup-visible-change="(v: any) => (targetOpen = v)">
+        <a-button size="small" :title="i18n.t('target_picker_title')">
+          <template #icon><Icon name="presets" :size="11" /></template>
+          {{ i18n.t('lbl_perf_target') }}: {{ targetLabel }}
+          <template #suffix><Icon name="chevron_down" :size="11" /></template>
+        </a-button>
+        <template #content>
+          <div class="target-menu">
+            <a-doption
+              v-for="t in PERF_TARGET_ITEMS"
+              :key="t.key"
+              class="target-item"
+              :class="{ active: t.key === perfTarget }"
+              @click="selectTarget(t.key)"
+            >
+              <span class="target-item-label">{{ i18n.t(t.labelKey) }}</span>
+              <Icon v-if="t.key === perfTarget" name="check" :size="12" class="target-item-check" />
+            </a-doption>
+            <template v-if="targetRecs.length">
+              <div class="target-recs">
+                <div class="target-rec-chips">
+                  <a-tag v-for="r in targetRecs" :key="r.key" class="rec-chip" :title="r.reason">
+                    {{ r.key }} = {{ r.value }}
+                  </a-tag>
+                </div>
+                <a-button size="small" type="primary" @click="applyTargetRecs">
+                  {{ i18n.t('target_apply') }} ({{ targetRecs.length }})
+                </a-button>
+              </div>
+            </template>
+            <div v-else class="target-recs-empty">{{ i18n.t('target_no_recs') }}</div>
           </div>
-          <div v-else class="target-recs-empty">{{ i18n.t('target_no_recs') }}</div>
-        </div>
-      </div>
+        </template>
+      </a-dropdown>
       <div class="status-right">
         <!-- 基线徽章已移除（与「已调整」统计重复，基线状态保留在概览服务状态卡）；
              保留恢复基线 / 清除会话参数两个操作入口 -->
@@ -402,86 +394,6 @@ async function onClearSession() {
   gap: 6px;
 }
 
-// 性能目标选择器：mini-btn 触发 + 绝对定位下拉面板（浮层阴影走 --shadow-dropdown；
-// 表面实底 --bg-card + --border，对齐 §7.5.6 下拉/菜单实底规范与 STYLE_TODO #41）
-.target-wrap {
-  position: relative;
-}
-
-.target-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 30;
-  min-width: 300px;
-  padding: 6px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-row);
-  box-shadow: var(--shadow-dropdown);
-}
-
-.target-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  height: 30px;
-  padding: 0 10px;
-  background: none;
-  border: none;
-  border-radius: var(--radius-mini);
-  color: var(--fg-secondary);
-  font-size: var(--fs-base);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-smooth), color var(--dur-fast) var(--ease-smooth);
-
-  &:hover {
-    background: var(--bg-hover);
-    color: var(--fg-primary);
-  }
-
-  &.active {
-    color: var(--accent);
-  }
-}
-
-.target-recs {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 6px;
-  padding: 8px;
-  border-top: 1px solid var(--border);
-}
-
-.target-rec-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.rec-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 8px; // fs-sm chip 统一 3px 8px（与其余 chip 一致；原 2px 离群，§7.5.4）
-  background: var(--bg-hover);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  color: var(--fg-primary);
-  cursor: help;
-}
-
-.target-recs-empty {
-  margin-top: 6px;
-  padding: 8px;
-  border-top: 1px solid var(--border);
-  color: var(--fg-muted);
-  font-size: var(--fs-base);
-}
-
 .params-content {
   display: flex;
   flex-direction: column;
@@ -505,5 +417,64 @@ async function onClearSession() {
   @media (max-width: 720px) {
     grid-template-columns: 1fr;
   }
+}
+</style>
+
+<style lang="scss">
+/* 性能目标下拉菜单：Arco Dropdown popper 挂载于 body，需非 scoped 覆盖 */
+.target-menu {
+  min-width: 300px;
+  padding: 4px;
+}
+
+.target-menu .target-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.target-menu .target-item .arco-dropdown-option-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.target-menu .target-item.active .arco-dropdown-option-content {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.target-menu .target-recs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 8px 4px 4px;
+  border-top: 1px solid var(--border);
+}
+
+.target-menu .target-rec-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.target-menu .rec-chip {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--fg-primary);
+  cursor: help;
+}
+
+.target-recs-empty {
+  margin-top: 4px;
+  padding: 8px 4px 4px;
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: var(--fs-base);
 }
 </style>
