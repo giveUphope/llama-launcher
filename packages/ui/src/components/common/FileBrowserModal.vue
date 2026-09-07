@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18nStore } from '@/stores/i18n';
 import Icon from '@/components/common/Icon.vue';
 import { useFilePickerQueue, type PickerRequest } from '@/composables/useFilePicker';
@@ -93,9 +93,9 @@ function onUp() {
   if (parent.value) void loadDir(parent.value);
 }
 
-async function onPathSubmit() {
+function onPathSubmit() {
   const p = pathInput.value.trim();
-  if (p) await loadDir(p);
+  if (p) void loadDir(p);
 }
 
 // 创建当前不存在的目录(dir 模式下,路径不存在时提供容错创建)
@@ -144,153 +144,121 @@ function cancel() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="modal-fade">
-      <div v-if="current" class="fb-backdrop" @click.self="cancel">
-        <div class="fb-panel" role="dialog" aria-modal="true">
-          <div class="fb-head">
-            <span class="fb-title">{{ current.title }}</span>
-            <button class="fb-icon-btn" :title="i18n.t('picker_up')" @click="onUp" :disabled="!parent">↑</button>
-          </div>
+  <a-modal
+    class="fc-file-browser"
+    :visible="!!current"
+    :style="{ width: '560px' }"
+    :mask-closable="true"
+    :esc-to-close="true"
+    :closable="true"
+    @cancel="cancel"
+  >
+    <template #title>{{ current?.title }}</template>
 
-          <div class="fb-pathbar">
-            <input
-              class="fb-path-input"
-              v-model="pathInput"
-              @keyup.enter="onPathSubmit"
-              :placeholder="dir"
-            />
-          </div>
+    <div class="fb-toolbar">
+      <a-button size="small" :disabled="!parent" :title="i18n.t('picker_up')" @click="onUp">
+        <template #icon><Icon name="folder_open" :size="13" /></template>
+      </a-button>
+      <a-input
+        class="fb-path-input"
+        v-model="pathInput"
+        :placeholder="dir"
+        @press-enter="onPathSubmit"
+      />
+    </div>
 
-          <div class="fb-list">
-            <div v-if="loading" class="fb-empty">{{ i18n.t('picker_loading') }}</div>
-            <div v-else-if="!dirExists" class="fb-empty fb-error">
-              <div>{{ createFailed ? i18n.t('picker_create_failed') : i18n.t('picker_not_exist') }}</div>
-              <button v-if="current.mode === 'dir' && !createFailed" class="fb-btn primary fb-create-btn" @click="onCreateDir">
-                {{ i18n.t('picker_create_dir') }}
-              </button>
-            </div>
-            <div v-else-if="error" class="fb-empty fb-error">{{ i18n.t('picker_unreadable') }}</div>
-            <div v-else-if="visibleEntries.length === 0" class="fb-empty">{{ i18n.t('picker_no_selection') }}</div>
-            <div
-              v-for="entry in visibleEntries"
-              :key="entry.name"
-              class="fb-row"
-              :class="{ 'is-selected': current.mode === 'file' && selected === entry.name }"
-              @click="onEntryClick(entry)"
-              @dblclick="onEntryDblClick(entry)"
-            >
-              <span class="fb-row-icon">
-                <Icon :name="entry.isDir ? 'folder' : 'file'" :size="15" />
-              </span>
-              <span class="fb-row-name">{{ entry.name }}</span>
-            </div>
-          </div>
-
-          <div v-if="current.mode === 'save'" class="fb-save-row">
-            <label class="fb-save-label">{{ i18n.t('picker_filename') }}</label>
-            <input class="fb-save-input" v-model="filename" @keyup.enter="confirm" />
-          </div>
-
-          <div class="fb-actions">
-            <span class="fb-hint" v-if="current.mode === 'file' && !selected">{{ i18n.t('picker_no_selection') }}</span>
-            <button class="fb-btn ghost" @click="cancel">{{ i18n.t('dlg_cancel') }}</button>
-            <button class="fb-btn primary" @click="confirm">
-              {{ current.mode === 'save' ? i18n.t('picker_save') : current.mode === 'dir' ? i18n.t('picker_select') : i18n.t('picker_open') }}
-            </button>
-          </div>
+    <div class="fb-list-wrap">
+      <a-spin :loading="loading" style="display: block">
+        <a-list
+          v-if="!loading && dirExists && !error && visibleEntries.length"
+          class="fb-list"
+          size="small"
+          :bordered="false"
+        >
+          <a-list-item
+            v-for="entry in visibleEntries"
+            :key="entry.name"
+            class="fb-row"
+            :class="{ 'is-selected': current?.mode === 'file' && selected === entry.name }"
+            @click="onEntryClick(entry)"
+            @dblclick="onEntryDblClick(entry)"
+          >
+            <span class="fb-e">
+              <Icon :name="entry.isDir ? 'folder' : 'file'" :size="15" />
+              <span class="fb-e-name">{{ entry.name }}</span>
+            </span>
+          </a-list-item>
+        </a-list>
+        <div v-else-if="!loading && !dirExists" class="fb-empty">
+          <span :class="{ 'fb-error': true }">
+            {{ createFailed ? i18n.t('picker_create_failed') : i18n.t('picker_not_exist') }}
+          </span>
+          <a-button v-if="current?.mode === 'dir' && !createFailed" size="small" type="primary" @click="onCreateDir">
+            {{ i18n.t('picker_create_dir') }}
+          </a-button>
         </div>
-      </div>
-    </Transition>
-  </Teleport>
+        <div v-else-if="!loading && error" class="fb-empty fb-error">{{ i18n.t('picker_unreadable') }}</div>
+        <div v-else-if="!loading" class="fb-empty">{{ i18n.t('picker_no_selection') }}</div>
+      </a-spin>
+    </div>
+
+    <div v-if="current?.mode === 'save'" class="fb-save-row">
+      <span class="fb-save-label">{{ i18n.t('picker_filename') }}</span>
+      <a-input v-model="filename" @press-enter="confirm" />
+    </div>
+
+    <template #footer>
+      <span v-if="current?.mode === 'file' && !selected" class="fb-hint">{{ i18n.t('picker_no_selection') }}</span>
+      <a-button @click="cancel">{{ i18n.t('dlg_cancel') }}</a-button>
+      <a-button type="primary" @click="confirm">
+        {{ current?.mode === 'save' ? i18n.t('picker_save') : current?.mode === 'dir' ? i18n.t('picker_select') : i18n.t('picker_open') }}
+      </a-button>
+    </template>
+  </a-modal>
 </template>
 
 <style scoped lang="scss">
-.fb-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  // 遮罩暗底 + 模糊移到 ::before 独立叶子层：panel 文字不再落入 backdrop-filter 合成层
-  // 而失去亚像素抗锯齿发虚（与 #41「下拉实底」同理；§7.5.6 弹窗背板 blur 视觉语义不变）
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--overlay);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-  }
-}
-
-.fb-panel {
-  position: relative; // 置于 backdrop::before 遮罩层之上（文字保持锐利）
-  z-index: 1;
-  width: min(560px, calc(100vw - 48px));
-  height: min(520px, calc(100vh - 64px));
-  display: flex;
-  flex-direction: column;
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-modal);
-  box-shadow: var(--shadow-modal);
-  color: var(--fg-primary);
-  overflow: hidden;
-}
-
-.fb-head {
+.fb-toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-}
-
-.fb-title {
-  font-size: var(--fs-lg);
-  font-weight: 700;
-  color: var(--fg-primary);
-  flex: 1;
-}
-
-.fb-icon-btn {
-  width: 30px;
-  height: 28px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  color: var(--fg-primary);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-smooth), color var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
-  &:hover:not(:disabled) { background: var(--bg-hover); }
-  &:disabled { opacity: 0.4; cursor: default; }
-}
-
-.fb-pathbar {
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
 }
 
 .fb-path-input {
-  width: 100%;
-  height: 28px;
-  padding: 0 8px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--fg-primary);
-  font-size: var(--fs-md);
-  font-family: var(--font-mono);
-  &:focus { border-color: var(--accent); outline: none; }
+  flex: 1;
+  min-width: 0;
+}
+
+.fb-list-wrap {
+  height: 300px; // 限定列表区高度，内容滚动由 a-list 内置滚动条承载
 }
 
 .fb-list {
-  flex: 1;
+  height: 100%;
   overflow: auto;
-  padding: 6px 0;
+}
+
+.fb-row {
+  cursor: pointer;
+  &.is-selected :deep(.arco-list-item) {
+    background: var(--bg-active);
+  }
+}
+
+.fb-e {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--fg-secondary);
+  font-size: var(--fs-base);
+}
+.fb-row:hover :deep(.arco-list-item) { background: var(--bg-hover); }
+.fb-e-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fb-empty {
@@ -305,61 +273,16 @@ function cancel() {
 }
 .fb-error { color: var(--danger-text); }
 
-.fb-create-btn {
-  min-width: auto;
-  height: 28px;
-  padding: 0 14px;
-  font-size: var(--fs-sm);
-}
-
-.fb-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  cursor: pointer;
-  font-size: var(--fs-base);
-  color: var(--fg-secondary);
-  &:hover { background: var(--bg-hover); }
-  &.is-selected { background: var(--bg-active); color: var(--fg-primary); }
-}
-
-.fb-row-icon { width: 18px; text-align: center; display: inline-flex; align-items: center; justify-content: center; color: var(--fg-muted); }
-.fb-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 .fb-save-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
-  border-top: 1px solid var(--border);
+  margin-top: 12px;
 }
-
 .fb-save-label {
   font-size: var(--fs-base);
   color: var(--fg-secondary);
   white-space: nowrap;
-}
-
-.fb-save-input {
-  flex: 1;
-  height: 28px;
-  padding: 0 8px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--fg-primary);
-  font-size: var(--fs-md);
-  &:focus { border-color: var(--accent); outline: none; }
-}
-
-.fb-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 12px 14px;
-  border-top: 1px solid var(--border);
 }
 
 .fb-hint {
@@ -367,39 +290,4 @@ function cancel() {
   font-size: var(--fs-sm);
   color: var(--fg-muted);
 }
-
-.fb-btn {
-  min-width: 84px;
-  height: 32px;
-  padding: 0 16px;
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-base);
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: background-color var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
-
-}
-
-.fb-btn.primary {
-  background: var(--primary-bg);
-  color: var(--primary-fg);
-  &:hover { background: var(--primary-hover); }
-  &:active { background: var(--primary-pressed); }
-}
-.fb-btn.ghost {
-  background: transparent;
-  border-color: var(--border);
-  color: var(--fg-secondary);
-  &:hover { background: var(--bg-hover); }
-}
-
-.modal-fade-enter-active,
-.modal-fade-leave-active { transition: opacity var(--dur-med) var(--ease-smooth); }
-.modal-fade-enter-from,
-.modal-fade-leave-to { opacity: 0; }
-.modal-fade-enter-active .fb-panel,
-.modal-fade-leave-active .fb-panel { transition: transform var(--dur-med) var(--ease-jelly); }
-.modal-fade-enter-from .fb-panel,
-.modal-fade-leave-to .fb-panel { transform: translateY(12px) scale(0.96); }
 </style>
