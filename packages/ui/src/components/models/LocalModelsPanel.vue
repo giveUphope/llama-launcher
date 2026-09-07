@@ -223,17 +223,25 @@ async function onRefresh() {
 
 // 点击列表行直接应用模型（统一走 params.applyModel：
 // 保留参数值 + 自动检测 mmproj + 加载 GGUF 元数据，控制台切换时自动清理）
-function selectRow(idx: number) {
-  if (idx >= 0 && idx < filteredModels.value.length) {
-    const path = filteredModels.value[idx].path;
-    void (async () => {
-      // 有未固化的临时调整时先确认丢弃（用户取消则中止后续预设应用）
-      const ok = await params.applyModel(path);
-      if (!ok) return;
-      // 智能预设：该模型存在已保存预设时静默应用（建立预设基线）
-      await applyModelPresetIfAny(path);
-    })();
-  }
+function handleSelect(m: ModelInfo) {
+  void (async () => {
+    // 有未固化的临时调整时先确认丢弃（用户取消则中止后续预设应用）
+    const ok = await params.applyModel(m.path);
+    if (!ok) return;
+    // 智能预设：该模型存在已保存预设时静默应用（建立预设基线）
+    await applyModelPresetIfAny(m.path);
+  })();
+}
+
+// 伴随文件标签 → a-tag 配色
+function tagColor(t: string): string {
+  return t === 'mmproj' ? 'arcoblue' : t === 'dflash' ? 'green' : 'orange';
+}
+
+// 显存适配徽章 → a-tag 配色
+function fitColor(m: ModelInfo): string {
+  const v = fitOf(m)?.verdict;
+  return v === 'fit' ? 'green' : v === 'partial' ? 'orange' : 'red';
 }
 
 // ---- 显存适配徽章：批量估算每个模型文件的显存适配判定（fit/partial/no）+ 上下文上限 ----
@@ -379,79 +387,60 @@ onUnmounted(() => {
       <!-- 引擎目录 / 模型目录 / 镜像源等应用设置已统一移至「应用设置」页（/settings） -->
       <Card title-key="card_models">
         <div class="search-row">
-          <input
-            class="search-input"
-            type="text"
-            v-model="searchQuery"
-            :placeholder="i18n.t('lbl_search_models')"
-          />
+          <a-input v-model="searchQuery" :placeholder="i18n.t('lbl_search_models')" allow-clear>
+            <template #prefix><Icon name="search" :size="13" /></template>
+          </a-input>
           <span class="search-count" v-if="searchQuery">
             {{ filteredModels.length }} / {{ models.length }}
           </span>
-          <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''">
-            <Icon name="close" :size="11" />
-          </button>
         </div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>{{ i18n.t('col_name') }}</th>
-                <th class="col-size">{{ i18n.t('col_size') }}</th>
-                <th class="col-actions">{{ i18n.t('col_actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="!filteredModels.length">
-                <td colspan="3" class="empty">{{ searchQuery ? i18n.t('msg_no_search_results') : '—' }}</td>
-              </tr>
-              <tr
-                v-for="(m, idx) in filteredModels"
-                :key="m.path"
-                :class="{ selected: m.path === modelPath }"
-                @click="selectRow(idx)"
-              >
-                <td>
-                  <div class="model-name-cell">
-                    <Icon v-if="m.path === modelPath" name="star" :size="12" class="selected-icon" />
-                    <!-- 路径不再单列展示：悬停名称可见完整路径，「打开目录」按钮直达所在目录 -->
-                    <div class="model-name-row" :title="m.path">{{ m.name }}</div>
-                  </div>
-                  <!-- 伴随文件标签 + 显存适配 + 体检结果合并同一行 -->
-                  <div v-if="(m.tags && m.tags.length) || fitOf(m)?.verdict || benchBadge(m)" class="model-tags">
-                    <span v-for="t in m.tags ?? []" :key="t" class="model-tag" :class="tagCls(t)">{{ t }}</span>
-                    <span
-                      v-if="fitOf(m)?.verdict"
-                      class="model-tag"
-                      :class="`fit-${fitOf(m)!.verdict}`"
-                      :title="fitTitle(m)"
-                    >{{ fitBadge(m) }}</span>
-                    <span v-if="benchBadge(m)" class="model-tag bench-chip" :title="benchTitle(m)">{{ benchBadge(m) }}</span>
-                  </div>
-                </td>
-                <td class="col-size">{{ m.size_str }}</td>
-                <td class="col-actions">
-                  <div class="row-actions">
-                    <button class="row-btn" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(m)">
-                      <Icon name="folder_open" :size="13" />
-                    </button>
-                    <button
-                      class="row-btn"
-                      :title="i18n.t('bench_llama_title')"
-                      :disabled="benchJobs[m.path]?.state === 'running'"
-                      @click.stop="onBench(m)"
-                    >
-                      <Icon name="clock" :size="13" />
-                    </button>
-                    <button class="row-btn danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(m)">
-                      <Icon name="trash" :size="13" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <a-table
+          class="models-table"
+          :data="filteredModels"
+          row-key="path"
+          :pagination="false"
+          :loading="scanning"
+          :scroll="{ y: 320 }"
+          :bordered="false"
+          :row-class-name="(record: any) => (record as ModelInfo).path === modelPath ? 'row-selected' : ''"
+          @row-click="(record: any) => handleSelect(record as ModelInfo)"
+        >
+          <a-table-column field="name" :title="i18n.t('col_name')">
+            <template #cell="{ record }">
+              <div class="model-name-cell">
+                <Icon v-if="record.path === modelPath" name="star" :size="12" class="selected-icon" />
+                <div class="model-name-row" :title="record.path">{{ record.name }}</div>
+              </div>
+              <!-- 伴随文件标签 + 显存适配 + 体检结果合并同一行 -->
+              <div v-if="(record.tags && record.tags.length) || fitOf(record)?.verdict || benchBadge(record)" class="model-tags">
+                <a-tag v-for="t in record.tags ?? []" :key="t" size="small" :color="tagColor(t)">{{ t }}</a-tag>
+                <a-tag v-if="fitOf(record)?.verdict" size="small" :color="fitColor(record)" :title="fitTitle(record)">
+                  {{ fitBadge(record) }}
+                </a-tag>
+                <a-tag v-if="benchBadge(record)" size="small" color="gray" :title="benchTitle(record)">
+                  {{ benchBadge(record) }}
+                </a-tag>
+              </div>
+            </template>
+          </a-table-column>
+          <a-table-column field="size_str" :title="i18n.t('col_size')" :width="90" />
+          <a-table-column :title="i18n.t('col_actions')" :width="84">
+            <template #cell="{ record }">
+              <div class="row-actions">
+                <a-button size="mini" shape="circle" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(record)">
+                  <Icon name="folder_open" :size="13" />
+                </a-button>
+                <a-button size="mini" shape="circle" :title="i18n.t('bench_llama_title')"
+                          :disabled="benchJobs[record.path]?.state === 'running'" @click.stop="onBench(record)">
+                  <Icon name="clock" :size="13" />
+                </a-button>
+                <a-button size="mini" shape="circle" status="danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(record)">
+                  <Icon name="trash" :size="13" />
+                </a-button>
+              </div>
+            </template>
+          </a-table-column>
+        </a-table>
       </Card>
 
       <!-- 精简的模型信息摘要（可折叠）+ 建议参数一键应用 -->
@@ -536,53 +525,12 @@ onUnmounted(() => {
   background: var(--border);
 }
 
-/* 清除搜索按钮 */
-.clear-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--fg-muted);
-  cursor: pointer;
-  transition: color var(--dur-fast) var(--ease-smooth), background var(--dur-fast) var(--ease-smooth);
-
-  &:hover {
-    color: var(--fg-primary);
-    background: var(--bg-hover);
-  }
-}
-
 /* 统计条与搜索行 */
 .search-row {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
-}
-
-/* 建议参数一键应用按钮（复用全局 action-btn 语义） */
-.search-input {
-  flex: 1;
-  height: 28px;
-  padding: 0 10px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--fg-primary);
-  font-size: var(--fs-md);
-
-  &:focus {
-    border-color: var(--accent);
-    outline: none;
-  }
-
-  &::placeholder {
-    color: var(--fg-muted);
-  }
 }
 
 .search-count {
@@ -592,77 +540,17 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.table-wrap {
-  max-height: 340px;
-  overflow: auto;
+.models-table {
+  margin-top: 8px;
+  :deep(.arco-table-tr) { cursor: pointer; }
+  :deep(.arco-table-tr.row-selected > td) { background: var(--bg-active); }
+  :deep(.arco-table-th) { color: var(--fg-secondary); font-weight: 600; }
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--fs-base);
-
-  thead th {
-    text-align: left;
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--glass-border);
-    color: var(--fg-secondary);
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    /* 粘性表头必须不透明：行滚动穿过表头时半透明玻璃会透底（且滚动容器禁 blur） */
-    background: var(--bg-card);
-  }
-
-  tbody td {
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--border);
-    color: var(--fg-primary);
-  }
-
-  tbody tr {
-    cursor: pointer;
-
-    &:hover {
-      background: var(--bg-hover);
-    }
-
-    &.selected {
-      background: var(--bg-active);
-    }
-  }
-
-  .col-size {
-    width: 90px;
-  }
-
-  // 名称列保底宽度：保证伴随标签 + 适配徽章 + 体检结果同行展示
-  th:first-child,
-  td:first-child {
-    min-width: 210px;
-  }
-
-  .col-actions {
-    width: 84px;
-    text-align: right;
-
-    // 操作按钮固定单行（flex 消除 inline 空白节点，路径列收缩时不再换行）
-    .row-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 4px;
-    }
-
-    .row-btn {
-      flex-shrink: 0;
-    }
-  }
-
-  .empty {
-    text-align: center;
-    color: var(--fg-muted);
-    padding: 20px;
-  }
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
 }
 
 /* 模型名 + 伴随文件标签 */
@@ -694,82 +582,6 @@ onUnmounted(() => {
   margin-top: 4px;
   // 标签恒单行：超出时整行省略（名称列已有 min-width 保底）
   overflow: hidden;
-}
-
-/* 伴随文件标签徽章（mmproj / dflash / draft），淡底配色对齐全局徽章风格 */
-.model-tag {
-  display: inline-block;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  font-family: var(--font-mono);
-  border-radius: var(--radius-pill);
-  padding: 1px 6px;
-  letter-spacing: 0.2px;
-  line-height: 1.5;
-
-  &.mmproj {
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-  }
-
-  &.dflash {
-    color: var(--success-text);
-    background: color-mix(in srgb, var(--success) 14%, transparent);
-  }
-
-  &.draft {
-    color: var(--warn-text);
-    background: color-mix(in srgb, var(--warn) 14%, transparent);
-  }
-
-  // 显存适配徽章（估算结果）：成功绿 / 需部分卸载橙 / 建议降档红
-  &.fit-fit {
-    color: var(--success-text);
-    background: color-mix(in srgb, var(--success) 14%, transparent);
-  }
-
-  &.fit-partial {
-    color: var(--warn-text);
-    background: color-mix(in srgb, var(--warn) 14%, transparent);
-  }
-
-  &.fit-no {
-    color: var(--danger-text);
-    background: color-mix(in srgb, var(--danger) 14%, transparent);
-  }
-
-  // llama-bench 体检结果徽章：中性灰底 + mono 数值
-  &.bench-chip {
-    color: var(--fg-secondary);
-    background: var(--bg-hover);
-  }
-}
-
-/* 行内操作按钮（打开目录 / 移除） */
-.row-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-smooth), color var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover {
-    background: var(--bg-hover);
-    color: var(--fg-primary);
-  }
-
-
-  &.danger:hover {
-    background: color-mix(in srgb, var(--danger) 12%, transparent);
-    color: var(--danger-text);
-  }
 }
 
 /* GGUF 状态提示 */
