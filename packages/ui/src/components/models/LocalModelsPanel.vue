@@ -475,11 +475,13 @@ onUnmounted(() => {
           </a-button>
         </div>
         <div class="suggestions-compact">
-          <span v-for="(s, idx) in params.ggufSuggestions" :key="idx" class="suggestion-chip">
+          <!-- 建议参数 chips：a-tag 原生承载（同 meta-chip/summary-chip 范式），
+               自定义 span 胶囊（padding/bg/radius）已移除 -->
+          <a-tag v-for="(s, idx) in params.ggufSuggestions" :key="idx" size="small" class="suggestion-chip">
             <span class="chip-key">{{ s.key }}</span>
             <span class="chip-eq">=</span>
             <span class="chip-val">{{ formatValue(s.value) }}</span>
-          </span>
+          </a-tag>
         </div>
       </Card>
     </div>
@@ -618,14 +620,13 @@ onUnmounted(() => {
 }
 
 .suggestion-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  background: var(--color-fill-3);
-  border-radius: var(--radius-pill);
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
+  :deep(.arco-tag-content) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
 }
 
 .chip-key {

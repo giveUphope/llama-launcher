@@ -155,6 +155,14 @@
 - [x] 浏览器验证：中性标签 `rgba(255,255,255,.08)` 底 / 原生文字色；建议标签 `arco-tag-arcoblue` 蓝底蓝字；mono 字体保留；8 个提示（6 可应用）渲染正常
 - [x] 性能目标下拉点击即收起修复：Arco Dropdown `hide-on-select` 默认 true，点击目标项会连带关闭面板（用户尚未看到建议/未点应用）→ `:hide-on-select="false"`，面板保持展开仅切换选中并刷新建议区；「应用到参数」成功后主动收起（原有逻辑），点击外部仍可关闭。浏览器验证：点击「最低延迟」面板保持展开、选中与建议 chips 同步更新
 
+## 收尾十四批：模型列表区域原生度审查（2026-09-07，用户要求审查避免自定义组件残留）
+
+逐元素审查 LocalModelsPanel（模型列表区域）源码与渲染 DOM，发现并修复 1 处自定义残留：
+
+- [x] **建议参数 chips `.suggestion-chip`**：手写 `<span>` 胶囊（自定义 padding/`--color-fill-3` 底/pill 圆角）→ `a-tag size="small"`（meta-chip/summary-chip 同款原生范式），仅保留 mono 字体与 key/eq/val 三段配色
+- [x] 审查通过项（已是原生，无需改动）：搜索 `a-input`、表格 `a-table`（columns prop 模式）、行操作 `a-button mini/circle` ×3、显存适配/伴随文件/体检徽章 `a-tag`、统计 `a-statistic`、选中星 `Icon`（Arco 图标）；`.model-name-cell`/`.row-actions` 等为布局容器非控件
+- [x] 浏览器全区域盘点：19 按钮全 `arco-btn`（非 Arco 0）、输入框全 `arco-input-wrapper`（非 Arco 0）、建议 chips 6/6 为 `arco-tag`（原生 fill-2 底/2px 圆角）、22 标签、2 统计、1 表格
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |
