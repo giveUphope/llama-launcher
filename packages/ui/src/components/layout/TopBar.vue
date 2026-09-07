@@ -210,20 +210,17 @@ async function onOpenWeb() {
         {{ i18n.t('open_web') }}
       </a-button>
 
-      <!-- 窗口控制：a-button 基座（type=text）+ 窗口铬专属覆盖；点击走 Electron 窗口协议，
-           贴边热区/方形圆角为无边框窗口必需（Arco 无窗口控制组件） -->
+      <!-- 窗口控制：a-button 基座（type=text）+ Arco 图标 + 窗口铬专属覆盖；点击走
+           Electron 窗口协议，贴边热区为无边框窗口必需（Arco 无窗口控制组件） -->
       <div class="window-controls">
         <a-button class="win-btn" type="text" :title="i18n.t('win_minimize')" @click="onMinimize" aria-label="minimize">
-          <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+          <Icon name="minimize" :size="12" />
         </a-button>
         <a-button class="win-btn" type="text" :title="isMaximized ? i18n.t('win_restore') : i18n.t('win_maximize')" @click="onToggleMaximize" aria-label="toggle maximize">
-          <!-- 最大化：单个圆角方框 -->
-          <svg v-if="!isMaximized" width="12" height="12" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /></svg>
-          <!-- 还原：双层重叠窗口（后窗轮廓 + 前窗顶/右边，与最小化/关闭同风格） -->
-          <svg v-else width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2.5" width="6.5" height="6.5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /><path d="M4.5 4.5h5.5v5.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          <Icon :name="isMaximized ? 'restore' : 'maximize'" :size="12" />
         </a-button>
         <a-button class="win-btn win-close" type="text" :title="i18n.t('win_close')" @click="onClose" aria-label="close">
-          <svg width="12" height="12" viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /><line x1="9" y1="3" x2="3" y2="9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+          <Icon name="close" :size="12" />
         </a-button>
       </div>
     </div>

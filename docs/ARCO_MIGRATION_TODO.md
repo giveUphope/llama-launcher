@@ -113,6 +113,14 @@
 - [x] `ParamRow.vue` 参数还原钮 `clear-btn`：去掉全部自绘覆盖（20px 尺寸、灰色默认 + 橙色 hover 染色、opacity 0.55 弱化渐显）→ 纯 Arco 原生形态 `type="text" size="mini" shape="circle" status="warning"`（warning 橙常显、24×24 原生尺寸、Arco 默认 hover），零自定义样式
 - [x] 保留项（无 Arco 对应原语，业务语义）：`.changed`/`.dep-unmet` 行橙色描边（脏值/依赖未满足指示）、`.gguf-hint.applicable` 点击应用下划线供能
 
+## 收尾九批：图标全量 Arco 化（2026-09-07，用户要求排查非 Arco 图标）
+
+全库图标审计（`<Icon name>` 静态+动态绑定溯源 × 内联 `<svg>` 清点 × Icon.vue 映射表比对）：
+
+- [x] **映射完整性**：全部 `<Icon name>` 用法（含 LEVELS/TABS/navItems/exeBadge 等数据源与三元表达式）逐一对表核验，100% 命中映射表，无「未映射 → 问号回退」错误显示；`name="actions"` 为 slot 误报
+- [x] **内联 SVG 清零**：唯一非 Arco 图标 = TopBar win-btn 的 4 个手绘窗口字形 → Arco 原生图标（`IconMinus`/`IconFullscreen`/`IconFullscreenExit`/`IconClose`），经 Icon.vue 映射（新增 `minimize`/`maximize`/`restore` 三键）渲染；浏览器验证 `pageInlineSvg: 0`（窗口处于最大化态时正确显示还原图标）
+- [x] 图标体系结论：全应用图标 100% 来自 `@arco-design/web-vue/es/icon`，统一经 `Icon.vue` 名称映射渲染
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |
@@ -124,7 +132,7 @@
 | 日志 | a-radio-group(button) / a-input / a-button | 控制台行着色（恒深底语义） |
 | 内置 Web UI | a-result / WebUiFrame(iframe 生命周期) | iframe 本体 |
 | 应用设置 | a-tabs / a-form(a-form-item) / a-descriptions / a-select / a-radio-group / a-input / a-button | — |
-| 布局 | a-layout / a-layout-sider / a-menu / a-badge / a-dropdown / a-typography / a-modal（全局弹窗） | TopBar `win-btn` ×3：a-button(text) 基座 + 窗口铬覆盖（Electron 窗口协议、贴边热区）；PageHost/PageFrame/AppLogo（非交互：布局壳/图片） |
+| 布局 | a-layout / a-layout-sider / a-menu / a-badge / a-dropdown / a-typography / a-modal（全局弹窗） | TopBar `win-btn` ×3：a-button(text) 基座 + Arco 图标（minus/fullscreen[-exit]/close）+ 窗口铬覆盖（Electron 窗口协议、贴边热区）；PageHost/PageFrame/AppLogo（非交互：布局壳/图片） |
 
 ## 每批验收
 

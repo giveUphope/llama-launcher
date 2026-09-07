@@ -3,8 +3,8 @@ import { computed, type Component } from 'vue';
 import {
   IconApps, IconBook, IconCheck, IconCheckCircle, IconClockCircle, IconClose, IconCloseCircle,
   IconCloud, IconCodeBlock, IconCopy, IconDelete, IconDown, IconDownload, IconExclamationCircle,
-  IconExport, IconFile, IconFolder, IconFolderAdd, IconInfoCircle, IconLeft,
-  IconLink, IconPlayArrow, IconPublic, IconQuestionCircle, IconRefresh, IconRight, IconSave,
+  IconExport, IconFile, IconFolder, IconFolderAdd, IconFullscreen, IconFullscreenExit, IconInfoCircle, IconLeft,
+  IconLink, IconMinus, IconPlayArrow, IconPublic, IconQuestionCircle, IconRefresh, IconRight, IconSave,
   IconSearch, IconSettings, IconStar, IconStop, IconStorage, IconSunFill,
 } from '@arco-design/web-vue/es/icon';
 
@@ -21,6 +21,8 @@ const icons: Record<string, Component> = {
   external: IconExport, close: IconClose, check: IconCheck, globe: IconPublic, theme: IconSunFill, link: IconLink,
   check_circle: IconCheckCircle, alert: IconExclamationCircle, info: IconInfoCircle, error: IconCloseCircle,
   clock: IconClockCircle, empty: IconFile, star: IconStar, disk: IconStorage,
+  // 窗口控制（TopBar win-btn）：Arco 原生字形
+  minimize: IconMinus, maximize: IconFullscreen, restore: IconFullscreenExit,
 };
 const component = computed<Component>(() => icons[props.name] ?? IconQuestionCircle);
 </script>
