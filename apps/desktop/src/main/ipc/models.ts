@@ -15,9 +15,22 @@ import { watchModelsDir, notifyModelsChanged } from './models-watcher.js';
 
 export function registerModelsIpc(ipcMain: IpcMain): void {
   // 注意：目录不存在时的"创建目录"确认交互改由渲染进程负责（自定义弹窗），
-  // 此处仅透传 options 并把 DIR_NOT_FOUND 错误抛回渲染进程。
-  ipcMain.handle(IPC.MODELS_SCAN, (_e, dir: string, options?: { createIfMissing?: boolean }) => {
-    return scanModels(dir, options ?? {});
+  // 此处对 DIR_NOT_FOUND 仅降噪记录一次，并以可辨识结果 {ok:false, code:'DIR_NOT_FOUND'}
+  // 返回渲染进程（不抛错，避免多个调用点反复刷 Electron handler error 与 dev 控制台）。
+  const missingDirWarned = new Set<string>();
+  ipcMain.handle(IPC.MODELS_SCAN, async (_e, dir: string, options?: { createIfMissing?: boolean }) => {
+    try {
+      return await scanModels(dir, options ?? {});
+    } catch (err: any) {
+      if (err?.code === 'DIR_NOT_FOUND') {
+        if (!missingDirWarned.has(dir)) {
+          missingDirWarned.add(dir);
+          console.warn(`[models] 模型目录不存在（仅提示一次，渲染进程引导创建）：${dir}`);
+        }
+        return { ok: false, code: 'DIR_NOT_FOUND', dir };
+      }
+      throw err;
+    }
   });
   ipcMain.handle(IPC.MODELS_DETECT_MMPROJ, (_e, modelPath: string) => {
     return detectMmproj(modelPath);

@@ -186,13 +186,10 @@ async function onRefresh() {
   if (!dir) return;
   scanning.value = true;
   try {
-    const result = await window.api.models.scan(dir);
-    // 防御性检查：浏览器预览/mock 环境下 scan 可能返回 null
-    models.value = Array.isArray(result) ? result : [];
-    // 选中态为模板级路径比较，扫描替换 models 后自动同步，无需手动重置
-  } catch (e: any) {
-    // 目录不存在：用自定义弹窗询问是否创建（替代原生消息框）
-    if (e?.code === 'DIR_NOT_FOUND') {
+    // 目录不存在时主进程返回 {ok:false, code:'DIR_NOT_FOUND'}（已降噪，不再抛错刷屏）
+    const result = (await window.api.models.scan(dir)) as ModelInfo[] | { ok: false; code: string; dir?: string };
+    if (!Array.isArray(result) && result.code === 'DIR_NOT_FOUND') {
+      // 用自定义弹窗询问是否创建（替代原生消息框）
       const ok = await confirm({
         title: i18n.t('msg_ask_create_title'),
         message: i18n.t('msg_ask_create_dir').replace('{0}', dir),
@@ -202,19 +199,24 @@ async function onRefresh() {
       });
       if (ok) {
         try {
-          const result = await window.api.models.scan(dir, { createIfMissing: true });
-          models.value = Array.isArray(result) ? result : [];
-          return;
+          const created = await window.api.models.scan(dir, { createIfMissing: true });
+          models.value = Array.isArray(created) ? created : [];
         } catch (e2: any) {
           server.pushOutput({
             kind: 'error',
             data: `[Models] ${i18n.t('msg_dir_create_failed').replace('{0}', e2?.message ?? String(e2))}\n`,
             ts: Date.now(),
           });
-          return;
         }
+      } else {
+        models.value = [];
       }
+      return;
     }
+    // 防御性检查：浏览器预览/mock 环境下 scan 可能返回 null
+    models.value = Array.isArray(result) ? result : [];
+    // 选中态为模板级路径比较，扫描替换 models 后自动同步，无需手动重置
+  } catch (e: any) {
     console.error('scan models failed:', e);
   } finally {
     scanning.value = false;
