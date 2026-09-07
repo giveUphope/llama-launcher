@@ -18,9 +18,9 @@
 
 ## 页面与业务组件
 
-- [ ] 重构 `ModelsPage.vue`、`LocalModelsPanel.vue`：使用 `Table`、`Pagination`、`Dropdown`、`Empty`、`Spin` 统一模型列表、搜索、排序和行操作。
-- [ ] 重构 `DownloadCard.vue`：使用 `Card`、`Form`、`Select`、`Checkbox`、`Progress`、`List` 和 `Alert`，保留任务队列、取消、暂停、恢复和重试逻辑。
-- [ ] 重构 `PresetsPanel.vue`：使用 Arco `Table/List`、`Input`、`Button`、`Tag` 和 `Popconfirm`。
+- [x] 重构 `ModelsPage.vue`、`LocalModelsPanel.vue`：使用 `Table`、`Pagination`、`Dropdown`、`Empty`、`Spin` 统一模型列表、搜索、排序和行操作。（2026-09-07：表格→`a-table`、搜索→`a-input`、徽章→`a-tag`、行操作→`a-button`、页签→`a-tabs`）
+- [x] 重构 `DownloadCard.vue`：使用 `Card`、`Form`、`Select`、`Checkbox`、`Progress`、`List` 和 `Alert`，保留任务队列、取消、暂停、恢复和重试逻辑。（2026-09-07：输入/按钮/勾选/分页/进度→`a-input`/`a-button`/`a-checkbox`/`a-pagination`/`a-progress`）
+- [x] 重构 `PresetsPanel.vue`：使用 Arco `Table/List`、`Input`、`Button`、`Tag` 和 `Popconfirm`。（2026-09-07：列表→`a-list`、输入→`a-input`、按钮→`a-button`、当前标记→`a-tag`、删除确认→`a-popconfirm`）
 - [ ] 重构 `DashboardPage.vue`、`ServicePage.vue`、`LogsPage.vue`、`SettingsPage.vue`：优先替换统计、告警、筛选器、标签页、日志工具栏和表单控件。
 - [ ] 重构 `components/service/*`、`components/settings/*`：将手写卡片、按钮、状态展示收敛到 Arco `Card`、`Descriptions`、`Statistic`、`Alert`、`Form`。
 - [ ] 重构 `StatusBar.vue`、`WebUiFrame.vue`：使用 Arco `Typography`、`Tag`、`Button`、`Result`，保留状态订阅和 iframe 生命周期。
