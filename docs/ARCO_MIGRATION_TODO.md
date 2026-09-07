@@ -91,14 +91,20 @@
 - [x] 设置 4 面板（General/Advanced/Appearance/About）：InfoStrip 逐行表格 → `a-form`/`a-form-item`（标签定宽右对齐用组件原生 `label-align` + `label-col-style`，Advanced 长标签 140px 同法；无 model 场景传 `:model="{}"`）；About 只读行 → `a-descriptions :column="1"`
 - [x] **`InfoStrip.vue` 删除**（孤儿组件，全仓库零引用）；§7.5.4「值盒标准」废止改写为「展示字段用 a-descriptions / 表单行用 a-form-item」
 
+## 收尾五批：统计条 a-statistic 化 + 死 token 清理（2026-09-07）
+
+- [x] `LocalModelsPanel.vue` 模型统计条（模型数/总大小）：自绘 `.stat-value/.stat-label/.stat-divider` → `a-statistic` + `a-divider direction="vertical"`（数值语义覆盖走 :deep，字符串值「52.3 GB」经 `#suffix` 插槽渲染——`:value` 限 number|Date）
+- [x] `ParamsPage.vue` 参数状态条（总数/已调整/分组/显存估算）：同法迁移，warn/muted 态以语义类挂 `.stat`/组件根（浏览器验证 4 统计 + 3 分隔线 + warn 生效）
+- [x] 死 token 清理：`--font-family`（扁平化时已删定义）在 `StatusBar.vue`/`DashboardPage.vue` 的失效引用移除，字体自然继承 Arco 默认栈
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |
 | --- | --- | --- |
 | 概览 Dashboard | a-button / Card(a-card) / a-descriptions / a-typography-text(copyable) / a-space / a-tag | 统计数字排版（展示层） |
-| 模型管理 | a-tabs / a-table / a-input / a-tag / a-checkbox / a-pagination / a-progress / checkable a-tag / a-list / a-dropdown+doption | `.file-item` 行选中（checkbox + 行点击，展示层） |
+| 模型管理 | a-tabs / a-table / a-statistic / a-divider / a-input / a-tag / a-checkbox / a-pagination / a-progress / checkable a-tag / a-list / a-dropdown+doption | `.file-item` 行选中（checkbox + 行点击，展示层） |
 | 服务 | a-alert / a-textarea / a-tag / a-button | 命令预览恒深底样式（§7.5.1 恒定深色面） |
-| 参数设置 | a-tabs / a-dropdown / a-form-item / a-slider / a-input-number / a-select / a-switch / a-checkbox / a-input-group / a-tag / a-tooltip / a-button(text/mini/circle) | ParamRow 24px 紧凑行容器（承载层，控件全 Arco） |
+| 参数设置 | a-tabs / a-dropdown / a-statistic / a-divider / a-form-item / a-slider / a-input-number / a-select / a-switch / a-checkbox / a-input-group / a-tag / a-tooltip / a-button(text/mini/circle) | ParamRow 24px 紧凑行容器（承载层，控件全 Arco） |
 | 日志 | a-radio-group(button) / a-input / a-button | 控制台行着色（恒深底语义） |
 | 内置 Web UI | a-result / WebUiFrame(iframe 生命周期) | iframe 本体 |
 | 应用设置 | a-tabs / a-form(a-form-item) / a-descriptions / a-select / a-radio-group / a-input / a-button | — |

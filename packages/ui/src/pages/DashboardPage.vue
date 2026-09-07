@@ -145,7 +145,6 @@ onMounted(() => { appLog.subscribe(); });
     justify-content: center;
     min-height: 60px;
     padding: 0;
-    font-family: var(--font-family);
   }
 }
 

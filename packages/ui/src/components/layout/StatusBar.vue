@@ -115,7 +115,6 @@ onUnmounted(() => {
   background: linear-gradient(90deg, var(--statusbar-blue), color-mix(in srgb, var(--statusbar-blue) 78%, rgb(var(--primary-6))));
   color: #ffffff;
   font-size: var(--fs-sm);
-  font-family: var(--font-family);
 }
 
 .left,

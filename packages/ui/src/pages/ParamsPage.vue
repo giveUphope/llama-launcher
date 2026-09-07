@@ -215,40 +215,32 @@ async function onClearSession() {
       </a-tab-pane>
     </a-tabs>
 
-    <!-- 参数预览条仅在「自定义参数」标签展示（预设界面聚焦预设编辑，不显示参数统计） -->
+    <!-- 参数预览条仅在「自定义参数」标签展示（预设界面聚焦预设编辑，不显示参数统计）：
+         a-statistic 承载统计（warn/muted 态走语义类），a-divider 分隔 -->
     <div v-if="activeTab === 'custom'" class="params-status-bar">
       <div class="stat">
         <Icon name="params" :size="14" />
-        <div class="stat-body">
-          <span class="stat-value">{{ totalParamCount }}</span>
-          <span class="stat-label">{{ i18n.t('lbl_total_params') }}</span>
-        </div>
+        <a-statistic :value="totalParamCount" :title="i18n.t('lbl_total_params')" />
       </div>
-      <div class="stat-divider"></div>
+      <a-divider class="stat-divider" direction="vertical" />
       <div class="stat" :class="{ warn: activeParamCount > 0 }">
         <Icon :name="activeParamCount > 0 ? 'alert' : 'info'" :size="14" />
-        <div class="stat-body">
-          <span class="stat-value" :class="{ warn: activeParamCount > 0 }">{{ activeParamCount }}</span>
-          <span class="stat-label">{{ i18n.t('lbl_active_params') }}</span>
-        </div>
+        <a-statistic :value="activeParamCount" :title="i18n.t('lbl_active_params')" />
       </div>
-      <div class="stat-divider"></div>
+      <a-divider class="stat-divider" direction="vertical" />
       <div class="stat">
         <Icon name="presets" :size="14" />
-        <div class="stat-body">
-          <span class="stat-value">{{ groupCount }}</span>
-          <span class="stat-label">{{ i18n.t('lbl_param_groups') }}</span>
-        </div>
+        <a-statistic :value="groupCount" :title="i18n.t('lbl_param_groups')" />
       </div>
       <!-- 硬件占用估算 stat：槽位常驻占位（不可用显示 —），构成明细放 tooltip；
            显存总占用超出设备空闲时橙色警示 -->
-      <div class="stat-divider"></div>
+      <a-divider class="stat-divider" direction="vertical" />
       <div class="stat" :class="{ warn: vramWarn }" :title="vramTooltip">
         <Icon :name="vramWarn ? 'alert' : 'info'" :size="14" />
-        <div class="stat-body">
-          <span class="stat-value" :class="{ warn: vramWarn, muted: !vramStatValue }">{{ vramStatValue ?? '—' }}</span>
-          <span class="stat-label">{{ i18n.t('lbl_vram_occupancy') }}</span>
-        </div>
+        <!-- 字符串值（GB 估算/—）经 #suffix 插槽渲染，muted 态挂组件根 -->
+        <a-statistic :title="i18n.t('lbl_vram_occupancy')" :class="{ muted: !vramStatValue }">
+          <template #suffix>{{ vramStatValue ?? '—' }}</template>
+        </a-statistic>
       </div>
       <!-- 性能目标选择器：四档目标联动关键杠杆建议（Arco Dropdown 承接；建议 chips 走 a-tag） -->
       <a-dropdown trigger="click" :popup-visible="targetOpen" @popup-visible-change="(v: any) => (targetOpen = v)">
@@ -351,36 +343,37 @@ async function onClearSession() {
   align-items: center;
   gap: 8px;
   color: var(--color-text-2);
+
+  :deep(.arco-statistic-title) {
+    font-size: var(--fs-xs);
+    color: var(--color-text-3);
+    line-height: 1.3;
+    margin-bottom: 2px;
+  }
+
+  :deep(.arco-statistic-value) {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--color-text-1);
+    font-family: var(--font-mono);
+    line-height: 1.3;
+  }
+
+  // 已调整参数 > 0：数值警示橙（与行容器的 warn 描边同色系）
+  &.warn :deep(.arco-statistic-value) {
+    color: rgb(var(--orange-6));
+  }
 }
 
-.stat-body {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 4px;
-  line-height: 1.3;
-}
-
-.stat-value {
-  font-size: var(--fs-lg);
-  font-weight: 700;
-  color: var(--color-text-1);
-  font-family: var(--font-mono);
-
-  &.warn { color: rgb(var(--orange-6)); }
-
-  // 占位态（估算不可用）：次级灰，与其他 stat 的主色区分
-  &.muted { color: var(--color-text-3); font-weight: 400; }
-}
-
-.stat-label {
-  font-size: var(--fs-xs);
+// 占位态（估算不可用）：次级灰降字重，与其他 stat 的主色区分
+.stat .arco-statistic.muted :deep(.arco-statistic-value) {
   color: var(--color-text-3);
+  font-weight: 400;
 }
 
-.stat-divider {
-  width: 1px;
+.stat-divider.arco-divider-vertical {
   height: 22px;
-  background: var(--color-border-2);
+  margin: 0;
 }
 
 .status-right {

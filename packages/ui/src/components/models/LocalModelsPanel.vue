@@ -366,22 +366,19 @@ onUnmounted(() => {
 <template>
   <PageFrame>
     <div class="content">
-      <!-- 统计横条 -->
+      <!-- 统计横条：a-statistic 承载数值+标题，a-divider 分隔（原生统计组件） -->
       <div class="stats-row">
         <div class="stat">
           <Icon name="models" :size="14" />
-          <div class="stat-body">
-            <span class="stat-value">{{ models.length }}</span>
-            <span class="stat-label">{{ i18n.t('lbl_model_count') }}</span>
-          </div>
+          <a-statistic :value="models.length" :title="i18n.t('lbl_model_count')" />
         </div>
-        <div class="stat-divider"></div>
+        <a-divider class="stat-divider" direction="vertical" />
         <div class="stat">
           <Icon name="disk" :size="14" />
-          <div class="stat-body">
-            <span class="stat-value">{{ totalSizeStr }}</span>
-            <span class="stat-label">{{ i18n.t('lbl_total_size') }}</span>
-          </div>
+          <!-- 字符串值（52.3 GB）不走 :value（限 number|Date），经 #suffix 插槽继承数值样式 -->
+          <a-statistic :title="i18n.t('lbl_total_size')">
+            <template #suffix>{{ totalSizeStr }}</template>
+          </a-statistic>
         </div>
         <!-- 已选统计与刷新按钮已移除：选中态见当前模型胶囊；列表由文件监听自动维护 -->
       </div>
@@ -482,7 +479,7 @@ onUnmounted(() => {
   gap: 10px;
 }
 
-/* 统计横条 */
+/* 统计横条：a-statistic 仅做字号/字体语义覆盖（标题次级灰、数值 mono 加粗） */
 .stats-row {
   display: flex;
   align-items: center;
@@ -500,31 +497,26 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   color: var(--color-text-2);
+
+  :deep(.arco-statistic-title) {
+    font-size: var(--fs-xs);
+    color: var(--color-text-3);
+    line-height: 1.3;
+    margin-bottom: 2px;
+  }
+
+  :deep(.arco-statistic-value) {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--color-text-1);
+    font-family: var(--font-mono);
+    line-height: 1.3;
+  }
 }
 
-.stat-body {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 4px;
-  line-height: 1.3;
-}
-
-.stat-value {
-  font-size: var(--fs-lg);
-  font-weight: 700;
-  color: var(--color-text-1);
-  font-family: var(--font-mono);
-}
-
-.stat-label {
-  font-size: var(--fs-xs);
-  color: var(--color-text-3);
-}
-
-.stat-divider {
-  width: 1px;
+.stat-divider.arco-divider-vertical {
   height: 24px;
-  background: var(--color-border-2);
+  margin: 0;
 }
 
 /* 统计条与搜索行 */
