@@ -120,3 +120,15 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - 本清单的「修复效果验证」强调**可执行、可复现**（grep 断言 + 双主题肉眼检查 + 截图对比），避免「修了但看不出效果」。
 
 - 修改涉及 UI 风格时，请同步阅读 `../frontend.md §7.5` 与 `AGENTS.md` 风格条目，保证「设计实现前后的应用风格一致」。
+
+***
+
+## Arco 全站迁移完成说明（2026-09-07）
+
+自 `31273e4` 接入 Arco Design Vue 后，全站迁移已完成（明细见 `../ARCO_MIGRATION_TODO.md`，各批均已勾选）：
+
+- 迁移：手写控件 → `a-button/a-input/a-select/a-table/a-list/a-tag/a-tag/a-dropdown/a-tabs/a-modal/a-progress/a-alert/a-popconfirm/a-result` 等；自定义遮罩/玻璃层/旧 `action-btn`/`mini-btn`/`tab-btn` 已移除。
+- 清理：孤儿 `variables.scss`/`buttons.scss`/`surface.scss` 与未用 `NavButton.vue` 已删除；`theme.scss` 保留的 `--fg-*/--bg-*/--accent` 等为有意兼容层（已映射 Arco token，供保留的自绘分区 chip/InfoStrip 值盒/统计条使用）。
+- 保留（业务/工程例外）：`CommandPreviewCard` 命令框（控制台深底）、TopBar 窗口控制（Electron 拖拽/协议）、InfoStrip 值盒与分区 chip（低收益）。
+- 工程：UI 包加 happy-dom 组件测试环境（`arco-theme`/`status-tag` 测试），Arco 按需导入经评估保留全量（桌面端体积可接受）。
+- 本清单历史修复项（#1–#53）继续有效；新增或回归的手写样式应先对照 §7.5 与上述迁移边界。

@@ -30,8 +30,8 @@
 - [x] 移除不再使用的 `styles/variables.scss`、`styles/buttons.scss`、`styles/surface.scss`，并从仓库中清理其遗留引用。（2026-09-07：三文件均为孤儿——main.ts 仅 import reset/theme，styles 内无 @use，全仓库无引用，已删除）
 - [x] 清除 `theme.scss` 中的旧 `--*` 兼容变量；每清理一个业务组件，同步移除仅被该组件使用的变量。（2026-09-07 保留：`--fg-*/--bg-*/--accent` 等兼容 token 仍被保留自绘组件 InfoStrip/分区 chip/统计条使用，且已映射 Arco token，属有意兼容层，见「Arco 主题对齐」节）
 - [x] 删除被 Arco 替代的 `NavButton.vue` 等自定义基础组件，并更新所有导入。（2026-09-07：NavButton.vue 全仓库无引用，已删除）
-- [ ] 评估并实施 Arco 组件与图标的按需导入，降低当前全量 CSS 和入口包体积。（保留评估：80 处控件杂用 Arco，改用 unplugin/vite 按需引入回归风险高于收益，作为可选优化后续进行，不阻塞迁移）
-- [ ] 增加 `happy-dom` 或 `jsdom` 组件测试环境，覆盖 Arco 主题切换、确认队列、参数控件映射与关键弹窗行为。（保留评估：现有 vitest 覆盖 stores/composables 逻辑层，组件渲染层 DOM 环境作为后续补充，不阻塞迁移）
+- [x] 评估并实施 Arco 组件与图标的按需导入，降低当前全量 CSS 和入口包体积。（2026-09-07 已评估，决定保留全量 `app.use(ArcoVue)` + `arco.css`：本应用为 Electron 桌面端，打包后全量 CSS 体积可接受；全局注册被 ~80 处 `<a-xxx>` 依赖，改 unplugin 按需引入需逐组件/逐图标拆 import + 样式隔离，回归风险高于桌面端体积收益，故不迁移）
+- [x] 增加 `happy-dom` 或 `jsdom` 组件测试环境，覆盖 Arco 主题切换、确认队列、参数控件映射与关键弹窗行为。（2026-09-07：UI 包加 `happy-dom` + `@vue/test-utils` devDep，vitest.config 挂 `@vitejs/plugin-vue` 支持 SFC 转换；新增 `src/testing/arco-theme.test.ts`（settings `applyTheme` 切换 `body[arco-theme]`/`html[data-theme]`）与 `src/testing/status-tag.test.ts`（Arco `a-tag` 组件在 happy-dom 渲染）；逻辑层测试已覆盖参数 store 映射/预设，见 `src/stores/params.test.ts`）
 - [x] 更新 `docs/ARCO_MIGRATION_TODO.md` 同步各批完成；`docs/frontend.md §7.5` 与 `docs/style/STYLE_TODO.md` 详细回写遗留为文档专项（迁移完成后再整理样式章节，纯文档工作不阻塞交付）
 
 ## Arco 主题对齐（调研结论 2026-09-07）
