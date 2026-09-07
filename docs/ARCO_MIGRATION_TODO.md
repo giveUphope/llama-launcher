@@ -149,6 +149,11 @@
 - [x] 浏览器验证：服务页三张卡操作按钮与标题中心线一致（96/631/744 各自相等）；服务页与日志页 `document.body.innerText` 无任何 `msg_*/lbl_*/btn_*` 裸键泄漏；`verify-i18n-usage` 报告 zh/en 各 355 键一致、无悬空引用
 - [x] **内容顶部空白修复（占位槽滥用）**：「防跳动预留槽」（#42 模式）用在卡片体首元素时只会产生永久空白——移除三处：PresetsPanel `.applied-msg-slot`（报告点，32px）、ServicePage `.console-header` 占位行（scroll-hint 移除后仅剩胶囊占位）、LogsPage `.new-logs-slot` 占位行（26px）。原则：瞬时反馈类内容（应用提示/新日志胶囊）条件渲染、不常驻占位；占位防跳动仅用于内容区中下部两侧均有稳定内容的槽位（DashboardPage 问题操作行、ServiceStatusCard 失败横幅保留）
 
+## 收尾十三批：GGUF 内置值提示标签原生化（2026-09-07）
+
+- [x] `ParamRow.vue` `.gguf-hint`：移除自定义 `background: --color-fill-3` / `color: --color-text-3` / 虚线下划线覆盖（与 Arco 非 checkable 标签恒带 `arco-tag-checked` 的原生外观冲突，产生观感异常）→ 中性提示用默认 `a-tag`（原生 fill-2 底），可点击建议用原生 `color="arcoblue"`；`applicable` 仅保留 `cursor: pointer`
+- [x] 浏览器验证：中性标签 `rgba(255,255,255,.08)` 底 / 原生文字色；建议标签 `arco-tag-arcoblue` 蓝底蓝字；mono 字体保留；8 个提示（6 可应用）渲染正常
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |

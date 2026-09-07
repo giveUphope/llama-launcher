@@ -109,9 +109,12 @@ function onClear() {
         <FileParam v-else-if="p.type === 'file' || p.type === 'dir'" :p="p" />
         <TextParam v-else :p="p" />
       </div>
+      <!-- GGUF 值提示：a-tag 原生外观（中性=默认标签，可点击建议=color="arcoblue"），
+           自定义底/字色/下划线覆盖已移除（与 meta-chip 等非 checkable 标签统一走原生态） -->
       <a-tag
         v-if="ggufHint !== null"
         size="small"
+        :color="hasGgufSuggestion ? 'arcoblue' : undefined"
         class="gguf-hint"
         :class="{ applicable: hasGgufSuggestion }"
         :title="hasGgufSuggestion ? i18n.t('msg_click_to_apply') : i18n.t('msg_gguf_model_value')"
@@ -208,22 +211,16 @@ function onClear() {
   }
 }
 
-// GGUF 值提示：a-tag 承载（同 meta-chip/summary-chip 范式）；有建议时可点击应用
+// GGUF 值提示：a-tag 原生外观，仅保留布局尺寸与 mono 字体（§7.5.1 数值 mono）
 .gguf-hint {
-  font-size: var(--fs-xs);
   font-family: var(--font-mono);
-  color: var(--color-text-3);
-  background: var(--color-fill-3);
   flex: 0 1 auto;
   min-width: 44px;
   max-width: 72px;
   text-align: center;
 
   &.applicable {
-    color: rgb(var(--primary-6));
     cursor: pointer;
-    text-decoration: underline dotted;
-    &:hover { text-decoration: underline; }
   }
 }
 
