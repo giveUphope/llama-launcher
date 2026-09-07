@@ -288,21 +288,17 @@ async function onClearSession() {
       <div class="status-right">
         <!-- 基线徽章已移除（与「已调整」统计重复，基线状态保留在概览服务状态卡）；
              保留恢复基线 / 清除会话参数两个操作入口 -->
-        <button
-          class="action-btn"
+        <a-button
+          size="small"
           :disabled="!params.hasChanges || !params.baseline"
           :title="i18n.t('msg_restore_baseline')"
           @click="params.restoreBaseline()"
         >
-          <span>{{ i18n.t('msg_restore_baseline') }}</span>
-        </button>
-        <button
-          class="action-btn"
-          :title="i18n.t('msg_clear_session')"
-          @click="onClearSession"
-        >
-          <span>{{ i18n.t('msg_clear_session') }}</span>
-        </button>
+          {{ i18n.t('msg_restore_baseline') }}
+        </a-button>
+        <a-button size="small" :title="i18n.t('msg_clear_session')" @click="onClearSession">
+          {{ i18n.t('msg_clear_session') }}
+        </a-button>
       </div>
     </div>
 
@@ -335,7 +331,7 @@ async function onClearSession() {
 
 <style scoped lang="scss">
 // 页签条与下方区块统一 8px 间距（§7.5 顶栏条与相邻区块间距规范）
-.tab-strip {
+.page-tabs {
   margin-bottom: 8px;
 }
 

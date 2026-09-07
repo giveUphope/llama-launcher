@@ -132,3 +132,4 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - 保留（业务/工程例外）：`CommandPreviewCard` 命令框（控制台深底）、TopBar 窗口控制（Electron 拖拽/协议）、InfoStrip 值盒与分区 chip（低收益）。
 - 工程：UI 包加 happy-dom 组件测试环境（`arco-theme`/`status-tag` 测试），Arco 按需导入经评估保留全量（桌面端体积可接受）。
 - 本清单历史修复项（#1–#53）继续有效；新增或回归的手写样式应先对照 §7.5 与上述迁移边界。
+- 2026-09-07 补充：残留 `action-btn`/`mini-btn`/`tab-btn`/`theme-opt` 按钮已全部迁移到 `a-button`/`a-tabs`/`a-radio-group`（这些类原先依赖已删除的 `buttons.scss`，迁移前为无样式裸元素）；仅保留窗口控制 `win-btn`、列表项类按钮（`.result-item`/`.url-history-item`）与带 scoped 样式的筛选 chip（`.level-chip`）。

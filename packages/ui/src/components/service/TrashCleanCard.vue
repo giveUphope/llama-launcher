@@ -116,10 +116,10 @@ async function onCleanTrash() {
         <Icon name="info" :size="12" />
         <span>{{ i18n.t('msg_trash_hint') }}</span>
       </div>
-      <button class="action-btn warn" :disabled="detecting" @click="onCleanTrash">
-        <Icon name="trash" :size="12" />
-        <span>{{ detecting ? i18n.t('msg_detecting') : i18n.t('msg_detect_trash') }}</span>
-      </button>
+      <a-button type="outline" status="warning" :disabled="detecting" @click="onCleanTrash">
+        <template #icon><Icon name="trash" :size="12" /></template>
+        {{ detecting ? i18n.t('msg_detecting') : i18n.t('msg_detect_trash') }}
+      </a-button>
     </div>
   </Card>
 </template>

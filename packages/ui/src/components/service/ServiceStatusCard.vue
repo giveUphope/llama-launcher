@@ -150,10 +150,10 @@ function onOomKvQuant() {
         </span>
         <span v-else class="empty-val">{{ i18n.t('status_model_none') }}</span>
       </InfoStrip>
-      <button class="action-btn copy-btn" :disabled="!currentModel" @click="copyModelName" :title="i18n.t('copy_model')">
-        <Icon name="copy" :size="12" />
-        <span>{{ modelCopied ? i18n.t('msg_model_copied') : i18n.t('copy_model') }}</span>
-      </button>
+      <a-button size="small" class="copy-btn" :disabled="!currentModel" @click="copyModelName" :title="i18n.t('copy_model')">
+        <template #icon><Icon name="copy" :size="12" /></template>
+        {{ modelCopied ? i18n.t('msg_model_copied') : i18n.t('copy_model') }}
+      </a-button>
     </div>
     <!-- API 地址：标签位常驻；未运行时值盒占位，复制按钮常驻（无值禁用） -->
     <div class="detail-row">
@@ -164,10 +164,10 @@ function onOomKvQuant() {
         </span>
         <span v-else class="empty-val">—</span>
       </InfoStrip>
-      <button class="action-btn copy-btn" :disabled="!server.apiUrl" @click="copyUrl" :title="i18n.t('copy_url')">
-        <Icon name="copy" :size="12" />
-        <span>{{ copied ? i18n.t('msg_url_copied') : i18n.t('copy_url') }}</span>
-      </button>
+      <a-button size="small" class="copy-btn" :disabled="!server.apiUrl" @click="copyUrl" :title="i18n.t('copy_url')">
+        <template #icon><Icon name="copy" :size="12" /></template>
+        {{ copied ? i18n.t('msg_url_copied') : i18n.t('copy_url') }}
+      </a-button>
     </div>
     <!-- 运行时详情：网格常驻（各标签位预留）。主机/端口为配置类项——与运行状态无关、
          始终显示真实配置值；PID/时长为运行时事实，未运行以 — 占位。
@@ -189,14 +189,14 @@ function onOomKvQuant() {
     </div>
     <!-- 快捷操作（自原概览 Q2/Q3 保留）：按钮不属于信息展示，不构成重复 -->
     <div class="quick-actions">
-      <button class="action-btn accent" :disabled="!isRunning" @click="router.push('/webui')" :title="i18n.t('open_web')">
-        <Icon name="external" :size="13" />
-        <span>{{ i18n.t('open_web') }}</span>
-      </button>
-      <button class="action-btn" @click="router.push('/models')" :title="i18n.t('lbl_manage_models')">
-        <Icon name="models" :size="13" />
-        <span>{{ i18n.t('lbl_manage_models') }}</span>
-      </button>
+      <a-button type="primary" size="small" :disabled="!isRunning" @click="router.push('/webui')" :title="i18n.t('open_web')">
+        <template #icon><Icon name="external" :size="13" /></template>
+        {{ i18n.t('open_web') }}
+      </a-button>
+      <a-button size="small" @click="router.push('/models')" :title="i18n.t('lbl_manage_models')">
+        <template #icon><Icon name="models" :size="13" /></template>
+        {{ i18n.t('lbl_manage_models') }}
+      </a-button>
     </div>
     <!-- 失败/异常退出提示（设计稿 §8.4：错误摘要 + 解决方案）。
          ⚠️ 布局防跳动：外层 slot 常驻并预留与 banner 等高的固定高度，
@@ -212,8 +212,8 @@ function onOomKvQuant() {
       <!-- OOM 归因建议（输出尾部命中显存不足特征时追加，给出可执行缓解动作） -->
       <div v-if="statusInfo.status === 'error' && oomDetected" class="oom-hint">
         <span class="oom-text">{{ i18n.t('msg_oom_detected') }}</span>
-        <button class="mini-btn accent" @click="onOomHalveCtx">{{ i18n.t('act_oom_halve_ctx') }}</button>
-        <button class="mini-btn accent" @click="onOomKvQuant">{{ i18n.t('act_oom_kv_quant') }}</button>
+        <a-button size="mini" @click="onOomHalveCtx">{{ i18n.t('act_oom_halve_ctx') }}</a-button>
+        <a-button size="mini" @click="onOomKvQuant">{{ i18n.t('act_oom_kv_quant') }}</a-button>
       </div>
     </div>
   </Card>

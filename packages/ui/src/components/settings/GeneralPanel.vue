@@ -181,24 +181,24 @@ const closeBehavior = computed<CloseBehavior>({
     <InfoStrip :label="i18n.t('lbl_dir_path')">
       <div class="path-row">
         <input class="path-input" type="text" v-model="modelsDir" />
-        <button class="action-btn" @click="onBrowseModelDir">
-          <Icon name="folder" :size="12" />
-          <span>{{ i18n.t('btn_change_dir') }}</span>
-        </button>
-        <button class="action-btn" :disabled="!modelsDir" @click="onOpenModelDir" :title="i18n.t('btn_open_dir')">
-          <Icon name="folder_open" :size="12" />
-          <span>{{ i18n.t('btn_open_dir') }}</span>
-        </button>
+        <a-button size="small" @click="onBrowseModelDir">
+          <template #icon><Icon name="folder" :size="12" /></template>
+          {{ i18n.t('btn_change_dir') }}
+        </a-button>
+        <a-button size="small" :disabled="!modelsDir" @click="onOpenModelDir" :title="i18n.t('btn_open_dir')">
+          <template #icon><Icon name="folder_open" :size="12" /></template>
+          {{ i18n.t('btn_open_dir') }}
+        </a-button>
       </div>
     </InfoStrip>
 
     <InfoStrip :label="i18n.t('lbl_exe_dir')">
       <div class="path-row">
         <input class="path-input" type="text" v-model="llamaDir" />
-        <button class="action-btn" @click="onBrowseExeDir">
-          <Icon name="folder" :size="12" />
-          <span>{{ i18n.t('btn_change_dir') }}</span>
-        </button>
+        <a-button size="small" @click="onBrowseExeDir">
+          <template #icon><Icon name="folder" :size="12" /></template>
+          {{ i18n.t('btn_change_dir') }}
+        </a-button>
         <ToolTip v-if="exeBadge" :text="exeBadge.tip">
           <span class="exe-status" :class="exeBadge.cls">
             <Icon :name="exeBadge.icon" :size="12" :class="{ spinning: exeBadge.spin }" />
@@ -223,10 +223,10 @@ const closeBehavior = computed<CloseBehavior>({
           <span class="exe-help-step-num">{{ step.num }}</span>
           <span class="exe-help-step-text">{{ step.text }}</span>
         </div>
-        <button class="exe-help-open-btn" @click="onOpenLlamaReleases">
-          <Icon name="external" :size="12" />
-          <span>{{ i18n.t('btn_open_llama_releases') }}</span>
-        </button>
+        <a-button size="small" class="exe-help-open-btn" @click="onOpenLlamaReleases">
+          <template #icon><Icon name="external" :size="12" /></template>
+          {{ i18n.t('btn_open_llama_releases') }}
+        </a-button>
       </div>
     </Teleport>
   </Card>
@@ -329,21 +329,5 @@ const closeBehavior = computed<CloseBehavior>({
   flex: 1;
   min-width: 0;
   word-break: break-word;
-}
-.exe-help-panel .exe-help-open-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 26px;
-  margin-top: 8px;
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  background: var(--color-fill-2);
-  border: 1px solid var(--color-border-2);
-  color: var(--color-text-1);
-  font-size: var(--fs-base);
-  cursor: pointer;
-  white-space: nowrap;
-  &:hover { background: var(--color-fill-3); border-color: rgb(var(--primary-6)); color: rgb(var(--primary-6)); }
 }
 </style>

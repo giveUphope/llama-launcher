@@ -35,20 +35,14 @@ function setTab(key: TabKey) {
 
 <template>
   <PageFrame>
-    <div class="tab-strip" role="tablist">
-      <button
-        v-for="t in TABS"
-        :key="t.key"
-        class="tab-btn"
-        :class="{ active: activeTab === t.key }"
-        :aria-selected="activeTab === t.key"
-        role="tab"
-        @click="setTab(t.key)"
-      >
-        <Icon :name="t.icon" :size="13" />
-        <span>{{ i18n.t(t.labelKey) }}</span>
-      </button>
-    </div>
+    <a-tabs class="page-tabs" :active-key="activeTab" @change="(k) => setTab(k as TabKey)">
+      <a-tab-pane v-for="t in TABS" :key="t.key" :key-value="t.key">
+        <template #title>
+          <Icon :name="t.icon" :size="13" />
+          <span>{{ i18n.t(t.labelKey) }}</span>
+        </template>
+      </a-tab-pane>
+    </a-tabs>
 
     <div class="tab-content">
       <LocalModelsPanel v-if="activeTab === 'local'" />

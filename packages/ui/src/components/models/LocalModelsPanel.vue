@@ -457,9 +457,9 @@ onUnmounted(() => {
       <!-- 建议参数（精简：仅显示 key=value 和一键应用按钮） -->
       <Card v-if="modelPath && !params.ggufLoading && !params.ggufError && params.ggufSuggestions.length" title-key="card_suggested_params">
         <div class="suggestions-toolbar">
-          <button class="action-btn primary" @click="applySuggestions">
+          <a-button size="small" type="primary" @click="applySuggestions">
             {{ i18n.t('gguf_apply_suggestions') }} ({{ params.ggufSuggestions.length }})
-          </button>
+          </a-button>
         </div>
         <div class="suggestions-compact">
           <span v-for="(s, idx) in params.ggufSuggestions" :key="idx" class="suggestion-chip">

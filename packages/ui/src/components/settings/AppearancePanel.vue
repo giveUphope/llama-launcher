@@ -30,19 +30,11 @@ const language = computed<Language>({
 <template>
   <Card title-key="nav_settings_appearance">
     <InfoStrip :label="i18n.t('lbl_theme_mode')">
-      <div class="theme-picker" role="radiogroup" :aria-label="i18n.t('lbl_theme_mode')">
-        <button
-          v-for="opt in THEME_OPTIONS"
-          :key="opt.value"
-          class="theme-opt"
-          :class="{ active: themeMode === opt.value }"
-          role="radio"
-          :aria-checked="themeMode === opt.value"
-          @click="themeMode = opt.value"
-        >
+      <a-radio-group type="button" size="small" :model-value="themeMode" @change="(v: any) => (themeMode = v)">
+        <a-radio v-for="opt in THEME_OPTIONS" :key="opt.value" :value="opt.value">
           {{ i18n.t(opt.labelKey) }}
-        </button>
-      </div>
+        </a-radio>
+      </a-radio-group>
     </InfoStrip>
     <InfoStrip :label="i18n.t('lbl_language')">
       <a-select class="fc-select" v-model="language" :style="{ width: '140px' }">
@@ -52,44 +44,3 @@ const language = computed<Language>({
     </InfoStrip>
   </Card>
 </template>
-
-<style scoped lang="scss">
-.theme-picker {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px; // 与全局 .tab-strip 胶囊条间距一致（§7.5 选项间距统一；原 3px 微间距已归一到 4px）
-  background: var(--color-fill-2);
-  border: 1px solid var(--color-border-2);
-  border-radius: var(--radius-pill);
-  flex-wrap: nowrap;
-}
-
-.theme-opt {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  border: none;
-  background: transparent;
-  color: var(--color-text-2);
-  font-size: var(--fs-md);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--dur-fast) var(--ease-smooth), color var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
-
-  &:hover:not(.active) {
-    background: var(--color-fill-3);
-    color: var(--color-text-1);
-  }
-
-
-  &.active {
-    background: rgb(var(--primary-6));
-    color: var(--primary-fg);
-    font-weight: 600;
-  }
-}
-</style>

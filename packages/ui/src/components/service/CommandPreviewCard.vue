@@ -114,10 +114,10 @@ onUnmounted(() => {
       </div>
 
       <div class="cmd-actions">
-        <button class="action-btn" :disabled="!fullCommand" @click="onCopyCmd">
-          <Icon name="copy" :size="12" />
-          <span>{{ i18n.t('copy_cmd') }}</span>
-        </button>
+        <a-button size="small" :disabled="!fullCommand" @click="onCopyCmd">
+          <template #icon><Icon name="copy" :size="12" /></template>
+          {{ i18n.t('copy_cmd') }}
+        </a-button>
       </div>
     </div>
   </Card>
