@@ -89,7 +89,9 @@ const filteredModels = computed(() => {
 const tableColumns = computed(() => [
   { title: i18n.t('col_name'), slotName: 'name' },
   { title: i18n.t('col_size'), dataIndex: 'size_str', width: 90 },
-  { title: i18n.t('col_actions'), slotName: 'actions', width: 190 },
+  // 操作列 260px：3 个文本内联小按钮（71px×3 + gap 6×2 = 225）+ 单元格左右 padding 16×2，
+  // 190px 时溢出向左压入「大小」列造成重叠
+  { title: i18n.t('col_actions'), slotName: 'actions', width: 260 },
 ]);
 
 // 当前选中模型行高亮（rowClass：arco Table 合法 prop，替代串成 DOM 属性的 row-class-name）
