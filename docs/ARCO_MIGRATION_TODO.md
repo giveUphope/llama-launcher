@@ -98,6 +98,10 @@
 - [x] 死 token 清理：`--font-family`（扁平化时已删定义）在 `StatusBar.vue`/`DashboardPage.vue` 的失效引用移除，字体自然继承 Arco 默认栈
 - [x] 性能目标下拉滚动裁剪修复：自定义内容（目标项 + 建议区 + 应用按钮）被 Arco 默认 `.arco-dropdown-list-wrapper`（206px max-height）裁剪滚动——`:has(.target-menu)` 精确圈定该弹层禁用滚动（`max-height: none`），模型选择/URL 历史等长列表下拉的正常滚动不受影响（浏览器验证内容 229px 完整展开）
 
+## 收尾六批：窗口控制 a-button 化（2026-09-07，TopBar 右上角）
+
+- [x] `TopBar.vue` 窗口控制（最小化/最大化/关闭 `win-btn` ×3）：原生 `<button>` → `a-button type="text"` 基座，保留窗口铬专属覆盖——46×52 贴边热区、`--radius-control`(4px) 圆角、关闭钮红色 hover（`rgb(var(--danger-6))` + 白色图标）；点击仍走 Electron 窗口协议（`window.api` 最小化/最大化/关闭），拖拽区保留定制。至此**全应用不存在原生 `<button>` 交互控件**（浏览器验证：3 个按钮均为 `arco-btn arco-btn-text`，46×52/4px）
+
 ### 逐页面迁移矩阵（最终态）
 
 | 页面/组件 | Arco 组件使用 | 保留的自绘（均有在案依据） |
@@ -109,7 +113,7 @@
 | 日志 | a-radio-group(button) / a-input / a-button | 控制台行着色（恒深底语义） |
 | 内置 Web UI | a-result / WebUiFrame(iframe 生命周期) | iframe 本体 |
 | 应用设置 | a-tabs / a-form(a-form-item) / a-descriptions / a-select / a-radio-group / a-input / a-button | — |
-| 布局 | a-layout / a-layout-sider / a-menu / a-badge / a-dropdown / a-typography / a-modal（全局弹窗） | **TopBar `win-btn` ×3**（Electron 无边框窗口协议，Arco 无对应物，唯一保留的自绘控件）；PageHost/PageFrame/AppLogo（非交互：布局壳/图片） |
+| 布局 | a-layout / a-layout-sider / a-menu / a-badge / a-dropdown / a-typography / a-modal（全局弹窗） | TopBar `win-btn` ×3：a-button(text) 基座 + 窗口铬覆盖（Electron 窗口协议、贴边热区）；PageHost/PageFrame/AppLogo（非交互：布局壳/图片） |
 
 ## 每批验收
 

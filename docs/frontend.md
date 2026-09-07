@@ -136,6 +136,7 @@
 | 危险操作（停止、清空、删除） | `a-button status="danger"`（实底或 `warning`/`danger` 描边按语义） |
 | 表格行内/紧凑位 | `a-button size="mini"` |
 | 图标钮（参数还原 ✕ 等控件语义） | `a-button type="text" size="mini" shape="circle"`（豁免「文本内联」规则） |
+| TopBar 窗口控制（最小化/最大化/关闭） | `a-button type="text"` + `.win-btn` 窗口铬覆盖：46×52 贴边热区、`--radius-control` 圆角、关闭钮红色 hover；点击走 Electron 窗口协议（Arco 无窗口控制组件） |
 | 页内页签 | `a-tabs`（勿再用按钮拼装） |
 
 - **描边/状态语义**：操作=primary/accent、危险=danger、警告=warning，均优先 Arco 预设；hover 态交给 Arco，不手写背景色。

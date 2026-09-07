@@ -67,7 +67,7 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 ## Conventions & gotchas
 
-- **UI 风格规范（完整版见 [docs/frontend.md §7.5](docs/frontend.md#75-样式系统arco-design-vue)，审计发现的不一致项登记 `docs/style/STYLE_TODO.md`）**：`@arco-design/web-vue` 是唯一的通用 UI 与设计 Token 基础（2026-09 全站迁移完成）。界面交互控件一律 Arco 组件（按钮/输入/下拉/开关/弹窗/浮层/页签/表格/列表），不得新增自定义交互控件或并行主题 Token；颜色直接引用 Arco CSS Variables，`theme.scss` 仅保留 Electron 布局尺寸、业务语义色（徽章/控制台/状态栏）与 4px 扁平化圆角兼容层。玻璃拟态与旧胶囊圆角体系已移除，禁止 `backdrop-filter`。主题切换须同时验证 `html[data-theme]` 和 `body[arco-theme]`。Electron 窗口拖拽区与 win-btn 窗口控制为唯一保留的自绘控件。改动 UI 前后对照 §7.5.8 检查清单；发现风格不一致时先记录到 `docs/style/STYLE_TODO.md`（描述 + 修复效果验证方式）再决定是否修复。
+- **UI 风格规范（完整版见 [docs/frontend.md §7.5](docs/frontend.md#75-样式系统arco-design-vue)，审计发现的不一致项登记 `docs/style/STYLE_TODO.md`）**：`@arco-design/web-vue` 是唯一的通用 UI 与设计 Token 基础（2026-09 全站迁移完成）。界面交互控件一律 Arco 组件（按钮/输入/下拉/开关/弹窗/浮层/页签/表格/列表），不得新增自定义交互控件或并行主题 Token；颜色直接引用 Arco CSS Variables，`theme.scss` 仅保留 Electron 布局尺寸、业务语义色（徽章/控制台/状态栏）与 4px 扁平化圆角兼容层。玻璃拟态与旧胶囊圆角体系已移除，禁止 `backdrop-filter`。主题切换须同时验证 `html[data-theme]` 和 `body[arco-theme]`。全部按钮（含 TopBar win-btn 窗口控制）均以 a-button 为基座；win-btn 仅保留窗口铬专属覆盖（46×52 贴边热区、关闭钮红色 hover），点击走 Electron 窗口协议。改动 UI 前后对照 §7.5.8 检查清单；发现风格不一致时先记录到 `docs/style/STYLE_TODO.md`（描述 + 修复效果验证方式）再决定是否修复。
 
 - **i18n**: all user-facing strings go through `shared/src/i18n` (zh/en). Add a key there rather than a literal string.
 

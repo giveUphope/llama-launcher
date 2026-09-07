@@ -210,20 +210,21 @@ async function onOpenWeb() {
         {{ i18n.t('open_web') }}
       </a-button>
 
-      <!-- 自定义窗口控制（替代原生标题栏按钮；Electron 拖拽/窗口协议需保留定制） -->
+      <!-- 窗口控制：a-button 基座（type=text）+ 窗口铬专属覆盖；点击走 Electron 窗口协议，
+           贴边热区/方形圆角为无边框窗口必需（Arco 无窗口控制组件） -->
       <div class="window-controls">
-        <button class="win-btn" :title="i18n.t('win_minimize')" @click="onMinimize" aria-label="minimize">
+        <a-button class="win-btn" type="text" :title="i18n.t('win_minimize')" @click="onMinimize" aria-label="minimize">
           <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
-        </button>
-        <button class="win-btn" :title="isMaximized ? i18n.t('win_restore') : i18n.t('win_maximize')" @click="onToggleMaximize" aria-label="toggle maximize">
+        </a-button>
+        <a-button class="win-btn" type="text" :title="isMaximized ? i18n.t('win_restore') : i18n.t('win_maximize')" @click="onToggleMaximize" aria-label="toggle maximize">
           <!-- 最大化：单个圆角方框 -->
           <svg v-if="!isMaximized" width="12" height="12" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /></svg>
           <!-- 还原：双层重叠窗口（后窗轮廓 + 前窗顶/右边，与最小化/关闭同风格） -->
           <svg v-else width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2.5" width="6.5" height="6.5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /><path d="M4.5 4.5h5.5v5.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
-        </button>
-        <button class="win-btn win-close" :title="i18n.t('win_close')" @click="onClose" aria-label="close">
+        </a-button>
+        <a-button class="win-btn win-close" type="text" :title="i18n.t('win_close')" @click="onClose" aria-label="close">
           <svg width="12" height="12" viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /><line x1="9" y1="3" x2="3" y2="9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
-        </button>
+        </a-button>
       </div>
     </div>
   </header>
@@ -279,7 +280,8 @@ async function onOpenWeb() {
   -webkit-app-region: no-drag;
 }
 
-// 自定义窗口控制按钮簇（双击标题栏区域外的独立控制区）
+// 窗口控制按钮簇：a-button type=text 基座 + 窗口铬覆盖（46×52 贴边热区、
+// 无边框窗口角落用小圆角、关闭钮红色 hover）；尺寸/配色覆盖压过 Arco 默认
 .window-controls {
   display: flex;
   align-items: stretch;
@@ -290,16 +292,10 @@ async function onOpenWeb() {
 .win-btn {
   width: 46px;
   height: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: none;
+  padding: 0;
   color: var(--color-text-2);
-  cursor: pointer;
   border-radius: var(--radius-control);
-  transition: background var(--dur-fast) var(--ease-smooth), color var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
+  transition: background var(--dur-fast) var(--ease-smooth), color var(--dur-fast) var(--ease-smooth);
 
   &:hover {
     background: var(--color-fill-3);
