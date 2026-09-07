@@ -141,23 +141,28 @@ function onScroll() {
         </button>
       </div>
       <div class="search-box">
-        <Icon name="search" :size="13" class="search-icon" />
-        <input
-          class="search-input"
-          type="text"
+        <a-input
           v-model="searchQuery"
           :placeholder="i18n.t('lbl_search_logs')"
-        />
+          allow-clear
+        >
+          <template #prefix><Icon name="search" :size="13" /></template>
+        </a-input>
       </div>
       <div class="toolbar-right">
-        <button class="action-btn" @click="onCopyAll" :disabled="filteredEntries.length === 0" :title="i18n.t('copy_console')">
-          <Icon name="copy" :size="12" />
-          <span>{{ i18n.t('copy_console') }}</span>
-        </button>
-        <button class="action-btn" @click="onClear" :title="i18n.t('clear_console')">
-          <Icon name="trash" :size="12" />
-          <span>{{ i18n.t('clear_console') }}</span>
-        </button>
+        <a-button
+          size="small"
+          :disabled="filteredEntries.length === 0"
+          :title="i18n.t('copy_console')"
+          @click="onCopyAll"
+        >
+          <template #icon><Icon name="copy" :size="12" /></template>
+          {{ i18n.t('copy_console') }}
+        </a-button>
+        <a-button size="small" status="danger" :title="i18n.t('clear_console')" @click="onClear">
+          <template #icon><Icon name="trash" :size="12" /></template>
+          {{ i18n.t('clear_console') }}
+        </a-button>
       </div>
     </div>
 
@@ -258,38 +263,6 @@ function onScroll() {
   flex: 1;
   min-width: 200px;
   max-width: 380px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  transition: border-color var(--dur-fast) var(--ease-smooth);
-
-  &:focus-within {
-    border-color: var(--accent);
-  }
-
-  .search-icon {
-    flex-shrink: 0;
-    color: var(--fg-muted);
-  }
-}
-
-.search-input {
-  flex: 1;
-  height: 100%;
-  border: none;
-  background: transparent;
-  color: var(--fg-primary);
-  font-size: var(--fs-base);
-  outline: none;
-
-  &::placeholder {
-    color: var(--fg-muted);
-  }
 }
 
 /* 内容区 */

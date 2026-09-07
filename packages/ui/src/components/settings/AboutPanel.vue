@@ -35,16 +35,16 @@ async function onOpenUrl(url: string) {
       <span class="version-badge">{{ versionLabel }}</span>
     </InfoStrip>
     <InfoStrip :label="i18n.t('msg_about_repo')">
-      <button class="link-btn" @click="onOpenUrl(repoUrl)">
-        <Icon name="external" :size="12" />
+      <a-button type="text" size="small" @click="onOpenUrl(repoUrl)">
+        <template #icon><Icon name="external" :size="12" /></template>
         <span>{{ repoUrl }}</span>
-      </button>
+      </a-button>
     </InfoStrip>
     <InfoStrip :label="i18n.t('msg_about_releases')">
-      <button class="link-btn" @click="onOpenUrl(releasesUrl)">
-        <Icon name="external" :size="12" />
+      <a-button type="text" size="small" @click="onOpenUrl(releasesUrl)">
+        <template #icon><Icon name="external" :size="12" /></template>
         <span>{{ releasesUrl }}</span>
-      </button>
+      </a-button>
     </InfoStrip>
   </Card>
 </template>
@@ -85,21 +85,5 @@ async function onOpenUrl(url: string) {
   padding: 2px 10px;
   background: var(--bg-hover);
   border-radius: var(--radius-pill);
-}
-.link-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 12px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--accent);
-  font-size: var(--fs-md);
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast) var(--ease-smooth);
-  &:hover { background: var(--bg-hover); border-color: var(--accent); }
 }
 </style>

@@ -95,19 +95,19 @@ const logCount = computed(() => server.outputs.length);
     <!-- 控制台输出 -->
     <Card title-key="card_service_console">
       <template #actions>
-        <button
-          class="action-btn"
-          @click="onCopyConsole"
+        <a-button
+          size="small"
           :disabled="server.outputs.length === 0"
           :title="i18n.t('copy_console')"
+          @click="onCopyConsole"
         >
-          <Icon name="copy" :size="12" />
-          <span>{{ i18n.t('copy_console') }}</span>
-        </button>
-        <button class="action-btn" @click="onClearConsole" :title="i18n.t('clear_console')">
-          <Icon name="trash" :size="12" />
-          <span>{{ i18n.t('clear_console') }}</span>
-        </button>
+          <template #icon><Icon name="copy" :size="12" /></template>
+          {{ i18n.t('copy_console') }}
+        </a-button>
+        <a-button size="small" status="danger" :title="i18n.t('clear_console')" @click="onClearConsole">
+          <template #icon><Icon name="trash" :size="12" /></template>
+          {{ i18n.t('clear_console') }}
+        </a-button>
         <span class="log-count">{{ logCount }} {{ i18n.t('col_lines') }}</span>
       </template>
       <div class="console-header">

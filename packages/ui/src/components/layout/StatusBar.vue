@@ -18,12 +18,13 @@ const statusText = computed(() => {
   return i18n.t('status_stopped');
 });
 
+// 状态色映射为 Arco 状态语义色（a-tag color），浅色/深色主题由 Arco 令牌自动适配
 const statusColor = computed(() => {
   const s = server.effectiveStatus;
-  if (s === 'failed' || s === 'crashed') return 'var(--danger)';
-  if (s === 'running') return 'var(--success)';
-  if (s === 'starting' || s === 'stopping') return 'var(--warn)';
-  return 'var(--fg-muted)';
+  if (s === 'failed' || s === 'crashed') return 'danger';
+  if (s === 'running') return 'success';
+  if (s === 'starting' || s === 'stopping') return 'warning';
+  return 'gray';
 });
 
 const pidText = computed(() => {
@@ -73,9 +74,9 @@ onUnmounted(() => {
 <template>
   <footer class="statusbar">
     <div class="left">
-      <span class="dot" :style="{ background: statusColor }"></span>
-      <span class="status-text">{{ statusText }}</span>
-      <span v-if="pidText" class="pid">{{ pidText }}</span>
+      <!-- 状态：a-tag 承载动作状态色胶囊 + Arco 状态文案（替代手写状态圆点/文本） -->
+      <a-tag :color="statusColor" size="small">{{ statusText }}</a-tag>
+      <a-typography-text v-if="pidText" class="pid">{{ pidText }}</a-typography-text>
       <span
         v-if="server.apiUrl"
         class="url clickable"
@@ -83,7 +84,7 @@ onUnmounted(() => {
         @click="onCopyUrl"
       >
         <span class="url-text">{{ server.apiUrl }}</span>
-        <span v-if="copiedKey === 'url'" class="copied-tip">{{ i18n.t('msg_url_copied') }}</span>
+        <a-tag v-if="copiedKey === 'url'" size="small" color="success">{{ i18n.t('msg_url_copied') }}</a-tag>
       </span>
       <span
         v-if="params.get(MODEL_KEY)"
@@ -92,12 +93,12 @@ onUnmounted(() => {
         @click="onCopyModel"
       >
         <span class="model-text">{{ modelName }}</span>
-        <span v-if="copiedKey === 'model'" class="copied-tip">{{ i18n.t('msg_model_copied') }}</span>
+        <a-tag v-if="copiedKey === 'model'" size="small" color="success">{{ i18n.t('msg_model_copied') }}</a-tag>
       </span>
       <span v-else class="model">{{ modelName }}</span>
     </div>
     <div class="right">
-      <span class="shortcut">{{ i18n.t('status_shortcut') }}</span>
+      <a-typography-text class="shortcut">{{ i18n.t('status_shortcut') }}</a-typography-text>
     </div>
   </footer>
 </template>
@@ -124,21 +125,6 @@ onUnmounted(() => {
   gap: 10px;
 }
 
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.status-text {
-  font-weight: 600;
-}
-
-/* 状态栏文字全不透明纯白：蓝底（--statusbar-blue→accent 渐变）上纯白满不透明仅约 4.5:1（AA 下限），
-   任何 opacity 降级都跌破 AA（原 .url/.model 0.85→~3.7:1、.shortcut 0.65→~2.6:1，蓝底上看不清）。
-   视觉层级改由 .status-text 的 font-weight:600 承担，不再用不透明度削弱可读性。 */
-
 /* 可点击复制项 */
 .clickable {
   cursor: pointer;
@@ -155,15 +141,5 @@ onUnmounted(() => {
     background: var(--statusbar-hover);
     opacity: 1;
   }
-}
-
-.copied-tip {
-  color: #fff;
-  font-weight: 600;
-  background: var(--success);
-  padding: 1px 6px;
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-xs);
-  white-space: nowrap;
 }
 </style>

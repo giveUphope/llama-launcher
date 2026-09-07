@@ -30,10 +30,10 @@ const webUrl = computed(() => server.apiUrl);
       class="webui-iframe"
       title="llama Web UI"
     />
-    <div v-if="!running" class="webui-placeholder">
-      <Icon name="globe" :size="44" />
-      <p class="webui-hint">{{ i18n.t('webui_not_running') }}</p>
-    </div>
+    <!-- 服务未运行等待占位：改用 Arco Result 承载图标与提示文案 → -->
+    <a-result v-if="!running" class="webui-placeholder" :sub-title="i18n.t('webui_not_running')">
+      <template #icon><Icon name="globe" :size="44" /></template>
+    </a-result>
   </div>
 </template>
 
@@ -56,19 +56,8 @@ const webUrl = computed(() => server.apiUrl);
 
 .webui-placeholder {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: var(--fg-muted);
-}
-
-.webui-hint {
-  margin: 0;
-  font-size: var(--fs-md);
-  max-width: 420px;
-  text-align: center;
-  line-height: 1.6;
+  // a-result 自带居中布局与次级文案样式，仅保证占满区域即可
+  width: 100%;
+  padding-top: 6vh; // 轻微上移视觉重心，与原居中提示保持一致
 }
 </style>

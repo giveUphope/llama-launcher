@@ -62,14 +62,14 @@ onMounted(() => { appLog.subscribe(); });
       </div>
       <div class="issues-actions-slot" :class="{ 'has-actions': hasError }">
         <div v-if="hasError" class="issues-actions">
-          <button class="action-btn" @click="void router.push('/logs')">
-            <Icon name="console" :size="13" />
-            <span>{{ i18n.t('nav_logs') }}</span>
-          </button>
-          <button class="action-btn" @click="void router.push('/service')">
-            <Icon name="server" :size="13" />
-            <span>{{ i18n.t('nav_service') }}</span>
-          </button>
+          <a-button size="small" @click="void router.push('/logs')">
+            <template #icon><Icon name="console" :size="13" /></template>
+            {{ i18n.t('nav_logs') }}
+          </a-button>
+          <a-button size="small" @click="void router.push('/service')">
+            <template #icon><Icon name="server" :size="13" /></template>
+            {{ i18n.t('nav_service') }}
+          </a-button>
         </div>
       </div>
     </div>

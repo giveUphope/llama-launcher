@@ -79,20 +79,14 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
 
 <template>
   <PageFrame>
-    <div class="tab-strip" role="tablist">
-      <button
-        v-for="t in TABS"
-        :key="t.key"
-        class="tab-btn"
-        :class="{ active: activeTab === t.key }"
-        :aria-selected="activeTab === t.key"
-        role="tab"
-        @click="setTab(t.key)"
-      >
-        <Icon :name="t.icon" :size="13" />
-        <span>{{ i18n.t(t.labelKey) }}</span>
-      </button>
-    </div>
+    <a-tabs class="settings-tabs" :active-key="activeTab" @change="(k) => setTab(k as TabKey)">
+      <a-tab-pane v-for="t in TABS" :key="t.key" :key-value="t.key">
+        <template #title>
+          <Icon :name="t.icon" :size="13" />
+          <span>{{ i18n.t(t.labelKey) }}</span>
+        </template>
+      </a-tab-pane>
+    </a-tabs>
 
     <!-- 提示条整体仅「常规」页签展示：其中即时保存提示、模型目录/引擎文件状态均对应常规控件，
          其他页签不显示无关状态（idle 未设置 / missing 路径不存在 文案分离，避免自相矛盾） -->
@@ -137,6 +131,11 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
 </template>
 
 <style scoped lang="scss">
+.settings-tabs {
+  // 页签条与下方提示条/内容区保持 8px 间距，与 ParamsPage 视觉节奏一致
+  margin-bottom: 8px;
+}
+
 .status-summary {
   display: flex;
   align-items: center;
