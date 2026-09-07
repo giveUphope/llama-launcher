@@ -444,10 +444,10 @@ onUnmounted(() => {
               <a-button size="mini" shape="circle" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(record)">
                 <Icon name="folder_open" :size="13" />
               </a-button>
-              <a-button size="mini" shape="circle" :title="i18n.t('bench_llama_title')"
-                        :disabled="benchJobs[record.path]?.state === 'running'" @click.stop="onBench(record)">
-                <Icon name="clock" :size="13" />
-              </a-button>
+                <a-button size="mini" shape="circle" :title="i18n.t('bench_llama_title')"
+                          :disabled="benchJobs[record.path]?.state === 'running'" @click.stop="onBench(record)">
+                  <Icon name="bench" :size="13" />
+                </a-button>
               <a-button size="mini" shape="circle" status="danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(record)">
                 <Icon name="trash" :size="13" />
               </a-button>

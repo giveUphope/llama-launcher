@@ -162,6 +162,7 @@
 - [x] **建议参数 chips `.suggestion-chip`**：手写 `<span>` 胶囊（自定义 padding/`--color-fill-3` 底/pill 圆角）→ `a-tag size="small"`（meta-chip/summary-chip 同款原生范式），仅保留 mono 字体与 key/eq/val 三段配色
 - [x] 审查通过项（已是原生，无需改动）：搜索 `a-input`、表格 `a-table`（columns prop 模式）、行操作 `a-button mini/circle` ×3、显存适配/伴随文件/体检徽章 `a-tag`、统计 `a-statistic`、选中星 `Icon`（Arco 图标）；`.model-name-cell`/`.row-actions` 等为布局容器非控件
 - [x] 浏览器全区域盘点：19 按钮全 `arco-btn`（非 Arco 0）、输入框全 `arco-input-wrapper`（非 Arco 0）、建议 chips 6/6 为 `arco-tag`（原生 fill-2 底/2px 圆角）、22 标签、2 统计、1 表格
+- [x] **图标语义审查**（用户追问行操作图标是否 Arco 原生）：确认全部为 `@arco-design/web-vue/es/icon` 官方图标；但发现 2 处字形与动作语义错配并修正——`folder_open` 原映射 `IconFolderAdd`（+ 号误导为"新建文件夹"，5 处用法全是打开目录/浏览）→ `IconFolder`；模型体检按钮原用 `clock`（时钟仅表时长）→ 新增 `bench: IconExperiment`（烧杯）。Icon.vue 注释补约定：字形必须与动作语义一致。浏览器验证行操作字形 folder/experiment/delete，全页 SVG 均 arco-icon
 
 ### 逐页面迁移矩阵（最终态）
 
