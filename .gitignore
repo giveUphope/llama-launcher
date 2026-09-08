@@ -35,3 +35,8 @@ apps/desktop/.pack-link-map.json
 docs/archive/refactor/screenshots/
 
 .tmp/
+
+# Playwright E2E 产物（测试结果与报告，可重新生成）
+test-results/
+playwright-report/
+blob-report/
