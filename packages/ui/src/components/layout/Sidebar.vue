@@ -29,9 +29,10 @@ function navigate(key: string | number) {
 </script>
 
 <template>
-  <a-layout-sider class="sidebar" :collapsed="collapsed" :width="224" :collapsed-width="64" :hide-trigger="true">
-    <!-- collapsed-width 对齐 sider（64px）：Arco menu 默认折叠宽 48px，与 sider 不一致会在折叠态右侧留 16px 空白 -->
-    <a-menu :selected-keys="[route.path]" :collapse="collapsed" :collapsed-width="64" @menu-item-click="navigate">
+  <a-layout-sider class="sidebar" :collapsed="collapsed" :width="224" :collapsed-width="48" :hide-trigger="true">
+    <!-- Arco 原生折叠体系即 48px：sider 与 a-menu 折叠宽保持默认一致（menu 折叠态样式按 48px 布局，
+         强改 collapsed-width 会破坏 icon margin 布局导致收起/展开图标漂移，勿改） -->
+    <a-menu :selected-keys="[route.path]" :collapse="collapsed" @menu-item-click="navigate">
       <a-menu-item v-for="item in navItems" :key="item.to">
         <template #icon><Icon :name="item.icon" /></template>
         {{ i18n.t(item.labelKey) }}

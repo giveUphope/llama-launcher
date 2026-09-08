@@ -2,7 +2,7 @@
 :root {
   --topbar-h: 52px;
   --sidebar-w: 224px;
-  --sidebar-w-collapsed: 64px;
+  --sidebar-w-collapsed: 48px;           // Arco 原生折叠宽（sider 与 a-menu 默认一致，勿改 64）
   --statusbar-h: 28px;
   --font-mono: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
 
