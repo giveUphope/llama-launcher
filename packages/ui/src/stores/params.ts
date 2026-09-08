@@ -291,7 +291,7 @@ export const useParamsStore = defineStore('params', () => {
   async function restoreSession(sessionValues: PresetValues, baselineInfo: SessionBaseline | null) {
     resetAll();
     for (const [k, v] of Object.entries(sessionValues)) values[k] = v;
-    baseline.value = baselineInfo ? JSON.parse(JSON.stringify(baselineInfo)) : null;
+    baseline.value = baselineInfo ? structuredClone(baselineInfo) : null;
     const settings = useSettingsStore();
     if (settings.settings && values[MODEL_KEY]) {
       settings.settings.selected_model = String(values[MODEL_KEY]);

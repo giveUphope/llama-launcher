@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'node:fs';
+import { z } from 'zod';
 import { SETTINGS_FILE, DEFAULT_SERVER_EXE, DEFAULT_MODELS_DIR } from './paths.js';
 import { setHfMirrorHost } from './huggingface-client.js';
-import type { AppSettings, ThemeMode, Language, CloseBehavior } from '@llama-launcher/shared';
+import type { AppSettings } from '@llama-launcher/shared';
 
 /**
  * 当前设置 schema 版本。
@@ -9,9 +10,9 @@ import type { AppSettings, ThemeMode, Language, CloseBehavior } from '@llama-lau
  */
 const SETTINGS_VERSION = 1;
 
-const THEME_MODES: ThemeMode[] = ['dark', 'light', 'system'];
-const LANGUAGES: Language[] = ['zh', 'en'];
-const CLOSE_BEHAVIORS: CloseBehavior[] = ['ask', 'exit', 'tray'];
+const THEME_MODES = ['dark', 'light', 'system'] as const;
+const LANGUAGES = ['zh', 'en'] as const;
+const CLOSE_BEHAVIORS = ['ask', 'exit', 'tray'] as const;
 
 export function getDefaultSettings(): AppSettings {
   return {
@@ -42,72 +43,87 @@ export function getDefaultSettings(): AppSettings {
   };
 }
 
-function asString(v: unknown, fallback: string): string {
-  return typeof v === 'string' ? v : fallback;
-}
+// —— 设置 schema（zod）：逐字段容错回退默认，语义与旧手写 normalize 一致 ——
+// 磁盘脏数据（手写/旧版本/损坏字段）不会产生非法运行时状态。
+const str = (fallback: string) => z.string().catch(fallback);
+const num = (fallback: number, min: number, max: number) =>
+  z.preprocess(
+    (v) => {
+      const n = typeof v === 'number' && !Number.isNaN(v) ? v : Number(v);
+      if (Number.isNaN(n)) return fallback;
+      return Math.min(max, Math.max(min, Math.floor(n)));
+    },
+    z.number().catch(fallback),
+  );
+const bool = (fallback: boolean) =>
+  z.preprocess(
+    (v) => {
+      if (typeof v === 'boolean') return v;
+      // 兼容手写 JSON 的字符串/数字布尔（"true"/"false"/1/0）
+      if (v === 'true' || v === 1 || v === '1') return true;
+      if (v === 'false' || v === 0 || v === '0') return false;
+      return fallback;
+    },
+    z.boolean().catch(fallback),
+  );
+const enumOf = <T extends readonly [string, ...string[]]>(values: T, fallback: T[number]) =>
+  z.enum(values).catch(fallback);
 
-function asBool(v: unknown, fallback: boolean): boolean {
-  if (typeof v === 'boolean') return v;
-  // 兼容手写 JSON 的字符串/数字布尔（"true"/"false"/1/0）
-  if (v === 'true' || v === 1 || v === '1') return true;
-  if (v === 'false' || v === 0 || v === '0') return false;
-  return fallback;
-}
+const valuesShape = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
 
-function asNumber(v: unknown, fallback: number, min: number, max: number): number {
-  let n = typeof v === 'number' && !Number.isNaN(v) ? v : Number(v);
-  if (Number.isNaN(n)) return fallback;
-  if (n < min) n = min;
-  if (n > max) n = max;
-  return Math.floor(n);
-}
+/** 会话字段形状校验：非法/缺失一律回退 null（启动走预设应用链）。 */
+const sessionValuesSchema = z.preprocess(
+  (v) => {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    const clean: Record<string, unknown> = {};
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') clean[k] = val;
+    }
+    return Object.keys(clean).length > 0 ? clean : null;
+  },
+  valuesShape.nullable().catch(null),
+);
+
+const sessionBaselineSchema = z.preprocess(
+  (v) => {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    const b = v as Record<string, unknown>;
+    if (typeof b.preset_name !== 'string') return null;
+    const values = sessionValuesSchema.parse(b.values);
+    if (!values) return null;
+    return { preset_name: b.preset_name, values };
+  },
+  z.object({ preset_name: z.string(), values: valuesShape }).nullable().catch(null),
+);
+
+const settingsSchema = z.object({
+  settings_version: num(SETTINGS_VERSION, 0, 999),
+  server_exe: str(DEFAULT_SERVER_EXE),
+  llama_dir: str(''),
+  models_dir: str(DEFAULT_MODELS_DIR),
+  selected_model: str(''),
+  last_preset: str(''),
+  window_geometry: str(''),
+  window_maximized: bool(true),
+  theme_mode: enumOf(THEME_MODES, 'dark'),
+  close_behavior: enumOf(CLOSE_BEHAVIORS, 'ask'),
+  sidebar_collapsed: bool(false),
+  language: enumOf(LANGUAGES, 'zh'),
+  last_tab: str(''),
+  download_max_concurrent: num(3, 1, 5),
+  hf_mirror_host: str(''),
+  custom_args: str(''),
+  session_values: sessionValuesSchema,
+  session_baseline: sessionBaselineSchema,
+});
 
 /**
  * 逐字段归一化：校验类型/枚举/范围，非法值回退默认。
  * 保证磁盘上的脏数据（手写、旧版本、损坏字段）不会产生非法运行时状态。
  */
 function normalizeSettings(raw: unknown): AppSettings {
-  const d = getDefaultSettings();
-  if (!raw || typeof raw !== 'object') return d;
-  const r = raw as Record<string, unknown>;
-  const theme = r.theme_mode as string;
-  const lang = r.language as string;
-  // 会话字段形状校验：非法/缺失一律回退 null（启动走预设应用链）
-  const asValues = (v: unknown): AppSettings['session_values'] => {
-    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-    const clean: Record<string, string | number | boolean> = {};
-    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
-      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') clean[k] = val;
-    }
-    return Object.keys(clean).length > 0 ? clean : null;
-  };
-  const asBaseline = (v: unknown): AppSettings['session_baseline'] => {
-    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-    const b = v as Record<string, unknown>;
-    const values = asValues(b.values);
-    if (typeof b.preset_name !== 'string' || !values) return null;
-    return { preset_name: b.preset_name, values };
-  };
-  return {
-    settings_version: SETTINGS_VERSION,
-    server_exe: asString(r.server_exe, d.server_exe),
-    llama_dir: asString(r.llama_dir, d.llama_dir),
-    models_dir: asString(r.models_dir, d.models_dir),
-    selected_model: asString(r.selected_model, d.selected_model),
-    last_preset: asString(r.last_preset, d.last_preset),
-    window_geometry: asString(r.window_geometry, d.window_geometry),
-    window_maximized: asBool(r.window_maximized, d.window_maximized),
-    theme_mode: THEME_MODES.includes(theme as ThemeMode) ? (theme as ThemeMode) : d.theme_mode,
-    close_behavior: CLOSE_BEHAVIORS.includes(r.close_behavior as CloseBehavior) ? (r.close_behavior as CloseBehavior) : 'ask',
-    sidebar_collapsed: asBool(r.sidebar_collapsed, d.sidebar_collapsed),
-    language: LANGUAGES.includes(lang as Language) ? (lang as Language) : d.language,
-    last_tab: asString(r.last_tab, d.last_tab),
-    download_max_concurrent: asNumber(r.download_max_concurrent, d.download_max_concurrent, 1, 5),
-    hf_mirror_host: asString(r.hf_mirror_host, d.hf_mirror_host ?? ''),
-    custom_args: asString(r.custom_args, d.custom_args ?? ''),
-    session_values: asValues(r.session_values),
-    session_baseline: asBaseline(r.session_baseline),
-  };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return getDefaultSettings();
+  return settingsSchema.parse(raw) as AppSettings;
 }
 
 /**

@@ -18,7 +18,8 @@ export function toPlain<T>(value: T): T {
   if (value === undefined || value === null || typeof value !== 'object') {
     return value;
   }
-  return JSON.parse(JSON.stringify(value));
+  // 与 contextBridge 的克隆语义一致：结构化克隆（JSON 序列化会丢失 undefined/函数）
+  return structuredClone(value);
 }
 
 /**

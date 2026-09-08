@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
 import type { Preset, PresetValues } from '@llama-launcher/shared';
 import { MODEL_KEY, PARAMS, APP_VERSION } from '@llama-launcher/shared';
 import { resolvePresetsDir } from './paths.js';
@@ -26,6 +27,22 @@ function normalizeValues(raw: Record<string, unknown>): PresetValues {
 }
 
 /**
+ * 预设文件形状（zod）：逐字段容错回退（非法字段不拒文件），values 仅校验「是普通对象」，
+ * 值类型信任文件（与旧手写解析一致）；name 空串回退 fallbackName。
+ */
+const presetFileSchema = z.object({
+  name: z.string().catch(''),
+  model: z.string().catch(''),
+  saved_at: z.string().catch(''),
+  created_at: z.string().catch(''),
+  app_version: z.string().catch(''),
+  values: z.preprocess(
+    (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}),
+    z.record(z.string(), z.unknown()),
+  ),
+});
+
+/**
  * 解析预设 JSON（形状校验 + 版本迁移到 v2 内存形状）；解析失败或形状非法返回 null。
  * v1 兼容：values[MODEL_KEY] 提升为顶层 model（若同时有顶层 model 则顶层优先）；
  * created_at 缺失时以 saved_at 回填；legacy `_enabled` 残留键剔除。
@@ -38,25 +55,22 @@ function parsePreset(raw: string, fallbackName: string): Preset | null {
   } catch {
     return null;
   }
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
-  const o = data as Record<string, unknown>;
-  // values 必须是普通对象（PresetValues），否则回退空对象
-  const rawValues = o.values && typeof o.values === 'object' && !Array.isArray(o.values)
-    ? (o.values as Record<string, unknown>)
-    : {};
+  const parsed = presetFileSchema.safeParse(data);
+  if (!parsed.success) return null;
+  const o = parsed.data;
+  const rawValues = o.values as Record<string, unknown>;
   let model: string | null = null;
-  if (typeof o.model === 'string' && o.model) model = o.model;
+  if (o.model) model = o.model;
   else {
     const legacy = rawValues[MODEL_KEY];
     if (typeof legacy === 'string' && legacy) model = legacy;
   }
-  const savedAt = typeof o.saved_at === 'string' ? o.saved_at : '';
   return {
     preset_version: PRESET_VERSION,
-    name: typeof o.name === 'string' ? o.name : fallbackName,
-    created_at: typeof o.created_at === 'string' && o.created_at ? o.created_at : savedAt,
-    saved_at: savedAt,
-    app_version: typeof o.app_version === 'string' ? o.app_version : '',
+    name: o.name || fallbackName,
+    created_at: o.created_at || o.saved_at,
+    saved_at: o.saved_at,
+    app_version: o.app_version,
     model,
     values: normalizeValues(rawValues),
   };

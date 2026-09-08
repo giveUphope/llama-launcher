@@ -25,3 +25,11 @@
 20. **负面参数清单（实测不建议）**：`-nkvo`（KV 全内存：混合架构模型实测慢 2.7x 且输出乱码）、密集模型部分 `-ngl` 分层（实测慢 4.7x，应全量或 MoE 用 `-ncmoe`）、大 `-ub`（峰值内存 4.4x + 解码 -46%，保持默认 512）。
 21. **双轨参数逻辑（2026-08-29，经用户确认）**：参数编辑分两轨——**临时轨道**自动持久化到 `settings.session_values` + `session_baseline`（800ms 节流，跨重启恢复，不碰预设文件，免"改完忘存"）；**预设轨道**仅显式保存写入 `<models_dir>/presets/*.json`。`hasChanges`（改动行橙描边 / 侧栏橙点）相对会话基线 `SessionBaseline { preset_name, values }` 逐键计算，不再依赖"对比出厂默认"的粗粒度判断。
 22. **切模型防丢确认 + 基线可视化（2026-08-29，经用户确认）**：切换模型 / 应用 GGUF 建议参数前检测未保存修改，`confirmDiscardDirty` 确认后重建临时基线（防静默丢失）；基线状态原由 `BaselineBadge` 双入口展示（参数页顶部 + 服务页状态卡；2026-09 状态卡自服务页迁入概览 `ServiceStatusCard`，徽章随迁；2026-09-03 徽章作为冗余提示整体移除，「恢复基线」入口保留在参数页状态条），支持就地「恢复基线」与「清除会话」，用户不必进入参数页即可感知"当前参数偏离了哪个基线"。
+23. **手写模块 vs 成熟库取舍（2026-09-08 审计）**：全库手写模块对照成熟库逐项评估后，**采纳两项**——`structuredClone` 替换 `JSON.parse(JSON.stringify())` 深拷贝/序列化（params 会话快照、`toPlain` IPC 转换，语义与 contextBridge 一致且不丢 undefined/函数）；zod 替换 settings/presets 的手写逐字段校验（`normalizeSettings`/`parsePreset`，声明式 schema + 逐字段 `.catch()` 回退默认，语义与原容错行为等价）。**评估后明确不建议替换**（理由各有实测/工程依据）：
+    - **下载/HF HTTP 传输层**（`download-manager.ts` / `huggingface-client.ts`）→ got/axios：Electron 内置 Node 的 BoringSSL TLS 指纹被 hf-mirror.com 直接 RST，必须注入基于 Electron `net` 的传输（决策 13）；got/axios 无法承载该注入传输，只能替换非 Electron 路径，价值打折。
+    - **设备探测**（`devices.ts`）→ systeminformation：现走 `llama-server --list-devices`，与引擎实际可用设备天然一致；系统级 GPU 探测反而可能误导。
+    - **进程/启动编排**（`process.ts`/`launcher.ts`）→ execa：Windows 进程树清理（`taskkill /F /T`）与 Electron 生命周期是平台特定实现，`node:child_process` 已够。
+    - **URL 解析**（`url-parser.ts`）：已用内置 `new URL()`，`blob/tree/resolve` 路径段规则是 HF/ModelScope 特有业务，无成熟库对应。
+    - **GGUF**（`gguf-meta.ts`，743 行）→ gguf.js：解析层虽可覆盖，但建议参数/量化映射/聊天模板匹配是 llama-server 业务推断，gguf.js 无法替代且格式细节存在漂移风险。
+    - **日志**（`download-log.ts`/`cleanup-logger.ts`）→ electron-log/winston：业务化 JSONL 事件日志（下载事件重放），非通用应用日志。
+    - **路径处理**（`paths.ts`）：已是 `node:path`；**docs 校验脚本**（`check-docs-links.cjs`）：28 文件 131 链接自研已够轻。
