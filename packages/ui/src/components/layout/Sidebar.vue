@@ -67,6 +67,12 @@ function navigate(key: string | number) {
   border-top: 1px solid var(--color-border);
   /* 展开动画窄宽阶段裁剪溢出，防按钮+版本号被 flex 压缩换行（历史：宽度过渡中版本号折行撑高 footer） */
   overflow: hidden;
+
+  /* 折叠切换动画中禁止子项收缩：宽度过渡不足时整体居中溢出裁剪（渐进露出），
+     而非压缩按钮/图标变形重叠 */
+  > * {
+    flex-shrink: 0;
+  }
 }
 
 .version {
