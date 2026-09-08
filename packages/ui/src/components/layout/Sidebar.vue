@@ -36,7 +36,9 @@ function navigate(key: string | number) {
       <a-menu-item v-for="item in navItems" :key="item.to">
         <template #icon><Icon :name="item.icon" /></template>
         {{ i18n.t(item.labelKey) }}
-        <a-badge v-if="item.dot?.()" dot class="nav-dot" />
+        <!-- 红点提示（有未保存改动）：Arco a-badge 的 dot 渲染要求 count>0，
+             纯 dot 无 count 时 countValue=NaN 会落到 number 分支显示「NaN」（源码 getDot 判定） -->
+        <a-badge v-if="item.dot?.()" :count="1" dot class="nav-dot" />
       </a-menu-item>
     </a-menu>
     <div class="sidebar-footer">
