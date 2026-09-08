@@ -203,7 +203,7 @@ const closeBehavior = computed<CloseBehavior>({
           </a-button>
           <ToolTip v-if="exeBadge" :text="exeBadge.tip">
             <span class="exe-status" :class="exeBadge.cls">
-              <Icon :name="exeBadge.icon" :size="12" :class="{ spinning: exeBadge.spin }" />
+              <Icon :name="exeBadge.spin ? 'loading' : exeBadge.icon" :size="12" />
               <span>{{ exeBadge.label }}</span>
             </span>
           </ToolTip>

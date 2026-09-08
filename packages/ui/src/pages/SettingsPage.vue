@@ -108,9 +108,8 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
       <div class="summary-divider"></div>
       <div class="summary-item">
         <Icon
-          :name="exeState === 'ok' ? 'check_circle' : exeState === 'missing' ? 'alert' : 'info'"
+          :name="exeState === 'checking' ? 'loading' : exeState === 'ok' ? 'check_circle' : exeState === 'missing' ? 'alert' : 'info'"
           :size="14"
-          :class="{ spinning: exeState === 'checking' }"
         />
         <span class="summary-label" :title="serverExe || llamaDir || undefined">
           <template v-if="exeState === 'checking'">{{ i18n.t('msg_detecting') }}</template>
@@ -132,8 +131,12 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
 
 <style scoped lang="scss">
 .settings-tabs {
-  // 页签条与下方提示条/内容区保持 8px 间距，与 ParamsPage 视觉节奏一致
-  margin-bottom: 8px;
+  // 页签条与下方提示条/内容区保持 8px 间距：间距由 status-summary / .tab-content 的
+  // margin-top 单点提供（tabs 自身不设 margin-bottom，避免与下方 margin 叠加成 16-24px）
+  :deep(.arco-tabs-content) {
+    padding-top: 0; // Arco 默认顶部内距 16px（+ summary margin-top 8 = 24px），
+                    // 本项目 pane 为空、内容由下方 .tab-content 承载，收敛为 8px
+  }
 }
 
 .status-summary {
