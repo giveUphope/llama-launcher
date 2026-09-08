@@ -222,10 +222,12 @@ function onScroll() {
 }
 
 // 级别筛选：Arco radio-group（button 型）替代自绘筛选 chip；
-// 仅保留换行与图标对齐覆盖，其余走 Arco 默认
+// 仅保留换行与图标对齐覆盖，其余走 Arco 默认。
+// 图标+文本在 .arco-radio-button-content 内（content 默认 block：图标与文本
+// baseline 对齐偏下 2px 且无间距），需显式 inline-flex + gap 对齐
 .level-filter {
   flex-wrap: wrap;
-  :deep(.arco-radio) {
+  :deep(.arco-radio-button-content) {
     display: inline-flex;
     align-items: center;
     gap: 4px;
