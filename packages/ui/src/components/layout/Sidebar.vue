@@ -30,7 +30,8 @@ function navigate(key: string | number) {
 
 <template>
   <a-layout-sider class="sidebar" :collapsed="collapsed" :width="224" :collapsed-width="64" :hide-trigger="true">
-    <a-menu :selected-keys="[route.path]" :collapse="collapsed" @menu-item-click="navigate">
+    <!-- collapsed-width 对齐 sider（64px）：Arco menu 默认折叠宽 48px，与 sider 不一致会在折叠态右侧留 16px 空白 -->
+    <a-menu :selected-keys="[route.path]" :collapse="collapsed" :collapsed-width="64" @menu-item-click="navigate">
       <a-menu-item v-for="item in navItems" :key="item.to">
         <template #icon><Icon :name="item.icon" /></template>
         {{ i18n.t(item.labelKey) }}
