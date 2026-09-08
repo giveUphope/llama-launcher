@@ -322,7 +322,22 @@ async function onOpenWeb() {
   max-width: 180px;
 }
 
-// 下拉内容：普通项名称/尺寸两列；选中项 accent 淡色底 + accent 文字；管理项斜体+分割线
+// 下拉内容：普通项名称/尺寸两列；选中项 accent 淡色底 + accent 文字；管理项斜体+分割线。
+// 面板固定宽 360px（原被最长模型名撑到 ~378px）：管理项/模型项同宽，长模型名省略、尺寸右对齐
+.dd-manage,
+.dd-item {
+  width: 360px;
+  box-sizing: border-box;
+}
+.dd-item {
+  :deep(.arco-dropdown-option-content) {
+    display: flex;
+    align-items: center;
+    gap: 8px; // 名称与尺寸间距（a-doption 内容包裹层非 flex，需显式声明）
+    width: 100%;
+    min-width: 0;
+  }
+}
 .dd-manage {
   color: var(--color-text-2);
   font-style: italic;
