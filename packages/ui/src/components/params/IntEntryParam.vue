@@ -25,10 +25,15 @@ const tip = computed(() => {
     <template #label><ToolTip :text="tip"><span>{{ label }}</span></ToolTip></template>
     <a-space>
       <a-input-number v-model="model" size="small" :min="p.min" :max="p.max" :precision="0" />
-      <a-typography-text v-if="showAutoHint" type="secondary">{{ i18n.t('auto') }}</a-typography-text>
+      <a-typography-text v-if="showAutoHint" type="secondary" class="auto-hint">{{ i18n.t('auto') }}</a-typography-text>
     </a-space>
   </a-form-item>
 </template>
 
 <style scoped>
+/* 「-1 = 自动」提示保持单行：默认 white-space normal 会在空格处折行（历史：随机种子等行
+   提示竖排挤成多行） */
+.auto-hint {
+  white-space: nowrap;
+}
 </style>
