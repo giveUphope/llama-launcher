@@ -34,5 +34,8 @@ const component = computed<Component>(() => icons[props.name] ?? IconQuestionCir
 </template>
 
 <style scoped>
-.icon { display: inline-flex; vertical-align: middle; flex-shrink: 0; }
+/* 图标居中交给各容器（Arco button/menu 有自带 vertical-align 校准如 -2px），
+   此处不得设 vertical-align: middle——会以更高特异性覆盖 Arco 校准，
+   导致按钮内图标相对文本偏下 ~1.5px（历史：tb-model 等按钮图标与文本不齐） */
+.icon { display: inline-flex; flex-shrink: 0; }
 </style>
