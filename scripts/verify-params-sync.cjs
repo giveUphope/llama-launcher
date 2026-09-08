@@ -45,7 +45,7 @@ for (const line of mergedLines) {
   if (!inSection) continue;
   const trimmed = line.trim();
   if (!trimmed || trimmed.startsWith('(') || trimmed.startsWith('[')) continue;
-  const paramMatch = trimmed.match(/^((?:-[a-zA-Z0-9?-]+|--[a-zA-Z0-9_-]+)(?:,\s+(?:-[a-zA-Z0-9?-]+|--[a-zA-Z0-9_-]+))*(?:\s+[A-Z_<>\'"\[\]{}|]+)?)\s+(.*)$/);
+  const paramMatch = trimmed.match(/^((?:-[a-zA-Z0-9?-]+|--[a-zA-Z0-9_-]+)(?:,\s+(?:-[a-zA-Z0-9?-]+|--[a-zA-Z0-9_-]+))*(?:\s+[A-Z_<>'"[\]{}|]+)?)\s+(.*)$/);
   if (!paramMatch) continue;
   const tokens = paramMatch[1].split(/[,\s]+/).filter(Boolean);
   const flags = tokens.filter(t => /^(-[a-zA-Z0-9?-]+|--[a-zA-Z0-9_-]+)$/.test(t));
@@ -78,7 +78,6 @@ for (const flags of docSupportedParams) {
 }
 
 const onlyInCode = [...codeFlags].filter(f => !docSupportedSet.has(f));
-const onlyInDoc = [...docSupportedSet].filter(f => !codeSupportedSet.has(f));
 const both = [...codeFlags].filter(f => docSupportedSet.has(f));
 
 console.log('=== 参数清单一致性检查（按参数维度） ===\n');

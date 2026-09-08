@@ -15,42 +15,42 @@ let downloadErrorListeners = [];
 let appLogListeners = [];
 
 ipcRenderer.on(IPC.SERVER_OUTPUT, (_e, entry) => {
-  outputListeners.forEach(cb => { try { cb(entry); } catch (_) {} });
+  outputListeners.forEach(cb => { try { cb(entry); } catch {} });
 });
 ipcRenderer.on(IPC.SERVER_STATUS, (_e, s) => {
-  statusListeners.forEach(cb => { try { cb(s); } catch (_) {} });
+  statusListeners.forEach(cb => { try { cb(s); } catch {} });
 });
 ipcRenderer.on(IPC.MODELS_CHANGED, () => {
-  modelsChangedListeners.forEach(cb => { try { cb(); } catch (_) {} });
+  modelsChangedListeners.forEach(cb => { try { cb(); } catch {} });
 });
 ipcRenderer.on(IPC.DOWNLOAD_PROGRESS, (_e, payload) => {
-  downloadProgressListeners.forEach(cb => { try { cb(payload); } catch (_) {} });
+  downloadProgressListeners.forEach(cb => { try { cb(payload); } catch {} });
 });
 ipcRenderer.on(IPC.DOWNLOAD_COMPLETE, (_e, payload) => {
-  downloadCompleteListeners.forEach(cb => { try { cb(payload); } catch (_) {} });
+  downloadCompleteListeners.forEach(cb => { try { cb(payload); } catch {} });
 });
 ipcRenderer.on(IPC.DOWNLOAD_ERROR, (_e, payload) => {
-  downloadErrorListeners.forEach(cb => { try { cb(payload); } catch (_) {} });
+  downloadErrorListeners.forEach(cb => { try { cb(payload); } catch {} });
 });
 
 // 应用日志推送（日志页：应用生命周期/操作记录）
 ipcRenderer.on(IPC.LOGS_ONLOG, (_e, entry) => {
-  appLogListeners.forEach(cb => { try { cb(entry); } catch (_) {} });
+  appLogListeners.forEach(cb => { try { cb(entry); } catch {} });
 });
 
 let windowMaximizedListeners = [];
 let windowUnmaximizedListeners = [];
 ipcRenderer.on(IPC.WINDOW_MAXIMIZED, () => {
-  windowMaximizedListeners.forEach(cb => { try { cb(); } catch (_) {} });
+  windowMaximizedListeners.forEach(cb => { try { cb(); } catch {} });
 });
 ipcRenderer.on(IPC.WINDOW_UNMAXIMIZED, () => {
-  windowUnmaximizedListeners.forEach(cb => { try { cb(); } catch (_) {} });
+  windowUnmaximizedListeners.forEach(cb => { try { cb(); } catch {} });
 });
 
 // 关闭窗口询问：主进程发起（窗口 close 事件被拦截后），渲染进程展示应用内弹窗并回复
 let closeDialogListeners = [];
 ipcRenderer.on(IPC.WINDOW_SHOW_CLOSE_DIALOG, (_e, request) => {
-  closeDialogListeners.forEach(cb => { try { cb(request); } catch (_) {} });
+  closeDialogListeners.forEach(cb => { try { cb(request); } catch {} });
 });
 
 function clonePlain(value) {

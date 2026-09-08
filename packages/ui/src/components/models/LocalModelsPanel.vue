@@ -314,7 +314,7 @@ function startPolling(path: string) {
 }
 
 async function pollBench() {
-  for (const p of [...polling]) {
+  for (const p of polling) {
     try {
       const st = await window.api.system.benchLlamaStatus(p);
       if (st) benchJobs.value = { ...benchJobs.value, [p]: st };

@@ -3,7 +3,6 @@
 // 因此无需改动资源目录 / RVA / GROUP_ICON 头部 —— 零结构风险。
 // Windows 通过 RT_ICON 数据开头的 PNG 签名识别 PNG 图标（GROUP_ICON 的 bpp=32 与此一致）。
 const fs = require('fs');
-const zlib = require('zlib');
 
 function parseExeIconImages(exePath) {
   const exe = fs.readFileSync(exePath);

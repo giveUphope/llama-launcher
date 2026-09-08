@@ -63,7 +63,7 @@ for (const line of mergedLines) {
   if (!trimmed || trimmed.startsWith('(') || trimmed.startsWith('[')) continue;
 
   // Parse flag part and description
-  const paramMatch = trimmed.match(/^((?:-[a-zA-Z0-9?-]+|--[a-zA-Z0-9_-]+)(?:,\s+(?:-[a-zA-Z0-9?-]+|--[a-zA-Z0-9_-]+))*(?:\s+[A-Z_<>\'"\[\]{}|]+)?)\s+(.*)$/);
+  const paramMatch = trimmed.match(/^((?:-[a-zA-Z0-9?-]+|--[a-zA-Z0-9_-]+)(?:,\s+(?:-[a-zA-Z0-9?-]+|--[a-zA-Z0-9_-]+))*(?:\s+[A-Z_<>'"[\]{}|]+)?)\s+(.*)$/);
   if (paramMatch) {
     const leftPart = paramMatch[1].trim();
     const descPart = paramMatch[2].trim();

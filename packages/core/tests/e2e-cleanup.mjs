@@ -8,12 +8,6 @@ import { ProcessRegistry } from '../../../../apps/desktop/src/main/process-regis
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function listLlama() {
-  // 返回当前系统中名为 ping 的进程（本脚本用 ping 作替身）
-  // 仅用于本验证，真实场景下为 llama-server.exe
-  return [];
-}
-
 async function main() {
   const reg = new ProcessRegistry();
   const win = { id: 1, isDestroyed: () => false };

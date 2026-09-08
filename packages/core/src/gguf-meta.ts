@@ -53,34 +53,6 @@ const FILE_TYPE_MAP: Record<number, string> = {
 };
 
 /**
- * 已知的聊天模板名称关键词匹配（用于从 tokenizer.chat_template 推断 chat_template 参数）。
- * llama-server 的 --chat-template 支持的值与模板内容前缀做模糊匹配。
- */
-const CHAT_TEMPLATE_MATCHERS: { key: string; keywords: string[] }[] = [
-  { key: 'chatml', keywords: ['<|im_start|>'] },
-  { key: 'llama3', keywords: ['<|begin_of_text|>', '<|start_header_id|>'] },
-  { key: 'llama2', keywords: ['[INST]', '[/INST]'] },
-  { key: 'mistral-v1', keywords: ['[INST]'] },
-  { key: 'phi3', keywords: ['<|user|>', '<|assistant|>', '<|end|>'] },
-  { key: 'phi4', keywords: ['<|im_start|>', '<|im_end|>', '<|tool|>'] },
-  { key: 'gemma', keywords: ['<start_of_turn>', '<end_of_turn>'] },
-  { key: 'deepseek', keywords: ['<｜begin▁of▁sentence｜>'] },
-  { key: 'deepseek2', keywords: ['<｜begin▁of▁sentence｜>', 'next_token'] },
-  { key: 'deepseek3', keywords: ['<｜begin▁of▁sentence｜>', 'chat'] },
-  { key: 'chatglm3', keywords: ['<|system|>', '<|user|>', '<|assistant|>'] },
-  { key: 'chatglm4', keywords: ['[gMASK]', '<|system|>'] },
-  { key: 'vicuna', keywords: ['USER:', 'ASSISTANT:'] },
-  { key: 'zephyr', keywords: ['<|system|>', '</s>'] },
-  { key: 'command-r', keywords: ['<|START_OF_TURN_TOKEN|>'] },
-  { key: 'falcon3', keywords: ['<|system|>', 'falcon'] },
-  { key: 'granite', keywords: ['granite'] },
-  { key: 'gpt-oss', keywords: ['<|im_start|>', 'gpt-oss'] },
-  { key: 'grok-2', keywords: ['grok'] },
-  { key: 'hunyuan-moe', keywords: ['hunyuan'] },
-  { key: 'kimi-k2', keywords: ['kimi'] },
-];
-
-/**
  * 流式缓冲区读取器：从文件描述符按需读取，支持游标偏移与跳过。
  * 按需以 64KB 块加载文件内容，内存占用恒定。
  * 通过 skipBytes() 可跳过大段数据（如 tokenizer 数组）而不加载到内存。
@@ -327,19 +299,6 @@ function getBool(meta: GgufMetadataMap, key: string): boolean | null {
   const v = meta[key];
   if (v === undefined) return null;
   if (typeof v === 'boolean') return v;
-  return null;
-}
-
-/**
- * 尝试从聊天模板内容匹配已知的 chat_template 名称。
- */
-function matchChatTemplate(template: string): string | null {
-  const lower = template.toLowerCase();
-  for (const m of CHAT_TEMPLATE_MATCHERS) {
-    if (m.keywords.every((kw) => lower.includes(kw.toLowerCase()))) {
-      return m.key;
-    }
-  }
   return null;
 }
 

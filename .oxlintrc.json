@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {},
+  "env": {
+    "node": true
+  },
+  "ignorePatterns": [
+    "packages/ui/src/components.d.ts",
+    "apps/desktop/src/preload/ipc-constants.cjs",
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/test-results/**",
+    "**/playwright-report/**"
+  ],
+  "overrides": [
+    {
+      "files": ["packages/ui/**"],
+      "env": {
+        "browser": true
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.spec.ts", "**/testing/**"],
+      "env": {
+        "vitest": true
+      }
+    },
+    {
+      "files": ["apps/desktop/src/preload/**"],
+      "env": {
+        "browser": true,
+        "node": true
+      }
+    }
+  ]
+}

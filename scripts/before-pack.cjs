@@ -33,7 +33,7 @@ exports.default = async function (context) {
     // 探测原始节点状态：有效链接 / 损坏循环链接 / 真实目录 / 不存在
     const lstat = fs.lstatSync(pkgPath, { throwIfNoEntry: false });
     const exists = fs.existsSync(pkgPath);
-    const isBrokenLink = !exists && lstat?.isSymbolicLink();
+    let isBrokenLink = !exists && lstat?.isSymbolicLink();
     let isLink = false;
     let real;
 

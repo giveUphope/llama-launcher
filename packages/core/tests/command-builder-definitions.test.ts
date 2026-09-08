@@ -43,7 +43,7 @@ function nonDefaultValue(p: ParamDef): string | number | boolean {
 /** 期望的发射结果（不含 exePath）。 */
 function expectedArgs(p: ParamDef, v: string | number | boolean): string[] {
   if (p.type === 'checkbox') {
-    return Boolean(v) ? [p.flag] : p.invert_flag ? [p.invert_flag] : [];
+    return v ? [p.flag] : p.invert_flag ? [p.invert_flag] : [];
   }
   if (p.type === 'float_slider') {
     const rounded = Math.round(Number(v) * 100) / 100;

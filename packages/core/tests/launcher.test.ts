@@ -11,7 +11,7 @@ vi.mock('../src/process.js', () => {
     _running = false;
     private _listeners: Record<string, Function[]> = {};
 
-    start(opts: any) {
+    start(_opts: any) {
       this._running = true;
       this.pid = 9999;
       return this;

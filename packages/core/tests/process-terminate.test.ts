@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { LlamaServerProcess } from '../src/process.js';
 import { cleanupLogger, setCleanupLogLevel } from '../src/cleanup-logger.js';
 

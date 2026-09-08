@@ -11,7 +11,8 @@
     "dev": "turbo run dev --no-daemon --filter=@llama-launcher/desktop",
     "dev:console": "pnpm --filter @llama-launcher/desktop dev:console",
     "build": "turbo run build --no-daemon",
-    "lint": "turbo run lint --no-daemon && node scripts/verify-ipc-sync.cjs && node scripts/check-docs-links.cjs && node scripts/verify-i18n-usage.cjs",
+    "lint": "turbo run lint --no-daemon && node scripts/verify-ipc-sync.cjs && node scripts/check-docs-links.cjs && node scripts/verify-i18n-usage.cjs && pnpm lint:ox",
+    "lint:ox": "oxlint .",
     "docs:check": "node scripts/check-docs-links.cjs",
     "style:audit": "node scripts/style-audit.cjs",
     "generate:ipc": "node scripts/generate-preload.cjs",
@@ -20,6 +21,7 @@
     "dist": "pnpm --filter @llama-launcher/desktop dist"
   },
   "devDependencies": {
+    "oxlint": "^1.81.0",
     "resedit": "^3.1.0",
     "turbo": "^2.10.12"
   }

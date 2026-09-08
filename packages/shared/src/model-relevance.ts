@@ -124,7 +124,7 @@ export function scoreRelevance(name: string, query: string): number {
  */
 function quantPreference(q: QuantizationInfo | null | undefined): number {
   if (!q) return 0.5;
-  const { family, label, bits } = q;
+  const { family, bits } = q;
   // Q4_K_M / Q5_K_M:甜点
   if (family === 'k-quants' && bits !== null && (bits === 4 || bits === 5)) return 1.0;
   // Q6_K / Q8_0:高质量但偏大

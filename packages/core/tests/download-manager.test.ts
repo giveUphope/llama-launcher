@@ -189,7 +189,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', largeSize);
-    const id = await manager.startDownload(req);
+    await manager.startDownload(req);
 
     const completePromise = new Promise<unknown>((resolve) => manager.once('complete', resolve));
     await completePromise;
@@ -229,7 +229,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
-    const id = await manager.startDownload(req);
+    await manager.startDownload(req);
 
     const completePromise = new Promise<unknown>((resolve) => manager.once('complete', resolve));
     await completePromise;
@@ -288,7 +288,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
-    const id = await manager.startDownload(req);
+    await manager.startDownload(req);
 
     const completePromise = new Promise<unknown>((resolve) => manager.once('complete', resolve));
     await completePromise;
@@ -347,7 +347,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
-    const id = await manager.startDownload(req);
+    await manager.startDownload(req);
 
     const completePromise = new Promise<unknown>((resolve) => manager.once('complete', resolve));
     await completePromise;
@@ -399,7 +399,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
-    const id = await manager.startDownload(req);
+    await manager.startDownload(req);
 
     const completePromise = new Promise<unknown>((resolve) => manager.once('complete', resolve));
     await completePromise;
@@ -736,7 +736,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
-    const id = await manager.startDownload(req);
+    await manager.startDownload(req);
 
     const complete = await new Promise<any>((resolve) => manager.once('complete', resolve));
     expect(complete.checksum).toBe(createHash('sha256').update(content).digest('hex'));

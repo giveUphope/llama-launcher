@@ -26,7 +26,7 @@ function collectFiles(dir) {
     const p = path.join(dir, entry.name);
     if (entry.name === 'node_modules' || entry.name === 'dist') continue;
     if (entry.isDirectory()) out.push(...collectFiles(p));
-    else if (/\.(vue|ts)$/.test(entry.name) && !/\.test\.ts$/.test(entry.name)) out.push(p);
+    else if (/\.(vue|ts)$/.test(entry.name) && !entry.name.endsWith('.test.ts')) out.push(p);
   }
   return out;
 }

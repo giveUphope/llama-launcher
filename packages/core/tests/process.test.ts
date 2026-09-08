@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { LlamaServerProcess } from '../src/process.js';
 import type { OutputEntry } from '@llama-launcher/shared';
 
@@ -7,13 +7,6 @@ function onEvent(proc: LlamaServerProcess, event: string): Promise<any[]> {
   return new Promise((resolve) => {
     proc.once(event, (...args: any[]) => resolve(args));
   });
-}
-
-// Helper: kill after a delay if not already killed
-function safeKill(proc: LlamaServerProcess) {
-  if (proc.isRunning()) {
-    proc.kill();
-  }
 }
 
 describe('LlamaServerProcess', () => {

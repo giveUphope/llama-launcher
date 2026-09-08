@@ -9,7 +9,6 @@ export const useAppLogStore = defineStore('appLog', () => {
   const MAX_LINES = 2000;
 
   let subscribed = false;
-  let unsub: (() => void) | null = null;
 
   function push(entry: AppLogEntry) {
     entries.value.push(entry);
@@ -26,7 +25,7 @@ export const useAppLogStore = defineStore('appLog', () => {
       void window.api.logs.list().then((list) => {
         if (Array.isArray(list) && list.length > 0) entries.value = list.slice(-MAX_LINES);
       });
-      unsub = window.api.logs.onLog((e) => push(e));
+      window.api.logs.onLog((e) => push(e));
     } catch {
       // 浏览器预览环境（无 Electron preload）忽略订阅
     }

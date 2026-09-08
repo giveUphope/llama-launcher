@@ -256,10 +256,10 @@ export function createDemoApi() {
       save: () => Promise.resolve(),
     },
     models: {
-      scan: (dir: string, opts?: { createIfMissing?: boolean }) => Promise.resolve(DEMO_MODELS),
+      scan: (_dir: string, _opts?: { createIfMissing?: boolean }) => Promise.resolve(DEMO_MODELS),
       detectMmproj: () => Promise.resolve(''),
       detectDraft: () => Promise.resolve(''),
-      readGgufMeta: (path: string) => Promise.resolve({ ok: true, data: DEMO_GGUF }),
+      readGgufMeta: (_path: string) => Promise.resolve({ ok: true, data: DEMO_GGUF }),
       watch: () => Promise.resolve({ ok: true }),
       remove: () => Promise.resolve({ ok: true }),
       onChanged: (cb: () => void) => { const iv = setInterval(cb, 60000); return () => clearInterval(iv); },

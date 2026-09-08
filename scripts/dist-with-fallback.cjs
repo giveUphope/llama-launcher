@@ -210,7 +210,6 @@ if (usedFallback && code === 0) {
 console.log('');
 if (code === 0) {
   const target = usedFallback ? configuredOutput : actualOutput;
-  const exePath = path.join(target, 'win-unpacked', 'llama Launcher.exe');
   const portablePath = path.join(target, `llama Launcher ${appVersion}.exe`);
   console.log('[dist-fallback] ========================================');
   console.log(`[dist-fallback] BUILD SUCCEEDED ${usedFallback ? '(via fallback)' : ''}`);

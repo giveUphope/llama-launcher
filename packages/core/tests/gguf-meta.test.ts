@@ -35,7 +35,6 @@ function ggufKV(key: string, valueType: number, valueBuf: Buffer): Buffer {
  * 构建数值类型的 value buffer。
  */
 function u8(v: number): Buffer { const b = Buffer.alloc(1); b.writeUInt8(v); return b; }
-function u16(v: number): Buffer { const b = Buffer.alloc(2); b.writeUInt16LE(v); return b; }
 function u32(v: number): Buffer { const b = Buffer.alloc(4); b.writeUInt32LE(v); return b; }
 function i32(v: number): Buffer { const b = Buffer.alloc(4); b.writeInt32LE(v); return b; }
 function f32(v: number): Buffer { const b = Buffer.alloc(4); b.writeFloatLE(v); return b; }

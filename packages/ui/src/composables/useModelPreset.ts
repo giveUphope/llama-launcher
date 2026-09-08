@@ -4,7 +4,6 @@ import { useI18nStore } from '@/stores/i18n';
 import { useServerStore } from '@/stores/server';
 import { presetNameCandidates } from '@/composables/useAutoPresetName';
 import { MODEL_KEY } from '@llama-launcher/shared';
-import type { Preset } from '@llama-launcher/shared';
 
 let applyingPath: string | null = null;
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { kvLayersOf, kvBytesPerTokenOf, estimateVram, KV_DTYPE_BYTES, COMPUTE_RESERVE_MIB } from '../src/vram-estimate.js';
+import { kvLayersOf, kvBytesPerTokenOf, estimateVram, KV_DTYPE_BYTES } from '../src/vram-estimate.js';
 import type { GgufModelInfo } from '@llama-launcher/shared';
 
 const MIB = 1024 * 1024;

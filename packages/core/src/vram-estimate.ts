@@ -167,7 +167,6 @@ export function estimateOccupancy(input: OccupancyComputationInput): HardwareOcc
   }
   const ratio = blocks && offloadLayers !== null ? offloadLayers / blocks : null;
 
-  const kvLayers = kvLayersOf(input.info);
   const kvBpt = kvBytesPerTokenOf(input.info, dtypeBytes);
   const kvTotalMiB = kvBpt !== null && ctxTokens ? (kvBpt * ctxTokens) / MiB : null;
 

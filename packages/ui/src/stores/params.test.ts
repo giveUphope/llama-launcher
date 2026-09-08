@@ -253,7 +253,6 @@ describe('依赖规则纯函数（isDependencySatisfied / computeViolatedParams�
   });
 
   it('checkbox 依赖源未勾选时不满足（与命令构建器 isDependencyMet 语义一致）', () => {
-    const checkboxRule = { key: 'cache_prompt', values: ['true'] };
     expect(computeViolatedParams({ cache_prompt: false })).toContainEqual(
       expect.objectContaining({ key: 'cache_reuse' }),
     );
