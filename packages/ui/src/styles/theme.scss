@@ -79,4 +79,5 @@ body[arco-theme='dark'] {
 .arco-card-body > .arco-form .arco-form-item-label {
   width: 100%;
   text-align: right;
+  white-space: nowrap; // 标签单行：防长标签（如「HuggingFace 镜像源」）在定宽列内错误折行
 }
