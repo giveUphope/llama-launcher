@@ -520,11 +520,18 @@ onUnmounted(() => {
   gap: 8px;
   color: var(--color-text-2);
 
+  // 单行统计条：a-statistic 的 title 块默认在 value 上方竖排（行高 ~54px），
+  // 改为 title 与 value 同行横排，图标 + 标题 + 数值压到单行（divider 24px 对齐）
+  :deep(.arco-statistic-title),
+  :deep(.arco-statistic-content) {
+    display: inline-block;
+  }
+
   :deep(.arco-statistic-title) {
     font-size: var(--fs-xs);
     color: var(--color-text-3);
     line-height: 1.3;
-    margin-bottom: 2px;
+    margin: 0 6px 0 0; // title 与 value 间距 6px（图标-文本间距统一刻度）
   }
 
   :deep(.arco-statistic-value) {
