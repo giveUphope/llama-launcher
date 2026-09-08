@@ -207,6 +207,15 @@ function onOomKvQuant() {
     gap: 6px;
     min-width: 0;
   }
+
+  // 可复制值行（模型名/API 地址）：icon + 文本 + 复制图标并排，
+  // 图标与文本间距归一到 6px（对齐 Arco size-small 按钮 icon 间距；默认 0 贴文本）
+  :deep(.arco-typography) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+  }
 }
 
 // 数值/路径用 mono（§7.5.1）
@@ -245,17 +254,17 @@ function onOomKvQuant() {
   }
 }
 
-/* Arco Alert 承载失败提示：覆盖内边距与文字对比色，保持 banner 高 ≈ slot 预留 30px（防跳动） */
-.fc-banner {
+/* 失败提示 div（icon + 文案）：flex 居中 + 图标间距 6px + 内边距保持
+   banner 高 ≈ slot 预留 30px（防跳动）；文字深红达 AA（见 style-audit #53），兼容浅/深主题 */
+.failure-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px; // 图标与文本间距归一到提示行统一 6px（默认 0 贴文本）
   padding: 6px 12px;
   border-radius: var(--radius-pill);
   font-size: var(--fs-base);
   font-weight: 600;
-
-  :deep(.arco-alert-content) {
-    line-height: 1.4;
-    color: rgb(var(--danger-6)); // 深红达 AA（见 style-audit #53），兼容浅/深主题
-  }
+  color: rgb(var(--danger-6));
 }
 
 // OOM 归因建议行：紧随失败 banner 的次级提示 + 行内缓解按钮
