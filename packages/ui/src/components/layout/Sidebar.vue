@@ -65,9 +65,13 @@ function navigate(key: string | number) {
   gap: 8px;
   padding: 8px;
   border-top: 1px solid var(--color-border);
+  /* 展开动画窄宽阶段裁剪溢出，防按钮+版本号被 flex 压缩换行（历史：宽度过渡中版本号折行撑高 footer） */
+  overflow: hidden;
 }
 
 .version {
+  flex-shrink: 0; /* 不被 flex 压缩 */
+  white-space: nowrap; /* 版本号保持单行 */
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
 }
