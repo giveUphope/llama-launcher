@@ -176,11 +176,5 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
   flex: 1;
 }
 
-/* 摘要检测中旋转图标 */
-.spinning {
-  animation: settings-spin 1s linear infinite;
-}
-@keyframes settings-spin {
-  to { transform: rotate(360deg); }
-}
+/* 摘要状态行（检测中图标走 Arco IconLoading 自带旋转动画） */
 </style>

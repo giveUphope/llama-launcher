@@ -18,8 +18,9 @@ export function toPlain<T>(value: T): T {
   if (value === undefined || value === null || typeof value !== 'object') {
     return value;
   }
-  // 与 contextBridge 的克隆语义一致：结构化克隆（JSON 序列化会丢失 undefined/函数）
-  return structuredClone(value);
+  // 必须用 JSON 序列化解包 Vue reactive Proxy：structuredClone 无法克隆 Proxy（DataCloneError），
+  // 而 contextBridge 在参数进入 preload 前也使用结构化克隆，二者都需要先转纯对象
+  return JSON.parse(JSON.stringify(value));
 }
 
 /**

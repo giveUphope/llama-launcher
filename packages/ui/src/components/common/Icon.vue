@@ -4,7 +4,7 @@ import {
   IconBook, IconCheck, IconCheckCircle, IconCheckSquare, IconClockCircle, IconClose, IconCloseCircle,
   IconCloud, IconCodeBlock, IconCopy, IconDashboard, IconDelete, IconDown, IconDownload, IconEmpty,
   IconExclamationCircle, IconExport, IconExperiment, IconFile, IconFolder, IconFullscreen, IconFullscreenExit,
-  IconInfoCircle, IconLeft, IconLink, IconMinus, IconPlayArrow, IconPublic, IconQuestionCircle, IconRefresh,
+  IconInfoCircle, IconLeft, IconLink, IconLoading, IconMinus, IconPlayArrow, IconPublic, IconQuestionCircle, IconRefresh,
   IconRight, IconRobot, IconSave, IconSearch, IconSettings, IconStar, IconStop, IconStorage, IconSunFill, IconTool,
 } from '@arco-design/web-vue/es/icon';
 
@@ -25,6 +25,8 @@ const icons: Record<string, Component> = {
   clock: IconClockCircle, empty: IconEmpty, star: IconStar, disk: IconStorage, bench: IconExperiment,
   // 窗口控制（TopBar win-btn）：Arco 原生字形
   minimize: IconMinus, maximize: IconFullscreen, restore: IconFullscreenExit,
+  // 加载中：Arco IconLoading 自带旋转动画（替代自定义 spin @keyframes，全站统一）
+  loading: IconLoading,
 };
 const component = computed<Component>(() => icons[props.name] ?? IconQuestionCircle);
 </script>

@@ -276,8 +276,8 @@ function onScroll() {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, rgb(var(--primary-6)) 30%, transparent); }
-  50% { box-shadow: 0 0 0 4px color-mix(in srgb, rgb(var(--primary-6)) 8%, transparent); }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
 }
 
 .console {

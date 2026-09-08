@@ -690,7 +690,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
           :disabled="!urlInput.trim() || parsing"
           @click="onParseUrl"
         >
-          <Icon v-if="parsing" name="refresh" :size="12" class="spinning" />
+          <Icon v-if="parsing" name="loading" :size="12" />
           {{ parsing ? i18n.t('msg_parsing') : i18n.t('btn_parse_url') }}
         </a-button>
       </div>
@@ -971,15 +971,6 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 .url-input-icon {
   color: var(--color-text-3);
-}
-
-/* 按钮 */
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* 错误/提示消息 */

@@ -272,8 +272,7 @@ const closeBehavior = computed<CloseBehavior>({
   &.missing { color: rgb(var(--danger-6)); background: color-mix(in srgb, rgb(var(--danger-6)) 14%, transparent); }
   &.not_found { color: rgb(var(--orange-6)); background: color-mix(in srgb, rgb(var(--orange-6)) 14%, transparent); }
 }
-.spinning { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* 检测中图标走 Arco IconLoading 自带旋转动画（不再自定义 spin） */
 
 .card-help-icon {
   display: inline-flex;
