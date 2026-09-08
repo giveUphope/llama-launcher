@@ -445,16 +445,16 @@ onUnmounted(() => {
             <!-- 行操作：文本内联小按钮（§7.5.5 禁止纯图标操作按钮，预设面板同款范式） -->
             <div class="row-actions">
               <a-button size="small" class="row-action" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(record)">
-                <Icon name="folder_open" :size="11" />
+                <template #icon><Icon name="folder_open" :size="11" /></template>
                 {{ i18n.t('act_dir') }}
               </a-button>
               <a-button size="small" class="row-action" :title="i18n.t('bench_llama_title')"
                         :disabled="benchJobs[record.path]?.state === 'running'" @click.stop="onBench(record)">
-                <Icon name="bench" :size="11" />
+                <template #icon><Icon name="bench" :size="11" /></template>
                 {{ i18n.t('act_bench') }}
               </a-button>
               <a-button size="small" class="row-action" status="danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(record)">
-                <Icon name="trash" :size="11" />
+                <template #icon><Icon name="trash" :size="11" /></template>
                 {{ i18n.t('btn_remove_model') }}
               </a-button>
             </div>

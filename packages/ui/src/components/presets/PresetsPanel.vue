@@ -187,7 +187,7 @@ onActivated(() => { void onRefreshList(); });
               <span class="col-model" :title="modelLabel(p)">{{ modelLabel(p) }}</span>
               <span class="col-actions">
                 <a-button size="small" type="primary" class="row-action" :title="i18n.t('preset_apply')" @click="onApplyPreset(p.name)">
-                  <Icon name="play" :size="11" />
+                  <template #icon><Icon name="play" :size="11" /></template>
                   {{ i18n.t('preset_apply') }}
                 </a-button>
                 <a-popconfirm
@@ -196,7 +196,7 @@ onActivated(() => { void onRefreshList(); });
                   @ok="onDeletePreset(p.name)"
                 >
                   <a-button size="small" status="danger" class="row-action" :title="i18n.t('preset_delete')">
-                    <Icon name="trash" :size="11" />
+                    <template #icon><Icon name="trash" :size="11" /></template>
                     {{ i18n.t('preset_delete') }}
                   </a-button>
                 </a-popconfirm>
