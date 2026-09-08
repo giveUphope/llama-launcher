@@ -71,12 +71,7 @@ async function onCopyCmd() {
   await window.api.clipboard.write(fullCommand.value);
 }
 
-// Ctrl+Shift+C 全局快捷键（App.vue 派发）→ 复制当前命令预览
-onMounted(() => {
-  window.addEventListener('app:copy-command', onCopyCmd);
-});
 onUnmounted(() => {
-  window.removeEventListener('app:copy-command', onCopyCmd);
   if (previewTimer) clearTimeout(previewTimer);
 });
 </script>

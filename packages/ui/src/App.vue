@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRoute } from 'vue-router';
 import AppLayout from '@/components/layout/AppLayout.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
@@ -13,41 +13,10 @@ import FileBrowserModal from '@/components/common/FileBrowserModal.vue';
 const settings = useSettingsStore();
 const server = useServerStore();
 const params = useParamsStore();
-const router = useRouter();
 const route = useRoute();
-const TAB_KEYS = ['/models', '/params', '/launch'];
 
 function onBeforeUnload() {
   settings.flushSave();
-}
-
-function onKeydown(e: KeyboardEvent) {
-  const ctrl = e.ctrlKey || e.metaKey;
-  // Ctrl+L（启动）与 Esc（停止）快捷键已移除（2026-09-08，连同状态栏提示）
-  if (ctrl && !e.shiftKey && (e.key === 'r' || e.key === 'R')) {
-    e.preventDefault();
-    window.dispatchEvent(new CustomEvent('app:refresh-models'));
-  }
-  if (ctrl && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
-    e.preventDefault();
-    settings.toggleTheme();
-  }
-  if (ctrl && !e.shiftKey && (e.key === 's' || e.key === 'S')) {
-    const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-    if (tag === 'input' || tag === 'textarea') return;
-    e.preventDefault();
-    void router.push({ path: '/params', query: { tab: 'presets' } });
-  }
-  if (ctrl && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
-    e.preventDefault();
-    void router.push('/launch').then(() => {
-      window.dispatchEvent(new CustomEvent('app:copy-command'));
-    });
-  }
-  if (ctrl && /^[1-3]$/.test(e.key)) {
-    e.preventDefault();
-    void router.push(TAB_KEYS[Number(e.key) - 1]);
-  }
 }
 
 onMounted(async () => {
@@ -77,7 +46,6 @@ onMounted(async () => {
   } catch (e) {
     console.error('[App] onMounted failed:', e);
   }
-  window.addEventListener('keydown', onKeydown);
   window.addEventListener('beforeunload', onBeforeUnload);
 });
 
@@ -90,7 +58,6 @@ watch(() => route.fullPath, (fullPath) => {
 });
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', onKeydown);
   window.removeEventListener('beforeunload', onBeforeUnload);
   settings.flushSave();
   if (saveTabTimer) clearTimeout(saveTabTimer);

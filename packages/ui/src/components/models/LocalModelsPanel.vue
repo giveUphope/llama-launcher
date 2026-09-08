@@ -167,7 +167,6 @@ async function applySuggestions() {
 // 首次打开时 models_dir 为空则跳过，设置后每次进入自动刷新
 // 同时订阅文件系统变更，运行期间新增/删除 .gguf 文件时自动刷新
 let unsubModelsChanged: (() => void) | null = null;
-function onRefreshModelsShortcut() { void onRefresh(); }
 onMounted(() => {
   if (modelsDir.value) {
     // 懒加载：仅列表为空时才初始扫描（models_dir 变化由上方 watch 自动重扫，
@@ -191,13 +190,10 @@ onMounted(() => {
   } catch {
     // 浏览器预览环境(无 Electron preload)下 window.api.models 未定义,忽略事件订阅
   }
-  // 订阅 Ctrl+R 快捷键刷新
-  window.addEventListener('app:refresh-models', onRefreshModelsShortcut);
 });
 
 onUnmounted(() => {
   if (unsubModelsChanged) { unsubModelsChanged(); unsubModelsChanged = null; }
-  window.removeEventListener('app:refresh-models', onRefreshModelsShortcut);
 });
 
 async function onRefresh() {
