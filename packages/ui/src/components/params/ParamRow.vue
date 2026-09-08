@@ -196,10 +196,16 @@ function onClear() {
     min-height: 0;
   }
 
-  // Arco 标签列基础 line-height 32px（无 form size 时），压回行内语义行高
+  // Arco 标签列基础 line-height 32px（无 form size 时），压回行内语义行高；
+  // form-item 默认 align-items: flex-start，label-col 内容高被压缩为 label 高，
+  // 顶部对齐会相对控件中心偏上 ~5px（历史：所有参数行 label 与控件垂直不齐）。
+  // align-self: center 让 label-col 整体垂直居中于行高
   :deep(.arco-form-item-label-col),
   :deep(.arco-form-item-label) {
     line-height: 1.3;
+  }
+  :deep(.arco-form-item-label-col) {
+    align-self: center;
   }
 }
 
