@@ -63,7 +63,7 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 - **每轮任务完成后提交到本地，勿推送远端。** Agent 每完成一轮任务应 `git add` + `git commit` 到本地仓库（提交信息沿用仓库既有的 Conventional Commits 中文风格：`feat:`/`fix:`/`chore:`/`test:`/`docs:` 等，参考 `git log`），但**绝不** `git push`——推送 `main` 会触发上一条的自动 bump + Release。是否推送、何时推送由用户显式决定。
 
-- **每轮任务完成后，在内置浏览器显示 mock 页面供用户校验目测。** 启动 `pnpm --filter @llama-launcher/ui dev`（纯前端 vite + `src/dev/demo-mock` 演示数据，`127.0.0.1:5173`，不启动 Electron），在内置浏览器打开应用并导航到**本轮改动的页面**，标签 `markHandoff` 保留、服务常驻——**收尾时勿 TaskStop vite、勿关闭标签**（历史上曾每次收尾关闭，导致用户无法目测）。涉及 Electron 主进程/IPC 的改动仍需用户自行 `pnpm dev` 交互验证，mock 预览仅覆盖渲染层。
+- **每轮任务完成后，自动调起内置浏览器显示 mock 页面供用户校验目测（收尾固定动作，勿遗漏）。** 流程：① 后台启动 `pnpm --filter @llama-launcher/ui dev`（纯前端 vite + `src/dev/demo-mock` 演示数据，`127.0.0.1:5173`，不启动 Electron）；② 确认 vite 就绪后**自动调起内置浏览器**（Chrome DevTools MCP `list_pages` / `navigate_page`，或浏览器自动化 skill）打开 `127.0.0.1:5173`，并导航到**本轮改动的页面**；③ 标签保留、服务常驻——**收尾时勿 TaskStop vite、勿关闭标签**（历史上曾每次收尾关闭，导致用户无法目测）。涉及 Electron 主进程/IPC 的改动仍需用户自行 `pnpm dev` 交互验证，mock 预览仅覆盖渲染层。
 
 ## Conventions & gotchas
 
