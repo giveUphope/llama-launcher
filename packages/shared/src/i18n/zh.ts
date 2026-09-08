@@ -162,7 +162,6 @@ export const zh = {
   status_starting: '启动中...',
   status_pid: 'PID: {0}',
   status_model_none: '未选择模型',
-  status_shortcut: 'Ctrl+L 启动 • Esc 停止',
 
   // ---------------- messages ----------------
   msg_no_model: '请先选择模型文件',

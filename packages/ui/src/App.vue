@@ -23,13 +23,7 @@ function onBeforeUnload() {
 
 function onKeydown(e: KeyboardEvent) {
   const ctrl = e.ctrlKey || e.metaKey;
-  if (ctrl && (e.key === 'l' || e.key === 'L')) {
-    e.preventDefault();
-    if (server.status === 'stopped') void startServer();
-  }
-  if (e.key === 'Escape' && (server.status === 'running' || server.status === 'starting')) {
-    void stopServer();
-  }
+  // Ctrl+L（启动）与 Esc（停止）快捷键已移除（2026-09-08，连同状态栏提示）
   if (ctrl && !e.shiftKey && (e.key === 'r' || e.key === 'R')) {
     e.preventDefault();
     window.dispatchEvent(new CustomEvent('app:refresh-models'));
@@ -54,15 +48,6 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault();
     void router.push(TAB_KEYS[Number(e.key) - 1]);
   }
-}
-
-async function startServer() {
-  if (!settings.settings) return;
-  await server.start(params.snapshot(), settings.settings);
-}
-
-async function stopServer() {
-  await server.stop();
 }
 
 onMounted(async () => {

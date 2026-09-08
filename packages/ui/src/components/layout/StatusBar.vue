@@ -102,9 +102,7 @@ onUnmounted(() => {
       </a-button>
       <span v-else class="model">{{ modelName }}</span>
     </div>
-    <div class="right">
-      <a-typography-text class="shortcut">{{ i18n.t('status_shortcut') }}</a-typography-text>
-    </div>
+    <!-- 右侧快捷键提示已移除（2026-09-08，连同 Ctrl+L/Esc 快捷键能力） -->
   </footer>
 </template>
 
@@ -122,8 +120,7 @@ onUnmounted(() => {
   font-size: var(--fs-sm);
 }
 
-.left,
-.right {
+.left {
   display: flex;
   align-items: center;
   gap: 10px;

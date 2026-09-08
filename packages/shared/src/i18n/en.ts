@@ -164,7 +164,6 @@ export const en: Dict = {
   status_starting: 'Starting...',
   status_pid: 'PID: {0}',
   status_model_none: 'No model selected',
-  status_shortcut: 'Ctrl+L Start • Esc Stop',
 
   // ---------------- messages ----------------
   msg_no_model: 'Please select a model file first',
