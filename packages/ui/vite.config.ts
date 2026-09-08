@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import Components from 'unplugin-vue-components/vite';
+import { ArcoResolver } from 'unplugin-vue-components/resolvers';
 import { resolve } from 'node:path';
 import { writeFileSync } from 'node:fs';
 
@@ -24,7 +26,17 @@ function writeDevPortPlugin() {
 }
 
 export default defineConfig({
-  plugins: [vue(), writeDevPortPlugin()],
+  plugins: [
+    vue(),
+    writeDevPortPlugin(),
+    // Arco 按需引入：dirs 置空禁用本地组件自动注册（本地组件一律 SFC 显式 import），
+    // 仅由 ArcoResolver 解析 <a-*>/<A*> 模板标签并附带各自编译好的 index.css（importStyle: 'css'）。
+    Components({
+      resolvers: [ArcoResolver({ importStyle: 'css' })],
+      dts: 'src/components.d.ts',
+      dirs: [],
+    }),
+  ],
   resolve: {
     alias: {
       '@': resolve(here, 'src'),

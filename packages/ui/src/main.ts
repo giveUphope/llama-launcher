@@ -1,7 +1,6 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import ArcoVue from '@arco-design/web-vue';
-import '@arco-design/web-vue/dist/arco.css';
+import '@arco-design/web-vue/es/style/index.css';
 import App from './App.vue';
 import { router } from './router';
 import { useSettingsStore } from './stores/settings';
@@ -18,9 +17,6 @@ if (typeof window !== 'undefined' && !(window as any).api) {
 const app = createApp(App);
 app.use(createPinia());
 app.use(router);
-app.use(ArcoVue, {
-  size: 'medium',
-});
 
 // 启动顺序：先加载设置并恢复上次页签（last_tab），再挂载应用。
 const settings = useSettingsStore();
