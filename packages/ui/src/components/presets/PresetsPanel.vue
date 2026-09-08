@@ -256,14 +256,10 @@ onActivated(() => { void onRefreshList(); });
   overflow: auto;
 }
 
-// 预设列表行：覆盖 a-list-item 默认内边距，改由行内 wrapper 控制（接近原表格 6×8 紧凑布局）
+// 预设列表行：对齐 Arco 原生列表样式（small 行 padding 9px 20px + split 分割线），
+// 不再覆盖为自定义紧凑 0/6×8（行内 wrapper 仅负责 4 列布局，padding 交给 Arco 行）
 .preset-row {
-  padding: 0;
   cursor: pointer; // 双击应用的可点击暗示
-
-  :deep(.arco-list-item) {
-    padding: 0;
-  }
 
   &:hover {
     background: var(--color-fill-3);
@@ -279,7 +275,6 @@ onActivated(() => { void onRefreshList(); });
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
   min-width: 0;
 }
 
