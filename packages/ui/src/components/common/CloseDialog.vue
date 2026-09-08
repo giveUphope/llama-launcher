@@ -41,7 +41,7 @@ const isAsk = () => request.value?.mode === 'ask';
   <a-modal
     class="fc-close-dialog"
     :visible="!!request"
-    :style="{ width: '400px' }"
+    :modal-style="{ width: '400px' }"
     :mask-closable="true"
     :esc-to-close="true"
     :closable="true"

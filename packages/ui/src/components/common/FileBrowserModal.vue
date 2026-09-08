@@ -147,7 +147,7 @@ function cancel() {
   <a-modal
     class="fc-file-browser"
     :visible="!!current"
-    :style="{ width: '560px' }"
+    :modal-style="{ width: '560px' }"
     :mask-closable="true"
     :esc-to-close="true"
     :closable="true"
