@@ -72,6 +72,14 @@ body[arco-theme='dark'] {
   line-height: 26px;
 }
 
+/* 页签标题（icon + 文本）：Arco tab-title 默认 inline-block（line 型另有高特异覆盖），
+   图标与文本基线对齐偏下且无间距；统一 inline-flex + gap 4px 对齐（模型页/参数页/设置页同规） */
+.arco-tabs .arco-tabs-tab-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* 设置面板 a-form 行距（标签定宽/右对齐走组件 label-col-style / label-align 原生 props，§7.5.4） */
 .arco-card-body > .arco-form .arco-form-item {
   margin-bottom: 4px;
