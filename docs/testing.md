@@ -55,6 +55,24 @@
 
 两者均为手动执行（不接入 `pnpm test`），用于真实二进制/引擎环境下的链路验证。
 
+## E2E（Playwright）
+
+渲染层 E2E 与 Electron 冒烟走根级 `e2e/`（不经 turbo，独立于 `pnpm test`）：
+
+| 命令 | 前置条件 | 验证内容 |
+| ---- | ---- | ---- |
+| `pnpm e2e:web` | 无（内部先 `pnpm --filter @llama-launcher/ui build`） | 真实构建产物（vite preview 服务 `packages/ui/dist` + demo-mock 注入）驱动 Chromium：侧边栏 7 项导航逐一可达、模型页演示列表、服务页 running 状态卡、参数页 a-switch / 滑杆交互。用例见 `e2e/web/*.spec.ts` |
+| `pnpm e2e:electron` | 无（内部先构建 desktop） | `_electron` 以生产模式（loadFile `dist/ui/index.html`）headless 启动打包产物，断言主进程版本、窗口标题、侧边栏渲染；脚本 `e2e/electron/run-smoke.mjs` |
+| `pnpm test:e2e` | 无 | 先全量构建，再依次执行上述两者 |
+
+要点与坑：
+
+- 浏览器二进制：首次运行需 `pnpm exec playwright install chromium`（CI 的 e2e job 已带 `--with-deps`）。
+- Web E2E 的 vite preview 由 `e2e/run-web-e2e.mjs` 独立启动（Playwright 内建 webServer 在部分 Windows 沙箱环境 spawn 会失败）；Linux CI 仍走 Playwright 自带 webServer。
+- 演示数据：浏览器环境无 `window.api` 时 `main.ts` 注入 demo-mock，静态离线可验；但 demo 设置的 `last_tab` 会在启动时回跳「概览」，故用例统一从侧栏导航进目标页。
+- Electron 冒烟为 headless 启动（`--headless --disable-gpu`），结束后直接按进程树强杀（`taskkill /T`）而非优雅退出——应用会拦截 close 弹「退出二次确认」导致挂起；Windows 本地不会弹真实窗口。
+- 单实例锁：应用 `requestSingleInstanceLock`——跑 Electron 冒烟前请确保没有正在运行的应用实例。
+
 ## Windows 退出竞态兜底（ui 包）
 
 vitest 2.1.x 时代在 Windows 上存在退出竞态：tinypool worker 销毁后其 IPC 管道句柄残留在主进程，ui 全量运行（当时 4 个测试文件）时恰有被引用的句柄卡住事件循环——全部测试通过后进程静默不退出，`pnpm test`（turbo 管道）随之挂死。修复：`packages/ui/vitest.global-setup.mjs`（经 `vitest.config.ts` 的 `globalSetup` 引用）在运行结束、`process.exitCode` 已确定后 `process.exit` 强制退出——测试结果与退出码不变，仅跳过卡死的事件循环等待。**vitest 4 已重写 pool（移除 tinypool），该挂死根因在上游根治，此兜底保留为防御性**（防止将来再引入同类句柄残留）；仅 run 模式适用（本包 `test` 即 `vitest run`）；若确认无需兜底可整体删除。

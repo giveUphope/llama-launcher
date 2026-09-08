@@ -54,6 +54,13 @@ pull_request 和 push 事件都走 verify。
 - 任一文件不属于 `docs/*` / `README.md` / `AGENTS.md` → 输出 `non-doc=true`（允许 bump）；全部文件均为文档 → `non-doc=false`（跳过 bump）。
 - 用途：文档更新不产生版本噪音、不触发 Release；`.github/`、`package.json`、`packages/`、`scripts/` 等工程/代码变更仍照常发版。
 
+### 1.4 e2e job（PR + push 均执行，与 verify 并行）
+
+- **Runner**：ubuntu-latest
+- **步骤**：install → `pnpm build` → `pnpm exec playwright install --with-deps chromium` → `pnpm e2e:web` → `xvfb-run -a pnpm e2e:electron`
+- Web 渲染层 E2E 走真实构建产物（vite preview + demo-mock，用例见 [testing.md](testing.md) 的 E2E 章节）；Electron 冒烟为 headless 启动打包产物，Linux 需 xvfb 虚拟显示。
+- 不参与 `bump` 的 needs 链（release 不等待 e2e）。
+
 ---
 
 ## 2. 关键配置要点

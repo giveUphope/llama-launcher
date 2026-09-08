@@ -4,6 +4,12 @@
 
 ## \[Unreleased]
 
+- **Arco 全量引入改为按需引入（2026-09-08）**：`unplugin-vue-components` + `ArcoResolver`（`importStyle: 'css'`）按需解析模板 `<a-*>` 组件与样式，移除 `app.use(ArcoVue)` 与全量 `arco.css`；`main.ts` 保留全局 base CSS（`es/style/index.css`）以维持主题变量。生产产物总量 1490KB→1083KB（约 -27%）。`src/components.d.ts` 由插件生成并入库（`vue-tsc` 需其声明全局组件）。
+
+- **接入 Oxlint 静态分析门禁（2026-09-08）**：根 `lint:ox`（`oxlint .`，correctness 为 error）并入 `pnpm lint` 链尾；`tests/` 走 vitest env、preload 走 browser+node env，忽略生成物（components.d.ts / ipc-constants.cjs）。首轮清零 44 处存量告警：修复 `before-pack.cjs` 的 `const` 重赋值潜在崩溃、删除各包死代码、未用参数下划线化、`catch (_)` 改可选捕获绑定、死循环 spread 简化。
+
+- **新增 Playwright E2E 层（2026-09-08）**：根级 `e2e/` 提供 Web 渲染层 E2E（`pnpm e2e:web`，真实构建产物 + demo-mock）与 Electron 冒烟（`pnpm e2e:electron`，headless 启动打包产物验证窗口链路）；CI 新增 e2e job（Playwright 装 chromium + xvfb 跑 Electron 冒烟）。
+
 ## \[0.0.27] - 2026-09-08
 
 

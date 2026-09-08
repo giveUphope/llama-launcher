@@ -29,6 +29,30 @@ jobs:
       - run: pnpm build
       - run: pnpm lint
       - run: pnpm test
+  # Web 渲染层 E2E + Electron 冒烟（与 verify 并行）。
+  # Web E2E 走真实构建产物（vite preview + demo-mock）；Electron 冒烟在 Linux 用 xvfb 虚拟显示。
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 11.21.0
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Web 渲染层 E2E
+        run: pnpm e2e:web
+      - name: Electron 冒烟（xvfb 虚拟显示）
+        run: xvfb-run -a pnpm e2e:electron
   # 判定本次 push 是否仅涉及文档（docs/** 与仓库根 README.md / AGENTS.md）。
   # 纯文档提交跳过 bump job —— 文档更新不会递增版本、不会发布 Release；
   # 仅非文档变更（代码/配置/依赖等）才触发自动发版。
