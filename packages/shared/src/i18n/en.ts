@@ -387,7 +387,6 @@ export const en: Dict = {
   nav_settings_appearance: 'Appearance',
   nav_settings_advanced: 'Advanced',
   nav_settings_about: 'About',
-  msg_about_version: 'Version',
   msg_about_repo: 'Project repository',
   msg_about_releases: 'llama.cpp releases',
   // ---- Phase 4: ServicePage 6-state + LaunchPage migration ----

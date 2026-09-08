@@ -386,7 +386,6 @@ export const zh = {
   nav_settings_appearance: '外观',
   nav_settings_advanced: '高级',
   nav_settings_about: '关于',
-  msg_about_version: '当前版本',
   msg_about_repo: '项目仓库',
   msg_about_releases: 'llama.cpp 发布页',
   // ---- 阶段四 ServicePage 6 态 + LaunchPage 迁移 ----

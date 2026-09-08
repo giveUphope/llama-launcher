@@ -31,9 +31,6 @@ async function onOpenUrl(url: string) {
       </div>
     </div>
     <a-descriptions class="about-desc" :column="1" size="small" :align="{ label: 'right' }">
-      <a-descriptions-item :label="i18n.t('msg_about_version')">
-        <span class="version-badge">{{ versionLabel }}</span>
-      </a-descriptions-item>
       <a-descriptions-item :label="i18n.t('msg_about_repo')">
         <a-button type="text" size="small" @click="onOpenUrl(repoUrl)">
           <template #icon><Icon name="external" :size="12" /></template>
@@ -77,14 +74,5 @@ async function onOpenUrl(url: string) {
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
   color: var(--color-text-3);
-}
-
-.version-badge {
-  font-size: var(--fs-md);
-  font-family: var(--font-mono);
-  color: var(--color-text-1);
-  padding: 2px 10px;
-  background: var(--color-fill-3);
-  border-radius: var(--radius-pill);
 }
 </style>
