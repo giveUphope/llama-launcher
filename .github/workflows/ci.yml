@@ -26,13 +26,19 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      # build 必须先于 lint：tsc project references 需 shared/core 的 dist 产物（见 docs/ci-cd.md §2.3）
       - run: pnpm build
       - run: pnpm lint
       - run: pnpm test
   # Web 渲染层 E2E + Electron 冒烟（与 verify 并行）。
-  # Web E2E 走真实构建产物（vite preview + demo-mock）；Electron 冒烟在 Linux 用 xvfb 虚拟显示。
+  # 纯文档变更（docs/**、README.md、AGENTS.md）跳过 E2E——不发版、渲染逻辑未动，无需 Playwright。
+  # Web E2E 走真实构建产物（内部先构建 ui + vite preview + demo-mock）；Electron 冒烟在 Linux 用 xvfb 虚拟显示。
   e2e:
     runs-on: ubuntu-latest
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - 'AGENTS.md'
     steps:
       - uses: actions/checkout@v7
       - name: Setup pnpm
@@ -46,7 +52,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
+      # 不单独构建全量产物：e2e:web / e2e:electron 内部各自 build（ui/desktop），turbo 本地缓存去重
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: Web 渲染层 E2E
@@ -96,15 +102,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
-      - uses: pnpm/action-setup@v5
-        with:
-          version: 11.21.0
+      # bump-version.cjs 为纯 node 脚本（无 npm 依赖），本 job 无需 pnpm install
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
       - run: node scripts/bump-version.cjs patch
       - run: |
           git config user.name "github-actions[bot]"

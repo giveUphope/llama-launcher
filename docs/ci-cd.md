@@ -54,10 +54,12 @@ pull_request 和 push 事件都走 verify。
 - 任一文件不属于 `docs/*` / `README.md` / `AGENTS.md` → 输出 `non-doc=true`（允许 bump）；全部文件均为文档 → `non-doc=false`（跳过 bump）。
 - 用途：文档更新不产生版本噪音、不触发 Release；`.github/`、`package.json`、`packages/`、`scripts/` 等工程/代码变更仍照常发版。
 
-### 1.4 e2e job（PR + push 均执行，与 verify 并行）
+### 1.4 e2e job（PR + push 均执行，与 verify 并行；纯文档变更跳过）
 
 - **Runner**：ubuntu-latest
-- **步骤**：install → `pnpm build` → `pnpm exec playwright install --with-deps chromium` → `pnpm e2e:web` → `xvfb-run -a pnpm e2e:electron`
+- **触发过滤（2026-09-09 新增）**：job 级 `paths-ignore: ['docs/**','README.md','AGENTS.md']`——纯文档变更（不发版、渲染逻辑未动）跳过 E2E，省去 Playwright 安装与构建。
+- **步骤**：install → `pnpm exec playwright install --with-deps chromium` → `pnpm e2e:web` → `xvfb-run -a pnpm e2e:electron`
+- 不再单独 `pnpm build`：`e2e:web` / `e2e:electron` 脚本内部各自构建（ui/desktop），turbo 本地缓存去重。
 - Web 渲染层 E2E 走真实构建产物（vite preview + demo-mock，用例见 [testing.md](testing.md) 的 E2E 章节）；Electron 冒烟为 headless 启动打包产物，Linux 需 xvfb 虚拟显示。
 - 不参与 `bump` 的 needs 链（release 不等待 e2e）。
 
