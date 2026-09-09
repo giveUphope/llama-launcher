@@ -58,11 +58,9 @@
 | `Card` | 基于 Arco `Card` 的标题、内容与 actions 容器 |
 | `Icon` | Arco 图标适配器，维持业务图标名称映射 |
 | `ToolTip` | Arco `Tooltip` 适配器 |
-| `NavButton` | 侧边栏导航按钮（一级项，激活 = path 命中；支持收起态图标形态与调整橙点角标） |
 | `StatusTag` | 状态标签（状态点 + 文字，ok/warn/error/idle/loading 变体） |
-| `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签 / 当前模型 / API 地址（boxed InfoStrip + 复制按钮）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ 快捷操作（打开 Web UI·管理模型） |
+| `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签 / 当前模型 / API 地址（boxed 值盒 `a-descriptions` + 复制按钮）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ 快捷操作（打开 Web UI·管理模型） |
 | `AppLogo` | 应用 Logo 统一组件（见 §7.5.7） |
-| `InfoStrip` | 信息行（label + 值/插槽控件；设置页表单行、Dashboard/Service 信息网格共用） |
 | `ModelMetaCard` | 模型元数据展示（A 类识别摘要 + B/D 类详情**常驻完整展示**，dashed 次级分隔；无收起/展开开关） |
 | `DownloadCard` | 下载功能卡片（`mode: 'library' \| 'tasks'` 双模式：URL 解析/搜索/文件选择/任务列表；推荐文件只作徽标/高亮/排序提示、**不自动勾选**，下载由用户主动勾选触发；提交下载走 `enqueueFiles`：Store 去重 + 本地同名检测 + 后端 ID 回填；URL 会话历史存 `useUrlHistory` 模块级单例，跨子标签 `v-if` 重建保留） |
 | `ConfirmModal` / `CloseDialog` | 通用确认弹窗 / 退出确认弹窗（`useConfirm` 队列驱动） |

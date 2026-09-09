@@ -9,7 +9,7 @@
 
 | 文件 | 关键类型 |
 |------|----------|
-| `settings.ts` | `AppSettings`、`ThemeMode`、`FxMode`、`CloseBehavior`、`Language`、`SessionBaseline`（参数会话基线 `{ preset_name, values }`） |
+| `settings.ts` | `AppSettings`、`ThemeMode`、`CloseBehavior`、`Language`、`SessionBaseline`（参数会话基线 `{ preset_name, values }`） |
 | `param.ts` | `ParamDef`、`ParamGroup`、`ParamType` |
 | `preset.ts` | `PresetValues`、`Preset` |
 | `server.ts` | `ServerInfo`、`ServerStatus`、`OutputEntry`、`AppLogEntry`/`AppLogKind`（应用日志）、`ModelInfo`（模型扫描条目，含 `tags`）、`LlamaBenchSummary`/`LlamaBenchJobState`（llama-bench 离线体检） |

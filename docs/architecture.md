@@ -26,7 +26,7 @@ llama_launcher/
 │       │   │   │   ├── models.ts      #   models:scan/detectMmproj/detectDraft/readGgufMeta/remove
 │       │   │   │   ├── models-watcher.ts # models:watch 目录监听单例（watchModelsDir/notifyModelsChanged）
 │       │   │   │   ├── presets.ts     #   presets:list/save/load/delete
-│       │   │   │   ├── server.ts      #   server:start/stop/restart/status/preview/bench
+│       │   │   │   ├── server.ts      #   server:start/stop/restart/status/preview/output
 │       │   │   │   ├── logs.ts        #   logs:list/clear/onlog
 │       │   │   │   ├── system.ts      #   system:checkPort/killProcess/findFreePort/fileExists/findLlamaExe/detectTrash/cleanTrash/estimateVram/benchLlamaRun/benchLlamaStatus/estimateModelFit
 │       │   │   │   ├── window.ts      #   window:close/minimize/toggleMaximize/state + 关闭弹窗转发
