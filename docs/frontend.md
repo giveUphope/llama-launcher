@@ -104,7 +104,7 @@
 
 #### 7.5.4 间距规范
 
-- **页面**：`padding: 20px 24px 24px`（`PageFrame` 引用 `variables.scss` `$layout-page-padding`）；**分区风格**——`page-frame` / 各页 `.tab-content` 纵向 `gap: 0`，相邻内容区块由实线分隔（Card 底边线、Dashboard `.q-section + .q-section` 顶边线）；区块内元素间距 `gap: 10px` 为默认。
+- **页面**：`padding: 20px 24px 24px`（`PageFrame.vue` 内联；`variables.scss` 已随迁移删除）；**分区风格**——`page-frame` / 各页 `.tab-content` 纵向 `gap: 0`，相邻内容区块由实线分隔（Card 底边线、Dashboard `.q-section + .q-section` 顶边线）；区块内元素间距 `gap: 10px` 为默认。
 - **间距刻度**（组件内 gap 只允许以下刻度，全库逐项审计一致、无离群值——计数以 `pnpm style:audit` 第 4 条为准，勿在文档写死；**不设 1/2/3px 微间距档**，像素级收紧的紧凑原子内间距也一律取最小刻度 4px）：
   | 刻度 | 语义用途 |
   |---|---|

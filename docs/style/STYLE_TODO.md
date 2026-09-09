@@ -31,19 +31,19 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 ## 🔴 修复项
 
-### 50. 状态小圆点尺寸两制（StatusBar 8×8 vs StatusTag 7×7）— 🔴 待修复
+### 50. 状态小圆点尺寸两制（StatusBar 8×8 vs StatusTag 7×7）— 🟢 已修复（2026-09-09，随 a-tag 迁移消解）
 
-- **位置**：`packages/ui/src/components/layout/StatusBar.vue` `.dot`（8×8）与 `packages/ui/src/components/common/StatusTag.vue` `.status-dot`（7×7）。
+- **位置**：`packages/ui/src/components/layout/StatusBar.vue` 与 `packages/ui/src/components/common/StatusTag.vue`（原 `.dot` 8×8 / `.status-dot` 7×7）。
 - **描述**：同一「状态指示点」语义存在两种尺寸；原 §7.5.5 只写 8×8，与 StatusTag 实现不符（2026-09-04 文档一致性审计发现，规范已暂记双值）。
-- **建议修复**：统一 8×8（`.status-dot` 宽高改 8px），不改变色板。
-- **修复效果验证**：`grep -n "width: 7px" StatusTag.vue` 无命中；双主题截图核对概览/服务页状态点与文字基线对齐无位移；`pnpm style:audit` 全绿；§7.5.5 该条回写为单一「状态小圆点 8×8」。
+- **修复**：两组件均已迁移为 Arco `a-tag :color` 状态胶囊（StatusTag loading 态用 `a-spin`），自绘 `.dot`/`.status-dot` 已删除，两制问题随手绘状态点移除而消解，无需再统一尺寸。
+- **修复效果验证**：`grep -rn "\.status-dot\|\.dot" StatusTag.vue StatusBar.vue` 无命中；两组件状态均由 Arco `a-tag` 统一承载；`pnpm style:audit` 全绿。
 
-### 51. 浅色 `--fg-muted` 在蓝白渐变「浅蓝角」为 AA-large（3.9–4.3:1，未达 AA-normal 4.5:1）— 🟡 待确认（蓝白渐变美学取舍）
+### 51. 浅色 `--fg-muted` 在蓝白渐变「浅蓝角」为 AA-large（3.9–4.3:1，未达 AA-normal 4.5:1）— 🟢 已解决（2026-09-09：前提消失）
 
-- **位置**：`packages/ui/src/styles/theme.scss` light 块 `--bg-grad-1 #DCE9FB` / `--bg-grad-3 #E9F1FC` × `--fg-muted #6B7280`；文字直接衬于 body 渐变（卡片/内容区透明，分区风格）。
-- **描述**：2026-09 蓝白渐变改造已把 `--fg-muted` 从 #9AA1AC（白底仅 ~2.5:1，FAIL）提升到 #6B7280（白底 4.83:1，AA）。但渐变最蓝角落（#DCE9FB）上小号 muted 文字为 3.93:1、#E9F1FC 上 4.25:1，介于 AA-large(3:1) 与 AA-normal(4.5:1) 之间。「可见蓝调」与「muted 比 --fg-secondary 更浅的层级」在角落处存在固有张力，属有意取舍，暂不修复。
-- **建议修复**（若后续要求全区域达 AA-normal）：① 蓝角调更亮（如 #E7EFFA，亮度↑）使 muted≥4.5；或 ② `--fg-muted` 再降到 ~#5C6470（会压缩与 secondary 层级差）；或 ③ 给落在蓝角的 muted 文本加白底衬底/描边。
-- **修复效果验证**：node 对比度脚本核算 `--fg-muted × --bg-grad-1/3 ≥ 4.5`；双主题截图核对辅助文字（占位符/空态/时间戳）清晰；`pnpm style:audit` 全绿。
+- **位置**：原 `theme.scss` light 块 `--bg-grad-1 #DCE9FB` / `--bg-grad-3 #E9F1FC` × `--fg-muted #6B7280`；文字直接衬于 body 渐变（卡片/内容区透明，分区风格）。
+- **描述**：2026-09 蓝白渐变改造把 `--fg-muted` 提升到 AA，但渐变蓝角上 muted 文字未达 AA-normal，属「可见蓝调 vs muted 层级」取舍，暂不修复。
+- **解决**：蓝白渐变与 `--bg-grad-*`/`--fg-muted` 均已随 Arco 全站实底迁移移除（body 现为 `--color-bg-1` 实底，文字直衬 Arco 底面色），对比度问题前提已不存在。
+- **修复效果验证**：`grep -rn "bg-grad\|fg-muted" packages/ui/src` 无命中。
 
 ### 54. Sidebar 版本号裸字号 12px — 🟢 已修复（2026-09-07）
 
@@ -142,9 +142,9 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 自 `31273e4` 接入 Arco Design Vue 后，全站迁移已完成（明细见 `../ARCO_MIGRATION_TODO.md`，各批均已勾选）：
 
 - 迁移：手写控件 → `a-button/a-input/a-select/a-table/a-list/a-tag/a-tag/a-dropdown/a-tabs/a-modal/a-progress/a-alert/a-popconfirm/a-result` 等；自定义遮罩/玻璃层/旧 `action-btn`/`mini-btn`/`tab-btn` 已移除。
-- 清理：孤儿 `variables.scss`/`buttons.scss`/`surface.scss` 与未用 `NavButton.vue` 已删除；`theme.scss` 保留的 `--fg-*/--bg-*/--accent` 等为有意兼容层（已映射 Arco token，供保留的自绘分区 chip/InfoStrip 值盒/统计条使用）。
-- 保留（业务/工程例外）：`CommandPreviewCard` 命令框（控制台深底）、TopBar 窗口控制（Electron 拖拽/协议）、InfoStrip 值盒与分区 chip（低收益）。
-- 工程：UI 包加 happy-dom 组件测试环境（`arco-theme`/`status-tag` 测试），Arco 按需导入经评估保留全量（桌面端体积可接受）。
+- 清理：孤儿 `variables.scss`/`buttons.scss`/`surface.scss` 与未用 `NavButton.vue` 已删除；`InfoStrip.vue` 亦已删除（零引用）；`theme.scss` 兼容 token 已进一步收敛——`--bg-active`/`--glass-*` 于 2026-09-09 移除（选中行改 `rgb(var(--primary-1))`、TopBar 直用 `--color-bg-2`/`--color-border-2`），现仅剩圆角/字号/动效映射（`--radius-*`/`--fs-*`/`--dur-*`/`--ease-*`）与业务语义色（徽章/控制台/状态栏）。
+- 保留（业务/工程例外）：`CommandPreviewCard` 命令框（控制台深底）、TopBar 窗口控制（Electron 拖拽/协议）、StatusBar 铬样式（品牌蓝底）。
+- 工程：UI 包加 happy-dom 组件测试环境（`arco-theme`/`status-tag` 测试）；**Arco 按需引入已于 2026-09-08 落地**（`unplugin-vue-components` + `ArcoResolver`，移除全量引入，产物 -27%，见 CHANGELOG v0.0.28 与 AGENTS.md）。
 - 本清单历史修复项（#1–#53）继续有效；新增或回归的手写样式应先对照 §7.5 与上述迁移边界。
 - 2026-09-07 补充：残留 `action-btn`/`mini-btn`/`tab-btn`/`theme-opt` 按钮已全部迁移到 `a-button`/`a-tabs`/`a-radio-group`（这些类原先依赖已删除的 `buttons.scss`，迁移前为无样式裸元素）；仅保留窗口控制 `win-btn`、列表项类按钮（`.result-item`/`.url-history-item`）与带 scoped 样式的筛选 chip（`.level-chip`）。
 - 2026-09-07 收尾二批（迁移后原生控件残留审计，明细见 `../ARCO_MIGRATION_TODO.md` 同名节）：`path-input` ×3 → `a-input`、`cmd-preview` 原生 textarea ×2 → `a-textarea`、`summary-chip` → `a-tag`、DownloadCard 类别筛选 `.chip` → checkable `a-tag`（更名 `.cat-chip`）、`ParamRow .clear-btn` → `a-button text/mini/circle`；§7.5.4 ⑥ 的 DownloadCard chip 类名引用同步更名。

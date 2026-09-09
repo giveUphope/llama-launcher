@@ -235,8 +235,8 @@ async function onOpenWeb() {
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
-  background: var(--glass-bg);
-  border-bottom: 1px solid var(--glass-border);
+  background: var(--color-bg-2);
+  border-bottom: 1px solid var(--color-border-2);
   // 自定义标题栏：标题栏本身作为拖拽区域
   -webkit-app-region: drag;
   // 拖拽时禁止选中文本，避免拖动变成文本选择

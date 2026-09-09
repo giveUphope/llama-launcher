@@ -11,7 +11,6 @@
   --fs-appname: 16px;                  // TopBar 应用名专用字号
   --statusbar-blue: #007acc;           // 状态栏深蓝底（业务品牌色）
   --statusbar-hover: rgba(255, 255, 255, 0.15); // 状态栏白字 hover（表面着色，非 elevation）
-  --bg-active: #e8f2ff;                // 选中行高亮（浅色）；深色见 :root[data-theme='dark']
   --badge-cat-gguf: #6f4fd8;
   --badge-cat-safetensors: #1f9d72;
   --badge-cat-bin: #c87f0a;
@@ -38,10 +37,6 @@
   --console-bg: #1d2129;
   --console-fg: #e5e6eb;
   --primary-fg: #fff;
-  --glass-bg: var(--color-bg-2);
-  --glass-bg-strong: var(--color-bg-3);
-  --glass-border: var(--color-border-2);
-  --glass-blur: 0px;
   --dur-fast: 0.16s;
   --dur-med: 0.2s;
   --ease-smooth: ease;
@@ -51,7 +46,6 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg-active: #094771; // 深色主题选中行高亮（暗蓝）
 }
 
 body {

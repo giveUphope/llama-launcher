@@ -562,7 +562,7 @@ onUnmounted(() => {
 .models-table {
   margin-top: 8px;
   :deep(.arco-table-tr) { cursor: pointer; }
-  :deep(.arco-table-tr.row-selected > td) { background: var(--bg-active); }
+  :deep(.arco-table-tr.row-selected > td) { background: rgb(var(--primary-1)); }
   :deep(.arco-table-th) { color: var(--color-text-2); font-weight: 600; }
 }
 

@@ -86,7 +86,7 @@ llama_launcher/
 │           ├── components/        # 通用组件 + 参数控件（common/layout/models/params/presets/service/settings）
 │           ├── composables/       # useIPC / useTheme / useStartServer / useAutoPresetName / useModelPreset / useConfirm / useFilePicker / useUrlHistory
 │           ├── dev/               # demo-mock（无 Electron preload 的浏览器预览环境注入）
-│           └── styles/            # reset / theme / variables / surface / buttons
+│           └── styles/            # reset / theme（含 Arco token 兼容层与业务语义色）
 ├── scripts/                           # 构建辅助脚本
 │   ├── before-pack.cjs                # 打包前：符号链接替换为 dist-only 真实目录
 │   ├── after-pack.cjs                 # 打包后：恢复 pnpm 符号链接

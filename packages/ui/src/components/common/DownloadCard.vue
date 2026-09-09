@@ -960,7 +960,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
   &.dragging {
     border-color: rgb(var(--primary-6));
-    background: var(--bg-active);
+    background: rgb(var(--primary-1));
   }
 }
 
@@ -1075,7 +1075,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 
   &.active {
-    background: var(--bg-active);
+    background: rgb(var(--primary-1));
     border-color: rgb(var(--primary-6));
   }
 }
@@ -1210,7 +1210,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
   &.checked {
     border-color: rgb(var(--primary-6));
-    background: var(--bg-active);
+    background: rgb(var(--primary-1));
   }
 
   &.recommended {
