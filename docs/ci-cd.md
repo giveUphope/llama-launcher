@@ -57,7 +57,7 @@ pull_request 和 push 事件都走 verify。
 ### 1.4 e2e job（PR + push 均执行，与 verify 并行；纯文档变更跳过）
 
 - **Runner**：ubuntu-latest
-- **触发过滤（2026-09-09 新增）**：job 级 `paths-ignore: ['docs/**','README.md','AGENTS.md']`——纯文档变更（不发版、渲染逻辑未动）跳过 E2E，省去 Playwright 安装与构建。
+- **触发门控（2026-09-09 新增）**：`needs: [changes]` + `if: needs.changes.outputs.non-doc == 'true'`——纯文档变更（changes 判定 `non-doc=false`）跳过 E2E，省去 Playwright 安装与构建。说明：job 级无 `paths-ignore`（事件级才支持），因此复用 changes job 的输出做门控。
 - **步骤**：install → `pnpm exec playwright install --with-deps chromium` → `pnpm e2e:web` → `xvfb-run -a pnpm e2e:electron`
 - 不再单独 `pnpm build`：`e2e:web` / `e2e:electron` 脚本内部各自构建（ui/desktop），turbo 本地缓存去重。
 - Web 渲染层 E2E 走真实构建产物（vite preview + demo-mock，用例见 [testing.md](testing.md) 的 E2E 章节）；Electron 冒烟为 headless 启动打包产物，Linux 需 xvfb 虚拟显示。

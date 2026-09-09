@@ -31,14 +31,13 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
   # Web 渲染层 E2E + Electron 冒烟（与 verify 并行）。
-  # 纯文档变更（docs/**、README.md、AGENTS.md）跳过 E2E——不发版、渲染逻辑未动，无需 Playwright。
+  # 纯文档变更（changes 判定 non-doc=false）跳过 E2E——不发版、渲染逻辑未动，无需 Playwright。
+  # 注：job 级无 paths-ignore（事件级才支持），故复用 changes job 的输出做门控。
   # Web E2E 走真实构建产物（内部先构建 ui + vite preview + demo-mock）；Electron 冒烟在 Linux 用 xvfb 虚拟显示。
   e2e:
     runs-on: ubuntu-latest
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-      - 'AGENTS.md'
+    needs: [changes]
+    if: needs.changes.outputs.non-doc == 'true'
     steps:
       - uses: actions/checkout@v7
       - name: Setup pnpm
