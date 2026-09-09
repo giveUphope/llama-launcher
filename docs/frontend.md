@@ -76,6 +76,8 @@
 >
 > 新增 UI 必须优先使用 Arco 的 `Button`、`Form`、`Input`、`Select`、`Modal`、`Table`、`Tooltip`、`Tag` 等组件及其 CSS Variables。玻璃拟态、手写按钮体系和自定义浮层已停止加载；以下旧规范仅供剩余业务组件迁移期间参考。
 
+**组件引入方式（2026-09 按需引入）**：组件由 `unplugin-vue-components` + `ArcoResolver`（`importStyle: 'css'`）在 vite 侧按需解析（`vite.config.ts` 的 Components 插件 `dirs: []`，禁止给本地组件自动注册）——新增 Arco 组件**无需显式 import**，模板 `<a-*>` 与对应样式按需打包；`src/components.d.ts` 为插件生成的**全局组件声明**（已入库，`vue-tsc` 依赖它做类型检查），删除组件/依赖后须验证其同步更新。`main.ts` 已移除 `app.use(ArcoVue)` 与全量 `arco.css`，仅保留全局 base CSS（`@arco-design/web-vue/es/style/index.css`）以维持主题变量。
+
 #### 7.5.1 设计 Token（`packages/ui/src/styles/`）
 
 > 2026-09 完全迁移后的现状：`theme.scss` 仅保留 **Electron 布局尺寸、业务语义色与迁移兼容层**，其余一律直接引用 Arco 的 CSS Variables（`--color-text-*` / `--color-fill-*` / `--color-bg-*` / `--color-border-*` / `rgb(var(--primary-6))` / `rgb(var(--success-6))` 等）。旧业务色板（`--accent`、`--bg-*`、`--fg-*`、`--shadow-modal/tooltip`、`--overlay` 等）已全部删除，禁止再引用。

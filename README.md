@@ -217,12 +217,15 @@ llama_launcher/
 │   ├── shared/               # 共享类型、参数定义、i18n
 │   └── ui/                   # Vue 3 前端
 ├── scripts/                  # 构建辅助脚本（打包清理、同步校验、参数审计等）
+├── e2e/                      # Playwright E2E（web/ 渲染层 + electron/ 冒烟）
 ├── docs/                     # 分类文档（项目 Wiki，详见上方文档地图）
 ├── AGENTS.md                 # 开发者完整参考（架构约定、构建陷阱、同步校验）
 ├── README.md                 # 本文件（唯一 README：功能总览 + 快速开始 + 使用指南）
 ├── package.json
 ├── pnpm-workspace.yaml
-└── tsconfig.json
+├── playwright.config.ts      # Playwright E2E 配置
+├── tsconfig.json
+└── .oxlintrc.json            # oxlint 静态分析门禁配置（并入 pnpm lint）
 ```
 
 > `llama-*-bin-*` 目录为开发用的 llama.cpp 二进制（版本不固定），由 `paths.ts` 在开发模式下动态查找。生产构建不打包二进制，用户在「应用设置」页选择引擎目录。
@@ -289,13 +292,23 @@ pnpm dist
 pnpm test
 ```
 
+单元测试（core + ui 两包，turbo 一并运行）。渲染层 E2E 与 Electron 冒烟走 Playwright：
+
+```bash
+pnpm e2e:web        # Web 渲染层 E2E（真实构建产物 + demo-mock）
+pnpm e2e:electron   # Electron 冒烟（headless 启动打包产物）
+pnpm test:e2e       # 先全量构建，再依次执行上述两者
+```
+
+首次运行需 `pnpm exec playwright install chromium`，详见 [testing.md](docs/testing.md)「E2E」章节。
+
 ### 类型检查 + 同步校验
 
 ```bash
 pnpm lint
 ```
 
-运行各包类型检查（`tsc --noEmit`），并校验 IPC 预生成常量未过期（`verify-ipc-sync.cjs`）与文档链接/锚点完整（`check-docs-links.cjs`）。
+运行各包类型检查（`tsc --noEmit`），并校验 IPC 预生成常量未过期（`verify-ipc-sync.cjs`）、文档链接/锚点完整（`check-docs-links.cjs`）、i18n 键集一致且无悬空引用（`verify-i18n-usage.cjs`），最后以 oxlint correctness 静态分析门禁收尾（`pnpm lint:ox`）。
 
 ***
 

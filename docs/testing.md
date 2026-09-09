@@ -46,6 +46,8 @@
 | `src/composables/useModelPreset.test.ts` | 智能预设静默匹配与应用（别名/文件名候选、脏态不二次确认）                                         |
 | `src/composables/useAutoPresetName.test.ts` | 预设名候选生成（去扩展名/目录名变体）                                                     |
 | `src/composables/useUrlHistory.test.ts` | URL 历史记录                                                                  |
+| `src/testing/arco-theme.test.ts`       | 主题 token 对齐（HTML `data-theme` / body `arco-theme`）                            |
+| `src/testing/status-tag.test.ts`       | `StatusTag` 状态标签变体渲染                                                         |
 
 ## 手动冒烟脚本（需真实引擎/模型）
 

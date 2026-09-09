@@ -107,8 +107,15 @@ llama_launcher/
 │   ├── icon-gen/gen-icon.cjs        # 应用图标生成（desktop pnpm gen:icon）
 │   ├── inject-icon.cjs              # 打包后注入 exe 图标
 │   └── bump-version.cjs             # 版本自动递增（push main 触发）
+├── e2e/                               # Playwright E2E（不经 turbo，独立于 pnpm test）
+│   ├── web/                           # 渲染层 E2E：真实构建产物 + demo-mock 驱动 Chromium（app/params 用例）
+│   ├── run-web-e2e.mjs                # web E2E 驱动器（独立启动 vite preview，规避沙箱 spawn 限制）
+│   └── electron/                      # Electron 冒烟：headless 启动打包产物验证窗口链路
+│       └── run-smoke.mjs              # Electron 冒烟驱动器
+├── playwright.config.ts               # Playwright E2E 根配置
 ├── package.json                       # 根 workspace 配置
-└── turbo.json                         # turborepo 任务编排
+├── turbo.json                         # turborepo 任务编排
+└── .oxlintrc.json                     # oxlint 静态分析门禁（correctness 为 error，并入 pnpm lint）
 ```
 
 > `llama-*-bin-*` 目录为开发用的 llama.cpp 二进制（版本不固定），由 `paths.ts` 在开发模式下动态查找。生产构建不打包二进制，用户在「应用设置」页选择引擎目录。
