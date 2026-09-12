@@ -407,6 +407,9 @@ export const zh = {
   msg_kill_failed: '结束进程失败：{0}',
   msg_free_port_not_found: '未找到空闲端口（{0}~{1} 范围内均被占用）。请先关闭占用端口的程序。',
   svc_port_busy_hint: '端口 {0} 无法绑定：可能已被其他程序占用。请停止占用该端口的程序，或在「参数设置-服务」更换端口后重启。',
+  msg_port_owner_killed: '已结束占用进程 {0}，重新检查端口…',
+  msg_port_switched: '已切换到空闲端口 {0}',
+  msg_port_still_busy: '端口 {0} 结束占用进程后仍被占用（可能存在多个占用进程，或端口释放有延迟）。请稍后重试，或在参数页更换端口。',
 };
 
 export type Dict = typeof zh;

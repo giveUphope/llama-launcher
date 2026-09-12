@@ -29,11 +29,19 @@ export const useServerStore = defineStore('server', () => {
   const runningValues = ref<Record<string, string | number | boolean> | null>(null);
   const outputs = ref<OutputEntry[]>([]);
   const MAX_LINES = 5000;
+  // 当前这一轮运行的失败判定只看本轮输出：每次进入 starting（start/restart 拉起新进程）时
+  // 重置为本次运行的起始下标。若不加区分，上一轮端口冲突等失败残留行会留在输出缓冲尾部，
+  // 把本轮 starting/running 误判为 failed/crashed——正是“端口冲突处理后重新启动、状态无变化
+  // 但服务其实已启动”的根因。
+  const runStart = ref(0);
 
   function pushOutput(entry: OutputEntry) {
     outputs.value.push(entry);
     if (outputs.value.length > MAX_LINES) {
-      outputs.value.splice(0, outputs.value.length - MAX_LINES);
+      const removed = outputs.value.length - MAX_LINES;
+      outputs.value.splice(0, removed);
+      if (runStart.value > removed) runStart.value -= removed;
+      else runStart.value = 0;
     }
   }
 
@@ -68,6 +76,8 @@ export const useServerStore = defineStore('server', () => {
         portBusyHint(e);
       });
       api.server.onStatus((s) => {
+        // 进入 starting 即意味着拉起了一个新进程：失败/崩溃判定边界重置到本轮输出起点。
+        if (s === 'starting') runStart.value = outputs.value.length;
         status.value = s;
       });
     } catch {
@@ -90,6 +100,9 @@ export const useServerStore = defineStore('server', () => {
   async function start(values: PresetValues, settings: AppSettings) {
     try {
       await invokeOk(api.server.start(toPlain(values), toPlain(settings)));
+      // 立即以主进程权威状态同步一次：状态事件若丢失/迟到，界面不至于停留在旧状态
+      // （防“实际已在启动而界面无变化”）。
+      await refreshStatus();
     } catch (err: any) {
       pushOutput({ kind: 'error', data: `[Launcher] Start failed: ${err.message}\n`, ts: Date.now() });
       throw err;
@@ -108,6 +121,7 @@ export const useServerStore = defineStore('server', () => {
   async function restart(values: PresetValues, settings: AppSettings) {
     try {
       await invokeOk(api.server.restart(toPlain(values), toPlain(settings)));
+      await refreshStatus();
     } catch (err: any) {
       pushOutput({ kind: 'error', data: `[Launcher] Restart failed: ${err.message}\n`, ts: Date.now() });
       throw err;
@@ -120,6 +134,7 @@ export const useServerStore = defineStore('server', () => {
 
   function clearOutputs() {
     outputs.value = [];
+    runStart.value = 0;
   }
 
   /**
@@ -135,13 +150,18 @@ export const useServerStore = defineStore('server', () => {
   });
 
   // ---- 增强状态机（单一事实源，ServicePage / Dashboard Q1 / StatusBar 共用）----
-  // 最近 80 行输出拼接（限长，避免正则性能问题）
-  const outputTail = computed(() => outputs.value.slice(-TAIL_LINES).map((o) => o.data).join(''));
+  // 仅取本轮运行的输出尾部（最多 80 行，限长避免正则性能问题）：
+  // 上一轮（如端口冲突失败）残留的失败关键词不得把本轮 starting/running 误判为 failed/crashed。
+  const outputTail = computed(() => {
+    const arr = outputs.value;
+    const from = Math.max(runStart.value, arr.length - TAIL_LINES, 0);
+    return arr.slice(from).map((o) => o.data).join('');
+  });
 
   /**
-   * 有效状态：在原始 ServerStatus 之上按最近输出增强判定——
+   * 有效状态：在原始 ServerStatus 之上按本轮输出增强判定——
    * running + 失败关键词 → crashed；starting + 失败关键词 → failed；
-   * stopped 但残留失败输出 → failed。UI 层临时态（stopping）由调用方按需覆盖。
+   * stopped 但本轮残留失败输出 → failed。UI 层临时态（stopping）由调用方按需覆盖。
    */
   const effectiveStatus = computed<EffectiveStatus>(() => {
     if (status.value === 'running') return FAIL_RE.test(outputTail.value) ? 'crashed' : 'running';

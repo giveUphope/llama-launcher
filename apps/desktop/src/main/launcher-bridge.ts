@@ -27,6 +27,12 @@ class LauncherBridge {
         this.win.webContents.send(IPC.SERVER_STATUS, s);
       }
     });
+    // Launcher 的同步失败（已运行中、命令构建失败、spawn 失败）原先只 emit 'error'，
+    // 无人转发到渲染层——IPC 仍返回 ok，界面零反馈，表现为“点击启动状态无变化”。
+    // 落入控制台缓冲，随 output 批量推送可见。
+    this.launcher.on('error', (err: Error) => {
+      this.pushOutput({ kind: 'error', data: `[Launcher] ${err?.message ?? String(err)}\n`, ts: Date.now() });
+    });
   }
 
   /** 缓冲输出：同时写入重放缓冲与批量推送队列（16ms 合并一次发送）。 */

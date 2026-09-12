@@ -408,4 +408,7 @@ export const en: Dict = {
   msg_kill_failed: 'Failed to stop the process: {0}',
   msg_free_port_not_found: 'No free port found (all ports from {0} to {1} are busy). Close the program using the port first.',
   svc_port_busy_hint: 'Cannot bind to port {0}: it may be used by another program. Stop the program using it, or change the port in Settings > Server and restart.',
+  msg_port_owner_killed: 'Stopped the occupying process {0}, re-checking the port…',
+  msg_port_switched: 'Switched to free port {0}',
+  msg_port_still_busy: 'Port {0} is still in use after stopping the process (multiple occupiers or delayed release). Try again shortly, or change the port in Params.',
 };

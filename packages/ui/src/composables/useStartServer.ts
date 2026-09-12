@@ -135,11 +135,21 @@ export function useStartServer() {
       }
       server.pushOutput({
         kind: 'info',
-        data: `[Launcher] ${owner.name ?? `PID ${owner.pid}`} 已结束，重新检查端口…\n`,
+        data: `[Launcher] ${i18n.t('msg_port_owner_killed').replace('{0}', owner.name ?? `PID ${owner.pid}`)}\n`,
         ts: Date.now(),
       });
-      const recheck = await window.api.system.checkPort(port, hostVal);
-      return !(recheck && recheck.inUse);
+      // 端口释放可能滞后于 taskkill 返回（TIME_WAIT/句柄收敛/占用者进程树未清），
+      // 短暂轮询重探而不是一锤子判定——否则处理完冲突仍判定失败，用户再次点击启动
+      // 会遇到二次弹窗或静默无反馈。
+      const RELEASE_POLL_MS = 400;
+      const RELEASE_POLL_TRIES = 5;
+      for (let i = 0; i < RELEASE_POLL_TRIES; i++) {
+        if (i > 0) await new Promise((r) => setTimeout(r, RELEASE_POLL_MS));
+        const recheck = await window.api.system.checkPort(port, hostVal);
+        if (!(recheck && recheck.inUse)) return true;
+      }
+      pushError(i18n.t('msg_port_still_busy').replace('{0}', String(port)));
+      return false;
     }
     if (choice === 'change') {
       const free = await window.api.system.findFreePort(port + 1, hostVal);
@@ -148,7 +158,7 @@ export function useStartServer() {
         return false;
       }
       params.set('port', free); // 写回参数（会话自动持久化），后续校验与命令预览同步
-      server.pushOutput({ kind: 'info', data: `[Launcher] 已切换到空闲端口 ${free}\n`, ts: Date.now() });
+      server.pushOutput({ kind: 'info', data: `[Launcher] ${i18n.t('msg_port_switched').replace('{0}', String(free))}\n`, ts: Date.now() });
       return true;
     }
     return false;
