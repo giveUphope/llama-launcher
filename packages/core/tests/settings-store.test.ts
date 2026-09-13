@@ -36,7 +36,7 @@ describe('settings-store', () => {
     expect(defaults.selected_model).toBe('');
     expect(defaults.last_preset).toBe('');
     expect(defaults.window_geometry).toBe('');
-    expect(defaults.theme_mode).toBe('dark');
+    expect(defaults.theme_mode).toBe('light');
     expect(defaults.sidebar_collapsed).toBe(false);
     expect(defaults.language).toBe('zh');
     expect(defaults.last_tab).toBe('');
@@ -184,7 +184,7 @@ describe('settings-store', () => {
       }),
     );
     const settings = loadSettings();
-    expect(settings.theme_mode).toBe('dark');
+    expect(settings.theme_mode).toBe('light');
     expect(settings.language).toBe('zh');
     expect(settings.download_max_concurrent).toBe(5);
     expect(settings.sidebar_collapsed).toBe(true);
@@ -221,7 +221,7 @@ describe('settings-store', () => {
       download_max_concurrent: 42,
     } as any);
     const data = JSON.parse(readFileSync(SETTINGS_FILE, 'utf-8'));
-    expect(data.theme_mode).toBe('dark');
+    expect(data.theme_mode).toBe('light');
     expect(data.language).toBe('zh');
     expect(data.download_max_concurrent).toBe(5);
     expect(data.settings_version).toBe(1);

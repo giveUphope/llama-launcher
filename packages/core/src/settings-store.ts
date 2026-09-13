@@ -26,7 +26,7 @@ export function getDefaultSettings(): AppSettings {
     window_geometry: '',
     // 默认以最大化状态启动
     window_maximized: true,
-    theme_mode: 'dark',
+    theme_mode: 'light',
     close_behavior: 'ask',
     sidebar_collapsed: false,
     language: 'zh',
@@ -105,7 +105,7 @@ const settingsSchema = z.object({
   last_preset: str(''),
   window_geometry: str(''),
   window_maximized: bool(true),
-  theme_mode: enumOf(THEME_MODES, 'dark'),
+  theme_mode: enumOf(THEME_MODES, 'light'),
   close_behavior: enumOf(CLOSE_BEHAVIORS, 'ask'),
   sidebar_collapsed: bool(false),
   language: enumOf(LANGUAGES, 'zh'),

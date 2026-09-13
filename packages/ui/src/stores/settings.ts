@@ -5,7 +5,7 @@ import { toPlain } from '@/composables/useIPC';
 
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<AppSettings | null>(null);
-  const themeMode = ref<ThemeMode>('dark');
+  const themeMode = ref<ThemeMode>('light');
   const language = ref<Language>('zh');
 
   async function load() {

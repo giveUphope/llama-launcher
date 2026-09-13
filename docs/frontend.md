@@ -91,7 +91,7 @@
 
 #### 7.5.2 主题
 
-- 主题双写：`stores/settings.ts` 的 `applyTheme` 同时设置 `html[data-theme="dark|light"]`（默认 dark）与 `body[arco-theme]`；自定义 token 按 `data-theme` 切换，Arco 组件按 `arco-theme` 自动切换。
+- 主题双写：`stores/settings.ts` 的 `applyTheme` 同时设置 `html[data-theme="dark|light"]`（默认 light，2026-09-13 起；index.html 引导属性同源，深色/跟随系统需在「应用设置 → 外观」显式选择）与 `body[arco-theme]`；自定义 token 按 `data-theme` 切换，Arco 组件按 `arco-theme` 自动切换。
 - **基调（2026-09 扁平化后）**：背景一律 Arco 面色——`body { background: var(--color-bg-1) }`，表面/输入/浮层用 `--color-bg-2/3`、`--color-fill-2/3`；文字用 `--color-text-1/2/3`。旧蓝白渐变（`--bg-app-gradient`/`--bg-grad-*`）与玻璃层（`.glass-layer`、`--glass-blur`）已随完全迁移移除。
 - **对比度**：文字对比度按 Arco 默认令牌体系（双主题 AA）；业务例外仅控制台/命令预览（恒定深底 `--console-bg` + `--console-fg`）。**文字不用 `opacity` 削弱**。
 

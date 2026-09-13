@@ -240,7 +240,7 @@ export function createDemoApi() {
     last_preset: '',
     window_geometry: '',
     window_maximized: true,
-    theme_mode: 'dark',
+    theme_mode: 'light',
     close_behavior: 'ask',
     sidebar_collapsed: false,
     language: 'zh',
