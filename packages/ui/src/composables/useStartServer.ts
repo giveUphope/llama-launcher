@@ -1,6 +1,6 @@
 import { useRouter } from 'vue-router';
 import { useSettingsStore } from '@/stores/settings';
-import { useServerStore } from '@/stores/server';
+import { useServerStore, LLAMA_SERVER_NAME_RE } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 import { confirm } from '@/composables/useConfirm';
@@ -100,6 +100,8 @@ export function useStartServer() {
 
   /**
    * 端口冲突处理：弹出动作选择并执行——
+   * - 占用者为 llama-server（可能是应用外启动的实例）：增加「接管监控」——记录展示该实例，
+   *   不拉起本应用进程（stop/restart 不作用其上）；
    * - 「结束进程并重试」：结束占用者（仅当能识别 PID），重新检查端口，空闲则继续启动；
    * - 「换用空闲端口」：自动扫描并写回空闲端口参数（会话持久化），继续启动；
    * - 「取消」：停止，冲突提示保留在控制台。
@@ -110,10 +112,20 @@ export function useStartServer() {
     owner: { pid?: number; name?: string },
     hostVal?: string,
   ): Promise<boolean> {
-    const message = owner.name && owner.pid !== undefined
-      ? i18n.t('msg_port_conflict').replace('{0}', String(port)).replace('{1}', owner.name).replace('{2}', String(owner.pid))
-      : i18n.t('msg_port_conflict_no_name').replace('{0}', String(port));
+    // 占用者是 llama-server：大概率是应用外启动的实例，给出专属文案与「接管监控」选项
+    const isLlamaServer = LLAMA_SERVER_NAME_RE.test(owner.name ?? '');
+    const message = isLlamaServer
+      ? i18n.t('msg_port_conflict_llama')
+          .replace('{0}', String(port))
+          .replace('{1}', owner.name ?? '?')
+          .replace('{2}', String(owner.pid ?? '?'))
+      : owner.name && owner.pid !== undefined
+        ? i18n.t('msg_port_conflict').replace('{0}', String(port)).replace('{1}', owner.name).replace('{2}', String(owner.pid))
+        : i18n.t('msg_port_conflict_no_name').replace('{0}', String(port));
     const actions: { key: string; labelKey: string; variant?: 'primary' | 'danger' | 'warning' | 'ghost' }[] = [];
+    if (isLlamaServer) {
+      actions.push({ key: 'adopt', labelKey: 'act_adopt_external' });
+    }
     if (owner.pid !== undefined) {
       actions.push({ key: 'kill', labelKey: 'act_kill_process', variant: 'danger' });
     }
@@ -127,6 +139,15 @@ export function useStartServer() {
       actions,
     });
 
+    if (choice === 'adopt') {
+      server.adoptExternal({
+        pid: owner.pid,
+        name: owner.name,
+        port,
+        host: hostVal || '127.0.0.1',
+      });
+      return false;
+    }
     if (choice === 'kill' && owner.pid !== undefined) {
       const res = await window.api.system.killProcess(owner.pid);
       if (!res.ok) {

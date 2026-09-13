@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **检测应用外启动的 llama-server 实例（2026-09-13）**：新增外部实例检测与「接管监控」——启动端口冲突时若占用者是 llama-server 进程，弹窗给出专属文案与「接管监控」选项（记录并展示该实例，不拉起本应用进程，stop/restart 不作用其上）；概览服务状态卡激活与 15s 轮询探测配置端口（复用 `system.checkPort`，无新增 IPC），发现外部 llama-server 时状态行并排「外部实例 · PID x」徽章、API 地址行显示其地址、「打开 Web UI」在系统浏览器直达，实例出现/下线均落控制台日志；本应用自身进入 starting/running 时外部标记自动失效。进程名识别跨平台兼容（Windows `llama-server.exe` / POSIX lsof 截断名 `llama-ser`）。demo-mock 支持控制台 `__mockExternalServer = true` 模拟外部实例。
+
 - **性能目标下拉弹层位置固定（2026-09-13）**：触发按钮文字随所选目标变化（宽度 112~154px），Arco Dropdown 默认 `bottom` 位置水平居中锚定触发器，弹层随之左右跳变（实测 x 在 609~630px 间摆动）。改 `position="bl"` 左对齐触发器（左缘恒定），弹层 x 恒定不跳；配合上一定宽修复，切换目标时弹层宽度与位置均稳定。
 
 - **性能目标下拉弹层定宽（2026-09-13）**：弹层原随建议 chips 内容自适应，切换目标（最大上下文/均衡/最低延迟/省显存）时宽度在 300~591px 间跳动拉宽（chips 单行铺开，最长 591px）。现 `.target-menu` 定宽 340px，chips 走 flex-wrap 换行（单行最多 2 个），切换目标弹层宽度恒定不变。

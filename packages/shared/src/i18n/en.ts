@@ -411,4 +411,10 @@ export const en: Dict = {
   msg_port_owner_killed: 'Stopped the occupying process {0}, re-checking the port…',
   msg_port_switched: 'Switched to free port {0}',
   msg_port_still_busy: 'Port {0} is still in use after stopping the process (multiple occupiers or delayed release). Try again shortly, or change the port in Params.',
+  msg_port_conflict_llama: 'Port {0} is occupied by a llama-server process ({1}, PID {2}) — possibly started outside this app. You can monitor it, stop it, or switch to another port.',
+  act_adopt_external: 'Monitor only',
+  msg_external_detected: 'External llama-server detected: {0} (PID {1}) serving at {2} — now shown as monitored',
+  msg_external_gone: 'External llama-server is gone (port {0} is free again)',
+  msg_external_adopted: 'Monitoring external llama-server: {0} (PID {1}) — display only, not managed by this app',
+  lbl_external_instance: 'External',
 };

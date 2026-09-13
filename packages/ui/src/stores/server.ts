@@ -15,7 +15,20 @@ const FAIL_RE = /\b(error|failed|fatal|exception|cannot|unable|abort|crash|segfa
 // "bind() failed: Address already in use" / "address already in use" / "EADDRINUSE" / "OS Error: 10048" /
 // "cannot assign requested address" / "errno 98" / "http: bind"）
 export const PORT_BUSY_RE = /address already in use|bind\(\) failed|EADDRINUSE|errno\s+98|error:\s*10048|cannot assign requested address/i;
+
+// 外部 llama-server 进程名识别（checkPort 返回的占用者进程名）：
+// Windows tasklist 为 "llama-server.exe"，POSIX lsof/ss 可能截断到 9 字符（"llama-ser"），
+// 故匹配到 "llama-ser" 前缀即可，不依赖扩展名
+export const LLAMA_SERVER_NAME_RE = /llama[-_]?ser/i;
 const TAIL_LINES = 80;
+
+/** 外部 llama-server 实例（非本应用拉起，端口探测识别） */
+export interface ExternalServerInstance {
+  pid?: number;
+  name?: string;
+  port: number;
+  host: string;
+}
 
 export const useServerStore = defineStore('server', () => {
   const api = useIPC();
@@ -34,6 +47,69 @@ export const useServerStore = defineStore('server', () => {
   // 把本轮 starting/running 误判为 failed/crashed——正是“端口冲突处理后重新启动、状态无变化
   // 但服务其实已启动”的根因。
   const runStart = ref(0);
+
+  // ---- 外部 llama-server 实例检测（非本应用拉起）----
+  // 来源有二：① 概览页定时探测配置端口（refreshExternal）；② 启动端口冲突时用户选择
+  // 「接管监控」（adoptExternal）。仅做展示与监控，不受本应用进程管理（stop/restart 不作用其上）；
+  // 本应用自身进入 starting/running 时外部标记立即失效（端口已被自家进程占用）。
+  const external = ref<ExternalServerInstance | null>(null);
+
+  /** 探测配置端口上是否有外部 llama-server 在监听。返回是否存在。 */
+  async function refreshExternal(portVal?: number, hostVal?: string): Promise<boolean> {
+    // 本应用自己的服务已在启动/运行：端口被自家进程占用，不存在「外部实例」语义
+    if (status.value === 'running' || status.value === 'starting') {
+      external.value = null;
+      return false;
+    }
+    const p = portVal ?? port.value;
+    const h = (hostVal ?? host.value) || '127.0.0.1';
+    try {
+      const res = await api.system.checkPort(p, h);
+      // 防御性检查：浏览器预览/mock 环境下 checkPort 可能返回 null
+      if (res && res.inUse && LLAMA_SERVER_NAME_RE.test(res.name ?? '')) {
+        const appeared = external.value === null;
+        external.value = { pid: res.pid, name: res.name, port: p, host: h };
+        if (appeared) {
+          pushOutput({
+            kind: 'info',
+            data: `[Launcher] ${useI18nStore().t('msg_external_detected')
+              .replace('{0}', res.name ?? '?')
+              .replace('{1}', String(res.pid ?? '?'))
+              .replace('{2}', `http://${h}:${p}`)}\n`,
+            ts: Date.now(),
+          });
+        }
+        return true;
+      }
+      if (external.value) {
+        pushOutput({
+          kind: 'info',
+          data: `[Launcher] ${useI18nStore().t('msg_external_gone').replace('{0}', String(p))}\n`,
+          ts: Date.now(),
+        });
+      }
+      external.value = null;
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /** 接管外部实例（启动端口冲突弹窗选择「接管监控」）：记录展示，不拉起进程。 */
+  function adoptExternal(instance: ExternalServerInstance) {
+    external.value = instance;
+    pushOutput({
+      kind: 'info',
+      data: `[Launcher] ${useI18nStore().t('msg_external_adopted')
+        .replace('{0}', instance.name ?? '?')
+        .replace('{1}', String(instance.pid ?? '?'))}\n`,
+      ts: Date.now(),
+    });
+  }
+
+  function clearExternal() {
+    external.value = null;
+  }
 
   function pushOutput(entry: OutputEntry) {
     outputs.value.push(entry);
@@ -78,6 +154,8 @@ export const useServerStore = defineStore('server', () => {
       api.server.onStatus((s) => {
         // 进入 starting 即意味着拉起了一个新进程：失败/崩溃判定边界重置到本轮输出起点。
         if (s === 'starting') runStart.value = outputs.value.length;
+        // 本应用拉起自身进程后，外部实例标记立即失效（端口将归自家进程所有）
+        if (s === 'starting' || s === 'running') external.value = null;
         status.value = s;
       });
     } catch {
@@ -95,6 +173,8 @@ export const useServerStore = defineStore('server', () => {
     port.value = info.port;
     url.value = info.url;
     runningValues.value = info.values ?? null;
+    // 与 onStatus 订阅同一语义：自家进程 running 后外部实例标记失效
+    if (info.status === 'running' || info.status === 'starting') external.value = null;
   }
 
   async function start(values: PresetValues, settings: AppSettings) {
@@ -173,6 +253,8 @@ export const useServerStore = defineStore('server', () => {
   return {
     status, pid, host, port, url, apiUrl, outputs, runningValues,
     effectiveStatus,
+    external,
+    refreshExternal, adoptExternal, clearExternal,
     subscribe, refreshStatus, clearOutputs, pushOutput,
     start, stop, restart, previewCommand,
   };

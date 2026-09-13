@@ -410,6 +410,13 @@ export const zh = {
   msg_port_owner_killed: '已结束占用进程 {0}，重新检查端口…',
   msg_port_switched: '已切换到空闲端口 {0}',
   msg_port_still_busy: '端口 {0} 结束占用进程后仍被占用（可能存在多个占用进程，或端口释放有延迟）。请稍后重试，或在参数页更换端口。',
+  // 外部 llama-server 实例检测（非本应用拉起）：探测识别 + 接管监控
+  msg_port_conflict_llama: '端口 {0} 被一个 llama-server 进程占用（{1}，PID {2}），可能是应用外启动的实例。可接管监控、结束它或换用其他端口。',
+  act_adopt_external: '接管监控',
+  msg_external_detected: '检测到外部 llama-server 实例：{0}（PID {1}）正在 {2} 提供服务——已纳入监控显示',
+  msg_external_gone: '外部 llama-server 实例已下线（端口 {0} 已空闲）',
+  msg_external_adopted: '已接管外部 llama-server 实例：{0}（PID {1}）——仅监控展示，不受本应用进程管理',
+  lbl_external_instance: '外部实例',
 };
 
 export type Dict = typeof zh;

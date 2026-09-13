@@ -20,6 +20,45 @@ const router = useRouter();
 
 const isRunning = computed(() => server.status === 'running');
 
+// ---- 外部 llama-server 实例（非本应用拉起）----
+// 探测节奏：卡片激活时立即探测 + 15s 轮询（仅概览页挂载期间运行，离开即停），
+// 会话参数的 host/port 为探测目标；本应用自身 starting/running 时 store 会自行清空外部标记。
+const EXTERNAL_POLL_MS = 15_000;
+let externalTimer: ReturnType<typeof setInterval> | null = null;
+
+function probeExternal() {
+  void server.refreshExternal(
+    Number(params.values.port ?? 8080),
+    String(params.values.host ?? '') || undefined,
+  );
+}
+
+const externalUrl = computed(() =>
+  server.external ? `http://${server.external.host}:${server.external.port}` : '',
+);
+
+const externalTagLabel = computed(() => {
+  if (!server.external) return '';
+  return `${i18n.t('lbl_external_instance')} · PID ${server.external.pid ?? '?'}`;
+});
+
+const externalHint = computed(() => {
+  if (!server.external) return '';
+  return i18n.t('msg_external_detected')
+    .replace('{0}', server.external.name ?? '?')
+    .replace('{1}', String(server.external.pid ?? '?'))
+    .replace('{2}', externalUrl.value);
+});
+
+/** 打开 Web UI：本应用实例跳内置 WebUI 页；外部实例直接在系统浏览器打开其地址 */
+function onOpenWeb() {
+  if (isRunning.value) {
+    void router.push('/webui');
+    return;
+  }
+  if (externalUrl.value) void window.api.openExternal(externalUrl.value);
+}
+
 // 有效状态：增强判定（running+失败→crashed、starting+失败→failed、stopped+残留失败→failed）
 // 已下沉至 server store（概览状态卡/StatusBar 共用单一事实源）
 const statusInfo = computed(() => {
@@ -59,14 +98,20 @@ onActivated(() => {
   }
   if (timer) clearInterval(timer);
   timer = setInterval(updateDuration, 1000);
+  // 外部实例探测：激活立即探一次 + 定时轮询（失活/卸载即停）
+  probeExternal();
+  if (externalTimer) clearInterval(externalTimer);
+  externalTimer = setInterval(probeExternal, EXTERNAL_POLL_MS);
 });
 
 onDeactivated(() => {
   if (timer) { clearInterval(timer); timer = null; }
+  if (externalTimer) { clearInterval(externalTimer); externalTimer = null; }
 });
 
 onUnmounted(() => {
   if (timer) { clearInterval(timer); timer = null; }
+  if (externalTimer) { clearInterval(externalTimer); externalTimer = null; }
 });
 
 const durationSec = computed(() => {
@@ -118,9 +163,10 @@ function onOomKvQuant() {
 
 <template>
   <Card title-key="card_service_status">
-    <!-- 运行状态：a-tag 独立行 -->
+    <!-- 运行状态：a-tag 独立行（检测到外部 llama-server 时并排展示外部实例徽章） -->
     <a-space :size="8" class="status-row">
       <StatusTag :status="statusInfo.status" :label="statusInfo.label" />
+      <a-tag v-if="server.external" color="arcoblue" :title="externalHint">{{ externalTagLabel }}</a-tag>
     </a-space>
 
     <!-- 字段区：单个 a-descriptions 原生多列承载（模型/地址整行，主机/端口/PID/时长两列）；
@@ -133,10 +179,17 @@ function onOomKvQuant() {
         </a-typography-text>
         <span v-else class="empty-val">{{ i18n.t('status_model_none') }}</span>
       </a-descriptions-item>
+      <!-- API 地址：本应用运行中显示自身地址；停止但探测到外部实例时显示外部地址（title 注明来源） -->
       <a-descriptions-item :label="i18n.t('card_dash_api')" :span="2">
-        <a-typography-text v-if="server.apiUrl" copyable :copy-text="server.apiUrl" @copy="copyViaApi(server.apiUrl)">
+        <a-typography-text
+          v-if="server.apiUrl || externalUrl"
+          copyable
+          :copy-text="server.apiUrl || externalUrl"
+          :title="!server.apiUrl && externalUrl ? externalHint : undefined"
+          @copy="copyViaApi(server.apiUrl || externalUrl)"
+        >
           <Icon name="link" :size="13" />
-          <span class="mono-val ellipsis" :title="server.apiUrl">{{ server.apiUrl }}</span>
+          <span class="mono-val ellipsis" :title="server.apiUrl || externalUrl">{{ server.apiUrl || externalUrl }}</span>
         </a-typography-text>
         <span v-else class="empty-val">—</span>
       </a-descriptions-item>
@@ -154,9 +207,16 @@ function onOomKvQuant() {
       </a-descriptions-item>
     </a-descriptions>
 
-    <!-- 快捷操作（自原概览 Q2/Q3 保留）：按钮不属于信息展示，不构成重复 -->
+    <!-- 快捷操作（自原概览 Q2/Q3 保留）：按钮不属于信息展示，不构成重复。
+         打开 Web UI：本应用运行中跳内置页；停止但接管了外部实例时在系统浏览器打开其地址 -->
     <a-space :size="8" class="quick-actions">
-      <a-button type="primary" size="small" :disabled="!isRunning" @click="router.push('/webui')" :title="i18n.t('open_web')">
+      <a-button
+        type="primary"
+        size="small"
+        :disabled="!isRunning && !externalUrl"
+        :title="isRunning ? i18n.t('open_web') : externalHint"
+        @click="onOpenWeb"
+      >
         <template #icon><Icon name="external" :size="13" /></template>
         {{ i18n.t('open_web') }}
       </a-button>

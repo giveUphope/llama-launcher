@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import { PORT_BUSY_RE, useServerStore } from './server';
+import { LLAMA_SERVER_NAME_RE, PORT_BUSY_RE, useServerStore } from './server';
 
 // —— window.api 桩：捕获 onOutput/onStatus 回调，getStatus 返回可控的主进程状态 ——
 type StatusCb = (s: any) => void;
@@ -8,6 +8,8 @@ type OutputCb = (e: any) => void;
 let statusCb: StatusCb = () => {};
 let outputCb: OutputCb = () => {};
 let mainStatus: any = { status: 'stopped', pid: null, host: '127.0.0.1', port: 8080, url: '', values: {} };
+// checkPort 桩返回值（外部实例探测用），null 模拟 mock 环境无响应
+let checkPortResult: { inUse: boolean; pid?: number; name?: string } | null = { inUse: false };
 
 (globalThis as any).window = (globalThis as any).window ?? {};
 (globalThis as any).window.api = {
@@ -19,6 +21,9 @@ let mainStatus: any = { status: 'stopped', pid: null, host: '127.0.0.1', port: 8
     stop: () => Promise.resolve({ ok: true }),
     restart: () => Promise.resolve({ ok: true }),
     previewCommand: () => Promise.resolve({ ok: true, data: '' }),
+  },
+  system: {
+    checkPort: () => Promise.resolve(checkPortResult),
   },
 };
 
@@ -36,6 +41,7 @@ beforeEach(() => {
   statusCb = () => {};
   outputCb = () => {};
   mainStatus = { status: 'stopped', pid: null, host: '127.0.0.1', port: 8080, url: '', values: {} };
+  checkPortResult = { inUse: false };
 });
 
 describe('PORT_BUSY_RE（端口占用原始输出识别）', () => {
@@ -106,5 +112,76 @@ describe('effectiveStatus 失败判定只看本轮运行输出', () => {
     statusCb('starting');
     out('fatal: model not found\n');
     expect(server.effectiveStatus).toBe('failed');
+  });
+});
+
+describe('外部 llama-server 实例检测（refreshExternal / adoptExternal）', () => {
+  it('LLAMA_SERVER_NAME_RE 识别跨平台进程名（含 POSIX 截断名），不误伤普通进程', () => {
+    expect(LLAMA_SERVER_NAME_RE.test('llama-server.exe')).toBe(true);
+    expect(LLAMA_SERVER_NAME_RE.test('llama-server')).toBe(true);
+    expect(LLAMA_SERVER_NAME_RE.test('llama-ser')).toBe(true); // lsof comm 截断
+    expect(LLAMA_SERVER_NAME_RE.test('llama_bench.exe')).toBe(false);
+    expect(LLAMA_SERVER_NAME_RE.test('nginx')).toBe(false);
+    expect(LLAMA_SERVER_NAME_RE.test(undefined as unknown as string)).toBe(false);
+  });
+
+  it('stopped 时探测到 llama-server 占用端口 → 记录外部实例并输出检测日志', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    checkPortResult = { inUse: true, pid: 23508, name: 'llama-server.exe' };
+    const found = await server.refreshExternal(8080, '127.0.0.1');
+    expect(found).toBe(true);
+    expect(server.external).toEqual({ pid: 23508, name: 'llama-server.exe', port: 8080, host: '127.0.0.1' });
+    // 出现时输出一条检测日志（i18n 键桩返回键名本身）
+    expect(server.outputs.at(-1)?.data).toContain('msg_external_detected');
+  });
+
+  it('重复探测不重复输出日志；端口空闲后清除并输出下线日志', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    checkPortResult = { inUse: true, pid: 23508, name: 'llama-server.exe' };
+    await server.refreshExternal(8080);
+    const linesAfterFirst = server.outputs.length;
+    await server.refreshExternal(8080);
+    expect(server.outputs.length).toBe(linesAfterFirst);
+    checkPortResult = { inUse: false };
+    const gone = await server.refreshExternal(8080);
+    expect(gone).toBe(false);
+    expect(server.external).toBeNull();
+    expect(server.outputs.at(-1)?.data).toContain('msg_external_gone');
+  });
+
+  it('占用者不是 llama-server（其他程序）不标记外部实例', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    checkPortResult = { inUse: true, pid: 999, name: 'nginx.exe' };
+    expect(await server.refreshExternal(8080)).toBe(false);
+    expect(server.external).toBeNull();
+  });
+
+  it('本应用自身 starting/running 时外部标记清空（端口归自家进程）', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    checkPortResult = { inUse: true, pid: 23508, name: 'llama-server.exe' };
+    await server.refreshExternal(8080);
+    expect(server.external).not.toBeNull();
+    statusCb('running');
+    expect(server.external).toBeNull();
+    // 自家运行中再探测：直接返回 false 且不记录
+    expect(await server.refreshExternal(8080)).toBe(false);
+    expect(server.external).toBeNull();
+  });
+
+  it('adoptExternal 接管外部实例并输出日志；checkPort 异常时探测静默返回 false', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    server.adoptExternal({ pid: 42, name: 'llama-server', port: 8080, host: '127.0.0.1' });
+    expect(server.external).toEqual({ pid: 42, name: 'llama-server', port: 8080, host: '127.0.0.1' });
+    expect(server.outputs.at(-1)?.data).toContain('msg_external_adopted');
+    server.clearExternal();
+    expect(server.external).toBeNull();
+    // mock 环境无 checkPort 响应：静默 false，不抛错
+    checkPortResult = null;
+    expect(await server.refreshExternal(8080)).toBe(false);
   });
 });

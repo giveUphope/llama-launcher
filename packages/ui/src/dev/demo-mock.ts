@@ -336,7 +336,13 @@ export function createDemoApi() {
       respondCloseDialog: () => {},
     },
     system: {
-      checkPort: () => Promise.resolve({ inUse: false }),
+      // 控制台设 globalThis.__mockExternalServer = true 可模拟「外部 llama-server 占用端口」
+      // 场景（概览页外部实例徽章 / 启动冲突接管监控弹窗），默认关闭不影响常规演示流
+      checkPort: () => Promise.resolve(
+        (globalThis as unknown as { __mockExternalServer?: boolean }).__mockExternalServer
+          ? { inUse: true, pid: 23508, name: 'llama-server.exe' }
+          : { inUse: false },
+      ),
       killProcess: () => Promise.resolve({ ok: true }),
       findFreePort: () => Promise.resolve(8081),
       fileExists: () => Promise.resolve(false),
