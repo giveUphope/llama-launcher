@@ -73,6 +73,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：theme.scss 新增业务语义 token `--row-selected-bg`：浅色 = `rgb(var(--primary-1))`（不变）；深色 = `rgba(var(--primary-6), 0.2)` 半透明蓝染（亮于底面、与 hover 白 4% 明显区分，深色下 primary-6 为亮蓝 60,126,255）。三处选中态统一改引该 token，浅色观感零变化。
 - **修复效果验证**：`pnpm style:audit` 全绿；mock 页深色下选中行 `td` 计算底色 ≈ `rgb(30,44,72)`（primary-6 20% 叠 bg-1），浅色下保持 `rgb(232,243,255)`；hover 选中行不掉色（#56 机制不变）。
 
+### 58. 状态标签 a-tag 传入 Arco 不识别的语义色名（success/warning/danger/processing）— 🟢 已修复（2026-09-13）
+
+- **位置**：`StatusTag.vue`（`arcoStatus` 映射）、`StatusBar.vue`（`statusColor` 映射 + 「已复制」反馈标签 ×2）。
+- **描述**：Arco 2.58 的 a-tag 预设色仅 13 个物理色名（red/orange/green/…/gray），`success`/`warning`/`danger`/`processing` 语义名不被识别、落入 custom-color 分支——inline `backgroundColor: 'success'` 非法被浏览器丢弃，标签只剩兜底底色（浅色 fill-2 #F2F3F5 / 深色白 8%）+ 状态栏继承白字，深浅色下均不可读（用户反馈「深浅色模式下查看效果过差」）。问题随 #50 的 a-tag 状态胶囊迁移引入。
+- **修复**：映射改为预设物理色：`success→green` / `warning→orange` / `danger→red` / `processing→arcoblue`（`gray` 本就合法）。Arco 预设色标签自带深浅主题适配（浅色 = 浅底深字胶囊，深色 = 半透明色底亮字）。
+- **修复效果验证**：浏览器实测状态栏「运行中」：浅色 = `arco-tag-green`（底 `rgb(232,255,234)` / 字 `rgb(0,180,42)`），深色 = 底 `rgba(39,195,70,0.2)` / 字 `rgb(39,195,70)`；`grep` 全库确认无其余语义色名传 a-tag（LocalModelsPanel tagColor/fitColor 已用物理色，DownloadCard statusColor 为纯文本色合法 CSS）。
+
 ***
 
 ## 🟢 已修复索引

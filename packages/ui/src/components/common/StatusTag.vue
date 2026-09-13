@@ -6,11 +6,14 @@ const props = defineProps<{
   label: string;
 }>();
 
+// 状态色映射为 a-tag 预设物理色——Arco Tag 仅认 13 个预设色名（red/green/…/gray），
+// success/warning/danger/processing 语义名会落入 custom-color 分支（bg 内联为非法
+// CSS 颜色被丢弃），浅灰底 + 继承文字色在深浅色下都不可读
 const arcoStatus = computed(() => {
-  if (props.status === 'ok') return 'success';
-  if (props.status === 'warn') return 'warning';
-  if (props.status === 'error') return 'danger';
-  if (props.status === 'loading') return 'processing';
+  if (props.status === 'ok') return 'green';
+  if (props.status === 'warn') return 'orange';
+  if (props.status === 'error') return 'red';
+  if (props.status === 'loading') return 'arcoblue';
   return 'gray';
 });
 </script>

@@ -18,12 +18,13 @@ const statusText = computed(() => {
   return i18n.t('status_stopped');
 });
 
-// 状态色映射为 Arco 状态语义色（a-tag color），浅色/深色主题由 Arco 令牌自动适配
+// 状态色映射为 a-tag 预设物理色（Arco Tag 不认 success/warning/danger 语义名，
+// 非法自定义色会被浏览器丢弃、只剩兜底浅灰底，深浅色下均不可读）
 const statusColor = computed(() => {
   const s = server.effectiveStatus;
-  if (s === 'failed' || s === 'crashed') return 'danger';
-  if (s === 'running') return 'success';
-  if (s === 'starting' || s === 'stopping') return 'warning';
+  if (s === 'failed' || s === 'crashed') return 'red';
+  if (s === 'running') return 'green';
+  if (s === 'starting' || s === 'stopping') return 'orange';
   return 'gray';
 });
 
@@ -87,7 +88,7 @@ onUnmounted(() => {
         @click="onCopyUrl"
       >
         <span class="url-text">{{ server.apiUrl }}</span>
-        <a-tag v-if="copiedKey === 'url'" size="small" color="success">{{ i18n.t('msg_url_copied') }}</a-tag>
+        <a-tag v-if="copiedKey === 'url'" size="small" color="green">{{ i18n.t('msg_url_copied') }}</a-tag>
       </a-button>
       <a-button
         v-if="params.get(MODEL_KEY)"
@@ -98,7 +99,7 @@ onUnmounted(() => {
         @click="onCopyModel"
       >
         <span class="model-text">{{ modelName }}</span>
-        <a-tag v-if="copiedKey === 'model'" size="small" color="success">{{ i18n.t('msg_model_copied') }}</a-tag>
+        <a-tag v-if="copiedKey === 'model'" size="small" color="green">{{ i18n.t('msg_model_copied') }}</a-tag>
       </a-button>
       <span v-else class="model">{{ modelName }}</span>
     </div>

@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **修复状态标签深浅色下不可读（2026-09-13）**：状态胶囊 a-tag 传入了 Arco 不识别的语义色名（`success`/`warning`/`danger`/`processing`）——a-tag 预设色仅 13 个物理色名，语义名落入自定义色分支后 inline 背景被浏览器丢弃，标签只剩兜底浅灰底 + 状态栏继承白字（对比度 ~1.6:1），深浅色下均不可读。现映射为预设物理色（`green`/`orange`/`red`/`arcoblue`），由 Arco 自带深浅主题适配。涉及 `StatusTag` 与 `StatusBar` 状态/复制反馈标签。
+
 - **深色主题选中行不再使用深色底（2026-09-13）**：选中态底色收敛为业务语义 token `--row-selected-bg`（`theme.scss`）——浅色保持 `rgb(var(--primary-1))`，深色改为 `rgba(var(--primary-6), 0.2)` 半透明蓝染（深色下 `primary-1` 为比底色更暗的近黑藏青 `rgb(0,13,77)`，整行铺满观感过重）。模型表格选中行、DownloadCard 任务/文件选中项、文件浏览器选中行三处同源切换；浅色观感不变，深色选中行亮于底面且与 hover 明显区分。
 
 - **默认主题改为浅色（2026-09-13）**：全链路默认值 `dark` → `light`（core `settings-store` 默认与脏值回退、ui settings store 内存默认、demo-mock 演示设置、`index.html` 引导属性），新用户/浏览器预览不再落入深色主题；已显式选择深色/跟随系统的存量用户设置不受影响（仅默认值变更）。顺带移除 `index.html` 上已无引用的 `data-fx="glass"` 残留属性。
