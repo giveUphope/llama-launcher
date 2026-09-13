@@ -50,10 +50,16 @@
 
 body {
   background: var(--color-bg-1);
+  // 选中行/选中项底色（三处选中态同源：模型表格/DownloadCard/文件浏览器）。
+  // 必须定义在 body 上：Arco 色板变量挂载于 body，:root 层取不到 primary-*
+  --row-selected-bg: rgb(var(--primary-1));
 }
 
 body[arco-theme='dark'] {
   color-scheme: dark;
+  // 深色下 primary-1 是比底色更暗的近黑藏青（0,13,77），整行铺满观感过重；
+  // 改 primary-6 半透明蓝染（亮于底面，且与 hover 白 4% 明显区分）
+  --row-selected-bg: rgba(var(--primary-6), 0.2);
 }
 
 /* Arco 表单下拉（fc-select）：设置面板控件高对齐 28px（Arco 默认 medium 32px，见 §7.5） */

@@ -242,7 +242,7 @@ function cancel() {
 .fb-row {
   cursor: pointer;
   &.is-selected :deep(.arco-list-item) {
-    background: rgb(var(--primary-1));
+    background: var(--row-selected-bg);
   }
 }
 

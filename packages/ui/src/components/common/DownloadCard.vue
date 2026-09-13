@@ -1075,7 +1075,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 
   &.active {
-    background: rgb(var(--primary-1));
+    background: var(--row-selected-bg);
     border-color: rgb(var(--primary-6));
   }
 }
@@ -1210,7 +1210,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
   &.checked {
     border-color: rgb(var(--primary-6));
-    background: rgb(var(--primary-1));
+    background: var(--row-selected-bg);
   }
 
   &.recommended {

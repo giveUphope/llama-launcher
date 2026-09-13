@@ -66,6 +66,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：同一 `primary-1` token，按 Arco hover 规则同构叠加 `.row-selected`（行/单元格 `:not()` 链拉高特异性至 (0,11,0)，压过 Arco 的 (0,9,0)；`arco-table-hover` 与 `.models-table` 是同一元素，不能作为后代前缀复刻），悬停中选中行保持选中色；未引入任何新颜色，色差整体不变。
 - **修复效果验证**：`pnpm style:audit` 全绿；mock 页（`127.0.0.1:5173/#/models`）深浅两主题下 hover 选中行，`td` 计算底色保持 `rgb(var(--primary-1))`（深色 `rgb(0,13,77)` / 浅色 `rgb(232,243,255)`），不再回落 `--color-fill-1`。
 
+### 57. 深色主题选中行底色过深（primary-1 深色取值为近黑藏青，整行铺满观感差）— 🟢 已修复（2026-09-13）
+
+- **位置**：`theme.scss`（新增 `--row-selected-bg`）；三处选中态消费点：`LocalModelsPanel.vue`（`.row-selected` 两规则，含 #56 的 hover 保色规则）、`DownloadCard.vue`（`.active`/`.checked`）、`FileBrowserModal.vue`（`.is-selected`）。
+- **描述**：选中态统一用 `rgb(var(--primary-1))`（93665ab 收敛），但该 token 在深色主题取值 `rgb(0,13,77)`——比底色 `#17171a` 更暗的藏青块，整行铺满时选中感沉重、文字发闷（用户反馈「深色模式下也不应使用深色选中效果」）。审查结论：无例外注释豁免，属 token 跨主题语义落差，非有意设计。
+- **修复**：theme.scss 新增业务语义 token `--row-selected-bg`：浅色 = `rgb(var(--primary-1))`（不变）；深色 = `rgba(var(--primary-6), 0.2)` 半透明蓝染（亮于底面、与 hover 白 4% 明显区分，深色下 primary-6 为亮蓝 60,126,255）。三处选中态统一改引该 token，浅色观感零变化。
+- **修复效果验证**：`pnpm style:audit` 全绿；mock 页深色下选中行 `td` 计算底色 ≈ `rgb(30,44,72)`（primary-6 20% 叠 bg-1），浅色下保持 `rgb(232,243,255)`；hover 选中行不掉色（#56 机制不变）。
+
 ***
 
 ## 🟢 已修复索引

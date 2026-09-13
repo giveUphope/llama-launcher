@@ -81,7 +81,8 @@
 > 2026-09 完全迁移后的现状：`theme.scss` 仅保留 **Electron 布局尺寸、业务语义色与迁移兼容层**，其余一律直接引用 Arco 的 CSS Variables（`--color-text-*` / `--color-fill-*` / `--color-bg-*` / `--color-border-*` / `rgb(var(--primary-6))` / `rgb(var(--success-6))` 等）。旧业务色板（`--accent`、`--bg-*`、`--fg-*`、`--shadow-modal/tooltip`、`--overlay` 等）已全部删除，禁止再引用。
 
 - **强调色**：即 Arco 主色 `rgb(var(--primary-6))`（纯蓝）。交互强调（描边按钮、聚焦边框、选中行、激活 tab）一律用它；hover/选中态用 Arco 组件自带态或 `--color-fill-3`。
-- **业务色 token**（`theme.scss`，不随主题切换）：`--btn-h`(30) / `--fs-appname`(16) / `--statusbar-blue`(#007acc) / `--badge-cat-*`、`--badge-quant-*`、`--badge-src-*`（下载分类/量化/来源徽章色板）/ `--console-bg`(#1d2129)、`--console-fg`(#e5e6eb)（控制台/命令预览恒定深底，双主题不变）/ `--primary-fg`(#fff，实底主色上的文字)。`--bg-active` 按主题定义（选中行高亮：浅 #e8f2ff / 深 #094771）。
+- **业务色 token**（`theme.scss`，不随主题切换）：`--btn-h`(30) / `--fs-appname`(16) / `--statusbar-blue`(#007acc) / `--badge-cat-*`、`--badge-quant-*`、`--badge-src-*`（下载分类/量化/来源徽章色板）/ `--console-bg`(#1d2129)、`--console-fg`(#e5e6eb)（控制台/命令预览恒定深底，双主题不变）/ `--primary-fg`(#fff，实底主色上的文字)。
+- **选中项底色** `--row-selected-bg`（`theme.scss`，随主题切换，2026-09-13 起）：浅色 = `rgb(var(--primary-1))`；深色 = `rgba(var(--primary-6), 0.2)` 半透明蓝染——深色下 `primary-1` 为比底色更暗的近黑藏青，整行铺满观感过重，故深色不用深色色块。三处选中态同源引用：模型表格选中行（含 hover 保色规则）、DownloadCard `.active`/`.checked`、FileBrowserModal `.is-selected`。
 - **兼容层映射**（迁移完成前）：`--radius-pill/row/control: 4px`、`--fs-xs/sm: 12px`、`--fs-base: 13px`、`--fs-md/lg: 14px`、`--glass-bg*: var(--color-bg-2/3)`、`--glass-blur: 0px`、`--ease-smooth/jelly: ease`、`--dur-fast/med: 0.16s/0.2s`、`--shadow-dropdown: 0 4px 12px rgb(0 0 0 / 12%)`。业务组件只允许消费这些名字或直接用 Arco 变量；新代码优先直接用 Arco 变量。
 - **字体**：正文走 Arco 默认栈；`--font-mono` = `'Cascadia Code', 'Cascadia Mono', Consolas, monospace`，数值/路径/命令一律 mono。
 - **字号**（语义化，禁止裸 px）：`--fs-xs`(12 徽章/辅助) / `--fs-sm`(12 次要提示/状态栏/chip) / `--fs-base`(13 正文/输入/控制台) / `--fs-md`(14 按钮/列表项) / `--fs-lg`(14 卡片标题/参数名) / `--fs-appname`(16 应用名)。
