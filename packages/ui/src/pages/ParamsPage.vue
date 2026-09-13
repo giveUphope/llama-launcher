@@ -429,7 +429,10 @@ async function onClearSession() {
 <style lang="scss">
 /* 性能目标下拉菜单：Arco Dropdown popper 挂载于 body，需非 scoped 覆盖 */
 .target-menu {
-  min-width: 300px;
+  // 定宽弹层：各目标的建议 chips 内容不同，弹层若随内容自适应会在 300~591px 间
+  // 跳动拉宽（chips 单行铺开）。定宽后 chips 走 flex-wrap 换行，单行最多 2 个，
+  // 切换目标时弹层宽度稳定不变
+  width: 340px;
   padding: 4px;
 }
 
