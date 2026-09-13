@@ -59,6 +59,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：用户确认方向为「完全迁移至 Arco」→ 文档回写：frontend.md §7.5.1/7.5.2/7.5.3/7.5.5/7.5.6/7.5.7/7.5.8 按「Arco 默认 + 业务 token」现状重写；AGENTS.md 风格条目同步。
 - **修复效果验证**：`pnpm docs:check` 通过；`pnpm style:audit` 全绿；抽查组件计算样式与文档描述一致（cat-chip 圆角 4px、InfoStrip 值盒 26px、按钮 Arco 默认态）。
 
+### 56. 模型表格选中行 hover 掉色（Arco 行 hover 规则压过选中态底色）— 🟢 已修复（2026-09-13）
+
+- **位置**：`packages/ui/src/components/models/LocalModelsPanel.vue`（`.models-table` 的 `:deep(.arco-table-tr.row-selected > td)`）。
+- **描述**：选中行底色 `rgb(var(--primary-1))` 只以 (0,4,1) 特异性落位，被 Arco 行 hover 规则 `.arco-table-hover:not(…) .arco-table-tr:not(…):hover .arco-table-td:not(…)`（(0,9,0)）在悬停瞬间覆盖为中性 `--color-fill-1`——鼠标移到选中行上时选中态视觉消失，与全站「选中态恒色」（DownloadCard `.checked` / FileBrowserModal `.checked` 悬停不回落）不一致。审查结论：STYLE_TODO「保留（业务/工程例外）」清单与组件内注释均未豁免该处，非有意设计。
+- **修复**：同一 `primary-1` token，按 Arco hover 规则同构叠加 `.row-selected`（行/单元格 `:not()` 链拉高特异性至 (0,11,0)，压过 Arco 的 (0,9,0)；`arco-table-hover` 与 `.models-table` 是同一元素，不能作为后代前缀复刻），悬停中选中行保持选中色；未引入任何新颜色，色差整体不变。
+- **修复效果验证**：`pnpm style:audit` 全绿；mock 页（`127.0.0.1:5173/#/models`）深浅两主题下 hover 选中行，`td` 计算底色保持 `rgb(var(--primary-1))`（深色 `rgb(0,13,77)` / 浅色 `rgb(232,243,255)`），不再回落 `--color-fill-1`。
+
 ***
 
 ## 🟢 已修复索引

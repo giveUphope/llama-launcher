@@ -562,7 +562,14 @@ onUnmounted(() => {
 .models-table {
   margin-top: 8px;
   :deep(.arco-table-tr) { cursor: pointer; }
+
+  // 选中行底色与 DownloadCard/FileBrowserModal 选中态同源（primary-1）。
+  // Arco 的行 hover 规则特异性更高，会把悬停中的选中行刷成中性 fill——
+  // 第二条按其同构选择器叠加 .row-selected 反超（arco-table-hover 与本容器
+  // 是同一元素，不能作为后代前缀复刻），保证 hover 不丢选中态
   :deep(.arco-table-tr.row-selected > td) { background: rgb(var(--primary-1)); }
+  :deep(.arco-table-tr.row-selected:not(.arco-table-tr-empty):not(.arco-table-tr-summary):hover .arco-table-td:not(.arco-table-col-fixed-left):not(.arco-table-col-fixed-right)) { background: rgb(var(--primary-1)); }
+
   :deep(.arco-table-th) { color: var(--color-text-2); font-weight: 600; }
 }
 
