@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.32] - 2026-09-13
+
+
 - **状态栏标签芯片对比度修复（2026-09-13）**：状态栏为恒定品牌蓝铬面，但状态标签芯片随主题取值——深色下 `gray` 预设为半透明灰底 + `#929293` 灰字，叠蓝条对比仅 ~1.4:1 不可读。现芯片与铬面一致改为恒定外观（`theme.scss` 固定 Arco light 色板取值：gray/green/orange/red/arcoblue），双主题观感一致；gray 文字用 `#4e5969`（5.5:1 达 AA）。
 
 - **检测应用外启动的 llama-server 实例（2026-09-13）**：新增外部实例检测与「接管监控」——启动端口冲突时若占用者是 llama-server 进程，弹窗给出专属文案与「接管监控」选项（记录并展示该实例，不拉起本应用进程，stop/restart 不作用其上）；概览服务状态卡激活与 15s 轮询探测配置端口（复用 `system.checkPort`，无新增 IPC），发现外部 llama-server 时状态行并排「外部实例 · PID x」徽章、API 地址行显示其地址、「打开 Web UI」在系统浏览器直达，实例出现/下线均落控制台日志；本应用自身进入 starting/running 时外部标记自动失效。进程名识别跨平台兼容（Windows `llama-server.exe` / POSIX lsof 截断名 `llama-ser`）。demo-mock 支持控制台 `__mockExternalServer = true` 模拟外部实例。
