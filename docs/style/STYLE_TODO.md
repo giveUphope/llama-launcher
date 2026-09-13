@@ -80,6 +80,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：映射改为预设物理色：`success→green` / `warning→orange` / `danger→red` / `processing→arcoblue`（`gray` 本就合法）。Arco 预设色标签自带深浅主题适配（浅色 = 浅底深字胶囊，深色 = 半透明色底亮字）。
 - **修复效果验证**：浏览器实测状态栏「运行中」：浅色 = `arco-tag-green`（底 `rgb(232,255,234)` / 字 `rgb(0,180,42)`），深色 = 底 `rgba(39,195,70,0.2)` / 字 `rgb(39,195,70)`；`grep` 全库确认无其余语义色名传 a-tag（LocalModelsPanel tagColor/fitColor 已用物理色，DownloadCard statusColor 为纯文本色合法 CSS）。
 
+### 59. 状态栏标签芯片深色主题下叠蓝铬面对比不足（gray ≈ 1.4:1 不可读）— 🟢 已修复（2026-09-13）
+
+- **位置**：`theme.scss`（新增 `.statusbar .arco-tag` 铬面芯片固定取值规则）。
+- **描述**：状态栏为恒定品牌蓝铬面（业务例外，不随主题），但状态标签预设芯片随主题取值——深色下 `arco-tag-gray` 为 `rgba(146,146,147,.2)` 底 + `#929293` 字，叠蓝条后对比仅 ~1.4:1，不可读（用户反馈「可读性差问题又回归旧样式」；实为 gray 预设深色取值问题，此前 7516254 修复的是 custom-color 兜底的运行态，未覆盖 gray 深色取值）。
+- **修复**：芯片与铬面同样恒定——`.statusbar .arco-tag.arco-tag-checked.<preset>` 统一按 Arco light 色板固定呈现（gray/green/orange/red/arcoblue，取值实测自浅色预设），不随主题切换；gray 文字用 text-2 `#4e5969`（5.5:1 达 AA）而非 stock `gray-6`（2.9:1）。
+- **修复效果验证**：浏览器实测深色/浅色下状态栏标签计算样式一致（gray：`rgb(242,243,245)` 底 / `rgb(78,89,105)` 字）；green/orange/red/arcoblue 合成元素同验；`pnpm style:audit` 全绿。
+
 ***
 
 ## 🟢 已修复索引
