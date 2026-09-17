@@ -14,7 +14,7 @@
 node scripts/style-audit.cjs      # 或 pnpm style:audit
 ```
 
-10 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
+12 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
 
 1. 组件内裸颜色（token 禁令；`#fff`/`#1a1a1a` 仅限彩色按钮文字）
 2. 组件内裸字号（应走 `--fs-*`）
@@ -26,6 +26,8 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 8. 动画只动 transform/opacity（布局属性过渡必须带 `var(--dur-*)`）
 9. 行高语义化（1 / 1.3 / 1.4 / 1.5 / 1.55 / 1.6；`normal` / `var()` 放行）
 10. 字重只取 400 / 600 / 700（`normal`=400 / `bold`=700 等价放行）
+11. 非 scoped 样式块（`<style>` 无 `scoped`）的顶层选择器必须含至少一个组件私有类——禁止只由 Arco 全局类名构成，防 popup 传送 body 后全局命中他处（§7.5.6）
+12. 不覆写 Arco 内部态类（`.arco-*-checked` / `-active` / `-selected` / `-disabled` / `-current` / `-dragging` / `-expanded`）——随 Arco 版本升级易碎，选中态改用 Arco 自带态或 `color` prop
 
 ***
 
@@ -89,12 +91,92 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 ***
 
+### 60. 下载卡片徽章体系未 Arco 化（5 类手绘 `<span>` 徽章）+ 计数徽章 opacity 削弱文字 — 🟢 已修复（2026-09-18）
+
+- **位置**：`packages/ui/src/components/common/DownloadCard.vue`（`.info-tag` / `.source-badge` / `.quant-badge` / `.file-cat` / `.rec-badge`；`.chip-count`）。
+- **描述**：全库其余徽章/胶囊早已迁 `a-tag`（`ModelMetaCard .meta-chip`、`LocalModelsPanel` tagColor/fitColor、`ParamSummaryCard .summary-chip`、`PresetsPanel .active-badge`、`StatusTag`、`StatusBar`），唯下载卡片 5 类徽章仍是手绘 `<span>` 胶囊（`padding` / `border-radius` / `letter-spacing` 各写一遍）；全库 `grep -s "badge"` 仅 DownloadCard 定义 `-badge` 类。另 `.chip-count` 以 `opacity: 0.75/0.85` 削弱计数文字，违反 §7.5.2「文字不用 opacity 削弱」。
+- **修复**：5 类徽章改 `a-tag size="small"` 承载（保留 §7.5.4 ① 的 `1px 6px` 内距与 `--radius-pill` 圆角，视觉零变化；删除 `display: inline-block` 让 Arco 的 inline-flex 生效；`.rec-badge` 的 `#fff` 改 `var(--primary-fg)`）；`.chip-count` 去 opacity，改 `--color-text-2` + `color-mix(in srgb, currentColor 12%, transparent)` 底（随选中态与主题自动同源，删除按状态分列的第二条规则）。
+- **修复效果验证**：`grep` 确认 DownloadCard 已无 `<span class="…badge">`、无 `opacity`；`pnpm style:audit` 12/12 全绿；`vue-tsc --noEmit` + `vitest run`（66 tests）+ `vite build` 全通过。
+
+### 61. 下载卡片覆写 Arco 内部态类 `.arco-tag-checked`（且注释引用已失效规范）— 🟢 已修复（2026-09-18）
+
+- **位置**：`DownloadCard.vue` `.cat-chip`（原 `&.arco-tag-checked { background: rgb(var(--primary-6)); … }` 与 `&:hover:not(.arco-tag-checked)`）。
+- **描述**：类别筛选 chip 覆写 Arco 内部态类做「实底主色」选中态，是组件层唯一覆写 `arco-tag-checked` 的地方（`theme.scss` 状态栏芯片属业务例外）；且注释称「§7.5.1 筛选 chip 选中 = `--primary-*` 黑白高对比」——§7.5.1 现行文本为「hover/选中态用 Arco 组件自带态或 `--color-fill-3`」，该注释引用的是已被「主题色改蓝」取代的旧黑白基调，属历史遗漏；覆写 Arco 内部态类还随 Arco 版本升级易碎（审计新增第 12 条）。
+- **修复**：删除全部 hover/选中态覆写（含冗余 `cursor: pointer`，Arco `.arco-tag-checkable` 自带），改 `color="arcoblue"` 由 Arco 原生渲染——选中底 = `rgb(var(--arcoblue-1))`（即 `rgb(var(--primary-1))` = 浅色 `--row-selected-bg`）/ 深色 `rgba(var(--arcoblue-6), .2)`（= 深色 `--row-selected-bg`），与全站选中态同源；保留筛选标签语义的 `--radius-pill` 圆角（已确认设计决策）与文本-计数间距。
+- **修复效果验证**：`grep -r "arco-tag-checked" packages/ui/src` 仅剩说明性注释；`pnpm style:audit` 第 12 条 ✅；选中/未选中/悬停三态由 Arco 接管，深浅主题自适应。
+
+### 62. 下载卡片非 scoped 样式块裸写 Arco 全局类名（全局外泄）— 🟢 已修复（2026-09-18）
+
+- **位置**：`DownloadCard.vue` 非 scoped `<style lang="scss">` 块（原 `.arco-dropdown-group-title { … }`、`.url-history-icon`、`.url-history-text`）。
+- **描述**：URL 历史下拉的 popup 由 `a-dropdown` 传送 body，需非 scoped 样式；但块内直接写裸 `.arco-dropdown-group-title`——全应用任何 `a-dgroup` 标题都会被改成下载卡片的排版（`padding: 4px 10px 6px` / uppercase / 0.5px 字距）。同类全局块均有命名空间（ParamsPage `.target-menu …`、GeneralPanel `.exe-help-panel …`），此处为唯一裸写。
+- **修复**：全部选择器以本下拉私有类圈定——标题用 `.arco-dropdown-list:has(> .url-history-item) .arco-dropdown-group-title`（`a-dgroup` 渲染为 Fragment、标题 `li` 无法挂私有类，故用 `:has()` 反查，同 ParamsPage 范式），条目/图标/文本统一挂到 `.arco-dropdown-option.url-history-item` 下；块上方注释同步。
+- **修复效果验证**：`pnpm style:audit` 新增第 11 条 ✅（全库 42 文件）；`grep -r "arco-dropdown-group-title" packages/ui/src` 仅命中带 `:has()` 作用域的选择器与注释。
+
+### 63. 下载卡片布局/体例离群（Grid 任务项、列表覆写面、私有标题体例、间距与冗余）— 🟢 已修复（2026-09-18）
+
+- **位置**：`DownloadCard.vue` `.task-item` / `.task-main` / `.task-actions`、`.result-list` / `.file-list`、`.section-title` / `.group-title`、`.cat-filter`、`.url-row`、`.file-item.recommended`。
+- **描述**：① 任务项用 `display: grid`（3 行 × 2 列）——全库 grid 仅两处，另一处是 §7.5.7 明文规范的 `param-grid`，属布局范式离群；② 两个列表 `:deep(.arco-list-item) { padding: 0; border-bottom: none; background: none }`——`border-bottom` 覆写可用 `:split` prop 原生替代、`background` 本就为空（`.arco-list` / `.arco-list-item` 均无背景色），覆写面过大（PresetsPanel 已明确「对齐 Arco 原生列表样式、不再覆盖」）；③ `.section-title` 为全库唯一私有标题体例且字号 `--fs-base` 与组标题 `--fs-sm` 不一致，独立组标题缺 §7.5.4 ③ 下划线；④ `.cat-filter` gap 4px 与 §7.5.4 刻度表标注的 6px 不符（注释引用的 `level-chips` 已随迁移改 `a-radio-group`，属历史遗漏），`.task-actions` gap 4px 与同语义 `LocalModelsPanel .row-actions`（6px）不一致；⑤ `.url-row` 过渡声明含从不变化的 `transform`（死声明）；⑥ `.file-item.recommended` 用裸 `box-shadow: inset 3px 0 0` 画装饰竖条（§7.5.8 禁裸 box-shadow；审计第 6 条因「行内含 `var(--` 即放行」漏过）。
+- **修复**：① 改 flex（`.task-item` flex + 新增 `.task-main` 纵向承载信息/进度/统计，几何等价）；② 两个 `a-list` 加 `:split="false"`，覆写收敛为仅 `padding: 0`（行容器自带卡片内距），并删冗余 `background: none`；③ `.section-title` 字号归 `--fs-sm`，独立组标题改用新增 `.group-title`（§7.5.4 ③ 体例）；④ `.cat-filter` gap → 6px、`.task-actions` gap → 6px；⑤ 删除 `transform` 过渡声明；⑥ 改 `border-left-width: 3px`（同一 token 色）。
+- **修复效果验证**：`grep` 确认 DownloadCard 已无 `display: grid` / `box-shadow` / `display: inline-block` / `#fff` / `transform var(--dur`；`pnpm style:audit` 12/12 全绿（含第 4 条间距刻度）；`vue-tsc --noEmit` + `vitest run` + `vite build` 全通过。
+
+### 64. 规范文档漂移：§7.5.3「标签/chip 4px」与 Arco a-tag 默认 2px 不符；徽章承载/列表行/筛选选中态未登记 — 🟢 已修复（2026-09-18）
+
+- **位置**：`docs/frontend.md` §7.5.3 / §7.5.4 ①③ / §7.5.6 / §7.5.7 / §7.5.8。
+- **描述**：① §7.5.3 称「组件圆角直接走 Arco 组件默认（…标签/chip 4px…）」，实测 Arco 2.58 `--border-radius-small: 2px`（`.arco-tag` 默认圆角 2px），描述与实现不符；② 彩色小徽章的承载方式（`a-tag`）与盒模型（`1px 6px` + `--radius-pill`）未写入规范；③ 独立组标题/卡片内小节标题两档体例、筛选 chip 选中态实现、列表行两种既定变体、布局范式（内容区 flex、grid 仅限 `param-grid`）均未登记，导致下载卡片自成一套。
+- **修复**：§7.5.3 修正为「a-tag 2px；筛选 chip 与彩色小徽章按业务约定显式取 `--radius-pill` 4px」；§7.5.4 ① 补「一律 `a-tag size="small"` 承载、禁自绘 `<span>` 胶囊」；§7.5.4 ③ 补 `.group-title` 与 `.section-title` 两档；§7.5.6 补「非 scoped 块顶层选择器必须含组件私有类」；§7.5.7 补「下载分类徽章 a-tag 承载」「筛选 chip 选中态走 Arco 自带态 + `color` prop」「列表行两种变体（原生行 / 紧凑可选中行）」「内容区一律 flex」；§7.5.8 清单补 3 条（非 scoped 命名空间、禁覆写 Arco 内部态类、徽章与列表行约束）。
+- **修复效果验证**：`pnpm docs:check`（文档链接校验）通过；`pnpm style:audit` 12/12 全绿；文档描述与 DownloadCard 实现一致（a-tag 承载、`--radius-pill`、6px 筛选组间距、flex 任务项）。
+
+***
+
+### 65. 真机渲染核对发现的样式缺陷（深色单类徽章被 Arco 压掉 / 列表行内距归零失效 / demo-mock 数据漂移）— 🟢 已修复（2026-09-18）
+
+- **位置**：`DownloadCard.vue`（`.info-tag` / `.rec-badge` / `.result-list` / `.file-list` 的 `:deep(.arco-list-item)`）、`packages/ui/src/dev/demo-mock.ts`（`download.listFiles`）。
+- **描述（真机渲染实测发现；静态审计 12 条与单测均无法覆盖）**：
+  ① **深色主题单类徽章被 Arco 压掉**——`.info-tag` / `.rec-badge` 是单类选择器（特异性 (0,2,0)），而 Arco 的 `body[arco-theme='dark'] .arco-tag(-checked)` 为 (0,2,1)：深色下 `.info-tag` 的 `rgb(var(--primary-6))` 蓝字被替换为 `--color-text-1`（实测 `rgba(255,255,255,0.9)`）、`.rec-badge` 的 `var(--primary-fg)` 同被替换（浅色下两者均正常）。`.source-badge` / `.file-cat` / `.quant-badge` 因带第二个类（(0,3,0)）不受影响。
+  ② **列表行内距归零从未生效**——`.file-list :deep(.arco-list-item) { padding: 0 }` 特异性 (0,3,0)，低于 Arco `size="small"` 的 `.arco-list-small .arco-list-content-wrapper .arco-list-content > .arco-list-item`（(0,4,0)）：真机实测行内距为 `9px 20px`，行容器 `.file-item` / `.result-item` 自带的 `padding: 6px 10px` / `8px 10px` 同样被压掉（与 `.arco-list-item` 是同一元素），「紧凑可选中行」实际从未紧凑（**存量缺陷**，非本次样式收敛引入；同一原因也使 `.result-item` 的间距从未生效）。
+  ③ **demo-mock 数据与真后端漂移**——`download.listFiles` 手写 `quantization.family: 'k'`，与 shared `parseQuantization` 的 `QuantizationFamily`（`k-quants` / `i-quants` / `legacy` / `fp8` / `bf16` / `fp16` / `fp32` / `int`）不符：渲染 class 为 `quant-k`，`.quant-k-quants` 等样式类全部失配，量化徽章退化为 Arco 默认灰底；同时缺 `sizeStr`（真后端 `core/huggingface-client.ts:239`、`core/modelscope-client.ts:182` 均产出），浏览器预览下文件大小列为空白。
+- **修复**：① `.info-tag` → `.parsed-info .info-tag`、`.rec-badge` → `.file-item .rec-badge`（特异性升至 (0,3,0)，压过 Arco 深色规则）；② 行内距归零改按同构选择器 `:deep(.arco-list-content-wrapper .arco-list-content > .arco-list-item)`（(0,5,0)）并在注释中写明原因；③ demo-mock 改为 `quantization: parseQuantization(<文件名>)` + `sizeStr: formatBytes(<size>)`，直接复用 shared 真实现，从根上杜绝同类漂移。
+- **修复效果验证**（Playwright + 真实构建产物 + demo-mock，产物落 `test-results/render-check/`）：行内距 `9px 20px → 0px`；深色 `.info-tag` `rgba(255,255,255,.9) → rgb(60,126,255)`（= 深色 `--primary-6`）、`.rec-badge` → `rgb(255,255,255)`（= `--primary-fg`）；`.quant-badge` class `quant-k → quant-k-quants` 且取 `--badge-quant-*` 色、量化徽章数 `2 → 3`；文件大小列 `'' → '4.56 GB'`；任务行几何零重叠（进度条 right 1230 / 操作区 x 1238）、`scrollWidth - clientWidth = 0`、文档无横向溢出；控制台 0 error / 0 pageerror。`pnpm style:audit` 12/12 全绿；`vue-tsc --noEmit` + `vitest run`（66 tests）+ `vite build` + `oxlint` 全通过。
+- **附：本次核对证伪项（记录以免重复排查）**：截图目测曾疑似「下载任务进度条溢出压住右侧暂停/取消按钮」——DOM 矩形实测为误报（`.task-progress-bar` x=300 / right=1230，`.task-actions` x=1238 / right=1364，无交集；`overflowX/Y` 均为 0）。结论：几何类判定以 DOM 实测为准，不采信纯目测。
+
+### 66. FileBrowserModal 行选中/悬停底色规则永不匹配（`.fb-row` 本身即 `.arco-list-item`）— 🟢 已修复（2026-09-18）
+
+- **位置**：`FileBrowserModal.vue` 样式块的 `.fb-row` 与 `.fb-row:hover`。
+- **描述**：`.fb-row` 挂在 `a-list-item` 上，该元素的根 class 就是 `.arco-list-item`；而样式写成 `.fb-row.is-selected :deep(.arco-list-item)` 与 `.fb-row:hover :deep(.arco-list-item)`——两者都要求「行元素**内部的后代**列表项」，结构上并不存在，编译产物 `.fb-row.is-selected[data-v-x] .arco-list-item` **永远匹配不到**：文件浏览弹窗的行选中高亮与悬停反馈实际从未生效。真机渲染核对发现；与 #65 ② 的 `:deep(.arco-list-item)` 归零失效同一根因（把行元素自身误当作行的祖先）。
+- **修复**：选择器落到行元素本身——`&.is-selected, &.is-selected:hover { background: var(--row-selected-bg) }`、`.fb-row:hover { background: var(--color-fill-3) }`；补 `&.is-selected:hover` 是为在同特异性下压过 `:hover` 规则，保证悬停中的选中行不掉色（同 #56 口径）。
+- **修复效果验证**：CSSOM 编译结果由 `.fb-row.is-selected[data-v-x] .arco-list-item` 变为 `.fb-row.is-selected[data-v-x], .fb-row.is-selected[data-v-x]:hover`（不再依赖后代元素）＋ `.fb-row[data-v-x]:hover`；`pnpm style:audit` 12/12 全绿；`vue-tsc --noEmit` + `vitest run`（66）+ `vite build` 通过。⚠️ **像素级验证不可达**：预览环境 `system.listDir` 为空、且文件类参数分组默认收起，核对脚本无法触发弹窗入口——建议真机点一次「浏览」目视确认选中/悬停底色。
+
+### 67. 徽章调色板撞色（来源族与量化族同色）+ 来源标识同区块重复 — 🟢 已修复（2026-09-18）
+
+- **位置**：`theme.scss` 徽章色板（`--badge-src-*` / `--badge-quant-*`）、`DownloadCard.vue`（`.parsed-info .info-tag`、`.files-header .source-badge`、`.source-badge.src-*`）。
+- **描述（真机渲染核对发现）**：
+  ① **撞色**：`--badge-src-huggingface` 与 `--badge-quant-k` **同为 `#2563eb`**，而这两个徽章在下载任务行**并排出现**（`HF Mirror` + `Q4_K_M`），真机实测两者计算色完全相同（`rgb(37,99,235)`）无法区分。根因是色相预算被占满——类别族 4 值（紫 / 绿 / 琥珀 / 中性）+ 量化族 8 值（蓝 / 紫罗兰 / 灰 / 橙 / 青 / 绿 / 石板 / 红）已用尽可用色相，来源族 2 值无论取哪个彩色都会与某一族相邻或同值。
+  ② **来源标识重复**：「模型文件」区块内，解析信息行 `.info-tag`（解析 URL 来源）与文件区标题 `.source-badge`（当前文件列表来源）**紧邻显示同一个来源**——真机截图目测与 DOM 计数均确认同屏 2 处 `HF Mirror`。
+- **修复**：
+  ① 来源族**不占色相**，改中性配色（`--color-text-2` + `--color-fill-2`），删除 `--badge-src-modelscope` / `--badge-src-huggingface` 两个 token，并在 `theme.scss` 写明「色相预算」规则：来源以文字区分（`HF Mirror` / `ModelScope`），作为次要信息视觉层级退后；中性后与任一彩色属性徽章同行均可区分（对全部组合成立，不再依赖色相预算）。
+  ② 解析信息行不再显示来源徽标（只留 `modelId` 与可选 `fileName`），来源标识**只在「模型文件」区标题与下载任务行各出现一次**——保留文件区标题那处，是因为 `currentSource` 可能因用户改选搜索结果而不同于 URL 解析来源，文件列表的来源必须就地可读；随之删除已无引用的 `parseSourceLabel()`。
+- **修复效果验证**（Playwright + 真实构建产物 + demo-mock）：`.info-tag` 计数 `1 → 0`、文件区 `.source-badge` 计数 `1`；来源徽标浅色 `rgb(78,89,105)` + `rgb(242,243,245)`（= `--color-text-2` / `--color-fill-2`）、深色 `rgba(255,255,255,.7)` + `rgba(255,255,255,.08)`（= 深色同名 token）；任务行同排「HF Mirror」（中性灰）与「Q4_K_M」（蓝 `rgb(37,99,235)`）实测可区分；`pnpm style:audit` 12/12、`vue-tsc --noEmit`、`vitest run`（66）、`vite build` 全通过，控制台 0 error。
+
 ## 🟢 已修复索引
 
 完整的问题描述 / 修复方案 / 验证证据见 [已修复归档](../archive/style-todo-resolved.md)（只读留档）；修复后的规范落点见 [frontend.md §7.5](../frontend.md)。
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 67 | 徽章调色板撞色（来源族与量化族同为 #2563eb）+ 来源标识同区块重复 | 2026-09-18 |
+| 66 | FileBrowserModal 行选中/悬停底色选择器永不匹配（`.fb-row` 即 `.arco-list-item`） | 2026-09-18 |
+| 65 | 真机渲染核对发现的样式缺陷（深色单类徽章被 Arco 压掉 / 列表行内距归零特异性失效 / demo-mock 量化 family 与 sizeStr 漂移） | 2026-09-18 |
+| 60 | 下载卡片徽章体系未 Arco 化（5 类手绘 span 徽章）+ 计数徽章 opacity 削弱文字 | 2026-09-18 |
+| 61 | 下载卡片覆写 Arco 内部态类 `.arco-tag-checked`（注释引用已失效规范） | 2026-09-18 |
+| 62 | 下载卡片非 scoped 样式块裸写 Arco 全局类名（全局外泄） | 2026-09-18 |
+| 63 | 下载卡片布局/体例离群（Grid 任务项、列表覆写面、私有标题体例、间距与冗余） | 2026-09-18 |
+| 64 | 规范文档漂移：§7.5.3 标签圆角 4px/2px、徽章承载与列表行未登记 | 2026-09-18 |
+| 54 | Sidebar 版本号裸字号 12px | 2026-09-07 |
+| 55 | 设计 token 文档漂移：theme.scss 已扁平化为「纯 Arco 默认」，§7.5.3/§7.5.6 与 AGENTS.md 仍描述旧胶囊/玻璃体系 | 2026-09-07 |
+| 56 | 模型表格选中行 hover 掉色（Arco 行 hover 规则压过选中态底色） | 2026-09-13 |
+| 57 | 深色主题选中行底色过深（primary-1 深色取值为近黑藏青，整行铺满观感差） | 2026-09-13 |
+| 58 | 状态标签 a-tag 传入 Arco 不识别的语义色名（success/warning/danger/processing） | 2026-09-13 |
+| 59 | 状态栏标签芯片深色主题下叠蓝铬面对比不足（gray ≈ 1.4:1 不可读） | 2026-09-13 |
 | 53 | 文字可读性专项：弹窗 panel 文字脱离 backdrop-filter 发虚（blur 移 ::before 叶子层）、StatusBar 白字去 opacity（0.65→~2.6:1 升满不透明 4.5:1）、新增 --success/warn/danger-text 自适应变体使浅色面语义文字由 2.2–3.8:1 升至 ≥4.5:1（控制台/日志保留亮色）、hint 去 opacity | 2026-09-04 |
 | 52 | 跨页面间距一致性统一（全量间距审查）：筛选 chip 水平内距 `0 9px`→`0 8px`（DownloadCard 对齐 level-chip）、fs-sm `.rec-chip` `2px 8px`→`3px 8px`、`.empty` 空态 `16px`→`20px`（BenchPanel 对齐 Presets/LocalModels）；标准固化 §7.5.4 ⑥⑦ | 2026-09-04 |
 | 49 | 概览「最近问题」空态占位 `line-height: 72px` 违反行高语义化清单（style-audit #9 ❌）→ flex 居中 + `min-height: 60px` | 2026-09-04 |
@@ -152,7 +234,12 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 - **mini-btn 默认文字色** **`--fg-secondary`**：行内小按钮使用次级文字色（区别于 `action-btn` 的 `--fg-primary`），符合「mini = 行内次级操作」语义层级，已确认保留（frontend.md §7.5.5）。
 
-- **筛选 chip 圆角**：DownloadCard 等筛选 chip 走胶囊 `--radius-pill`（筛选标签语义），已在 frontend.md §7.5.3 圆角体系中固化。注：本条原记录「容器卡片走 `--radius-card`（16px）」已失效——该 token 随 #20 分区风格 / #22 清理移除，分区卡片现为 `border-radius: 0`，圆角仅存 pill/modal/row/control 四 token + 2px 轨道 + 50% 圆形。
+- **筛选 chip 圆角**：DownloadCard 等筛选 chip 走胶囊 `--radius-pill`（筛选标签语义），已在 frontend.md §7.5.3 圆角体系中固化。**注（2026-09-18）**：该圆角是业务约定、非 Arco 默认（a-tag 默认 `--border-radius-small` 为 2px）；chip 的 hover/选中态自 2026-09-18 起一律交回 Arco 自带态（`color="arcoblue"`），不再覆写 `.arco-tag-checked`。注：本条原记录「容器卡片走 `--radius-card`（16px）」已失效——该 token 随 #20 分区风格 / #22 清理移除，分区卡片现为 `border-radius: 0`，圆角仅存 pill/modal/row/control 四 token + 2px 轨道 + 50% 圆形。
+
+- **彩色小徽章盒模型**：下载卡片的 `--badge-*` 彩色小徽章统一 `a-tag size="small"` 承载 + `1px 6px` 内距 + `--radius-pill` 圆角（§7.5.4 ①）。
+
+- **列表行两种变体**：原生行（`a-list` 默认，如 PresetsPanel）与紧凑可选中行（`:split="false"` + 行容器自带边框/内距/选中底色，如 DownloadCard、FileBrowserModal）并存，**禁止第三种**（§7.5.7）。
+- **徽章调色板色相预算**：下载徽章分三族——类别族（4 值彩色）、量化族（8 值彩色）、来源族（**中性**，不占色相）。色相预算已被前两族占满，来源族若取彩色必然与同行属性徽章撞色（原 `--badge-src-huggingface` 与 `--badge-quant-k` 同为 `#2563eb`），故来源一律中性 + 文字区分；类别族与量化族之间存在色相相邻（如 `cat-gguf` 紫 ↔ `quant-i` 紫罗兰、`cat-safetensors` 绿 ↔ `quant-fp16` 绿），因两族徽章位置固定且**必带文字标签**（`GGUF` vs `Q4_K_M`），判为可接受，不追求色相正交。
 
 
 ***

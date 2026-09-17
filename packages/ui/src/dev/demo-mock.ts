@@ -1,7 +1,7 @@
 // 开发预览演示数据（仅浏览器 mock 环境注入，Electron 真实 api 不受影响）。
 // main.ts 在无 Electron preload 时调用 createDemoApi()，让预览环境呈现完整业务状态，
 // 便于目测 UI 布局与交互。数据为静态仿真 + 周期性模拟服务日志/下载进度。
-import { PARAMS, APP_VERSION } from '@llama-launcher/shared';
+import { PARAMS, APP_VERSION, parseQuantization, formatBytes } from '@llama-launcher/shared';
 import type {
   AppSettings, ModelInfo, Preset, GgufReadResult,
   ParsedModelUrl, OutputEntry, AppLogEntry,
@@ -449,12 +449,15 @@ export function createDemoApi() {
         ok: true,
         data: {
           namespace: 'Qwen', name: 'Qwen3-8B',
+          // 字段与 packages/core 的 *-client.ts 对齐：sizeStr 与 quantization 均由后端计算。
+          // quantization 直接复用 shared 的真解析器（此前手写 family: 'k' 与
+          // QuantizationFamily 枚举不符，导致 .quant-k-quants 等样式类全部失配、徽章退化为 Arco 默认灰底）。
           files: [
-            { name: 'Qwen3-8B-Instruct-Q8_0.gguf', path: 'Qwen3-8B-Instruct-Q8_0.gguf', size: 8624000000, quantization: { label: 'Q8_0', bits: 8, family: 'k' }, category: 'gguf', isRecommended: true },
-            { name: 'Qwen3-8B-Instruct-Q4_K_M.gguf', path: 'Qwen3-8B-Instruct-Q4_K_M.gguf', size: 4900000000, quantization: { label: 'Q4_K_M', bits: 4.5, family: 'k' }, category: 'gguf' },
-            { name: 'README.md', path: 'README.md', size: 9200, category: 'other' },
+            { name: 'Qwen3-8B-Instruct-Q8_0.gguf', path: 'Qwen3-8B-Instruct-Q8_0.gguf', size: 8624000000, sizeStr: formatBytes(8624000000), quantization: parseQuantization('Qwen3-8B-Instruct-Q8_0.gguf'), category: 'gguf', isRecommended: true },
+            { name: 'Qwen3-8B-Instruct-Q4_K_M.gguf', path: 'Qwen3-8B-Instruct-Q4_K_M.gguf', size: 4900000000, sizeStr: formatBytes(4900000000), quantization: parseQuantization('Qwen3-8B-Instruct-Q4_K_M.gguf'), category: 'gguf' },
+            { name: 'README.md', path: 'README.md', size: 9200, sizeStr: formatBytes(9200), category: 'other' },
             ...(source === 'huggingface' ? [
-              { name: 'text_encoders/qwen3vl_4b_fp8_scaled.safetensors', path: 'text_encoders/qwen3vl_4b_fp8_scaled.safetensors', size: 5242467968, category: 'safetensors' },
+              { name: 'text_encoders/qwen3vl_4b_fp8_scaled.safetensors', path: 'text_encoders/qwen3vl_4b_fp8_scaled.safetensors', size: 5242467968, sizeStr: formatBytes(5242467968), quantization: parseQuantization('text_encoders/qwen3vl_4b_fp8_scaled.safetensors'), category: 'safetensors' },
             ] : []),
           ],
         } as never as ModelScopeFileListResult,

@@ -195,6 +195,49 @@ for (const f of files) {
   });
 }
 
+// 11) 非 scoped 样式块：顶层选择器必须含至少一个组件私有类，禁止只由 Arco 全局类名构成
+//     （作用域范式：ParamsPage .target-menu / GeneralPanel .exe-help-panel / DownloadCard .url-history-*，§7.5.6）
+const a11 = new Audit();
+const STATE_SUFFIX = ['-checked', '-active', '-selected', '-disabled', '-current', '-dragging', '-expanded'];
+function classesOf(sel) {
+  const out = [];
+  for (let i = 0; i < sel.length; i++) {
+    if (sel.charAt(i) !== '.') continue;
+    let j = i + 1;
+    let name = '';
+    while (j < sel.length && /[A-Za-z0-9_-]/.test(sel.charAt(j))) { name += sel.charAt(j); j++; }
+    if (name) out.push(name);
+    i = j - 1;
+  }
+  return out;
+}
+for (const f of files) {
+  let inNonScoped = false;
+  readLines(f).forEach((ln, i) => {
+    if (ln.indexOf('<style') >= 0) { inNonScoped = ln.indexOf('scoped') < 0; return; }
+    if (ln.indexOf('</style>') >= 0) { inNonScoped = false; return; }
+    if (!inNonScoped) return;
+    const t = ln.trim();
+    if (!t || isComment(ln) || t.charAt(0) === '@') return;
+    if (t !== ln || t.charAt(t.length - 1) !== '{') return; // 仅顶层选择器（顶格且以 { 结尾）
+    const cls = classesOf(t);
+    if (cls.length === 0) return;
+    if (!cls.some((c) => c.indexOf('arco-') !== 0)) a11.add(f, i + 1, ln);
+  });
+}
+
+// 12) 禁止覆写 Arco 内部态类（.arco-*-checked/-active/-selected/-disabled 等，随版本升级易碎）
+const a12 = new Audit();
+for (const f of files) {
+  readLines(f).forEach((ln, i) => {
+    if (isComment(ln)) return;
+    const hit = classesOf(ln).some(
+      (c) => c.indexOf('arco-') === 0 && STATE_SUFFIX.some((s) => c.endsWith(s)),
+    );
+    if (hit) a12.add(f, i + 1, ln);
+  });
+}
+
 // ---------- 输出 ----------
 const out = [
   render('1. 组件内裸颜色（token 禁令）', a1.items),
@@ -208,11 +251,13 @@ const out = [
   render('8. 动画只动 transform/opacity（布局属性走 var(--dur-*)）', a8.items),
   render('9. 行高语义化（1/1.3/1.4/1.5/1.55/1.6）', a9.items),
   render('10. 字重只取 400/600/700', a10.items),
+  render('11. 非 scoped 样式块选择器含组件私有类（防 Arco 全局类名外泄）', a11.items),
+  render('12. 不覆写 Arco 内部态类（.arco-*-checked/active/selected/disabled）', a12.items),
   `\n扫描 ${files.length} 个文件 · 规范依据 docs/frontend.md §7.5`,
 ];
 
 console.log(out.join('\n'));
 
 const failed =
-  [a1, a2, a3, a4, a5, a6, a8, a9, a10].some((a) => a.items.length > 0);
+  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12].some((a) => a.items.length > 0);
 process.exit(failed ? 1 : 0);

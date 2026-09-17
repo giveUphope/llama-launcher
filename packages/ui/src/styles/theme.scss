@@ -11,6 +11,12 @@
   --fs-appname: 16px;                  // TopBar 应用名专用字号
   --statusbar-blue: #007acc;           // 状态栏深蓝底（业务品牌色）
   --statusbar-hover: rgba(255, 255, 255, 0.15); // 状态栏白字 hover（表面着色，非 elevation）
+  /* 徽章分类色（frontend.md §7.5.7）：两族彩色 + 来源族中性。
+     ① 类别族 cat-*（文件类型，4 值）；② 量化族 quant-*（精度家族，8 值）。
+     ③ 来源族（ModelScope / HF Mirror）**不占色相**，走 --color-text-2 + --color-fill-2 中性底：
+     可用色相已被 ①② 占满，来源再取彩色必然与同行属性徽章撞色——原
+     --badge-src-huggingface 与 --badge-quant-k 同为 #2563eb，而二者在下载任务行并排出现。
+     来源以文字区分、视觉层级退后（见 STYLE_TODO #67）。 */
   --badge-cat-gguf: #6f4fd8;
   --badge-cat-safetensors: #1f9d72;
   --badge-cat-bin: #c87f0a;
@@ -22,8 +28,6 @@
   --badge-quant-fp16: #16a34a;
   --badge-quant-fp32: #475569;
   --badge-quant-int: #dc2626;
-  --badge-src-modelscope: #c87f0a;
-  --badge-src-huggingface: #2563eb;
 
   /* 迁移兼容层：业务组件替换前，将旧语义映射到 Arco token。 */
   --radius-pill: 4px;

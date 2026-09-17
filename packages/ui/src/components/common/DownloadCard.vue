@@ -621,13 +621,6 @@ function sourceLabel(source: DownloadSource): string {
     : i18n.t('lbl_source_modelscope');
 }
 
-// 解析结果来源徽标文本：ParsedModelUrl.source 可能为 'lmstudio'/'unknown'（品牌名不翻译，与按钮「HF Mirror/ModelScope」一致）
-function parseSourceLabel(source: NonNullable<ParsedModelUrl['source']>): string {
-  if (source === 'modelscope' || source === 'huggingface') return sourceLabel(source);
-  if (source === 'lmstudio') return 'LM Studio';
-  return '—';
-}
-
 // 量化徽标 tooltip：包含位宽信息
 function quantTooltip(q: QuantizationInfo | null): string {
   if (!q) return '';
@@ -700,17 +693,16 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
       <!-- 解析信息 -->
       <div v-if="parsedInfo" class="parsed-info">
-        <span class="info-tag">{{ parseSourceLabel(parsedInfo.source) }}</span>
         <span class="info-id">{{ parsedInfo.modelId }}</span>
         <span v-if="parsedInfo.fileName" class="info-file">→ {{ parsedInfo.fileName }}</span>
       </div>
 
       <!-- 搜索结果列表（分页式） -->
       <div v-if="searchResults.length > 1" class="search-results">
-        <div class="section-title">
+        <div class="group-title">
           {{ i18n.t('lbl_search_results') }} ({{ searchResults.length }})
         </div>
-        <a-list class="result-list" :bordered="false" size="small">
+        <a-list class="result-list" :bordered="false" :split="false" size="small">
           <a-list-item
             v-for="m in pagedResults"
             :key="m.id"
@@ -742,7 +734,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
         <div class="files-header">
           <span class="section-title">
             {{ i18n.t('lbl_model_files') }}
-            <span class="source-badge" :class="`src-${currentSource}`">{{ sourceLabel(currentSource) }}</span>
+            <a-tag class="source-badge" size="small">{{ sourceLabel(currentSource) }}</a-tag>
           </span>
           <a-button
             v-if="currentSource === 'huggingface'"
@@ -769,6 +761,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
           <a-tag
             class="cat-chip"
             checkable
+            color="arcoblue"
             :checked="categoryFilter === 'all'"
             @check="setCategory('all')"
           >
@@ -780,6 +773,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
             :key="c"
             class="cat-chip"
             checkable
+            color="arcoblue"
             :checked="categoryFilter === c"
             @check="setCategory(c)"
           >
@@ -792,7 +786,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
         <div v-else-if="filesError" class="error-msg">{{ filesError }}</div>
         <div v-else-if="modelFiles.length === 0" class="empty-msg">{{ i18n.t('msg_no_files') }}</div>
         <div v-else-if="pagedFiles.length === 0" class="empty-msg">{{ i18n.t('msg_no_files_in_cat') }}</div>
-        <a-list v-else class="file-list" :bordered="false" size="small">
+        <a-list v-else class="file-list" :bordered="false" :split="false" size="small">
           <!-- 模型文件列表：a-list 承载（行选中 = 行点击 + a-checkbox，§7.5.5 交互控件原生） -->
           <a-list-item
             v-for="f in pagedFiles"
@@ -808,14 +802,15 @@ function quantTooltip(q: QuantizationInfo | null): string {
               @change="toggleFile(f.path)"
             />
             <span class="file-name" :title="f.path">{{ f.name }}</span>
-            <span
+            <a-tag
               v-if="f.quantization"
               class="quant-badge"
+              size="small"
               :class="`quant-${f.quantization.family}`"
               :title="quantTooltip(f.quantization)"
-            >{{ f.quantization.label }}</span>
-            <span v-if="f.path === recommendedPath" class="rec-badge">{{ i18n.t('lbl_recommended') }}</span>
-            <span class="file-cat" :class="`cat-${f.category}`">{{ categoryLabel(f.category) }}</span>
+            >{{ f.quantization.label }}</a-tag>
+            <a-tag v-if="f.path === recommendedPath" class="rec-badge" size="small">{{ i18n.t('lbl_recommended') }}</a-tag>
+            <a-tag class="file-cat" size="small" :class="`cat-${f.category}`">{{ categoryLabel(f.category) }}</a-tag>
             <span class="file-size">{{ f.sizeStr }}</span>
           </a-list-item>
         </a-list>
@@ -871,35 +866,38 @@ function quantTooltip(q: QuantizationInfo | null): string {
         </div>
         <div class="task-list">
           <div v-for="t in tasks" :key="t.id" class="task-item">
-            <div class="task-info">
-              <span class="task-name" :title="t.fileName">{{ t.fileName }}</span>
-              <span class="task-model">
-                {{ t.modelId }}
-                <span class="source-badge" :class="`src-${t.source}`">{{ sourceLabel(t.source) }}</span>
-                <span
-                  v-if="taskQuant(t)"
-                  class="quant-badge"
-                  :class="`quant-${taskQuant(t)?.family}`"
-                  :title="quantTooltip(taskQuant(t))"
-                >{{ taskQuant(t)?.label }}</span>
-              </span>
-            </div>
-            <div class="task-progress-bar">
-              <a-progress
-                :percent="progressPct(t)"
-                :show-text="false"
-                :stroke-width="6"
-                :color="'rgb(var(--primary-6))'"
-              />
-            </div>
-            <div class="task-stats">
-              <span class="task-status" :style="{ color: statusColor(t.status) }">
-                {{ statusText(t.status) }}
-              </span>
-              <span class="task-size">{{ formatDownloaded(t) }}</span>
-              <span v-if="t.status === 'downloading'" class="task-speed">{{ formatSpeed(t.speed) }}</span>
-              <span v-if="t.status === 'downloading'" class="task-eta">{{ i18n.t('lbl_eta') }} {{ formatEta(t) }}</span>
-              <span v-if="t.status === 'error'" class="task-error" :title="t.error">{{ errorDisplay(t) }}</span>
+            <div class="task-main">
+              <div class="task-info">
+                <span class="task-name" :title="t.fileName">{{ t.fileName }}</span>
+                <span class="task-model">
+                  {{ t.modelId }}
+                  <a-tag class="source-badge" size="small">{{ sourceLabel(t.source) }}</a-tag>
+                  <a-tag
+                    v-if="taskQuant(t)"
+                    class="quant-badge"
+                    size="small"
+                    :class="`quant-${taskQuant(t)?.family}`"
+                    :title="quantTooltip(taskQuant(t))"
+                  >{{ taskQuant(t)?.label }}</a-tag>
+                </span>
+              </div>
+              <div class="task-progress-bar">
+                <a-progress
+                  :percent="progressPct(t)"
+                  :show-text="false"
+                  :stroke-width="6"
+                  :color="'rgb(var(--primary-6))'"
+                />
+              </div>
+              <div class="task-stats">
+                <span class="task-status" :style="{ color: statusColor(t.status) }">
+                  {{ statusText(t.status) }}
+                </span>
+                <span class="task-size">{{ formatDownloaded(t) }}</span>
+                <span v-if="t.status === 'downloading'" class="task-speed">{{ formatSpeed(t.speed) }}</span>
+                <span v-if="t.status === 'downloading'" class="task-eta">{{ i18n.t('lbl_eta') }} {{ formatEta(t) }}</span>
+                <span v-if="t.status === 'error'" class="task-error" :title="t.error">{{ errorDisplay(t) }}</span>
+              </div>
             </div>
             <div class="task-actions">
               <a-button
@@ -955,8 +953,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   gap: 8px;
   border: 1px solid transparent;
   border-radius: var(--radius-row);
-  transition: border-color var(--dur-fast) var(--ease-smooth), background var(--dur-fast) var(--ease-smooth),
-    transform var(--dur-fast) var(--ease-jelly);
+  transition: border-color var(--dur-fast) var(--ease-smooth), background var(--dur-fast) var(--ease-smooth);
 
   &.dragging {
     border-color: rgb(var(--primary-6));
@@ -1003,16 +1000,6 @@ function quantTooltip(q: QuantizationInfo | null): string {
   font-size: var(--fs-base);
 }
 
-.info-tag {
-  background: var(--color-fill-3);
-  color: rgb(var(--primary-6));
-  padding: 1px 6px;
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-xs);
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
 .info-id {
   font-family: var(--font-mono);
   color: var(--color-text-2);
@@ -1023,13 +1010,25 @@ function quantTooltip(q: QuantizationInfo | null): string {
   color: rgb(var(--primary-6));
 }
 
-/* 区段标题 */
+/* 卡片内小节标题（「模型文件」「下载任务」等行头：标题在左、操作在右）：
+   字号/字重/字距与组标题同规（§7.5.4 ③），不设下划线——行头已由右侧操作与下方内容分隔 */
 .section-title {
-  font-size: var(--fs-base);
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--color-text-2);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+/* 独立组标题（「搜索结果」）：走 §7.5.4 ③ 标题下划线体例（同 ParamSummaryCard .summary-group-title） */
+.group-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--color-border-2);
 }
 
 /* 搜索结果 */
@@ -1039,21 +1038,21 @@ function quantTooltip(q: QuantizationInfo | null): string {
   gap: 6px;
 }
 
-/* 搜索结果列表：a-list 承载，仅保留条目间距与紧凑化覆盖 */
+/* 搜索结果列表：a-list 承载（:split="false" 走原生 prop 去掉行分隔线，
+   不再以 border-bottom: none 覆写内部样式），仅保留条目间距与行内距归零。
+   行内距归零必须对齐 Arco 的特异性：size=small 的规则是
+   .arco-list-small .arco-list-content-wrapper .arco-list-content > .arco-list-item（(0,4,0)），
+   普通 :deep(.arco-list-item)（(0,3,0)）会被压掉、padding 实际从未归零（真机实测 9px 20px），
+   故按同构选择器对齐；行内距交由行容器 .result-item 自带 */
 .result-list {
-  background: none;
-
   :deep(.arco-list-content) {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: 0;
   }
 
-  :deep(.arco-list-item) {
+  :deep(.arco-list-content-wrapper .arco-list-content > .arco-list-item) {
     padding: 0;
-    border-bottom: none;
-    background: none;
   }
 }
 
@@ -1132,64 +1131,44 @@ function quantTooltip(q: QuantizationInfo | null): string {
 .cat-filter {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px; // 与页内选项胶囊组间距统一（tab-strip / level-chips 同为 4px）
+  gap: 6px; // 密集筛选控件组间距（§7.5.4 刻度 6px 档，与卡片头操作 tasks-actions 同值）
 }
 
-// 类别筛选 chip：checkable a-tag 承载（a-tag medium 默认即高 24px / 内距 0 8px，
-// 符合 §7.5.4 ⑥），仅补胶囊圆角、内距 gap 与实底主色激活态（§7.5.1 筛选 chip
-// 选中 = --primary-* 黑白高对比，不用 Arco 默认淡蓝 checked 底）
+// 类别筛选 chip：checkable a-tag 原生承载（§7.5.4 ⑥：Arco 默认即高 24px / 内距 0 8px，
+// 不写尺寸覆盖）；hover / 选中态一律交回 Arco 自带态（§7.5.1），不再覆写
+// .arco-tag-checked（Arco 内部态类，随版本升级易碎）。color="arcoblue" 使选中底 =
+// rgb(var(--arcoblue-1))（即 rgb(var(--primary-1)) = 浅色 --row-selected-bg）/
+// 深色 rgba(var(--arcoblue-6), 0.2)（即深色 --row-selected-bg）——与全站选中态同源。
+// 仅保留筛选标签语义的胶囊圆角（STYLE_TODO 已确认设计决策）与文本-计数间距。
 .cat-chip {
   gap: 4px;
   border-radius: var(--radius-pill);
-  cursor: pointer;
-
-  &:hover:not(.arco-tag-checked) {
-    background: var(--color-fill-3);
-  }
-
-  &.arco-tag-checked {
-    background: rgb(var(--primary-6));
-    border-color: rgb(var(--primary-6));
-    color: var(--primary-fg);
-
-    &:hover {
-      background: rgb(var(--primary-5));
-      border-color: rgb(var(--primary-5));
-      color: var(--primary-fg);
-    }
-  }
 }
 
+/* 计数徽章：文字不用 opacity 削弱（§7.5.2），次级层级改用 --color-text-2；
+   底色跟随 currentColor 半透明（表面着色，不纳入阴影 token），
+   默认 / hover / 选中态与深浅主题自动同源，无需按状态分列 */
 .chip-count {
   font-size: var(--fs-xs);
-  opacity: 0.75;
-  /* 表面着色（跟随 chip 文本色相的半透明计数底），不纳入阴影 token */
-  background: color-mix(in srgb, var(--color-text-2) 12%, transparent);
+  color: var(--color-text-2);
+  background: color-mix(in srgb, currentColor 12%, transparent);
   border-radius: var(--radius-pill);
   padding: 0 5px;
 }
 
-.cat-chip.arco-tag-checked .chip-count {
-  opacity: 0.85;
-  /* 激活态 chip 为 --primary-bg，计数底跟随主按钮文字色，双主题下均可见 */
-  background: color-mix(in srgb, var(--primary-fg) 22%, transparent);
-}
-
-/* 模型文件列表：a-list 承载，仅保留条目间距/背景覆盖（同 result-list 范式） */
+/* 模型文件列表：a-list 承载（:split="false" 走原生 prop 去掉行分隔线，
+   不再以 border-bottom: none 覆写内部样式），仅保留条目间距与行内距归零。
+   特异性说明同 .result-list（普通 :deep(.arco-list-item) 会被 Arco size=small 规则压掉），
+   行内距交由行容器 .file-item 自带 */
 .file-list {
-  background: none;
-
   :deep(.arco-list-content) {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: 0;
   }
 
-  :deep(.arco-list-item) {
+  :deep(.arco-list-content-wrapper .arco-list-content > .arco-list-item) {
     padding: 0;
-    border-bottom: none;
-    background: none;
   }
 }
 
@@ -1214,9 +1193,10 @@ function quantTooltip(q: QuantizationInfo | null): string {
   }
 
   &.recommended {
+    // 推荐标记竖条：accent 蓝（统一蓝色系，原为彩虹渐变）；
+    // 用加粗左边框承载装饰条，不用裸 box-shadow（§7.5.8）
     border-color: rgb(var(--primary-6));
-    // 推荐标记竖条：accent 蓝（统一蓝色系，原为彩虹渐变）
-    box-shadow: inset 3px 0 0 rgb(var(--primary-6));
+    border-left-width: 3px;
   }
 }
 
@@ -1234,11 +1214,12 @@ function quantTooltip(q: QuantizationInfo | null): string {
   white-space: nowrap;
 }
 
-.rec-badge {
+/* 推荐徽标（a-tag 承载）：作用域收到 .file-item 下（同上，避免 Arco 深色规则压掉 --primary-fg） */
+.file-item .rec-badge {
   flex-shrink: 0;
   font-size: var(--fs-xs);
   font-weight: 600;
-  color: #fff;
+  color: var(--primary-fg);
   background: rgb(var(--primary-6));
   border-radius: var(--radius-pill);
   padding: 1px 6px;
@@ -1262,7 +1243,6 @@ function quantTooltip(q: QuantizationInfo | null): string {
 /* 量化徽标：按 family 着色，便于区分 K-quants / I-quants / FP / INT 系列 */
 .quant-badge {
   flex-shrink: 0;
-  display: inline-block;
   font-size: var(--fs-xs);
   font-weight: 600;
   font-family: var(--font-mono);
@@ -1287,18 +1267,22 @@ function quantTooltip(q: QuantizationInfo | null): string {
   flex-shrink: 0;
 }
 
-/* 来源徽标:区分 ModelScope / HF Mirror */
-.source-badge {
-  display: inline-block;
+/* 来源徽标（ModelScope / HF Mirror）：中性配色、以文字区分——可用色相已被类别族与量化族占满，
+   来源再取彩色必然与同行属性徽章撞色（原 src-huggingface 与 quant-k 为同一个蓝色值，二者在
+   下载任务行并排出现）。中性后与任一彩色徽章同行均可区分，且来源作为次要信息视觉层级退后。
+   作用域收到父容器下：Arco 深色规则 body[arco-theme='dark'] .arco-tag(-checked) 特异性 (0,2,1)
+   会压掉单类选择器 (0,2,0)。来源标识只在「模型文件」区标题与下载任务行各出现一次，
+   解析信息行不再重复显示（STYLE_TODO #67）。 */
+.files-header .source-badge,
+.task-model .source-badge {
+  color: var(--color-text-2);
+  background: var(--color-fill-2);
   font-size: var(--fs-xs);
   font-weight: 600;
   border-radius: var(--radius-pill);
   padding: 1px 6px;
   letter-spacing: 0.2px;
   line-height: 1.4;
-
-  &.src-modelscope { color: var(--badge-src-modelscope); background: color-mix(in srgb, var(--badge-src-modelscope) 14%, transparent); }
-  &.src-huggingface { color: var(--badge-src-huggingface); background: color-mix(in srgb, var(--badge-src-huggingface) 14%, transparent); }
 }
 
 .files-actions {
@@ -1335,19 +1319,25 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .task-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto auto;
-  gap: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 10px;
   border-radius: var(--radius-row);
   border: 1px solid var(--color-border-2);
   background: var(--color-fill-2);
 }
 
+/* 任务主体：信息 / 进度 / 统计三行纵向堆叠（flex 承载，与全站布局范式一致） */
+.task-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .task-info {
-  grid-column: 1;
-  grid-row: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -1371,13 +1361,10 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .task-progress-bar {
-  grid-column: 1;
-  grid-row: 2;
+  min-width: 0;
 }
 
 .task-stats {
-  grid-column: 1;
-  grid-row: 3;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1412,20 +1399,22 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .task-actions {
-  grid-column: 2;
-  grid-row: 1 / 4;
-  align-self: center;
+  flex-shrink: 0;
   display: flex;
-  flex-direction: row;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
 }
 </style>
 
 <!-- URL 历史下拉样式：popup 由 a-dropdown 传送到 body，需非 scoped 样式；
      实底浮层（STYLE_TODO #41 / §7.5.6）与阴影/圆角均走 Arco 默认，仅补条目排版。
-     Dgroup 渲染为 Fragment（标题 li 直接暴露），故按 .arco-dropdown-group-title 覆盖 -->
+     Dgroup 渲染为 Fragment（标题 li 直接暴露、无法挂私有类），
+     故以 .arco-dropdown-list:has(> .url-history-item) 反查圈定作用域 -->
 <style lang="scss">
-.arco-dropdown-group-title {
+/* 所有选择器以本下拉私有类（.url-history-*）圈定作用域（同 ParamsPage .target-menu 范式）：
+   a-dgroup 渲染为 Fragment、标题 li 无法挂私有类，故用 .arco-dropdown-list:has() 反查，
+   避免裸 .arco-dropdown-group-title 全局命中其他 a-dgroup 使用点。 */
+.arco-dropdown-list:has(> .url-history-item) .arco-dropdown-group-title {
   padding: 4px 10px 6px;
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -1442,12 +1431,12 @@ function quantTooltip(q: QuantizationInfo | null): string {
   max-width: 480px;
 }
 
-.url-history-icon {
+.arco-dropdown-option.url-history-item .url-history-icon {
   flex-shrink: 0;
   color: var(--color-text-3);
 }
 
-.url-history-text {
+.arco-dropdown-option.url-history-item .url-history-text {
   flex: 1;
   min-width: 0;
   font-family: var(--font-mono);

@@ -241,7 +241,12 @@ function cancel() {
 
 .fb-row {
   cursor: pointer;
-  &.is-selected :deep(.arco-list-item) {
+  /* .fb-row 即 a-list-item 本身（.arco-list-item 是它的根元素），原 `&.is-selected :deep(.arco-list-item)`
+     要求「行内的后代列表项」，永远匹配不到——选中态与悬停反馈实际从未生效（真机渲染核对发现，
+     与 DownloadCard 行内距失效同一根因）。`&.is-selected:hover` 用于压过后面的 :hover 规则，
+     保证悬停中选中行不掉色（同 STYLE_TODO #56 口径）。 */
+  &.is-selected,
+  &.is-selected:hover {
     background: var(--row-selected-bg);
   }
 }
@@ -254,7 +259,7 @@ function cancel() {
   color: var(--color-text-2);
   font-size: var(--fs-base);
 }
-.fb-row:hover :deep(.arco-list-item) { background: var(--color-fill-3); }
+.fb-row:hover { background: var(--color-fill-3); }
 .fb-e-name {
   overflow: hidden;
   text-overflow: ellipsis;

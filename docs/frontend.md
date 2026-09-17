@@ -81,7 +81,7 @@
 > 2026-09 完全迁移后的现状：`theme.scss` 仅保留 **Electron 布局尺寸、业务语义色与迁移兼容层**，其余一律直接引用 Arco 的 CSS Variables（`--color-text-*` / `--color-fill-*` / `--color-bg-*` / `--color-border-*` / `rgb(var(--primary-6))` / `rgb(var(--success-6))` 等）。旧业务色板（`--accent`、`--bg-*`、`--fg-*`、`--shadow-modal/tooltip`、`--overlay` 等）已全部删除，禁止再引用。
 
 - **强调色**：即 Arco 主色 `rgb(var(--primary-6))`（纯蓝）。交互强调（描边按钮、聚焦边框、选中行、激活 tab）一律用它；hover/选中态用 Arco 组件自带态或 `--color-fill-3`。
-- **业务色 token**（`theme.scss`，不随主题切换）：`--btn-h`(30) / `--fs-appname`(16) / `--statusbar-blue`(#007acc) / `--badge-cat-*`、`--badge-quant-*`、`--badge-src-*`（下载分类/量化/来源徽章色板）/ `--console-bg`(#1d2129)、`--console-fg`(#e5e6eb)（控制台/命令预览恒定深底，双主题不变）/ `--primary-fg`(#fff，实底主色上的文字)。
+- **业务色 token**（`theme.scss`，不随主题切换）：`--btn-h`(30) / `--fs-appname`(16) / `--statusbar-blue`(#007acc) / `--badge-cat-*`、`--badge-quant-*`（下载分类/量化徽章色板；来源徽标不占色相，走中性 `--color-text-2` + `--color-fill-2`，见 §7.5.7）/ `--console-bg`(#1d2129)、`--console-fg`(#e5e6eb)（控制台/命令预览恒定深底，双主题不变）/ `--primary-fg`(#fff，实底主色上的文字)。
 - **选中项底色** `--row-selected-bg`（`theme.scss`，随主题切换，2026-09-13 起）：浅色 = `rgb(var(--primary-1))`；深色 = `rgba(var(--primary-6), 0.2)` 半透明蓝染——深色下 `primary-1` 为比底色更暗的近黑藏青，整行铺满观感过重，故深色不用深色色块。三处选中态同源引用：模型表格选中行（含 hover 保色规则）、DownloadCard `.active`/`.checked`、FileBrowserModal `.is-selected`。
 - **兼容层映射**（迁移完成前）：`--radius-pill/row/control: 4px`、`--fs-xs/sm: 12px`、`--fs-base: 13px`、`--fs-md/lg: 14px`、`--glass-bg*: var(--color-bg-2/3)`、`--glass-blur: 0px`、`--ease-smooth/jelly: ease`、`--dur-fast/med: 0.16s/0.2s`、`--shadow-dropdown: 0 4px 12px rgb(0 0 0 / 12%)`。业务组件只允许消费这些名字或直接用 Arco 变量；新代码优先直接用 Arco 变量。
 - **字体**：正文走 Arco 默认栈；`--font-mono` = `'Cascadia Code', 'Cascadia Mono', Consolas, monospace`，数值/路径/命令一律 mono。
@@ -99,7 +99,7 @@
 #### 7.5.3 圆角体系（2026-09 扁平化：全站 4px 对齐 Arco）
 
 - 圆角 token 已扁平化为单一值：`--radius-pill` / `--radius-row` / `--radius-control` 均为 **4px**（迁移兼容层，等同 Arco 默认圆角）。组件内禁止裸数值圆角。
-- 组件圆角直接走 Arco 组件默认（输入框/选择器 2px、标签/chip 4px、按钮 4px 等），不要为「恢复旧观感」写覆盖。
+- 组件圆角直接走 Arco 组件默认（输入框/选择器 2px、**a-tag 2px**（`--border-radius-small`）、按钮 4px 等），不要为「恢复旧观感」写覆盖；**例外**是筛选 chip 与彩色小徽章——按业务约定显式取 `--radius-pill`（4px，筛选标签/徽章语义，见 §7.5.4 ① 与 §7.5.7），DownloadCard 的 `.cat-chip` 与 `.source-badge` / `.quant-badge` / `.file-cat` / `.rec-badge` 均属此列。
 - **例外（仅两项）**：`2px` 滑块轨道；`50%` 圆形（状态圆点、开关 knob、滑块 thumb、circle 图标按钮）。
 - **边界**：多行文本容器（命令预览 `a-textarea` 等）圆角用 `--radius-row`（4px），禁用胶囊形；粘性表头用不透明背景（`--color-bg-2`）。
 
@@ -117,9 +117,9 @@
   | `12px` | 大分组（下载任务统计、Dashboard 统计组） |
   | `14px` | 分区体底距与分隔线到内容距离（Card 体 `padding: 10px 0 14px`、顶边分隔线 `padding-top: 14px`） |
 - **顶栏条与相邻区块间距**（2026-08-29 统一）：页面顶部的条形容器（tab-strip、status-summary、toolbar、params-status-bar、status-bar、stats-row）与上一/下一区块的间距**一律 8px**——models 由 `.tab-content { margin-top: 8px }`、settings 由 `.status-summary { margin: 8px 0 0 }`（内容间距由 `.tab-content` margin-top 提供）、logs 由 `.toolbar { margin-bottom: 8px }`、params/downloads 由状态条 `margin-bottom: 8px` 提供。
-- **分隔线节奏**（分区风格实线分隔，2026-08-29 统一；**线两侧均 14px**）：① **主分隔**（`1px solid var(--border)`，内容区块之间）——Card 底边机制（体 `10px 0 14px`，线下由下一区块 header 的固定高自然留白）；顶边线变体（Dashboard `.q-section + .q-section`、DownloadCard `.tasks-section`）`padding-top: 14px`，**线上方**同样 14px——Dashboard 由 `.q-section { padding-bottom: 14px }` 提供，DownloadCard 由容器 flex gap 8px + `.tasks-section:not(:first-child) { margin-top: 6px }` 补足（任务模式下为首子块，不加）。② **次级分隔**（`1px dashed var(--border)`，块内详情/次要内容，如 ModelMetaCard `.meta-chips.details`）`padding-top: 8px`，上方由 `.meta-body` gap 8px 提供（8/8 对称）。③ **标题下划线**（组标题 `border-bottom`，如 ParamSummaryCard `.summary-group-title`）`padding-bottom: 4px`。④ **表格行分隔**：单元格 `padding: 6px 8px`（§7.5.4 表格）。弹窗内部分区条（FileBrowserModal 头/底 `12px 14px`、路径/保存行 `8px 14px`）为弹窗专属尺寸，不套用。
+- **分隔线节奏**（分区风格实线分隔，2026-08-29 统一；**线两侧均 14px**）：① **主分隔**（`1px solid var(--border)`，内容区块之间）——Card 底边机制（体 `10px 0 14px`，线下由下一区块 header 的固定高自然留白）；顶边线变体（Dashboard `.q-section + .q-section`、DownloadCard `.tasks-section`）`padding-top: 14px`，**线上方**同样 14px——Dashboard 由 `.q-section { padding-bottom: 14px }` 提供，DownloadCard 由容器 flex gap 8px + `.tasks-section:not(:first-child) { margin-top: 6px }` 补足（任务模式下为首子块，不加）。② **次级分隔**（`1px dashed var(--border)`，块内详情/次要内容，如 ModelMetaCard `.meta-chips.details`）`padding-top: 8px`，上方由 `.meta-body` gap 8px 提供（8/8 对称）。③ **标题下划线**（组标题 `border-bottom`，如 ParamSummaryCard `.summary-group-title`、DownloadCard `.group-title`）`padding-bottom: 4px`；同族体例的**卡片内小节标题**（DownloadCard `.section-title`，行头左侧标题 + 右侧操作）字号字重字距与组标题同规（`--fs-sm` / 600 / `--color-text-2` / uppercase / `letter-spacing: .5px`）但不加下划线。④ **表格行分隔**：单元格 `padding: 6px 8px`（§7.5.4 表格）。弹窗内部分区条（FileBrowserModal 头/底 `12px 14px`、路径/保存行 `8px 14px`）为弹窗专属尺寸，不套用。
 - **分区体**：`padding: 10px 0 14px`（左右 0，随页边距对齐）；分区头高 38px，无 accent 竖条（2026-09 移除 compact 变体，全应用统一标准标题体例）。
-- **组件 padding 约定**（2026-08-29 统一，见 STYLE_TODO #21）：padding 属控件尺寸而非元素间距，不受 gap 刻度表约束，但同类元素必须同值——① `fs-xs` 彩色小徽章统一 `1px 6px`；② `fs-sm` 交互 chip 统一 `3px 8px`；③ 信息展示胶囊（version-badge / 状态栏 clickable）统一 `2px 10px`；④ 非胶囊的行/条纵向微间距（提示条、分页条、帮助热区、标签下划线间距）一律 ≥4px；⑤ 参数行 `padding: 4px 8px`（§7.5.7）；⑥ 固定高筛选控件：级别筛选用 `a-radio-group type="button" size="small"`、类别筛选用 checkable `a-tag`（Arco 默认即 24px 高 / `0 8px` 内距），不要额外写尺寸覆盖；⑦ 独立居中文本空态（`.empty`）统一 `padding: 20px`——其余空态为不同语义变体、各自内部统一（弹窗 `.fb-empty` `24px 14px`、区块内 `.empty-msg`/`.target-recs-empty` `8px`、大图标 LogsPage `.empty-log` `40px 20px`）。保留的光学对齐例外：Card 标题左缩进 `0 0 0 2px`（uppercase 字面补偿）。
+- **组件 padding 约定**（2026-08-29 统一，见 STYLE_TODO #21）：padding 属控件尺寸而非元素间距，不受 gap 刻度表约束，但同类元素必须同值——① `fs-xs` 彩色小徽章统一 `1px 6px`，且**一律用 `a-tag size="small"` 承载**（禁止自绘 `<span>` 胶囊；色走 `--badge-*` token + `color-mix` 半透明底，见 §7.5.7）；② `fs-sm` 交互 chip 统一 `3px 8px`；③ 信息展示胶囊（version-badge / 状态栏 clickable）统一 `2px 10px`；④ 非胶囊的行/条纵向微间距（提示条、分页条、帮助热区、标签下划线间距）一律 ≥4px；⑤ 参数行 `padding: 4px 8px`（§7.5.7）；⑥ 固定高筛选控件：级别筛选用 `a-radio-group type="button" size="small"`、类别筛选用 checkable `a-tag`（Arco 默认即 24px 高 / `0 8px` 内距），不要额外写尺寸覆盖；⑦ 独立居中文本空态（`.empty`）统一 `padding: 20px`——其余空态为不同语义变体、各自内部统一（弹窗 `.fb-empty` `24px 14px`、区块内 `.empty-msg`/`.target-recs-empty` `8px`、大图标 LogsPage `.empty-log` `40px 20px`）。保留的光学对齐例外：Card 标题左缩进 `0 0 0 2px`（uppercase 字面补偿）。
 - **按钮组**：`display: flex; gap: 8px`（页面工具栏、行内操作区）；弹窗按钮 `gap: 10px`；卡片头操作 `gap: 6px`。
 - **常用控件高度**：一律 Arco 组件默认（`a-button size=small` 28 / 输入 `a-input size=small` 28 / 默认 32；自建浮层内按钮 28–32）；仅 TopBar 主操作与 `--btn-h`(30) 为业务约定；win-btn（窗口控制）46 宽为 Electron 专属例外。
 - **表格**：`padding: 6px 8px` 单元格；`thead` sticky + `background: var(--bg-card)`；列固定宽度用 `col-*` class。
@@ -149,15 +149,19 @@
 - 玻璃拟态（`--glass-blur`/`.glass-layer`/backdrop-filter）已随完全迁移全部移除：`--glass-*` token 仅作兼容映射（→ Arco 实底面色），**任何新代码不得使用 `backdrop-filter`**。
 - 弹窗（`a-modal`）、下拉（`a-dropdown`/`a-select`/`a-trigger`）、工具提示（`a-tooltip`）、Popconfirm 一律 Arco 组件默认：实底面板 + Arco 自带阴影/动画，popup 挂 body。**自建浮层仅剩两处**（GeneralPanel 引擎帮助面板、`--shadow-dropdown` 兼容引用），不再新增。
 - 浮层内容排版：面板圆角/边框/背景走 Arco 默认；条目类（`a-doption`）hover 态走 Arco 默认，不手写背景。
+- **非 scoped 样式块的命名空间**（popup 传送 body 时必需）：块内**每个顶层选择器都必须含至少一个组件私有类**，禁止只由 Arco 全局类名构成（否则会全局命中其他使用点）。范式：ParamsPage `.target-menu …`、GeneralPanel `.exe-help-panel …`、DownloadCard `.arco-dropdown-list:has(> .url-history-item) .arco-dropdown-group-title`（`a-dgroup` 渲染为 Fragment、标题 `li` 无法挂私有类，故用 `:has()` 反查）。审计第 11 条固化。
 - 例外：状态栏深蓝底上的白色半透明 hover（`rgba(255,255,255,.15)`）为**表面着色**而非 elevation；chip 计数底（`color-mix` 半透明底）同类，均不纳入阴影 token。
 
 #### 7.5.7 常用模式
 
 - **参数行**（`ParamRow` 统一承载，控件全部 Arco）：行容器 `padding: 4px 8px` + 圆角 `var(--radius-row)`，默认透明描边；hover 底色 `--color-fill-3` + 边框 `--color-border-2`；**值 ≠ 默认时边框 `rgb(var(--orange-6))`**（与还原按钮同色系）；依赖未满足同色描边 + 底色 + `a-tooltip` 警示图标；文件/目录类型渲染 `a-input-group` 文件选择控件。
-- **参数网格**：`param-grid`（参数设置页）`repeat(auto-fit, minmax(340px, 1fr))`、gap `4px 14px`、≤720px 单列；装饰一律 Arco 主色蓝 `rgb(var(--primary-6))`。
+- **参数网格**：`param-grid`（参数设置页）`repeat(auto-fill, minmax(340px, 1fr))` + `max-width: 1160px`（auto-fill 不折叠空轨道，各组控件宽度一致；2026-09-13 起）、gap `4px 14px`、≤720px 单列；装饰一律 Arco 主色蓝 `rgb(var(--primary-6))`。
+- **筛选 chip 选中态**：`checkable a-tag` 的 hover/选中态**一律走 Arco 自带态**，不覆写 `.arco-tag-checked` 等 Arco 内部态类（审计第 12 条）；需可见选中底时用 Arco `color` prop（DownloadCard 类别筛选取 `color="arcoblue"`，选中底 = `rgb(var(--arcoblue-1))` / 深色 `rgba(var(--arcoblue-6), .2)`，与 `--row-selected-bg` 同源）。筛选组间距 6px（§7.5.4 刻度表）。
+- **列表行两种既定变体**（禁止第三种）：① **原生行**——`a-list` 默认（`split` 分隔线 + `size` 内距），如 PresetsPanel；② **紧凑可选中行**——`a-list :split="false"` + 行容器自带 `border` / `--radius-row` / `--color-fill-2` 底与内距（行内距归零须对齐 Arco 特异性：`:deep(.arco-list-content-wrapper .arco-list-content > .arco-list-item) { padding: 0 }`——普通 `:deep(.arco-list-item)` 会被 `size="small"` 规则压掉、实际不生效，真机实测为 9px 20px），承载整行点选、`--row-selected-bg` 选中态与行内徽章，如 DownloadCard `.file-item` / `.result-item`、FileBrowserModal `.fb-row`。除 `padding: 0` 外不得覆写 `a-list` 内部样式（分隔线用 `:split` prop；`.arco-list` / `.arco-list-item` 本身无背景色，无需覆写背景）。
+- **布局范式**：内容区一律 flex（`display: flex` + gap 刻度）；`display: grid` 仅限本节的 `param-grid`。
 - **状态小圆点**：`border-radius: 50%`；StatusBar 状态点 8×8、StatusTag 7×7（两实现尺寸不一，已登记 STYLE_TODO 🔴 待统一）。
 - **悬浮提示文本色**：`color-mix(in srgb, rgb(var(--success-6)) 12%, transparent)` 底 + 同色边框/文字（如 PresetsPanel 的 applied-msg）。
-- **下载分类徽章**：颜色走 `--badge-*` token，底用 `color-mix(in srgb, var(--badge-*) 14%, transparent)`（legacy/fp32 为 16%）；`cat-other` 用 `--color-text-3` + `--color-fill-3`。徽章色为分类图例语义，两种主题恒定。
+- **下载徽章体系**（`a-tag size="small"` 原生承载，禁止自绘 `<span>`；盒模型按 §7.5.4 ①：`1px 6px` + `--radius-pill`；两种主题恒定）：① **类别族** `.file-cat`——色走 `--badge-cat-*`，底 `color-mix(in srgb, var(--badge-cat-*) 14%, transparent)`，`cat-other` 用 `--color-text-3` + `--color-fill-3`；② **量化族** `.quant-badge`——按 `parseQuantization` 的 family 取 `--badge-quant-*`（14%，legacy/fp32 为 16%）；③ **来源族** `.source-badge`——**中性配色**（`--color-text-2` + `--color-fill-2`），不占色相、以文字区分（色相预算已被 ①② 占满，取彩色必与同行属性徽章撞色）；④ `.rec-badge` 实底主色 + `--primary-fg`。**来源标识在「模型文件」区标题与下载任务行各出现一次**，解析信息行不重复显示。
 - **动效**：`--ease-*` 已归平为 `ease`、时长 `--dur-fast`(0.16s)/`--dur-med`(0.2s)；**只允许动 transform/opacity**，禁布局动画；**按钮按压不做整体缩放**（按压反馈 = 背景/边框色变化）；`prefers-reduced-motion` 下全部关闭。
 - **复制按钮统一**（2026-08-29，见 STYLE_TODO #26）：行内复制操作一律 `a-button size="small"` + `#icon`（`Icon name="copy" :size="12"`）+ 文案（复制地址 `copy_url` / 复制模型名 `copy_model` / 复制命令 `copy_cmd`），点击后文案临时切换为"已复制"反馈；不使用纯图标迷你按钮。内容项（值胶囊/URL 条等）配对文字描述标签（样式同 `.info-label` 语义：次级色、贴内容 8px）。**状态栏为特例**：值即按钮——`a-button type="text" size="mini"` 基座 + 状态栏铬覆盖（胶囊/白字/`--statusbar-hover` 表面着色），点击复制 + tooltip + "已复制" tag。
 - **模型别名派生**（2026-08-29）：`set(MODEL_KEY)` 时自动派生 `alias` 参数 = 模型文件名去 `.gguf` 后缀（`modelBaseName`，shared），命令构建自动携带 `-a/--alias`（API 侧模型名不带扩展名）；换模型跟随更新、预设携带模型但未存别名时补派生；界面「当前模型」显示（概览状态卡/状态栏）别名优先，回退为去后缀文件名。
@@ -175,5 +179,8 @@
 - [ ] 控件一律 Arco 组件（按钮/输入/下拉/开关/弹窗/浮层），不新增自定义交互控件；**内容区操作按钮一律文本内联**（图标+文案；豁免：win-btn 窗口控制、输入框清除 ✕、参数还原 ✕、导航 ↑、披露 chevron——控件/导航/披露语义）
 - [ ] 按钮组用 flex + gap（8px 标准）
 - [ ] 无任何 `backdrop-filter`（玻璃体系已移除）
+- [ ] 非 scoped 样式块的每个顶层选择器都含组件私有类（禁裸 Arco 全局类名，§7.5.6）
+- [ ] 未覆写 Arco 内部态类（`.arco-*-checked` / `-active` / `-selected` / `-disabled` 等）；筛选/选中态走 Arco 自带态或 `color` prop
+- [ ] 徽章/胶囊一律 `a-tag` 承载，不自绘 `<span>` 胶囊；徽章按 §7.5.7 三族取色（来源族中性、不占色相）；列表行只用 §7.5.7 的两种变体，布局不用 grid（`param-grid` 除外）
 - [ ] 动画只动 transform/opacity 且 ≤0.3s，`prefers-reduced-motion` 下关闭
 - [ ] 深色/浅色主题都检查一遍（`html[data-theme]` + `body[arco-theme]`；控制台/命令预览恒定深色面）

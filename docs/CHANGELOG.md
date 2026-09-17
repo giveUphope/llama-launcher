@@ -4,6 +4,18 @@
 
 ## \[Unreleased]
 
+- **徽章调色板与来源标识修复（2026-09-18）**：① `--badge-src-huggingface` 与 `--badge-quant-k` 同为 `#2563eb`，而「HF Mirror」来源徽标与「Q4_K_M」量化徽标在下载任务行并排出现、真机实测完全同色无法区分——根因是类别族（4 值）+ 量化族（8 值）已占满色相预算，故**来源族改为中性配色**（`--color-text-2` + `--color-fill-2`，删 `--badge-src-*` 两个 token）并以文字区分，在 `theme.scss` 写明色相预算规则；② 「模型文件」区块内解析信息行 `.info-tag` 与文件区标题 `.source-badge` 重复显示同一来源——去掉解析行的来源徽标（保留文件区标题那处，因 `currentSource` 可能不同于 URL 解析来源），来源标识现只在「模型文件」区与下载任务行各出现一次，并删除已无引用的 `parseSourceLabel()`。实测：`.info-tag` 计数 1→0、来源徽标中性色（浅色 `rgb(78,89,105)` / `rgb(242,243,245)`，深色对应同名 token）、任务行两徽章可区分。详见 STYLE_TODO #67。
+
+- **文件浏览弹窗行态死规则修复（2026-09-18）**：`FileBrowserModal` 的 `.fb-row.is-selected :deep(.arco-list-item)` / `.fb-row:hover :deep(.arco-list-item)` 要求「行元素内部的后代列表项」，而 `.fb-row` 本身即 `a-list-item`（`.arco-list-item` 是其根元素）——规则永不匹配，弹窗的行选中高亮与悬停反馈实际从未生效（真机渲染核对发现，与列表行内距失效同一根因）。现选择器落到行元素本身，并以 `&.is-selected:hover` 压过 `:hover` 保证悬停中选中行不掉色。详见 STYLE_TODO #66。
+
+- **真机渲染核对（Playwright + 真实构建产物 + demo-mock）修复 3 类静态检查无法覆盖的缺陷（2026-09-18）**：① **深色主题单类徽章被 Arco 压掉**——`.info-tag` / `.rec-badge` 为单类选择器 (0,2,0)，被 Arco `body[arco-theme='dark'] .arco-tag(-checked)` (0,2,1) 压过，深色下蓝字/白字被替换为 `--color-text-1`，现改为作用域到父容器（`.parsed-info` / `.file-item`）提升特异性；② **列表行内距归零从未生效**（存量缺陷）——`.file-list` / `.result-list` 的 `:deep(.arco-list-item) { padding: 0 }` (0,3,0) 被 Arco `size="small"` 规则 (0,4,0) 压掉，实测行内距 9px 20px 且行容器自带内距同时失效，现按同构选择器对齐特异性后归零；③ **demo-mock 数据漂移**——`quantization.family: 'k'` 与 `parseQuantization` 的 `QuantizationFamily` 不符致量化徽章样式类全部失配（退化为 Arco 灰底），且缺 `sizeStr`（文件大小列空白），现直接复用 `parseQuantization` / `formatBytes` 真实现。实测：行内距 0px、深色徽章恢复 token 色、量化徽章 `quant-k-quants` 正常上色、文件大小 `4.56 GB`、任务行零重叠零溢出、控制台 0 error。详见 STYLE_TODO #65。
+
+- **下载卡片（模型下载功能）样式与全站规范收敛（2026-09-18）**：`DownloadCard` 是全库唯一未随 Arco 迁移收敛的样式区，本次统一 8 项——① 5 类手绘 `<span>` 徽章（解析来源/文件来源/量化/类别/推荐）改 `a-tag` 原生承载（保留 §7.5.4 ① 的 `1px 6px` 内距与 `--radius-pill` 圆角）；② 类别筛选 chip 不再覆写 Arco 内部态类 `.arco-tag-checked`，改 `color="arcoblue"` 走 Arco 自带 hover/选中态（选中底 = `rgb(var(--arcoblue-1))` / 深色 `rgba(var(--arcoblue-6), .2)`，与全站 `--row-selected-bg` 同源）；③ 计数徽章去 `opacity` 削弱文字（§7.5.2），改 `--color-text-2` + `currentColor` 半透明底；④ 非 scoped 浮层样式块选择器全部以私有类 `.url-history-*` 圈定（`.arco-dropdown-list:has(> .url-history-item)`），不再裸写 `.arco-dropdown-group-title` 全局命中他处；⑤ 任务项 CSS Grid 改 flex（全库唯一非规范 grid），两个列表加 `:split="false"` 走原生 prop 替代 `border-bottom: none` 覆写；⑥ 推荐标记竖条由裸 `box-shadow: inset` 改加粗左边框（§7.5.8）；⑦ 标题体例收敛——`section-title` 归 `--fs-sm`，独立组标题改用 §7.5.4 ③ 下划线体例（`.group-title`）；⑧ 间距与冗余收敛——筛选组间距 4→6px（对齐 §7.5.4 刻度表）、任务操作组 4→6px、删 `url-row` 死过渡声明。详见 STYLE_TODO #60–#64。
+
+- **style-audit 新增两条回归规则（2026-09-18）**：第 11 条「非 scoped 样式块顶层选择器必须含组件私有类」（防 Arco 全局类名外泄）、第 12 条「禁止覆写 Arco 内部态类（`.arco-*-checked` / `active` / `selected` / `disabled`）」。两条规则全库全绿，规范固化于 frontend.md §7.5.6 / §7.5.8。
+
+- **文档漂移修正（2026-09-18）**：frontend.md §7.5.3 原称「标签/chip 4px」与 Arco a-tag 实际默认圆角 2px（`--border-radius-small`）不符，已改为「a-tag 2px；筛选 chip 与彩色小徽章按业务约定取 `--radius-pill` 4px」；§7.5.4 ①③、§7.5.6、§7.5.7、§7.5.8 补齐徽章承载方式、两档标题体例、非 scoped 命名空间、列表行两种变体与布局范式；同步修正 §7.5.7 `param-grid` 的 `auto-fit` → `auto-fill`（与 2026-09-13 实现一致），并补齐 STYLE_TODO 已修复索引缺失的 #54–#59 行。
+
 ## \[0.0.32] - 2026-09-13
 
 
