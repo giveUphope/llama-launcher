@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.33] - 2026-09-17
+
+
 - **徽章调色板与来源标识修复（2026-09-18）**：① `--badge-src-huggingface` 与 `--badge-quant-k` 同为 `#2563eb`，而「HF Mirror」来源徽标与「Q4_K_M」量化徽标在下载任务行并排出现、真机实测完全同色无法区分——根因是类别族（4 值）+ 量化族（8 值）已占满色相预算，故**来源族改为中性配色**（`--color-text-2` + `--color-fill-2`，删 `--badge-src-*` 两个 token）并以文字区分，在 `theme.scss` 写明色相预算规则；② 「模型文件」区块内解析信息行 `.info-tag` 与文件区标题 `.source-badge` 重复显示同一来源——去掉解析行的来源徽标（保留文件区标题那处，因 `currentSource` 可能不同于 URL 解析来源），来源标识现只在「模型文件」区与下载任务行各出现一次，并删除已无引用的 `parseSourceLabel()`。实测：`.info-tag` 计数 1→0、来源徽标中性色（浅色 `rgb(78,89,105)` / `rgb(242,243,245)`，深色对应同名 token）、任务行两徽章可区分。详见 STYLE_TODO #67。
 
 - **文件浏览弹窗行态死规则修复（2026-09-18）**：`FileBrowserModal` 的 `.fb-row.is-selected :deep(.arco-list-item)` / `.fb-row:hover :deep(.arco-list-item)` 要求「行元素内部的后代列表项」，而 `.fb-row` 本身即 `a-list-item`（`.arco-list-item` 是其根元素）——规则永不匹配，弹窗的行选中高亮与悬停反馈实际从未生效（真机渲染核对发现，与列表行内距失效同一根因）。现选择器落到行元素本身，并以 `&.is-selected:hover` 压过 `:hover` 保证悬停中选中行不掉色。详见 STYLE_TODO #66。
