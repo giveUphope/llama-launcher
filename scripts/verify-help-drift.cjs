@@ -33,14 +33,18 @@ function readArgs(argv) {
   return { newFile, pinned };
 }
 
-/** 从 help 文本提取 flag 集合：整行分词，取 flag 形态 token（两侧同一解析器，噪声对称）。 */
+/**
+ * 从 help 文本提取 flag 集合：整行分词，取 flag 形态 token（两侧同一解析器，噪声对称）。
+ * 括号必须一并剥掉：说明性续行（如 `… default: follows --device)`）不以 `(` 开头，
+ * 不剥 `)` 就会把 `--device)` 当成新 flag（b11053 实测误报）。
+ */
 function helpFlags(text) {
   const set = new Set();
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line || line.startsWith('(') || line.includes('-----')) continue;
     for (const tok of line.split(/[\s,]+/)) {
-      const word = tok.replace(/[=[\]<>{}|.:]/g, '');
+      const word = tok.replace(/[=[\]<>{}|.():]/g, '');
       if (/^-{1,2}[a-z]/i.test(word) && word.length > 1 && word.length < 45) set.add(word);
     }
   }

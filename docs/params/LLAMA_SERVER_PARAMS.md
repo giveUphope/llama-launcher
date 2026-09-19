@@ -1,6 +1,6 @@
 # llama-server 启动参数对照文档
 
-> 来源：捆绑二进制 ".\llama-b10734-bin-win-vulkan-x64\llama-server.exe --help"
+> 来源：捆绑二进制 ".\llama-b11053-bin-win-vulkan-x64\llama-server.exe --help"
 > 用途：对照当前启动器已支持参数，识别可新增/调整项
 
 ## 当前启动器已支持参数
@@ -52,9 +52,6 @@
 | `-ctv`, `--cache-type-v` | KV cache data type for V allowed values: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1 (default: f16) (env: LLAMA_ARG_CACHE_TYPE_V) | ✅ 已支持 |
 | `-dt`, `--defrag-thold` | KV cache defragmentation threshold (DEPRECATED) (env: LLAMA_ARG_DEFRAG_THOLD) | ⬜ 未支持 |
 | `--rpc` | comma-separated list of RPC servers (host:port) (env: LLAMA_ARG_RPC) | ⬜ 未支持 |
-| `--mlock` | in favor of `--load-mode`: force system to keep model in RAM rather than swapping or compressing (env: LLAMA_ARG_MLOCK) | ⬜ 未支持 |
-| `--mmap`, `--no-mmap` | in favor of `--load-mode`: whether to memory-map model. (if mmap disabled, slower load but may reduce pageouts if not using mlock) (env: LLAMA_ARG_MMAP) | ⬜ 未支持 |
-| `-dio`, `--direct-io`, `-ndio`, `--no-direct-io` | in favor of `--load-mode`: use DirectIO if available (env: LLAMA_ARG_DIO) | ⬜ 未支持 |
 | `-lm`, `--load-mode` | model loading mode (default: auto) - auto: mmap, unless a device does not support it - none: no special loading mode - mmap: memory-map model (if mmap disabled, slower load but may reduce pageouts if not using mlock) - mlock: force system to keep model in RAM rather than swapping or compressing - mmap+mlock: mmap + force system to keep model in RAM rather than swapping or compressing - dio: use DirectIO if available | ✅ 已支持 |
 | `-lzm`, `--lazy-mode` | on-demand reading of certain tensors, for example per-layer embeddings (default: auto) - on: read the rows of such tensors from disk on demand instead of keeping them resident (requires mmap) - auto: on, but only for tensors larger than 4 GiB - off: always keep them resident (env: LLAMA_ARG_LAZY_MODE) | ✅ 已支持 |
 | `--numa` | attempt optimizations that help on some NUMA systems - distribute: spread execution evenly over all nodes - isolate: only spawn threads on CPUs on the node that execution started on - numactl: use the CPU map provided by numactl if run without this previously, it is recommended to drop the system page cache before using this see https://github.com/ggml-org/llama.cpp/issues/1437 (env: LLAMA_ARG_NUMA) | ⬜ 未支持 |
@@ -89,6 +86,7 @@
 | `-hft`, `--hf-token` | Hugging Face access token (default: value from HF_TOKEN environment variable) (env: HF_TOKEN) | ⬜ 未支持 |
 | `--log-disable` | Log disable | ⬜ 未支持 |
 | `--log-file` | Log to file (env: LLAMA_ARG_LOG_FILE) | ⬜ 未支持 |
+| `--log-jsonl`, `--no-log-jsonl` | Log as JSONL (one JSON object per line) to stdout, this also disables colored logging (default: disabled) (env: LLAMA_ARG_LOG_JSONL) | ⬜ 未支持 |
 | `--log-colors` | [on\|off\|auto]              Set colored logging ('on', 'off', or 'auto', default: 'auto') 'auto' enables colors when output is to a terminal (env: LLAMA_ARG_LOG_COLORS) | ⬜ 未支持 |
 | `-v`, `--verbose`, `--log-verbose` | Set verbosity level to infinity (i.e. log all messages, useful for debugging) | ⬜ 未支持 |
 | `--offline` | Offline mode: forces use of cache, prevents network access (env: LLAMA_ARG_OFFLINE) | ⬜ 未支持 |
@@ -134,8 +132,8 @@
 | `-l`, `--logit-bias` | TOKEN_ID(+/-)BIAS   modifies the likelihood of token appearing in the completion, i.e. `--logit-bias 15043+1` to increase likelihood of token ' Hello', or `--logit-bias 15043-1` to decrease likelihood of token ' Hello' | ⬜ 未支持 |
 | `--grammar` | BNF-like grammar to constrain generations (see samples in grammars/ dir) | ⬜ 未支持 |
 | `--grammar-file` | file to read grammar from | ⬜ 未支持 |
-| `-j`, `--json-schema` | JSON schema to constrain generations (https://json-schema.org/), e.g. `{}` for any JSON object For schemas w/ external $refs, use --grammar + example/json_schema_to_grammar.py instead | ⬜ 未支持 |
-| `-jf`, `--json-schema-file` | File containing a JSON schema to constrain generations (https://json-schema.org/), e.g. `{}` for any JSON object For schemas w/ external $refs, use --grammar + example/json_schema_to_grammar.py instead | ⬜ 未支持 |
+| `-j`, `--json-schema` | JSON schema to constrain generations (https://json-schema.org/), e.g. `{"type": "object"}` for any JSON object | ⬜ 未支持 |
+| `-jf`, `--json-schema-file` | File containing a JSON schema to constrain generations (https://json-schema.org/), e.g. `{"type": "object"}` for any JSON object | ⬜ 未支持 |
 | `-bs`, `--backend-sampling` | enable backend sampling (experimental) (default: disabled) (env: LLAMA_ARG_BACKEND_SAMPLING) | ⬜ 未支持 |
 
 ## speculative params
@@ -164,7 +162,7 @@
 | `--spec-draft-p-split`, `--draft-p-split` | speculative decoding split probability (default: 0.10) (env: LLAMA_ARG_SPEC_DRAFT_P_SPLIT) | ⬜ 未支持 |
 | `--spec-draft-p-min`, `--draft-p-min` | minimum speculative decoding probability (greedy) (default: 0.00) (env: LLAMA_ARG_SPEC_DRAFT_P_MIN) | ⬜ 未支持 |
 | `--spec-draft-backend-sampling`, `--no-spec-draft-backend-sampling` | offload draft sampling to the backend (default: enabled) (env: LLAMA_ARG_SPEC_DRAFT_BACKEND_SAMPLING) | ⬜ 未支持 |
-| `--spec-draft-device`, `-devd`, `--device-draft` | <dev1,dev2,..> comma-separated list of devices to use for offloading the draft model (none = don't offload) use --list-devices to see a list of available devices | ⬜ 未支持 |
+| `--spec-draft-device`, `-devd`, `--device-draft` | <dev1,dev2,..> comma-separated list of devices to use for offloading the draft model (none = don't offload, default: follows --device) use --list-devices to see a list of available devices | ⬜ 未支持 |
 | `--spec-draft-ngl`, `-ngld`, `--gpu-layers-draft`, `--n-gpu-layers-draft` | max. number of draft model layers to store in VRAM, either an exact number, 'auto', or 'all' (default: auto) (env: LLAMA_ARG_N_GPU_LAYERS_DRAFT) | ✅ 已支持 |
 | `--spec-draft-model`, `-md`, `--model-draft` | draft model for speculative decoding (default: unused) (env: LLAMA_ARG_SPEC_DRAFT_MODEL) | ✅ 已支持 |
 | `--spec-type` | none,draft-simple,draft-eagle3,draft-mtp,draft-dflash,draft-dspark,ngram-simple,ngram-map-k,ngram-map-k4v,ngram-mod,ngram-cache comma-separated list of types of speculative decoding to use (default: none) | ✅ 已支持 |
@@ -212,7 +210,7 @@
 | `-mmu`, `--mmproj-url` | URL to a multimodal projector file. see tools/mtmd/README.md (env: LLAMA_ARG_MMPROJ_URL) | ⬜ 未支持 |
 | `--mmproj-auto`, `--no-mmproj`, `--no-mmproj-auto` | whether to use multimodal projector file (if available), useful when using -hf (default: enabled) (env: LLAMA_ARG_MMPROJ_AUTO) | ⬜ 未支持 |
 | `--mmproj-offload`, `--no-mmproj-offload` | whether to enable GPU offloading for multimodal projector (default: enabled) (env: LLAMA_ARG_MMPROJ_OFFLOAD) | ✅ 已支持 |
-| `-mmdev`, `--mmproj-device` | device to use for multimodal projector (none = don't offload, default: auto) use --list-devices to see a list of available devices (env: MTMD_BACKEND_DEVICE) | ✅ 已支持 |
+| `-mmdev`, `--mmproj-device` | device to use for multimodal projector (none = don't offload, default: follows --device) use --list-devices to see a list of available devices (env: MTMD_BACKEND_DEVICE) | ✅ 已支持 |
 | `--image-min-tokens` | minimum number of tokens each image can take, only used by vision models with dynamic resolution (default: read from model) (env: LLAMA_ARG_IMAGE_MIN_TOKENS) | ⬜ 未支持 |
 | `--image-max-tokens` | maximum number of tokens each image can take, only used by vision models with dynamic resolution (default: read from model) (env: LLAMA_ARG_IMAGE_MAX_TOKENS) | ⬜ 未支持 |
 | `--mtmd-batch-max-tokens` | maximum number of image tokens per batch when encoding images (default: 1024) (env: LLAMA_ARG_MTMD_BATCH_MAX_TOKENS) | ⬜ 未支持 |
@@ -267,7 +265,7 @@
 | `--reasoning-effort` | reasoning effort level given to the chat template: 'default' to keep the template default, or a level such as 'minimal', 'low', 'medium', 'high', 'xhigh' or 'max' (default: default) (env: LLAMA_ARG_REASONING_EFFORT) | ✅ 已支持 |
 | `--reasoning-budget` | token budget for thinking: -1 for unrestricted, 0 for immediate end, N>0 for token budget (default: -1) (env: LLAMA_ARG_THINK_BUDGET) | ✅ 已支持 |
 | `--reasoning-budget-message` | message injected before the end-of-thinking tag when reasoning budget is exhausted (default: none) (env: LLAMA_ARG_THINK_BUDGET_MESSAGE) | ✅ 已支持 |
-| `--reasoning-preserve`, `--no-reasoning-preserve` | preserve reasoning trace in the full history, not just the last assistant message (default: template default) compatible with certain templates having 'supports_preserve_reasoning' capability example: https://docs.z.ai/guides/capabilities/thinking-mode#preserved-thinking (env: LLAMA_ARG_REASONING_PRESERVE) | ⬜ 未支持 |
+| `--reasoning-preserve`, `--no-reasoning-preserve` | preserve reasoning trace in the full history, not just the last assistant message (default: enabled) compatible with certain templates having 'supports_preserve_reasoning' capability example: https://docs.z.ai/guides/capabilities/thinking-mode#preserved-thinking (env: LLAMA_ARG_REASONING_PRESERVE) | ⬜ 未支持 |
 | `--chat-template` | set custom jinja chat template (default: template taken from model's metadata) if suffix/prefix are specified, template will be disabled only commonly used templates are accepted (unless --jinja is set before this flag): list of built-in templates: bailing, bailing-think, bailing2, chatglm3, chatglm4, chatml, command-r, deepseek, deepseek-ocr, deepseek2, deepseek3, exaone-moe, exaone3, exaone4, falcon3, gemma, gigachat, glmedge, gpt-oss, granite, granite-4.0, granite-4.1, grok-2, hunyuan-dense, hunyuan-moe, hunyuan-vl, kimi-k2, llama2, llama2-sys, llama2-sys-bos, llama2-sys-strip, llama3, llama4, megrez, minicpm, mistral-v1, mistral-v3, mistral-v3-tekken, mistral-v7, mistral-v7-tekken, monarch, openchat, orion, pangu-embedded, phi3, phi4, rwkv-world, seed_oss, smolvlm, solar-open, vicuna, vicuna-orca, yandex, zephyr (env: LLAMA_ARG_CHAT_TEMPLATE) | ✅ 已支持 |
 | `--chat-template-file` | set custom jinja chat template file (default: template taken from model's metadata) if suffix/prefix are specified, template will be disabled only commonly used templates are accepted (unless --jinja is set before this flag): list of built-in templates: bailing, bailing-think, bailing2, chatglm3, chatglm4, chatml, command-r, deepseek, deepseek-ocr, deepseek2, deepseek3, exaone-moe, exaone3, exaone4, falcon3, gemma, gigachat, glmedge, gpt-oss, granite, granite-4.0, granite-4.1, grok-2, hunyuan-dense, hunyuan-moe, hunyuan-vl, kimi-k2, llama2, llama2-sys, llama2-sys-bos, llama2-sys-strip, llama3, llama4, megrez, minicpm, mistral-v1, mistral-v3, mistral-v3-tekken, mistral-v7, mistral-v7-tekken, monarch, openchat, orion, pangu-embedded, phi3, phi4, rwkv-world, seed_oss, smolvlm, solar-open, vicuna, vicuna-orca, yandex, zephyr (env: LLAMA_ARG_CHAT_TEMPLATE_FILE) | ⬜ 未支持 |
 | `--skip-chat-parsing`, `--no-skip-chat-parsing` | force a pure content parser, even if a Jinja template is specified; model will output everything in the content section, including any reasoning and/or tool calls (default: disabled) (env: LLAMA_ARG_SKIP_CHAT_PARSING) | ⬜ 未支持 |
@@ -290,6 +288,6 @@
 
 ## 汇总
 
-- 官方参数总数：261
-- 已支持：59
-- 未支持：202
+- 官方参数总数：259
+- 已支持：60
+- 未支持：199

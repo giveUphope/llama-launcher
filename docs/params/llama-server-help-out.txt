@@ -84,15 +84,6 @@
                                         (env: LLAMA_ARG_DEFRAG_THOLD)
 --rpc SERVERS                           comma-separated list of RPC servers (host:port)
                                         (env: LLAMA_ARG_RPC)
---mlock                                 DEPRECATED in favor of `--load-mode`: force system to keep model in
-                                        RAM rather than swapping or compressing
-                                        (env: LLAMA_ARG_MLOCK)
---mmap, --no-mmap                       DEPRECATED in favor of `--load-mode`: whether to memory-map model. (if
-                                        mmap disabled, slower load but may reduce pageouts if not using mlock)
-                                        (env: LLAMA_ARG_MMAP)
--dio,  --direct-io, -ndio, --no-direct-io
-                                        DEPRECATED in favor of `--load-mode`: use DirectIO if available
-                                        (env: LLAMA_ARG_DIO)
 -lm,   --load-mode MODE                 model loading mode (default: auto)
                                         - auto: mmap, unless a device does not support it
                                         - none: no special loading mode
@@ -209,6 +200,9 @@
 --log-disable                           Log disable
 --log-file FNAME                        Log to file
                                         (env: LLAMA_ARG_LOG_FILE)
+--log-jsonl, --no-log-jsonl             Log as JSONL (one JSON object per line) to stdout, this also disables
+                                        colored logging (default: disabled)
+                                        (env: LLAMA_ARG_LOG_JSONL)
 --log-colors [on|off|auto]              Set colored logging ('on', 'off', or 'auto', default: 'auto')
                                         'auto' enables colors when output is to a terminal
                                         (env: LLAMA_ARG_LOG_COLORS)
@@ -295,13 +289,10 @@
                                         dir)
 --grammar-file FNAME                    file to read grammar from
 -j,    --json-schema SCHEMA             JSON schema to constrain generations (https://json-schema.org/), e.g.
-                                        `{}` for any JSON object
-                                        For schemas w/ external $refs, use --grammar +
-                                        example/json_schema_to_grammar.py instead
+                                        `{"type": "object"}` for any JSON object
 -jf,   --json-schema-file FILE          File containing a JSON schema to constrain generations
-                                        (https://json-schema.org/), e.g. `{}` for any JSON object
-                                        For schemas w/ external $refs, use --grammar +
-                                        example/json_schema_to_grammar.py instead
+                                        (https://json-schema.org/), e.g. `{"type": "object"}` for any JSON
+                                        object
 -bs,   --backend-sampling               enable backend sampling (experimental) (default: disabled)
                                         (env: LLAMA_ARG_BACKEND_SAMPLING)
 
@@ -369,7 +360,7 @@
                                         (env: LLAMA_ARG_SPEC_DRAFT_BACKEND_SAMPLING)
 --spec-draft-device, -devd, --device-draft <dev1,dev2,..>
                                         comma-separated list of devices to use for offloading the draft model
-                                        (none = don't offload)
+                                        (none = don't offload, default: follows --device)
                                         use --list-devices to see a list of available devices
 --spec-draft-ngl, -ngld, --gpu-layers-draft, --n-gpu-layers-draft N
                                         max. number of draft model layers to store in VRAM, either an exact
@@ -475,7 +466,7 @@
                                         enabled)
                                         (env: LLAMA_ARG_MMPROJ_OFFLOAD)
 -mmdev, --mmproj-device DEVICE          device to use for multimodal projector (none = don't offload, default:
-                                        auto)
+                                        follows --device)
                                         use --list-devices to see a list of available devices
                                         (env: MTMD_BACKEND_DEVICE)
 --image-min-tokens N                    minimum number of tokens each image can take, only used by vision
@@ -651,7 +642,7 @@
                                         (env: LLAMA_ARG_THINK_BUDGET_MESSAGE)
 --reasoning-preserve, --no-reasoning-preserve
                                         preserve reasoning trace in the full history, not just the last
-                                        assistant message (default: template default)
+                                        assistant message (default: enabled)
                                         compatible with certain templates having 'supports_preserve_reasoning'
                                         capability
                                         example:

@@ -80,4 +80,6 @@
 
 **实测参考（2026-09-01，b10502→b10734）**：flag 级漂移审计**移除 0、应用 flag 缺失 0**（全部顶格安全）；`--help` 落盘改用 Node spawn（修 PowerShell UTF-16 重定向坑，见步骤 1）；新增 9 参数入表（参数表 49 → **58**，含 `--lazy-mode`、`-ncffn`、`--kv-unified-per-slot`、`-mmdev`、`--video-fps` 等）。详见 [CHANGELOG.md](CHANGELOG.md) [Unreleased]「参数基线升级至 llama.cpp b10734」。
 
-**当前实测（2026-09-04，b10734 基线）**：`verify-params-sync` 代码 flag 67 / 对照表一致；`verify-help-drift` 基线 help 428 flag 全一致（无新增无移除）。
+**实测参考（2026-09-04，b10734 基线）**：`verify-params-sync` 代码 flag 67 / 对照表一致；`verify-help-drift` 基线 help 428 flag 全一致（无新增无移除）。
+
+**当前实测（2026-09-19，b11053 基线，version 0.4.1-dev / commit 1af554f8f）**：flag 级漂移 = **新增 2**（`--log-jsonl` / `--no-log-jsonl`）、**移除 7**（`--mlock`、`--mmap`/`--no-mmap`、`-dio`/`--direct-io`/`-ndio`/`--no-direct-io`——都是 b10734 里已标 `DEPRECATED in favor of --load-mode` 的独立别名，应用早已迁移到 `--load-mode` 下拉，**零影响**）；应用 69 个 flag **缺失 0**。默认值变化仅 1 条真实语义变化：`--reasoning-preserve` 由 `template default` → `enabled`（该 flag 未入参数表，无跟随动作）。枚举白名单逐项核对**无漂移**：`--load-mode` 取值仍含 `dio`、`--spec-type` 11 值全同、`--chat-template` 内置模板列表与 b10734 **逐字节相同**（我们 24 项为其子集）。`--log-jsonl` **决定不收录**：它把 stdout 改成每行一个 JSON 对象，直接破坏 `launcher.ts` 的 listening 检测（按行匹配 `listening` + `http|server`）与控制台逐行着色，与 `--log-file` 同类。另修 `verify-help-drift` 解析器一处误报：说明续行 `… default: follows --device)` 不以 `(` 开头、而剥离字符集不含括号，于是把 `--device)` 当成新 flag（本次首跑即误报「新增 --device)」）；修正后基线 flag 数 428 → 421（两侧同解析器，同步下降）。

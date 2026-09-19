@@ -16,7 +16,7 @@
 | 文档                                                                    | 内容                                         |
 | --------------------------------------------------------------------- | ------------------------------------------ |
 | [README.md](README.md)（本文件）                                           | 功能总览、文档地图、快速开始、使用指南                        |
-| [params/LLAMA\_SERVER\_PARAMS.md](docs/params/LLAMA_SERVER_PARAMS.md) | 60 个参数与 llama-server b10734 `--help` 完整对照表 |
+| [params/LLAMA\_SERVER\_PARAMS.md](docs/params/LLAMA_SERVER_PARAMS.md) | 60 个参数与 llama-server b11053 `--help` 完整对照表 |
 
 ### 架构与核心
 
@@ -90,7 +90,7 @@
 
 - 内置 **60 个** **`llama-server`** **参数**，分 13 个子分类分区管理（网络 / 上下文 / KV 缓存 / 采样 / 推测解码等）
 
-- **参数基线对齐 llama.cpp b10734**：参数定义与 `--help` 输出经 `scripts/verify-params-sync.cjs` / `verify-help-drift.cjs` 双向审计（基线帮助固定于 `docs/params/llama-server-help-out.txt`，二进制升级走 re-pin 流程）；覆盖 b10734 新能力——惰性张量读取（`--lazy-mode`）、CPU FFN 层数（`-ncffn`）、每槽位统一 KV 上限（`--kv-unified-per-slot`）、投影器设备（`-mmdev`）、视频多模态（`--video-fps` 等）与投机合成基准（`--spec-synth-*`）
+- **参数基线对齐 llama.cpp b11053**：参数定义与 `--help` 输出经 `scripts/verify-params-sync.cjs` / `verify-help-drift.cjs` 双向审计（基线帮助固定于 `docs/params/llama-server-help-out.txt`，二进制升级走 re-pin 流程）；覆盖 b10734 引入、b11053 仍有效的能力——惰性张量读取（`--lazy-mode`）、CPU FFN 层数（`-ncffn`）、每槽位统一 KV 上限（`--kv-unified-per-slot`）、投影器设备（`-mmdev`）、视频多模态（`--video-fps` 等）与投机合成基准（`--spec-synth-*`）
 
 - 参数与 llama-server 的完整对照见 [params/LLAMA\_SERVER\_PARAMS.md](docs/params/LLAMA_SERVER_PARAMS.md)
 
