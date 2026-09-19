@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **CI 文档订正：反无限循环的归因与 bump 步骤实态（2026-09-19）**：`docs/ci-cd.md` §1.2/§2.4 原写「`github.actor != 'github-actions[bot]'` 防止无限循环：bot 推入的 bump 提交不再触发第二次 bump」——**归因不准**。真正阻止回环的是 GitHub 的 token 规则：**用仓库默认 `GITHUB_TOKEN` 写入的 push 不再触发工作流**；实测 v0.0.34 的 bump 提交 `712233a` 在 CI 运行历史里根本不存在（列表从其父 `e156388` 直接跳到 `13b5ee8`）。actor 判断只是防「将来改用 PAT / 手动以 bot 身份推送」的第二层。连带写明两点已知取舍：① **被发布的 bump 提交没有独立 CI 校验**（只改版本串，真校验在其父提交）；② `gh workflow run release.yml` 走 `workflow_dispatch`，不受 push 抑制规则影响，故 Release 照常跑（v0.0.34 实测成功）。同处再修一处陈旧文档：§1.2 步骤 2 仍写 `pnpm/action-setup + setup-node + pnpm install`，而 bump job 自 2026-09-09 起已免装（`bump-version.cjs` 为纯 node 脚本）。运维侧同时删除 v0.0.33 遗留的**空 draft Release**（`assets=0`，其发布工作流在 `softprops/action-gh-release` 步以 `Headers Timeout Error` 失败）——**保留 tag `v0.0.33`**（指向真实提交，删 tag 会让版本号语义断裂）。
+
 ## \[0.0.34] - 2026-09-19
 
 

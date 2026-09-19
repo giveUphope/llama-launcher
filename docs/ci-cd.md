@@ -35,11 +35,12 @@ pull_request 和 push 事件都走 verify。
 - **依赖**：needs: [verify, changes]（verify 失败则跳过；changes 判定为纯文档变更时跳过）
 - **守卫条件**：`github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && needs.changes.outputs.non-doc == 'true'`
   - 只处理 push 到 main 的事件，PR 合并后的触发自动命中
-  - `github.actor != 'github-actions[bot]'` **防止无限循环**：bot 自己推入的版本 bump 提交不再触发第二次 bump
+  - `github.actor != 'github-actions[bot]'` 是**第二层**保险：真正阻止循环的是 GitHub 的机制——用仓库默认 `GITHUB_TOKEN` 写入的 push **不会再触发工作流**，所以 bot 的 bump 提交本就不会带来新一轮 CI（实测 v0.0.34 的 bump 提交 `712233a` 在 CI 运行列表里不存在，其父 `e156388` 之后直接空档）。actor 守卫只是防住「将来改用 PAT / 手动以 bot 身份推送」时的回环。
+  - **副作用（已知并接受）**：被发布的那个 bump 提交**没有独立 CI 校验**——它只改版本字符串（`package.json` / `APP_VERSION` / CHANGELOG 头 / 文档版本引用），风险面小；真正的校验发生在其父提交上。
   - **`non-doc == 'true'`（2026-09-01 新增）**：`changes` job 解析本次 push 各提交的文件清单，仅当存在非文档文件变更（`docs/**`、根 `README.md`、`AGENTS.md` 之外）时才 bump——**纯文档更新不递增版本、不触发 Release**，避免每次都发版
 - **步骤**：
   1. `actions/checkout@v7`（fetch-depth: 0, persist-credentials: true）
-  2. `pnpm/action-setup@v5` + `actions/setup-node@v7` + `pnpm install --frozen-lockfile`
+  2. `actions/setup-node@v7`（**不跑 `pnpm install`**：`bump-version.cjs` 是纯 node 脚本、无 npm 依赖，2026-09-09 起免装）
   3. `node scripts/bump-version.cjs patch` — patch 递增
   4. 配置 git user.name / git user.email 为 github-actions[bot]
   5. 读取新版本：`V=$(node -p "require('./package.json').version")`
@@ -98,7 +99,11 @@ tsc -b 使用 project references，desktop 包的 tsc --noEmit 需要 shared/dis
 
 ### 2.4 反无限循环
 
-bump job 通过 `github.actor != 'github-actions[bot]'` 跳过 bot 自己的提交。否则 bot 推入版本 bump 后，push 事件会再次触发 bump，形成无限循环。
+**主机制是 GitHub 的 token 规则，不是工作流里的 actor 判断**：用仓库默认 `GITHUB_TOKEN` 做的 push 不会触发新的 `on: push` 工作流运行，因此 `bump` job 推入的版本 bump 提交天然不会再跑一轮 CI。实测证据：v0.0.34 的 bump 提交 `712233a` 在 CI 运行历史里**不存在**（列表从其父 `e156388` 直接跳到更早的 `13b5ee8`）。
+
+`github.actor != 'github-actions[bot]'` 作为**第二层**保留：万一将来改用 PAT 推送、或有人以 bot 身份手动推版本提交，token 规则不再适用，守卫仍能挡住回环。
+
+两点连带结论，改流水线时别踩：① **被发布的 bump 提交没有独立 CI 校验**（只改版本串，风险可接受，真校验在其父提交上）；② `bump` 末尾用 `gh workflow run release.yml` **显式派发** Release——`workflow_dispatch` 不受上述 push 抑制规则影响，所以 Release 照常跑（v0.0.34 实测成功）。
 
 ### 2.5 并发控制
 
