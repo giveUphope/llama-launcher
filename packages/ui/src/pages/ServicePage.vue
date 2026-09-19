@@ -3,6 +3,7 @@ import { computed, onActivated, onDeactivated, ref, watch } from 'vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import { useServerStore, type ConsoleTone } from '@/stores/server';
 import { useI18nStore } from '@/stores/i18n';
 import CommandPreviewCard from '@/components/service/CommandPreviewCard.vue';
@@ -106,19 +107,22 @@ const logCount = computed(() => server.outputs.length);
     <!-- 控制台输出 -->
     <Card title-key="card_service_console">
       <template #actions>
-        <a-button
-          size="small"
-          :disabled="server.outputs.length === 0"
-          :title="i18n.t('copy_console')"
-          @click="onCopyConsole"
-        >
-          <template #icon><Icon name="copy" :size="12" /></template>
-          {{ i18n.t('copy_console') }}
-        </a-button>
-        <a-button size="small" status="danger" :title="i18n.t('clear_console')" @click="onClearConsole">
-          <template #icon><Icon name="trash" :size="12" /></template>
-          {{ i18n.t('clear_console') }}
-        </a-button>
+        <ToolTip :text="i18n.t('copy_console')">
+          <a-button
+            size="small"
+            :disabled="server.outputs.length === 0"
+            @click="onCopyConsole"
+          >
+            <template #icon><Icon name="copy" :size="12" /></template>
+            {{ i18n.t('copy_console') }}
+          </a-button>
+        </ToolTip>
+        <ToolTip :text="i18n.t('clear_console')">
+          <a-button size="small" status="danger" @click="onClearConsole">
+            <template #icon><Icon name="trash" :size="12" /></template>
+            {{ i18n.t('clear_console') }}
+          </a-button>
+        </ToolTip>
         <span class="log-count">{{ logCount }} {{ i18n.t('col_lines') }}</span>
       </template>
       <!-- 有新日志胶囊：a-button 基座（点击回到底部），仅在有提示时渲染 -->

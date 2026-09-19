@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useI18nStore } from '@/stores/i18n';
 import Icon from '@/components/common/Icon.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import { useFilePickerQueue, type PickerRequest } from '@/composables/useFilePicker';
 import type { FsDirResult } from '@/env';
 
@@ -156,9 +157,11 @@ function cancel() {
     <template #title>{{ current?.title }}</template>
 
     <div class="fb-toolbar">
-      <a-button size="small" :disabled="!parent" :title="i18n.t('picker_up')" @click="onUp">
-        <template #icon><Icon name="folder_open" :size="13" /></template>
-      </a-button>
+      <ToolTip :text="i18n.t('picker_up')">
+        <a-button size="small" :disabled="!parent" @click="onUp">
+          <template #icon><Icon name="folder_open" :size="13" /></template>
+        </a-button>
+      </ToolTip>
       <a-input
         class="fb-path-input"
         v-model="pathInput"

@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useDownloadStore } from '@/stores/download';
 import { useI18nStore } from '@/stores/i18n';
@@ -747,24 +748,24 @@ function quantTooltip(q: QuantizationInfo | null): string {
             {{ i18n.t('lbl_model_files') }}
             <a-tag class="source-badge" size="small">{{ sourceLabel(currentSource) }}</a-tag>
           </span>
-          <a-button
-            v-if="currentSource === 'huggingface'"
-            size="small"
-            @click="onOpenHfMirror"
-            :title="i18n.t('btn_open_hf_mirror')"
-          >
-            <template #icon><Icon name="external" :size="12" /></template>
-            HF Mirror
-          </a-button>
-          <a-button
-            v-else
-            size="small"
-            @click="onOpenModelScope"
-            :title="i18n.t('btn_open_modelscope')"
-          >
-            <template #icon><Icon name="external" :size="12" /></template>
-            ModelScope
-          </a-button>
+          <ToolTip v-if="currentSource === 'huggingface'" :text="i18n.t('btn_open_hf_mirror')">
+            <a-button
+              size="small"
+              @click="onOpenHfMirror"
+            >
+              <template #icon><Icon name="external" :size="12" /></template>
+              HF Mirror
+            </a-button>
+          </ToolTip>
+          <ToolTip v-else :text="i18n.t('btn_open_modelscope')">
+            <a-button
+              size="small"
+              @click="onOpenModelScope"
+            >
+              <template #icon><Icon name="external" :size="12" /></template>
+              ModelScope
+            </a-button>
+          </ToolTip>
         </div>
 
         <!-- 类别筛选：checkable a-tag（单选语义，@check 忽略布尔参数保持"恒有选中"） -->
@@ -861,15 +862,15 @@ function quantTooltip(q: QuantizationInfo | null): string {
         <div class="tasks-header">
           <span v-if="mode !== 'tasks'" class="section-title">{{ i18n.t('lbl_download_tasks') }} ({{ tasks.length }})</span>
           <div class="tasks-actions">
-            <a-button
-              v-if="modelsDir"
-              size="small"
-              @click="onOpenModelsDir"
-              :title="i18n.t('btn_open_dir')"
-            >
-              <template #icon><Icon name="folder_open" :size="12" /></template>
-              {{ i18n.t('btn_open_dir') }}
-            </a-button>
+            <ToolTip v-if="modelsDir" :text="i18n.t('btn_open_dir')">
+              <a-button
+                size="small"
+                @click="onOpenModelsDir"
+              >
+                <template #icon><Icon name="folder_open" :size="12" /></template>
+                {{ i18n.t('btn_open_dir') }}
+              </a-button>
+            </ToolTip>
             <a-button size="small" @click="onClearCompleted">
               {{ i18n.t('btn_clear_completed') }}
             </a-button>

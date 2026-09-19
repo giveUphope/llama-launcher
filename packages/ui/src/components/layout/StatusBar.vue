@@ -4,6 +4,7 @@ import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 import { MODEL_KEY, modelBaseName } from '@llama-launcher/shared';
+import ToolTip from '@/components/common/ToolTip.vue';
 
 const server = useServerStore();
 const params = useParamsStore();
@@ -79,28 +80,28 @@ onUnmounted(() => {
       <a-tag :color="statusColor" size="small">{{ statusText }}</a-tag>
       <a-typography-text v-if="pidText" class="pid">{{ pidText }}</a-typography-text>
       <!-- 可点击复制值：a-button type=text 基座（值即按钮，§7.5.7 复制模式）+ 状态栏铬覆盖 -->
-      <a-button
-        v-if="server.apiUrl"
-        class="url pill-copy"
-        type="text"
-        size="mini"
-        :title="i18n.t('copy_url')"
-        @click="onCopyUrl"
-      >
-        <span class="url-text">{{ server.apiUrl }}</span>
-        <a-tag v-if="copiedKey === 'url'" size="small" color="green">{{ i18n.t('msg_url_copied') }}</a-tag>
-      </a-button>
-      <a-button
-        v-if="params.get(MODEL_KEY)"
-        class="model pill-copy"
-        type="text"
-        size="mini"
-        :title="i18n.t('copy_model')"
-        @click="onCopyModel"
-      >
-        <span class="model-text">{{ modelName }}</span>
-        <a-tag v-if="copiedKey === 'model'" size="small" color="green">{{ i18n.t('msg_model_copied') }}</a-tag>
-      </a-button>
+      <ToolTip v-if="server.apiUrl" :text="i18n.t('copy_url')">
+        <a-button
+          class="url pill-copy"
+          type="text"
+          size="mini"
+          @click="onCopyUrl"
+        >
+          <span class="url-text">{{ server.apiUrl }}</span>
+          <a-tag v-if="copiedKey === 'url'" size="small" color="green">{{ i18n.t('msg_url_copied') }}</a-tag>
+        </a-button>
+      </ToolTip>
+      <ToolTip v-if="params.get(MODEL_KEY)" :text="i18n.t('copy_model')">
+        <a-button
+          class="model pill-copy"
+          type="text"
+          size="mini"
+          @click="onCopyModel"
+        >
+          <span class="model-text">{{ modelName }}</span>
+          <a-tag v-if="copiedKey === 'model'" size="small" color="green">{{ i18n.t('msg_model_copied') }}</a-tag>
+        </a-button>
+      </ToolTip>
       <span v-else class="model">{{ modelName }}</span>
     </div>
     <!-- 右侧快捷键提示已移除（2026-09-08，连同 Ctrl+L/Esc 快捷键能力） -->

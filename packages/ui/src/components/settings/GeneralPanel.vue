@@ -202,10 +202,12 @@ const closeBehavior = computed<CloseBehavior>({
             <template #icon><Icon name="folder" :size="12" /></template>
             {{ i18n.t('btn_change_dir') }}
           </a-button>
-          <a-button size="small" :disabled="!modelsDir" @click="onOpenModelDir" :title="i18n.t('btn_open_dir')">
-            <template #icon><Icon name="folder_open" :size="12" /></template>
-            {{ i18n.t('btn_open_dir') }}
-          </a-button>
+          <ToolTip :text="i18n.t('btn_open_dir')">
+            <a-button size="small" :disabled="!modelsDir" @click="onOpenModelDir">
+              <template #icon><Icon name="folder_open" :size="12" /></template>
+              {{ i18n.t('btn_open_dir') }}
+            </a-button>
+          </ToolTip>
         </div>
       </a-form-item>
 

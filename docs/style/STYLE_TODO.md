@@ -223,12 +223,14 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：① 提示文本改 JS 中间省略（头 5 + `…` + 尾 2；尾部量化后缀/单位才是区分信息），完整值 + 参数名 + 操作提示三段进 `ToolTip`（去掉原生 `title`）；`ToolTip` 改 `#content` 插槽 + 自有 `.tooltip-text { white-space: pre-line }`；芯片横向内距收到 §7.5.4 ① 徽章档 6px（8px 档下 8 字 mono 要 74.7px > 72px 槽，差 2px 切尾字母）。② 去掉 `allow-clear`，参数行还原入口唯一。
 - **修复效果验证**（内置浏览器 demo-mock；需先进「模型管理」触发 GGUF 读取，参数页才会出现 8 条建议值）：8/8 芯片 `scrollWidth === clientWidth`（**零裁切**），别名芯片 "Qwen3…_M" 宽 70px ≤ 72px 槽、高仍 20px；浮层实测 3 段 74px 高、文本 `模型别名 / Qwen3-32B-A3B-Instruct-Q4_K_M / 点击应用此建议值`；点芯片仍写入完整值（`45352452 → Qwen3-32B-A3B-Instruct-Q4_K_M`，`ToolTip` 包裹不吞点击）；全页 `.arco-input-clear-btn` 计数 **4 → 0**（4 个非空文本行：监听地址 / 模型别名 / GPU 层数 / 草稿模型 GPU 层数），行级 `.clear-btn` 保持 1。`vue-tsc`、`vitest`（66）、`vite build`、`style:audit` 13/13 全绿。规范落点：[frontend.md §7.5.7](../frontend.md)（「参数行不得开 allow-clear」「GGUF 建议值芯片」两条）+ [§7.5.6](../frontend.md)（多行 tooltip 走 `#content` 插槽）+ §7.5.8 豁免措辞收敛。**同轮追加**：参数行还原 ✕ 的提示也由原生 `title` 改 `ToolTip`（用户指定），`<a-button>` 外包一层后几何实测零变化（按钮 24×24、`.tooltip-host` 同盒、行高 38px），浮层渲染「恢复为默认值」108×30，点击仍生效（别名 → 默认空值、✕ 随之消失）。
 
-### 75. 提示机制两套并存：原生 `title` vs Arco `ToolTip` — 🔴 待修复（2026-09-19 登记）
+### 75. 提示机制两套并存：原生 `title` vs Arco `ToolTip` — 🟢 已修复（2026-09-19）
 
-- **位置**：16 个组件/页面，`grep -rn ':title=' packages/ui/src --include=*.vue` 实测 **60 处**（DownloadCard 11 / ParamsPage 9 / LocalModelsPanel 8 / TopBar 8 / ServiceStatusCard 6 / PresetsPanel 4 …），其中 6 处是 `a-dgroup` / `a-statistic` / `iframe` 等**组件 prop**（合法），其余为浏览器原生浮层。
-- **描述**：原生 `title` 不受主题控制（深色下仍是系统白底浮层）、有约 1s 延迟、承载不了多段文本，与 §7.5.6 的 Arco 浮层体系（实底 + token 色 + `pre-line` 三段）观感不一致。#74 已把**参数行三处**（标签 / 建议值芯片 / 还原 ✕）统一到 `ToolTip`，其余出现点未动——现状是「参数页一套、别处一套」，属已知并存，新增代码请按 §7.5.6 的边界执行，勿在同一行内混用两套。
-- **建议修复（先定边界再动，勿逐处替换）**：① 交互控件（按钮 / 图标钮 / 徽章）逐个包 `ToolTip`，实测外包一层不改变几何；② **表格单元格与文件名的截断提示建议保留原生 `title`**——长路径若逐个挂 Arco trigger，每个单元格一个 popup 实例，与 §7.1 热路径铁律（列表行成本入队时算一次、不在 `v-for` 里派生）相冲；③ 状态栏/TopBar 的按钮提示改 `ToolTip` 后须同时验证深蓝铬面上的浮层对比（§7.5.2）。
-- **验证方式**：`grep -rn ':title=' packages/ui/src --include=*.vue | wc -l` 按边界递减（60 → 保留项数）；hover 实测浮层底为 token 色（深色主题下不再是系统白底）；参数行 ✕ 外包 `ToolTip` 的几何基线 = 按钮 24×24 / 行高 38px / 控件宽 `[176, 148]`（#73 值）。
+- **位置**：16 个组件/页面，`grep -rn ':title=' packages/ui/src --include=*.vue` 登记时实测 **60 处**（DownloadCard 11 / ParamsPage 9 / LocalModelsPanel 8 / TopBar 8 / ServiceStatusCard 6 / PresetsPanel 4 …），其中 6 处是 `a-dgroup` / `a-statistic` / `iframe` 等**组件 prop**（合法），其余为浏览器原生浮层。
+- **描述**：原生 `title` 不受主题控制（深色下仍是系统白底浮层）、有约 1s 延迟、承载不了多段文本，与 §7.5.6 的 Arco 浮层体系（实底 + token 色 + `pre-line` 三段）观感不一致。#74 只统一了参数行三处，其余出现点仍是原生——「参数页一套、别处一套」。
+- **修复（先定边界再动，不逐处替换）**：① **页面级/铬面上的固定少量元素**转 `ToolTip`，共 **26 处 / 9 个文件**——TopBar 8（含 3 个 win-btn，`aria-label` 保留）、StatusBar 2、ParamsPage 4（显存统计块 + 性能目标/恢复基线/清除会话）、LogsPage 2、ServicePage 2、DownloadCard 3（HF Mirror / ModelScope / 打开模型目录）、ServiceStatusCard 3（外部实例徽章 + 打开网页 + 管理模型）、GeneralPanel 1、FileBrowserModal 1；② **保留原生的三类**写进 §7.5.6 成硬边界：组件 `title` prop（`a-modal`/`a-popconfirm`/`a-statistic`/`a-dgroup`/`iframe` 无障碍名）、**`v-for` 数据条目上的提示**（模型表格行、下载任务行、预设行、chip 列表——每条目一个 Arco trigger 实例，与 §7.1 热路径铁律相冲）、**截断值提示**（`.mono-val`/`.file-name`/`.task-name`/`.task-error`/`.summary-label`）与 `a-input :title`（外包 host 会动到表单控件盒型）。
+- **落地要点（实测）**：① 自带 `v-if` 的元素转 `ToolTip` 时 `v-if` 必须移到 `ToolTip` 上（否则渲染空 host 与空浮层）；DownloadCard 的 HF Mirror/ModelScope 是 `v-if`/`v-else` 成对钮，两条指令要一起移到两个 `ToolTip` 上才保持相邻成对；② **`a-dropdown` 触发器外包 `ToolTip` 不破坏下拉**——Trigger 挂在 host 上、点击由按钮冒泡触发，弹层锚点即 host 盒（实测顶栏模型下拉中心 x=493 = 触发器中心；参数页性能目标 `position="bl"` 弹层 x=723 恒等于触发器 x）；③ 顶栏几何零回归：`.right` 五子项宽 `234/82/82/82/131`、gap 恒 8px、`.model-name` 仍在 180px 处省略（`scrollWidth 279 / clientWidth 180`）、状态栏复制值 109px 未撑破。
+- **修复效果验证**：`:title` 计数 **60 → 34**（剩余逐条核过，全部属保留三类）；`<ToolTip` 使用点 25 处 / 16 文件；hover 实测顶栏「启动」浮层底 `rgb(29,33,41)` + 白字（Arco token，深色主题下不再是系统白底）、参数行 ✕ 浮层 108×30；`vue-tsc`、`vitest`（66）、`vite build`（index chunk 230.71 → 231.08 kB，+0.37 kB 为 26 处包裹）、`style:audit` 13/13、`pnpm lint` 全绿。规范落点：[frontend.md §7.5.6](../frontend.md)（「提示机制边界」「仍保留原生 `title` 的三类」「交互控件外包 ToolTip 的两条实测注意」三条）。
+- **附带观察（未处理，非风格问题）**：mock 首屏控制台有 **360 条** `[Vue warn] toRefs() expects a reactive object but received a plain one`，登记时点即已存在（早于本轮改动），疑与参数行 / Arco 表单控件传参方式有关，值得单独一轮排查。
 
 
 ## 🟢 已修复索引
@@ -237,6 +239,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 75 | 提示机制两套并存（原生 `title` vs Arco `ToolTip`）：26 处页面级/铬面控件转 ToolTip，并立「组件 prop / v-for 条目 / 截断值」三类保留边界 | 2026-09-19 |
 | 74 | 建议值芯片被硬切成 "Qwen3-32B" 且浮层不带值（a-tag inline-flex 下 CSS 省略号不生效）+ 文本参数行 hover 两个 ✕（allow-clear 与行级还原冲突） | 2026-09-19 |
 | 73 | #72 二次不统一：滑块刻度门控只剩一只例外 + 110px 标签列截断长标签（改一律无刻度 + 140px，两条「（基准）」限定语移入 tooltip） | 2026-09-19 |
 | 72 | 参数页 60 行控件左右边缘都不齐（标签列按文字宽自适应 + 定宽槽位缺 min-width 被撑破；§7.5.4 文档与代码漂移） | 2026-09-19 |

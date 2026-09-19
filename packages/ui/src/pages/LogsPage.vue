@@ -5,6 +5,7 @@
 import { computed, onActivated, onDeactivated, onMounted, ref, watch } from 'vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Icon from '@/components/common/Icon.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import { useAppLogStore } from '@/stores/appLog';
 import { useSettingsStore } from '@/stores/settings';
 import { useI18nStore } from '@/stores/i18n';
@@ -154,19 +155,22 @@ function onScroll() {
         </a-input>
       </div>
       <div class="toolbar-right">
-        <a-button
-          size="small"
-          :disabled="filteredEntries.length === 0"
-          :title="i18n.t('copy_console')"
-          @click="onCopyAll"
-        >
-          <template #icon><Icon name="copy" :size="12" /></template>
-          {{ i18n.t('copy_console') }}
-        </a-button>
-        <a-button size="small" status="danger" :title="i18n.t('clear_console')" @click="onClear">
-          <template #icon><Icon name="trash" :size="12" /></template>
-          {{ i18n.t('clear_console') }}
-        </a-button>
+        <ToolTip :text="i18n.t('copy_console')">
+          <a-button
+            size="small"
+            :disabled="filteredEntries.length === 0"
+            @click="onCopyAll"
+          >
+            <template #icon><Icon name="copy" :size="12" /></template>
+            {{ i18n.t('copy_console') }}
+          </a-button>
+        </ToolTip>
+        <ToolTip :text="i18n.t('clear_console')">
+          <a-button size="small" status="danger" @click="onClear">
+            <template #icon><Icon name="trash" :size="12" /></template>
+            {{ i18n.t('clear_console') }}
+          </a-button>
+        </ToolTip>
       </div>
     </div>
 

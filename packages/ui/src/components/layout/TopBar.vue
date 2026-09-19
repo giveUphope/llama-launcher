@@ -9,6 +9,7 @@ import { MODEL_KEY, APP_NAME } from '@llama-launcher/shared';
 import type { ModelInfo } from '@llama-launcher/shared';
 import Icon from '@/components/common/Icon.vue';
 import AppLogo from '@/components/common/AppLogo.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import { useStartServer } from '@/composables/useStartServer';
 import { useModelPreset } from '@/composables/useModelPreset';
 
@@ -169,11 +170,13 @@ async function onOpenWeb() {
         :popup-visible="modelDropdownOpen"
         @popup-visible-change="(v: boolean) => (modelDropdownOpen = v)"
       >
-        <a-button class="tb-model" :disabled="false" :title="currentModelName">
-          <template #icon><Icon name="models" :size="14" /></template>
-          <span class="model-name">{{ currentModelName || i18n.t('lbl_select_model') }}</span>
-          <template #suffix><Icon name="chevron_down" :size="12" /></template>
-        </a-button>
+        <ToolTip :text="currentModelName">
+          <a-button class="tb-model" :disabled="false">
+            <template #icon><Icon name="models" :size="14" /></template>
+            <span class="model-name">{{ currentModelName || i18n.t('lbl_select_model') }}</span>
+            <template #suffix><Icon name="chevron_down" :size="12" /></template>
+          </a-button>
+        </ToolTip>
         <template #content>
           <a-doption class="dd-manage" @click="onSelectModel('')">{{ i18n.t('lbl_manage_models') }}…</a-doption>
           <a-divider class="dd-divider" />
@@ -191,35 +194,49 @@ async function onOpenWeb() {
       </a-dropdown>
 
       <!-- 服务操作（Arco Button 语义：primary 启动 / danger 停止 / warning 重启 / text 打开网页） -->
-      <a-button type="primary" :disabled="isRunning" :title="i18n.t('start')" @click="onStart">
-        <template #icon><Icon name="play" :size="14" /></template>
-        {{ i18n.t('start') }}
-      </a-button>
-      <a-button type="outline" status="danger" :disabled="!isRunning" :title="i18n.t('stop')" @click="onStop">
-        <template #icon><Icon name="stop" :size="14" /></template>
-        {{ i18n.t('stop') }}
-      </a-button>
-      <a-button type="outline" status="warning" :disabled="!isRunning" :title="i18n.t('restart')" @click="onRestart">
-        <template #icon><Icon name="refresh" :size="14" /></template>
-        {{ i18n.t('restart') }}
-      </a-button>
-      <a-button type="text" :disabled="!isRunning" :title="i18n.t('open_web')" @click="onOpenWeb">
-        <template #icon><Icon name="external" :size="14" /></template>
-        {{ i18n.t('open_web') }}
-      </a-button>
+      <ToolTip :text="i18n.t('start')">
+        <a-button type="primary" :disabled="isRunning" @click="onStart">
+          <template #icon><Icon name="play" :size="14" /></template>
+          {{ i18n.t('start') }}
+        </a-button>
+      </ToolTip>
+      <ToolTip :text="i18n.t('stop')">
+        <a-button type="outline" status="danger" :disabled="!isRunning" @click="onStop">
+          <template #icon><Icon name="stop" :size="14" /></template>
+          {{ i18n.t('stop') }}
+        </a-button>
+      </ToolTip>
+      <ToolTip :text="i18n.t('restart')">
+        <a-button type="outline" status="warning" :disabled="!isRunning" @click="onRestart">
+          <template #icon><Icon name="refresh" :size="14" /></template>
+          {{ i18n.t('restart') }}
+        </a-button>
+      </ToolTip>
+      <ToolTip :text="i18n.t('open_web')">
+        <a-button type="text" :disabled="!isRunning" @click="onOpenWeb">
+          <template #icon><Icon name="external" :size="14" /></template>
+          {{ i18n.t('open_web') }}
+        </a-button>
+      </ToolTip>
 
       <!-- 窗口控制：a-button 基座（type=text）+ Arco 图标 + 窗口铬专属覆盖；点击走
            Electron 窗口协议，贴边热区为无边框窗口必需（Arco 无窗口控制组件） -->
       <div class="window-controls">
-        <a-button class="win-btn" type="text" :title="i18n.t('win_minimize')" @click="onMinimize" aria-label="minimize">
-          <Icon name="minimize" :size="12" />
-        </a-button>
-        <a-button class="win-btn" type="text" :title="isMaximized ? i18n.t('win_restore') : i18n.t('win_maximize')" @click="onToggleMaximize" aria-label="toggle maximize">
-          <Icon :name="isMaximized ? 'restore' : 'maximize'" :size="12" />
-        </a-button>
-        <a-button class="win-btn win-close" type="text" :title="i18n.t('win_close')" @click="onClose" aria-label="close">
-          <Icon name="close" :size="12" />
-        </a-button>
+        <ToolTip :text="i18n.t('win_minimize')">
+          <a-button class="win-btn" type="text" @click="onMinimize" aria-label="minimize">
+            <Icon name="minimize" :size="12" />
+          </a-button>
+        </ToolTip>
+        <ToolTip :text="isMaximized ? i18n.t('win_restore') : i18n.t('win_maximize')">
+          <a-button class="win-btn" type="text" @click="onToggleMaximize" aria-label="toggle maximize">
+            <Icon :name="isMaximized ? 'restore' : 'maximize'" :size="12" />
+          </a-button>
+        </ToolTip>
+        <ToolTip :text="i18n.t('win_close')">
+          <a-button class="win-btn win-close" type="text" @click="onClose" aria-label="close">
+            <Icon name="close" :size="12" />
+          </a-button>
+        </ToolTip>
       </div>
     </div>
   </header>

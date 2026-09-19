@@ -8,6 +8,7 @@ import { useRouter } from 'vue-router';
 import Card from '@/components/common/Card.vue';
 import StatusTag from '@/components/common/StatusTag.vue';
 import Icon from '@/components/common/Icon.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
@@ -182,7 +183,9 @@ function onOomKvQuant() {
     <!-- 运行状态：a-tag 独立行（检测到外部 llama-server 时并排展示外部实例徽章） -->
     <a-space :size="8" class="status-row">
       <StatusTag :status="statusInfo.status" :label="statusInfo.label" />
-      <a-tag v-if="server.external" color="arcoblue" :title="externalHint">{{ externalTagLabel }}</a-tag>
+      <ToolTip v-if="server.external" :text="externalHint">
+        <a-tag color="arcoblue">{{ externalTagLabel }}</a-tag>
+      </ToolTip>
     </a-space>
 
     <!-- 字段区：单个 a-descriptions 原生多列承载（模型/地址整行，主机/端口/PID/时长两列）；
@@ -226,20 +229,23 @@ function onOomKvQuant() {
     <!-- 快捷操作（自原概览 Q2/Q3 保留）：按钮不属于信息展示，不构成重复。
          打开 Web UI：本应用运行中跳内置页；停止但接管了外部实例时在系统浏览器打开其地址 -->
     <a-space :size="8" class="quick-actions">
-      <a-button
-        type="primary"
-        size="small"
-        :disabled="!isRunning && !externalUrl"
-        :title="isRunning ? i18n.t('open_web') : externalHint"
-        @click="onOpenWeb"
-      >
-        <template #icon><Icon name="external" :size="13" /></template>
-        {{ i18n.t('open_web') }}
-      </a-button>
-      <a-button size="small" @click="router.push('/models')" :title="i18n.t('lbl_manage_models')">
-        <template #icon><Icon name="models" :size="13" /></template>
-        {{ i18n.t('lbl_manage_models') }}
-      </a-button>
+      <ToolTip :text="isRunning ? i18n.t('open_web') : externalHint">
+        <a-button
+          type="primary"
+          size="small"
+          :disabled="!isRunning && !externalUrl"
+          @click="onOpenWeb"
+        >
+          <template #icon><Icon name="external" :size="13" /></template>
+          {{ i18n.t('open_web') }}
+        </a-button>
+      </ToolTip>
+      <ToolTip :text="i18n.t('lbl_manage_models')">
+        <a-button size="small" @click="router.push('/models')">
+          <template #icon><Icon name="models" :size="13" /></template>
+          {{ i18n.t('lbl_manage_models') }}
+        </a-button>
+      </ToolTip>
     </a-space>
     <!-- 失败/异常退出提示（设计稿 §8.4：错误摘要 + 解决方案）。
          ⚠️ 布局防跳动：外层 slot 常驻并预留与 banner 等高的固定高度，

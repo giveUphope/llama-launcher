@@ -6,6 +6,7 @@ import type { PerfTarget, TargetRecommendation, OccupancyConfig } from '@llama-l
 import Card from '@/components/common/Card.vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Icon from '@/components/common/Icon.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import PresetsPanel from '@/components/presets/PresetsPanel.vue';
 import ParamRow from '@/components/params/ParamRow.vue';
 import { confirm } from '@/composables/useConfirm';
@@ -239,28 +240,32 @@ async function onClearSession() {
       <!-- 硬件占用估算 stat：槽位常驻占位（不可用显示 —），构成明细放 tooltip；
            显存总占用超出设备空闲时橙色警示 -->
       <a-divider class="stat-divider" direction="vertical" />
-      <div class="stat" :class="{ warn: vramWarn }" :title="vramTooltip">
-        <Icon :name="vramWarn ? 'alert' : 'info'" :size="14" />
-        <a-statistic
-          :title="i18n.t('lbl_vram_occupancy')"
-          :value="vramStatValue?.num"
-          placeholder="—"
-          :class="{ muted: !vramStatValue }"
-        >
-          <template #suffix>{{ vramStatValue?.unit }}</template>
-        </a-statistic>
-      </div>
+      <ToolTip :text="vramTooltip">
+        <div class="stat" :class="{ warn: vramWarn }">
+          <Icon :name="vramWarn ? 'alert' : 'info'" :size="14" />
+          <a-statistic
+            :title="i18n.t('lbl_vram_occupancy')"
+            :value="vramStatValue?.num"
+            placeholder="—"
+            :class="{ muted: !vramStatValue }"
+          >
+            <template #suffix>{{ vramStatValue?.unit }}</template>
+          </a-statistic>
+        </div>
+      </ToolTip>
       <!-- 性能目标选择器：四档目标联动关键杠杆建议（Arco Dropdown 承接；建议 chips 走 a-tag）。
            hide-on-select=false：点击目标仅切换选中并刷新建议区，面板保持展开，
            由用户主动点「应用到参数」（应用后收起）或点击外部关闭。
            position=bl：按钮文字随所选目标变化导致触发器宽度变化，默认 bottom（水平居中）
            会让弹层随按钮宽度左右跳变（实测 609~630px 摆动）；bl 左对齐触发器后弹层 x 恒定 -->
       <a-dropdown trigger="click" position="bl" :popup-visible="targetOpen" :hide-on-select="false" @popup-visible-change="(v: any) => (targetOpen = v)">
-        <a-button size="small" :title="i18n.t('target_picker_title')">
-          <template #icon><Icon name="presets" :size="11" /></template>
-          {{ i18n.t('lbl_perf_target') }}: {{ targetLabel }}
-          <template #suffix><Icon name="chevron_down" :size="11" /></template>
-        </a-button>
+        <ToolTip :text="i18n.t('target_picker_title')">
+          <a-button size="small">
+            <template #icon><Icon name="presets" :size="11" /></template>
+            {{ i18n.t('lbl_perf_target') }}: {{ targetLabel }}
+            <template #suffix><Icon name="chevron_down" :size="11" /></template>
+          </a-button>
+        </ToolTip>
         <template #content>
           <div class="target-menu">
             <a-doption
@@ -292,17 +297,20 @@ async function onClearSession() {
       <div class="status-right">
         <!-- 基线徽章已移除（与「已调整」统计重复，基线状态保留在概览服务状态卡）；
              保留恢复基线 / 清除会话参数两个操作入口 -->
-        <a-button
-          size="small"
-          :disabled="!params.hasChanges || !params.baseline"
-          :title="i18n.t('msg_restore_baseline')"
-          @click="params.restoreBaseline()"
-        >
-          {{ i18n.t('msg_restore_baseline') }}
-        </a-button>
-        <a-button size="small" :title="i18n.t('msg_clear_session')" @click="onClearSession">
-          {{ i18n.t('msg_clear_session') }}
-        </a-button>
+        <ToolTip :text="i18n.t('msg_restore_baseline')">
+          <a-button
+            size="small"
+            :disabled="!params.hasChanges || !params.baseline"
+            @click="params.restoreBaseline()"
+          >
+            {{ i18n.t('msg_restore_baseline') }}
+          </a-button>
+        </ToolTip>
+        <ToolTip :text="i18n.t('msg_clear_session')">
+          <a-button size="small" @click="onClearSession">
+            {{ i18n.t('msg_clear_session') }}
+          </a-button>
+        </ToolTip>
       </div>
     </div>
 
