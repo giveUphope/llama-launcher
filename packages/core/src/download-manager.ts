@@ -179,8 +179,17 @@ const RETRY_BASE_MS = 1000;
 const MAX_RETRY_DELAY_MS = 30000;
 /** 段内重定向上限:防止重定向环导致无限递归(浏览器普遍取 20,此处收紧为 5 足够正常 CDN 链路) */
 const MAX_SEGMENT_REDIRECTS = 5;
-/** 速度统计/进度推送间隔(节流:从 1s 降至 500ms 更顺滑) */
-const PROGRESS_INTERVAL_MS = 500;
+/**
+ * 进度推送间隔：120ms 让进度条按真实到字节连续推进（原 500ms 在 100MB/s 级
+ * 下载下会 20% 一跳，观感上像"卡住后跳一大截"）。载荷只有一个 5 字段小对象，
+ * 8.3 次/秒/任务的成本可忽略。
+ */
+const PROGRESS_INTERVAL_MS = 120;
+/**
+ * 速率采样窗口：EMA 系数（α=0.5）是按 500ms 样本调校的，120ms 样本噪声大得多，
+ * 直接同频会让速度/ETA 剧烈跳动 —— 故速率与推送解耦，各自取自己的节奏。
+ */
+const SPEED_SAMPLE_MS = 500;
 /**
  * 写入流缓冲上限:2MB(曾是 16MB)。单任务最多 8 段 × 最多 5 个并发任务,16MB 意味着
  * 数百 MB 的在途缓冲;速率曲线的平滑本就由 EMA 采样器负责(见 startSpeedTracker),
@@ -1353,7 +1362,7 @@ export class DownloadManager extends EventEmitter {
     }
   }
 
-  /** 启动速度统计定时器（每秒更新） */
+  /** 进度推送 + 速率统计定时器（推送 120ms 一次，速率按 500ms 窗口 EMA 平滑） */
   private startSpeedTracker(id: string) {
     const task = this.tasks.get(id);
     if (!task) return;
@@ -1362,6 +1371,7 @@ export class DownloadManager extends EventEmitter {
     // 0.3 过低导致段切换间隙(数百 ms)的降速需 1.5-2s 才能追上,呈现"有规律降速"假象;
     // 0.5 在平滑性与响应性间更平衡,2 个样本(1s)即可追上真实变化
     const EMA_ALPHA = 0.5;
+    const sampleSec = SPEED_SAMPLE_MS / 1000;
     const tracker = {
       lastBytes: task.downloadedSize,
       lastTime: Date.now(),
@@ -1373,17 +1383,19 @@ export class DownloadManager extends EventEmitter {
         this.recomputeDownloadedSize(id);
         const now = Date.now();
         const elapsed = (now - tracker.lastTime) / 1000;
-        if (elapsed > 0) {
+        // 速率只在采样窗口到期时更新（t.speed 在两次采样间保持上一个值），
+        // 进度事件则每 tick 都发——条宽要跟着真实字节走，速度/ETA 不要
+        if (elapsed >= sampleSec) {
           const instantSpeed = (t.downloadedSize - tracker.lastBytes) / elapsed;
           // EMA:首次样本直接采用(避免从 0 缓慢爬升);后续按系数加权
           tracker.smoothedSpeed =
             tracker.smoothedSpeed === 0
               ? instantSpeed
               : EMA_ALPHA * instantSpeed + (1 - EMA_ALPHA) * tracker.smoothedSpeed;
+          tracker.lastBytes = t.downloadedSize;
+          tracker.lastTime = now;
+          t.speed = Math.round(tracker.smoothedSpeed);
         }
-        tracker.lastBytes = t.downloadedSize;
-        tracker.lastTime = now;
-        t.speed = Math.round(tracker.smoothedSpeed);
 
         this.emit('progress', {
           id,

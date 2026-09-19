@@ -95,7 +95,7 @@
 
 - **目录结构**：`models_dir/作者/模型仓库名/fileName`。
 
-- **进度推送**：每 500ms 更新速度，emit `progress` / `complete` / `error` 事件；`errorType` 字段供前端显示友好诊断。
+- **进度推送**：每 **120ms**（`PROGRESS_INTERVAL_MS`）从所有段汇总 `downloadedSize` 并 emit `progress`，让进度条按真实到字节连续推进；**速率/ETA 另按 500ms 窗口（`SPEED_SAMPLE_MS`）采样并做 EMA(α=0.5) 平滑**——两个节奏刻意解耦（120ms 样本噪声大，同频会让速度剧烈跳动）。完成/失败时 emit `complete` / `error`；`errorType` 字段供前端显示友好诊断。
 
 - **状态机**：`queued → downloading → completed`；可中断为 `paused` / `error` / `canceled`。
 

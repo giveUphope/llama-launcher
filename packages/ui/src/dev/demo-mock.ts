@@ -217,19 +217,22 @@ export function createDemoApi() {
     for (const cb of progressCbs) { try { cb(payload); } catch { /* 忽略 */ } }
   }
   function simulateDownload(id: string, fileName: string, total: number) {
+    // 与真实下载管理器同节奏：120ms 推一次、每次推进一小段（带抖动模拟网络波动）。
+    // 曾用 8 步 × 900ms（12.5% 一跳），预览里看到的进度条就是"卡一下跳一大截"，
+    // 与真机观感不符，无法用来核对进度是否连续。
     let done = 0;
-    const step = Math.floor(total / 8);
+    const baseStep = Math.floor(total / 125);
     const iv = setInterval(() => {
-      done += step;
+      done += Math.max(1, Math.floor(baseStep * (0.7 + Math.random() * 0.6)));
       if (done >= total) {
         clearInterval(iv);
         emitProgress(id, total, total, 0);
         const payload = { id, localPath: `${MODELS_DIR}/tmp/${fileName}`, modelId: 'demo', fileName, checksum: 'deadbeef' } as never;
         for (const cb of completeCbs) { try { cb(payload); } catch { /* 忽略 */ } }
       } else {
-        emitProgress(id, done, total, 90_000_000);
+        emitProgress(id, done, total, Math.round(90_000_000 * (0.8 + Math.random() * 0.4)));
       }
-    }, 900);
+    }, 120);
   }
 
   // ---- settings ----
