@@ -10,7 +10,7 @@ import { writeFileSync } from 'node:fs';
 const here = import.meta.dirname;
 
 // 把 Vite 实际监听的端口写到 packages/ui/.vite-dev-port，
-// 供 Electron 主进程（dev:vite / turbo dev）读取，避免端口被占用后
+// 供 Electron 主进程（`pnpm dev` = scripts/dev.cjs 编排的 dev 会话）读取，避免端口被占用后
 // 前端顺延到别的端口、而 Electron 仍连 5173 导致白屏/连不上。
 function writeDevPortPlugin() {
   return {

@@ -5,13 +5,15 @@
 
 | 命令 | 说明 |
 |------|------|
-| `pnpm dev` | 启动开发模式（turbo 编排） |
+| `pnpm dev` | 启动开发模式（`scripts/dev.cjs` 三进程编排，不经 turbo） |
 | `pnpm build` | 构建所有包 |
 | `pnpm test` | 运行测试 |
 | `pnpm lint` | 类型检查 + IPC 同步校验（`verify-ipc-sync.cjs`）+ 文档链接检查（`check-docs-links.cjs`，可单独 `pnpm docs:check`） |
 | `pnpm dist` | 打包 Portable 单文件（根目录一条命令，委托 `@llama-launcher/desktop dist`；electron-builder，输出 `release/*.exe`，自动处理输出目录锁定回退） |
 
-开发模式热重载（`apps/desktop` 的 `dev:vite` 三进程编排）：Vite dev server（UI HMR）+ `tsc -b --watch`（shared/core/desktop 增量重建）+ `scripts/dev-watch.cjs`（监视主进程 dist / preload 源 / shared 类型，变更时自动重新生成 preload 并重启 Electron，通过 `LLAMA_DEV_SKIP_QUIT_KILL=1` 避免热重启连带杀掉 dev 会话树）。改 UI 组件/样式即时热更；改 core/shared/主进程/preload 代码自动重建并重启，无需手动操作。
+开发模式热重载由 `scripts/dev.cjs` 编排三进程：Vite dev server（UI HMR）+ `tsc -b --watch`（shared/core/desktop 增量重建）+ `scripts/dev-watch.cjs`（监视主进程 dist / preload 源 / shared 类型，变更时自动重新生成 preload 并重启 Electron，通过 `LLAMA_DEV_SKIP_QUIT_KILL=1` 避免热重启连带杀掉 dev 会话树）。改 UI 组件/样式即时热更；改 core/shared/主进程/preload 代码自动重建并重启，无需手动操作。退出语义：任一任务先退出即以它的退出码结束整个会话，其余任务按进程树 `taskkill /T /F` 清理（用户关窗 → dev-watch 退 0 → vite/tsc 一并收走，端口不残留）。
+
+**为什么不用 turbo / concurrently / 子命令里嵌 `pnpm`**：Windows 下这些都会经 `node_modules/.bin` 的 `.cmd` 批处理 shim，而 cmd.exe 在批处理等待子进程时收到 Ctrl+C 会打印 `Terminate batch job (Y/N)?` 并阻塞等待按键——旧链路叠了 4 层批处理，于是一次 Ctrl+C 退不出去（需要按两次，且 turbo 要等满优雅超时才 `Force killed Turborepo tasks`）。`dev.cjs` 三个任务全部由 node 直接执行依赖 `package.json` 里 `bin` 指向的真实 JS 入口，零批处理层，一次 Ctrl+C 即退出；新增 dev 任务须沿用同一写法。
 
 ---
 

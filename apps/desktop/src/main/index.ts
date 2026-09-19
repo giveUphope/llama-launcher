@@ -91,21 +91,21 @@ if (!gotLock) {
     processRegistry.cleanupAll();
     launcherBridge.disposeSync();
 
-    // 开发模式：关窗退出时顺带结束整个 dev 会话（turbo/vite/concurrently 等兄弟进程）。
-    // 用 !app.isPackaged 判定开发模式（比依赖 NODE_ENV 更可靠：cross-env 的 env
+    // 开发模式：关窗退出时顺带结束整个 dev 会话（vite / tsc --watch 等兄弟进程）。
+    // 用 !app.isPackaged 判定开发模式（比依赖 NODE_ENV 更可靠：脚本前缀的 env
     // 只作用于 && 链的第一个命令，electron 主进程里拿不到 NODE_ENV）。
     // 生产打包版(isPackaged=true)绝不误杀用户终端。此时 llama-server 已清理完毕，
-    // 这里从进程列表里找到 `turbo run dev` 根，杀掉整棵进程树，释放 5173 等端口。
-    // 热重载（dev-watch）通过 LLAMA_DEV_SKIP_QUIT_KILL=1 跳过——否则重启 Electron 会
-    // 连带杀掉 tsc --watch 与监视器本身。
+    // 这里从进程列表里找到 dev 会话根，杀掉整棵进程树，释放 5173 等端口。
+    // `pnpm dev` 走 scripts/dev.cjs 编排：Electron 由 dev-watch 以 LLAMA_DEV_SKIP_QUIT_KILL=1
+    // 启动，故整段跳过（热重启不得杀监视器，会话收尾也归编排器）；找不到 dev 会话根时同样静默跳过。
     if (!app.isPackaged && process.env.LLAMA_DEV_SKIP_QUIT_KILL !== '1') {
       try {
         const root = findDevSessionRoot();
         if (root && root !== process.pid) {
-          cleanupLogger.info('app', `dev session: killing process tree rooted at turbo pid=${root}`);
+          cleanupLogger.info('app', `dev session: killing process tree rooted at pid=${root}`);
           killProcessTree(root);
         } else {
-          cleanupLogger.debug('app', 'dev session: no turbo dev root found, skip tree kill');
+          cleanupLogger.debug('app', 'dev session: no dev session root found, skip tree kill');
         }
       } catch (e) {
         cleanupLogger.error('app', 'dev session tree kill failed', e);
@@ -135,9 +135,12 @@ if (!gotLock) {
     }
   });
 
-  // 开发模式下，用户 Ctrl-C / concurrently -k 会以 SIGTERM/SIGINT 直接结束 Electron，
+  // 开发模式下，用户 Ctrl-C / 编排器清理会以 SIGTERM/SIGINT 直接结束 Electron，
   // 此时 before-quit/will-quit 可能来不及触发。注册信号处理器：先清理 llama-server，
-  // 再杀掉整棵 dev 会话树（turbo/vite 等），最后退出，避免残留进程占用端口/资源。
+  // 再退出，避免残留进程占用端口/资源。
+  // dev 会话树（vite/tsc/监视器）由 scripts/dev.cjs 编排器负责杀除；带
+  // LLAMA_DEV_SKIP_QUIT_KILL=1（dev-watch 启动）时跳过这里的父进程扫描——
+  // findDevSessionRoot 要跑一次 PowerShell 进程枚举（秒级），会让首次 Ctrl+C 迟迟收不了尾。
   let signalHandled = false;
   const onSignal = () => {
     if (signalHandled) return;
@@ -146,11 +149,11 @@ if (!gotLock) {
     getDownloadManager().pauseAll();
     processRegistry.cleanupAll();
     launcherBridge.disposeSync();
-    if (!app.isPackaged) {
+    if (!app.isPackaged && process.env.LLAMA_DEV_SKIP_QUIT_KILL !== '1') {
       try {
         const root = findDevSessionRoot();
         if (root && root !== process.pid) {
-          cleanupLogger.info('app', `dev session: killing process tree rooted at turbo pid=${root}`);
+          cleanupLogger.info('app', `dev session: killing process tree rooted at pid=${root}`);
           killProcessTree(root);
         }
       } catch (e) {

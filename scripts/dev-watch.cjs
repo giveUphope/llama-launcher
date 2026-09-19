@@ -1,4 +1,4 @@
-// 开发热重载监视器：配合 `tsc -b --watch`（dev:tsc:watch）与 Vite HMR（dev:vite 的 vite 进程）。
+// 开发热重载监视器：由 `scripts/dev.cjs` 编排（与 `tsc -b --watch`、Vite dev server 并行）。
 // 主进程构建产物 / preload 源 / shared 类型（含 IPC 常量）变更时，
 // 自动重新生成并复制 preload、重启 Electron —— 改 core/shared/主进程代码即热更，无需手动重启。
 // 通过 LLAMA_DEV_SKIP_QUIT_KILL 通知主进程跳过"退出时杀 dev 会话树"，避免连带杀掉本监视器。
@@ -39,11 +39,18 @@ let budgetTripped = false;
 let electronStartedAt = 0;
 let shuttingDown = false;
 
-/** 退出清理：dev-watch 被终止时一并杀掉其 spawn 的 Electron，避免孤儿进程占住单实例锁。 */
+/** 退出清理：dev-watch 被终止时一并杀掉其 spawn 的 Electron 进程树，避免孤儿进程占住单实例锁。 */
 function cleanup() {
   shuttingDown = true;
   if (electronProc) {
-    try { electronProc.kill(); } catch { /* 已退出 */ }
+    try {
+      if (process.platform === 'win32') {
+        // TerminateProcess（child.kill()）不会带走 Electron 的 GPU/渲染子进程，递归杀树
+        spawnSync('taskkill', ['/PID', String(electronProc.pid), '/T', '/F'], { windowsHide: true });
+      } else {
+        electronProc.kill();
+      }
+    } catch { /* 已退出 */ }
   }
 }
 process.on('exit', cleanup);
@@ -124,7 +131,7 @@ function startElectron() {
       const ranMs = Date.now() - electronStartedAt;
       if (code === 0) {
         // 退出码 0 = 用户主动关闭/应用自退（含单实例锁冲突 app.quit()）：不自动重启，
-        // 并结束本 dev 会话——dev-watch 退出后 concurrently -k 会连带终止 vite/tsc，
+        // 并结束本 dev 会话——dev-watch 退出后编排器 scripts/dev.cjs 会连带杀掉 vite/tsc，
         // 终端不再残留进程
         console.log(
           ranMs < MIN_RUN_MS
