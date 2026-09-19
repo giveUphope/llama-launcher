@@ -129,15 +129,14 @@ const activeParamCount = computed(() => {
   gap: 6px;
 }
 // 参数摘要 chip：Arco a-tag 承载（同 ModelMetaCard meta-chip 范式），仅补 mono 字体
-// 与内容排列；key/eq/val 三段配色与原自绘一致
+// 与内容排列；key/eq/val 三段配色与原自绘一致。
+// gap 必须写在 a-tag 根元素上：Arco 的插槽子节点直接挂在 .arco-tag 下、**没有**
+// .arco-tag-content 包装层，:deep(.arco-tag-content) 是死规则（实测三段间距 0px）
 .summary-chip {
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
-  :deep(.arco-tag-content) {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
+  align-items: center;
+  gap: 5px;
 }
 .chip-key { color: rgb(var(--primary-6)); font-weight: 600; }
 .chip-eq { color: var(--color-text-3); }

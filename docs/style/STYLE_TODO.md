@@ -157,12 +157,30 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
   ② 解析信息行不再显示来源徽标（只留 `modelId` 与可选 `fileName`），来源标识**只在「模型文件」区标题与下载任务行各出现一次**——保留文件区标题那处，是因为 `currentSource` 可能因用户改选搜索结果而不同于 URL 解析来源，文件列表的来源必须就地可读；随之删除已无引用的 `parseSourceLabel()`。
 - **修复效果验证**（Playwright + 真实构建产物 + demo-mock）：`.info-tag` 计数 `1 → 0`、文件区 `.source-badge` 计数 `1`；来源徽标浅色 `rgb(78,89,105)` + `rgb(242,243,245)`（= `--color-text-2` / `--color-fill-2`）、深色 `rgba(255,255,255,.7)` + `rgba(255,255,255,.08)`（= 深色同名 token）；任务行同排「HF Mirror」（中性灰）与「Q4_K_M」（蓝 `rgb(37,99,235)`）实测可区分；`pnpm style:audit` 12/12、`vue-tsc --noEmit`、`vitest run`（66）、`vite build` 全通过，控制台 0 error。
 
+### 68. 紧凑可选中行的 flex 布局被 Arco 插槽包装层吞掉（行内距同时被自家归零规则清零）— 🟢 已修复（2026-09-19）
+
+- **位置**：`DownloadCard.vue` 的 `.file-list` / `.result-list` 与 `.file-item` / `.result-item`（模型文件行、搜索结果行）。
+- **描述（用户在 mock 页标注「优化内容间距」后 DOM 实测确认）**：两条缺陷叠加，使「紧凑可选中行」的排版从未生效——
+  ① **Arco 插槽包装层吃掉行容器的 flex**：`a-list-item` 会把默认插槽包进 `.arco-list-item-main > .arco-list-item-content`（两者均 `display: block`），于是 `.file-item { display: flex; align-items: center; gap: 8px }` 的 flex 子项只有那一个包装层，复选框 / 文件名 / 三枚徽章 / 大小实际是**行内文本流**排布，相互间隙 = 模板换行折叠出的一个空格（13px 字号下实测 ≈3px）；`.file-name { flex: 1 }` 与徽章的 `flex-shrink: 0` 一并失效（元素为 `display: inline`，`overflow/ellipsis` 同样无效），徽章不会右对齐——实测行宽 812px 而内容止于 x=714。
+  ② **行内距被 #65 ② 的归零规则连带清零**：`.file-item` / `.result-item` 与 `.arco-list-item` 是同一个元素，而 #65 为压过 Arco `size="small"` 写的同构选择器 `:deep(.arco-list-content-wrapper .arco-list-content > .arco-list-item) { padding: 0 }`（(0,5,0)）特异性高于行类自身（(0,2,0)），故行自带的 `6px 10px` / `8px 10px` 也被清零——实测 `padding: 0px`、行高 25px（内容 23px + 边框），行贴边无留白。
+- **修复**：① 两个列表块各加 `:deep(.arco-list-item-main), :deep(.arco-list-item-content) { display: contents }`，让插槽子节点直接成为行的 flex item（Arco 自身对这两层无必需盒模型，行内无 `#extra` 插槽，无副作用）；② 把行内距写进那条同构高特异性规则里（`.file-list` → `6px 10px`、`.result-list` → `8px 10px`），并从 `.file-item` / `.result-item` 移除现已失效的 `padding` 声明，注释写明「行类与 `.arco-list-item` 同一元素、padding 只能落在此处」。
+- **修复效果验证**（内置浏览器 + demo-mock，`#/models?tab=library` 解析 `hf-mirror.com/Qwen/Qwen3-8B` 后实测 `Q4_K_M` 行）：行 `padding: 0px → 6px 10px`、行高 `25 → 34px`；`.arco-list-item-main` 矩形归零（`w=0`，证明 `display: contents` 生效）；相邻子项间隙 `≈3px → 8px`（复选框→名 8、名→量化 8、量化→推荐 8、推荐→类别 8、类别→大小 8）；`.file-name` 由 `display: inline` 变 `block` + `flex: 1 1 0%` + `text-overflow: ellipsis` 生效，徽章右对齐（末元素 right 1090 = 行 right 1101 − 内距 10 − 边框 1）。⚠️ `.result-item`（搜索结果行）与 `.file-item` 共用同一规则形状，但 demo-mock 的解析流程直接进入文件列表、`searchResults.length > 1` 分支未触发，**其像素级验证未覆盖**——建议真机走一次「搜索多结果」目视确认。规范落点：[frontend.md §7.5.7](../frontend.md) 列表行变体 ②。
+
+### 69. `a-tag` 无 `.arco-tag-content` 包装层——三处 `:deep(.arco-tag-content)` 死规则使 chip 内 key/=/val 三段实测 0 间距 — 🟢 已修复（2026-09-19）
+
+- **位置**：`ParamSummaryCard.vue` `.summary-chip`（服务页「模型路径 = …」）、`ModelMetaCard.vue` `.meta-chip`、`LocalModelsPanel.vue` `.suggestion-chip`。
+- **描述（用户标注「优化内容间距」后 DOM 实测确认）**：三处都写成 `.xxx-chip { :deep(.arco-tag-content) { display: inline-flex; gap: 4px } }`，但当前 Arco（`@arco-design/web-vue` 2.58）的 `a-tag` **不渲染 `.arco-tag-content` 元素**——插槽子节点（`.chip-key` / `.chip-eq` / `.chip-val`）直接挂在 `.arco-tag` 根上，选择器永不匹配。根元素自身 `display: flex` 且无 gap，实测三段首尾相接（key right=326 = eq x=326、eq right=333 = val x=333），界面呈现为 `模型路径=D:/Models/…gguf` 挤成一坨。与 #65/#66 同一类根因：把 Arco 内部结构臆想为存在某个包装层。
+- **修复**：gap 落到 a-tag 根元素本身——三处改为 `align-items: center; gap: 5px`（5px 为 §7.5.4 刻度表的「chip 内文本-计数徽章」档，即芯片内部文本间距），删除 `:deep(.arco-tag-content)` 死块并在注释写明「Arco 无该包装层」。
+- **修复效果验证**：服务页 `.summary-chip`（模型路径行）实测 `gap: normal → 5px`，几何间隙 key→eq `0 → 5px`、eq→val `0 → 5px`，标签高度 20px 不变（无重排）；`.meta-chip` / `.suggestion-chip` 同规则同组件、未逐一点开触发（概览模型元信息卡与本地模型建议行需选中模型 / 打开面板），真机顺带目视即可。规范落点：[frontend.md §7.5.4 ①](../frontend.md)。
+
 ## 🟢 已修复索引
 
 完整的问题描述 / 修复方案 / 验证证据见 [已修复归档](../archive/style-todo-resolved.md)（只读留档）；修复后的规范落点见 [frontend.md §7.5](../frontend.md)。
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 68 | 紧凑可选中行的 flex 被 Arco 插槽包装层（`.arco-list-item-main/-content`）吞掉 + 行内距被自家归零规则连带清零 | 2026-09-19 |
+| 69 | `a-tag` 无 `.arco-tag-content` 包装层，三处 `:deep(.arco-tag-content)` 死规则致 chip 内 0 间距 | 2026-09-19 |
 | 67 | 徽章调色板撞色（来源族与量化族同为 #2563eb）+ 来源标识同区块重复 | 2026-09-18 |
 | 66 | FileBrowserModal 行选中/悬停底色选择器永不匹配（`.fb-row` 即 `.arco-list-item`） | 2026-09-18 |
 | 65 | 真机渲染核对发现的样式缺陷（深色单类徽章被 Arco 压掉 / 列表行内距归零特异性失效 / demo-mock 量化 family 与 sizeStr 漂移） | 2026-09-18 |

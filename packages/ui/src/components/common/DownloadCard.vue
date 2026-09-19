@@ -1039,11 +1039,10 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 /* 搜索结果列表：a-list 承载（:split="false" 走原生 prop 去掉行分隔线，
-   不再以 border-bottom: none 覆写内部样式），仅保留条目间距与行内距归零。
-   行内距归零必须对齐 Arco 的特异性：size=small 的规则是
+   不再以 border-bottom: none 覆写内部样式），条目间距与行内距见块内注释。
+   行内距必须对齐 Arco 的特异性：size=small 的规则是
    .arco-list-small .arco-list-content-wrapper .arco-list-content > .arco-list-item（(0,4,0)），
-   普通 :deep(.arco-list-item)（(0,3,0)）会被压掉、padding 实际从未归零（真机实测 9px 20px），
-   故按同构选择器对齐；行内距交由行容器 .result-item 自带 */
+   普通 :deep(.arco-list-item)（(0,3,0)）会被压掉（真机实测 9px 20px），故按同构选择器书写 */
 .result-list {
   :deep(.arco-list-content) {
     display: flex;
@@ -1051,8 +1050,19 @@ function quantTooltip(q: QuantizationInfo | null): string {
     gap: 4px;
   }
 
+  /* 行内距只能写在这条同构选择器上：`.result-item` 与 `.arco-list-item` 是同一个元素，
+     此处若只写 padding: 0，其特异性 (0,5,0) 会把 `.result-item` 自带的 8px 10px 一起清零
+     （#65 ② 只归零了 Arco 的 9px 20px，行内距实测仍为 0，见 STYLE_TODO #68） */
   :deep(.arco-list-content-wrapper .arco-list-content > .arco-list-item) {
-    padding: 0;
+    padding: 8px 10px;
+  }
+
+  /* a-list-item 把默认插槽包进 .arco-list-item-main > .arco-list-item-content（两者皆 block），
+     行容器的 display:flex + gap 因此完全落空（子项按行内空白排布，实测间隙仅 ≈3px），
+     故让两层包装 display: contents 透传，使插槽子节点直接成为行的 flex item */
+  :deep(.arco-list-item-main),
+  :deep(.arco-list-item-content) {
+    display: contents;
   }
 }
 
@@ -1060,7 +1070,6 @@ function quantTooltip(q: QuantizationInfo | null): string {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 8px 10px;
   border-radius: var(--radius-row);
   border: 1px solid var(--color-border-2);
   background: var(--color-fill-2);
@@ -1156,10 +1165,9 @@ function quantTooltip(q: QuantizationInfo | null): string {
   padding: 0 5px;
 }
 
-/* 模型文件列表：a-list 承载（:split="false" 走原生 prop 去掉行分隔线，
-   不再以 border-bottom: none 覆写内部样式），仅保留条目间距与行内距归零。
-   特异性说明同 .result-list（普通 :deep(.arco-list-item) 会被 Arco size=small 规则压掉），
-   行内距交由行容器 .file-item 自带 */
+/* 模型文件列表：a-list 承载（:split="false" 走原生 prop 去掉行分隔线，不再以
+   border-bottom: none 覆写内部样式），特异性与行内距的处理同 .result-list（见其块内注释），
+   行内距为紧凑行的 6px 10px */
 .file-list {
   :deep(.arco-list-content) {
     display: flex;
@@ -1168,7 +1176,12 @@ function quantTooltip(q: QuantizationInfo | null): string {
   }
 
   :deep(.arco-list-content-wrapper .arco-list-content > .arco-list-item) {
-    padding: 0;
+    padding: 6px 10px;
+  }
+
+  :deep(.arco-list-item-main),
+  :deep(.arco-list-item-content) {
+    display: contents;
   }
 }
 
@@ -1176,7 +1189,6 @@ function quantTooltip(q: QuantizationInfo | null): string {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
   border-radius: var(--radius-row);
   border: 1px solid var(--color-border-2);
   background: var(--color-fill-2);

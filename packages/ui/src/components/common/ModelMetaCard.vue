@@ -127,14 +127,13 @@ function formatValue(v: unknown): string {
   gap: 6px;
 }
 
+/* gap 写在 a-tag 根元素上：Arco 无 .arco-tag-content 包装层（插槽子节点直接挂在
+   .arco-tag 下），:deep(.arco-tag-content) 是死规则，见 STYLE_TODO #69 */
 .meta-chip {
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
-  :deep(.arco-tag-content) {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
+  align-items: center;
+  gap: 5px;
 }
 
 .chip-key {
