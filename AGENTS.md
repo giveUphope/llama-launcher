@@ -27,7 +27,7 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 | Install                        | `pnpm install` (Node >=20, pnpm 11.21.0; `allowBuilds`（pnpm 11 取代 `onlyBuiltDependencies`）: electron/esbuild=true、@parcel/watcher=false; Node 版本由 root `engines` 声明，resedit 打包钩子要求 Node 20+) |
 | Dev (Vite + Electron HMR)      | `pnpm dev` = `node scripts/dev.cjs` 三进程编排（Vite + `tsc -b --watch` + Electron 热重载），**不经 turbo/concurrently/pnpm shim**，原因见下方 Conventions；`pnpm dev:console` = 同款 dev 但默认打开 DevTools；单独跑某一层用 `pnpm --filter @llama-launcher/desktop dev:tsc:watch` / `dev:electron:watch` |
 | Typecheck + IPC/doc/i18n sync check | `pnpm lint` (runs `turbo run lint` **and** `node scripts/verify-ipc-sync.cjs` **and** `node scripts/check-docs-links.cjs` **and** `node scripts/verify-i18n-usage.cjs` **and** `pnpm lint:ox`；oxlint 为静态分析门禁，correctness 级错误会 fail) |
-| Unit tests                     | `pnpm test` (Vitest 4; `packages/core` 25 个测试文件 + `packages/ui` 5 个，turbo 一并运行)                                                          |
+| Unit tests                     | `pnpm test` (Vitest 4; `packages/core` 25 个测试文件 / 355 用例 + `packages/ui` 7 个测试文件 / 66 用例，turbo 一并运行)                                                          |
 | E2E（渲染层 + Electron 冒烟）    | `pnpm e2e:web` / `pnpm e2e:electron` / `pnpm test:e2e`（Playwright，详见 docs/testing.md「E2E」章节；首次需 `pnpm exec playwright install chromium`） |
 | Full build                     | `pnpm build`                                                                                                                             |
 | Package distribution build     | `pnpm dist` (build + `dist-with-fallback.cjs`)                                                                                           |

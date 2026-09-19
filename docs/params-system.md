@@ -8,7 +8,7 @@
 - **`PARAM_GROUPS`**：3 组 — `basic`（基础）/ `advanced`（高级）/ `server`（服务）。
 - **`PARAMS`**：共 60 个参数，分布如下：
   - basic：22 个（15 核心 + 7 采样）
-  - advanced：28 个（5 思考控制 + 9 推测解码（其中 6 依赖外部草稿）+ 6 多模态 + 6 KV 扩展 + 2 模板）
+  - advanced：28 个（5 思考控制 + 9 推测解码（其中 **4 个** `dependsOn.values` 依赖外部草稿类型 draft-simple/eagle3/dflash/dspark，另 2 个 `spec_draft_n_max`/`spec_draft_n_min` 用 `notValues: ['', 'none']` 即任何非空类型都生效）+ 6 多模态 + 6 KV 扩展 + 2 模板）
   - server：10 个
 - 每个参数定义包含：`key, group, type, flag, default, subcategory, dependsOn, ggufField, invert_flag` 等字段。
 - **8 种控件类型**：`text` / `int_slider` / `int_entry` / `float_slider` / `dropdown` / `checkbox` / `file` / `dir`。
@@ -45,7 +45,7 @@
   - `spec_draft_n_max` / `n_min` → 依赖 `spec_type` 非空且非 `none`（MTP/ngram 也适用）
   - `reasoning_effort` / `reasoning_budget` / `reasoning_format` / `reasoning_budget_message` → 依赖 `reasoning` 非 `off`
   - `cache_reuse` → 依赖 `cache_prompt` 为 `true`
-- **推测解码草稿数联动** `set('spec_type', ...)`：选择投机采样类型时自动应用该类型的推荐最大草稿数（`spec_draft_n_max`，映射 `SPEC_DRAFT_N_MAX_BY_TYPE`：draft-simple/eagle3/dspark=8、draft-dflash=15、draft-mtp=5、ngram-*=5）并启用——仅选类型不配草稿数无法达到该方式最佳效率；同时保持 `n_min ≤ n_max`（切换类型或手动调小 `n_max` 时钳制 `n_min`）。关闭（none/空）时经 `syncDependencies` 清空草稿数。
+- **推测解码草稿数联动** `set('spec_type', ...)`：选择投机采样类型时自动应用该类型的推荐最大草稿数（`spec_draft_n_max`，映射 `SPEC_DRAFT_N_MAX_BY_TYPE`：draft-simple/eagle3/dspark=8、draft-dflash=15、draft-mtp=5、ngram-*=5）并启用——仅选类型不配草稿数无法达到该方式最佳效率；同时保持 `n_min ≤ n_max`（切换类型或手动调小 `n_max` 时钳制 `n_min`）。关闭（none/空）时经 `syncDependencies` **把草稿数重置为其默认值**（`spec_draft_n_max` 默认 **3**，不是清空为 0/空——`resetDep` 赋 `p.default`，见 stores/params.ts:337）。
 - **DFlash/草稿模型自动检测** `detectDraftModel()`：模型切换时检测同目录 dflash/draft 文件——dflash 文件自动配置 `spec_type=draft-dflash` + `flash_attn=on` + `spec_draft_n_max=15`（Muse-Glimmer DFlash 每 block 预测 16 位置：1 条件位 + 15 草稿 token）；普通 draft 文件设 `draft-simple`；用户已选类型时尊重不覆盖。
 - **切回外部草稿类型自动重新检测**：`set('spec_type', ...)` 检测到新值为外部草稿类型且 `spec_draft_model` 为空时，自动重新调用 `detectDraftModel` 填入路径；路径已有值时不重复检测。注意：依赖不满足时 `file` 类型**保留路径不重置**（见上条例外，仅 `buildCommand` 跳过发射），因此"切到 draft-mtp/ngram 再切回"通常仍有路径、不触发重检——重检发生在路径为空的场景（如清除会话/`resetAll` 后）。
 
@@ -82,4 +82,4 @@
 
 **实测参考（2026-09-04，b10734 基线）**：`verify-params-sync` 代码 flag 67 / 对照表一致；`verify-help-drift` 基线 help 428 flag 全一致（无新增无移除）。
 
-**当前实测（2026-09-19，b11053 基线，version 0.4.1-dev / commit 1af554f8f）**：flag 级漂移 = **新增 2**（`--log-jsonl` / `--no-log-jsonl`）、**移除 7**（`--mlock`、`--mmap`/`--no-mmap`、`-dio`/`--direct-io`/`-ndio`/`--no-direct-io`——都是 b10734 里已标 `DEPRECATED in favor of --load-mode` 的独立别名，应用早已迁移到 `--load-mode` 下拉，**零影响**）；应用 69 个 flag **缺失 0**。默认值变化仅 1 条真实语义变化：`--reasoning-preserve` 由 `template default` → `enabled`（该 flag 未入参数表，无跟随动作）。枚举白名单逐项核对**无漂移**：`--load-mode` 取值仍含 `dio`、`--spec-type` 11 值全同、`--chat-template` 内置模板列表与 b10734 **逐字节相同**（我们 24 项为其子集）。`--log-jsonl` **决定不收录**：它把 stdout 改成每行一个 JSON 对象，直接破坏 `launcher.ts` 的 listening 检测（按行匹配 `listening` + `http|server`）与控制台逐行着色，与 `--log-file` 同类。另修 `verify-help-drift` 解析器一处误报：说明续行 `… default: follows --device)` 不以 `(` 开头、而剥离字符集不含括号，于是把 `--device)` 当成新 flag（本次首跑即误报「新增 --device)」）；修正后基线 flag 数 428 → 421（两侧同解析器，同步下降）。
+**当前实测（2026-09-19，b11053 基线，version 0.4.1-dev / commit 1af554f8f）**：flag 级漂移 = **新增 2**（`--log-jsonl` / `--no-log-jsonl`）、**移除 7**（`--mlock`、`--mmap`/`--no-mmap`、`-dio`/`--direct-io`/`-ndio`/`--no-direct-io`——都是 b10734 里已标 `DEPRECATED in favor of --load-mode` 的独立别名，应用早已迁移到 `--load-mode` 下拉，**零影响**）；应用 69 个 flag **缺失 0**。默认值变化仅 1 条真实语义变化：`--reasoning-preserve` 由 `template default` → `enabled`（该 flag 未入参数表，无跟随动作）。枚举白名单逐项核对**无漂移**：`--load-mode` 取值仍含 `dio`、`--spec-type` 11 值全同、`--chat-template` 内置模板列表与 b10734 **逐字节相同**（我们 24 项为其子集）。`--log-jsonl` **决定不收录**：它把 stdout 改成每行一个 JSON 对象，直接破坏 `launcher.ts` 的 listening 检测（按行匹配 `listening` + `http|server`）与控制台逐行着色，与 `--log-file` 同类。另修 `verify-help-drift` 解析器一处误报：说明续行 `… default: follows --device)` 不以 `(` 开头、而剥离字符集不含括号，于是把 `--device)` 当成新 flag（本次首跑即误报「新增 --device)」）；修正后 flag 数两侧同步下降——**b10734 基线 428 → 421，当前 b11053 基线实测 416**（自比对输出 `基线 flags: 416 | 新 flags: 416`；引用该数字时务必注明「哪个基线 + 哪个解析器版本」）。

@@ -41,7 +41,7 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 
 1. **预清理**：调用 `clean-before-pack.cjs` 处理进程终止、Explorer 窗口关闭与目录清理。
 2. **锁定检测**：在启动 electron-builder 前通过尝试**重命名 `release/` 目录**探测是否被锁（目录内可写不代表整体可替换，例如 `app.asar` 被占用时仍可创建 probe 子目录）；重命名成功后再恢复原名，不会破坏 `clean-before-pack` 已准备好的空目录。若重命名失败，说明目录整体被锁（通常是 Defender/索引器的文件系统过滤驱动），自动生成 `release-tmp-<timestamp>` 作为替代输出目录。
-3. **临时配置**：生成临时的 `electron-builder.tmp-<timestamp>.yml`，仅修改 `directories.output`，其他配置保持不变；打包完成后立即删除临时配置。
+3. **临时配置**：生成临时的 `electron-builder.tmp-<timestamp>.cjs`（**JS 配置，非 .yml**——electron-builder 26 起本项目改用 JS 配置文件，见 `scripts/dist-with-fallback.cjs:71` 与其头部注释），仅修改 `directories.output`，其他配置保持不变；打包完成后立即删除临时配置。
 4. **产物回迁**：打包成功后尝试将临时目录中的产物移回 `release/`。普通 `fs.renameSync` 在目标目录被锁时会失败，Windows 下会按目标类型分别回退：
    - **目录**：使用 `robocopy /MIR` 直接覆盖目标目录内的文件（无需先删除目录），绕过 Defender/索引器持有的句柄；覆盖成功后删除源目录。
 5. **最终摘要**：无论使用主目录还是 fallback，成功时打印 `BUILD SUCCEEDED` 摘要（含输出路径与 portable exe 路径），失败时打印 `BUILD FAILED`。
@@ -77,7 +77,7 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 - `docs/params/` 下的基线文件与参数对照表（二进制升级后按 §5.5 流程重走）
 - 本地手动 bump 时确认版本号符合 SemVer 语义
 
-**electron-builder 输出文件名注意**：electron-builder 会规范化版本号，剥离 SemVer trailing zeros（如 `0.0.34` → `0.0.5`）。Release tag 保持完整版本号（`v0.0.34`），`.exe` 文件名（`llama Launcher 0.0.5.exe`）与 tag 不严格对应，这是预期行为。
+**electron-builder 输出文件名（2026-09-20 按真实产物核对订正）**：本项目 portable 产物名为 **`llama.Launcher.<version>.exe`**，版本号**完整保留**（实测 v0.0.34 的 Release 资产即 `llama.Launcher.0.0.34.exe`，见 `gh release view v0.0.34`），与 Release tag `v0.0.34` 一一对应。旧版本文字曾称「electron-builder 会剥离 SemVer trailing zeros（`0.0.34` → `0.0.5`）、文件名与 tag 不严格对应」——该说法与实测矛盾（`34 → 5` 也无算术依据），且与 [auto-release.md](auto-release.md) §3「版本号完整保留」自相矛盾，已按实际产物行为改正。若将来 electron-builder 真的改名，请以 `release/` 目录与 Release 资产列表为准同步本段与 `files` 通配符。
 
 ### 11.6 版本一致性检查清单
 

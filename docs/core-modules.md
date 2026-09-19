@@ -13,7 +13,7 @@
 
 - **`kill()`**：Windows 平台用 `taskkill /F /T /PID` 杀整个进程树（防止子进程残留），其他平台对负 pid（进程组）发 `SIGKILL`（立即终止；`SIGTERM` 优雅终止仅用于 `terminate()` 两阶段流程）。
 
-- **两阶段终止体系**：`terminate()`（SIGTERM 优雅 → 超时升级 killTree）、`killSync()` / `forceStop()`（同步强杀，供 Electron `before-quit` 使用）、`sweepByName()`（按可执行文件名扫杀残留进程）。
+- **两阶段终止体系**：`LlamaServerProcess.terminate()`（SIGTERM 优雅 → 超时升级 killTree，process.ts:188）、`killSync()`（同步强杀，process.ts:150）、`sweepByName()`（按可执行文件名扫杀残留进程，process.ts:98）；**`forceStop()` 在 `Launcher` 上**（launcher.ts:100，组合 killTree + sweepByName，供 Electron `before-quit` 经 launcher-bridge.ts:140 调用），不在 process.ts。
 
 - **`isRunning()`**：判断条件为 `exitCode === null && !killed`。
 
@@ -81,7 +81,7 @@
 
 - **多任务并发**：`maxConcurrent = 3`，超出排队。
 
-- **多段并行下载**：动态段数算法 `computeSegmentCount` 按文件大小递增（<100MB→1 段、<1GB→2、<5GB→4、<20GB→6、≥20GB→8），再与 `SEGMENT_TARGET_SIZE`(100MB) 计算的目标段数取 `max`、与 `MIN_SEGMENT_SIZE_BYTES`(8MB) 的上限取 `min`，上限 32 段；worker 队列模型让并发 worker 数等于段数，每完成一段自动认领下一段，消除尾段瓶颈。`highWaterMark = 16MB` 减少写入系统调用。
+- **多段并行下载**：动态段数算法 `computeSegmentCount` 按文件大小递增（<100MB→1 段、<1GB→2、<5GB→4、<20GB→6、≥20GB→8），再与 `SEGMENT_TARGET_SIZE`(100MB) 计算的目标段数取 `max`、与 `MIN_SEGMENT_SIZE_BYTES`(8MB) 的上限取 `min`，上限 32 段；worker 队列模型让并发 worker 数等于段数，每完成一段自动认领下一段，消除尾段瓶颈。`highWaterMark = 2MB`（`WRITE_STREAM_HWM`，download-manager.ts:198——2026-09-19 由 16MB 下调，减少下载期内存驻留与背压延迟）。
 
 - **断点续传**：检测已存在文件大小，携带 `Range` header；分段进度持久化为 `.llama_dl.jsonl` **事件日志**（append-only：start/segment/done 三类事件），失败/暂停后重放事件恢复分段状态；旧版 `.llama_dl.json`（单 JSON 快照）由 `migrateLegacyMeta` 一次性自动迁移。
 
@@ -117,7 +117,7 @@
 
 - **`resolvePresetsDir(modelsDir)`**：返回 `modelsDir/presets`，预设文件存储在模型目录下的 presets 子目录。
 
-- **伴随标签**：`detectCompanionTags` 为扫描结果标注伴随文件标签（多模态投影器 / 草稿模型是否存在），写入 `ModelInfo.tags` 供前端展示。
+- **伴随标签**：`detectCompanionTags`（**定义在 `models-scanner.ts:111`**，非 paths.ts）为扫描结果标注伴随文件标签（多模态投影器 / 草稿模型是否存在），写入 `ModelInfo.tags` 供前端展示。
 
 ### 4.8 设置与预设存储 (settings-store.ts / presets-store.ts)
 

@@ -11,7 +11,7 @@
 6. **窗口几何持久化**：`x,y,width,height` 新格式 + `WxH` 旧格式兼容，500ms 防抖保存。
 7. **生产热重载**：`LLAMA_DEV_SERVER_URL` 逃生口，生产构建也可连接本地 Vite dev server。
 8. **进程树清理**：Windows `taskkill /F /T /PID` 杀整个进程树，防止子进程残留。
-9. **IPC 四层同步**：`ipc.ts` → preload → handlers → `env.d.ts`，由 `verify-ipc-sync.cjs` 校验一致性。
+9. **IPC 三处同步 + 生成物一致**：`shared/src/types/ipc.ts`（唯一真源）→ 生成的 `apps/desktop/src/preload/ipc-constants.cjs` → preload `index.cjs` 的 API 包装。`verify-ipc-sync.cjs` 实测校验三件事：生成物未过期、`index.cjs` 未回退为内联常量、**每个通道常量都在 `index.cjs` 有 API 包装引用**（漏绑即 fail）。注：早期文档写的「四层含 `env.d.ts`」不成立——脚本不查 `env.d.ts`，且 `packages/ui/src/env.d.ts` 只是 Vite 环境声明、与 IPC 通道无关（2026-09-20 核对）。
 10. **打包防泄漏**：beforePack/afterPack 钩子处理 pnpm 符号链接，确保 asar 中仅含 `dist/*.js` 运行时文件，排除源码、测试、配置等开发资源。
 11. **动态预设目录**：预设文件存储在模型目录下 `presets/` 子目录，与模型文件集中管理，避免文件分散。
 12. **打包健壮性**：Windows junction 通过 `realpathSync` 检测、重试 + `rename+rd` 清理锁文件、afterPack 恢复 junction，保证开发环境与生产包都不被污染。
@@ -20,12 +20,12 @@
 15. **服务重启竞态规避**：统一走 `Launcher.restart()`（等旧进程 exit 后启动新进程），避免手动 stop→start 的 `already running` 竞态。（原 UI 侧 `waitRunning` 两阶段等待已随性能测试功能移除，2026-09-04；重启竞态防护现由 `Launcher.restart()` 单点承担。）
 16. **依赖联动清理**：`syncDependencies` 按 `dependsOn` 声明自动清理依赖不满足的下游参数（防止残留 `-md`/`--mirostat-lr` 等无效 flag 发射），并区分外部草稿类型（draft-simple/eagle3/dflash/dspark）与 MTP/ngram 的依赖范围。
 17. **DFlash 自动检测**：模型切换时检测同目录 dflash 草稿模型，自动配置 `draft-dflash` + `-fa on` + n_max 15（对齐 Muse-Glimmer DFlash 每 block 16 位置语义），切回外部草稿类型时自动重新检测填入路径。
-18. **内存参数基线（实测驱动）**：`cache_type_k/v`（q8_0）、`load_mode`（none）、`fit`（off）、`kv_unified`（off，经 `invert_flag` 恒发射 `--no-kv-unified`）作为**基线推荐默认值**内建——在"值 ≠ 默认值才发射"规则下天然下发。依据 `docs/archive/experiments/plan-kv-split-cli-test.md`（AMD 7900 XTX 24GB + b10429 Vulkan 实测）：f16 KV + mmap + fit on 的长上下文组合会吃满 32GB 系统内存冻结；q8 KV 使 27B@262K 显存需求从 ~35GB 降至 ~25.7GB，`--load-mode none` 加载后释放权重宿主缓冲，`--fit off` 规避显式 ctx/ngl 时 fit 中止的劣化（25.7 vs 36.6 tok/s）。
+18. **内存参数基线（实测驱动）**：`cache_type_k/v`（q8_0）、`load_mode`（none）、`fit`（off）、`kv_unified`（off，经 `invert_flag` 恒发射 `--no-kv-unified`）作为**基线推荐默认值**内建。**发射语义要分清（2026-09-20 核对 `command-builder.ts:72` 是 `v === p.default` 即跳过）**：前三项是 dropdown，值等于默认时**不下发命令行**——它们生效的是「UI/会话声明的默认档位」这一层，后端沿用自身默认（恰好同向）；四者中只有 checkbox 的 `kv_unified` 经 `invert_flag` **恒发射** `--no-kv-unified`。原文「在'值 ≠ 默认值才发射'规则下天然下发」把两种机制混为一谈，已订正。依据 `docs/archive/experiments/plan-kv-split-cli-test.md`（AMD 7900 XTX 24GB + b10429 Vulkan 实测）：f16 KV + mmap + fit on 的长上下文组合会吃满 32GB 系统内存冻结；q8 KV 使 27B@262K 显存需求从 ~35GB 降至 ~25.7GB，`--load-mode none` 加载后释放权重宿主缓冲，`--fit off` 规避显式 ctx/ngl 时 fit 中止的劣化（25.7 vs 36.6 tok/s）。
 19. **KV 分层机制不暴露（`-cram`/`-kvu`/`--cache-idle-slots`）**：实测 AMD 驱动 GTT 透明换页先于 llama.cpp 的 KV 内存分层接管显存溢出（`-cram 0` 与 `8192` 行为完全一致），故暂不加入 UI；未来若支持 NVIDIA 卡（分配失败不换页）再按需暴露。
 20. **负面参数清单（实测不建议）**：`-nkvo`（KV 全内存：混合架构模型实测慢 2.7x 且输出乱码）、密集模型部分 `-ngl` 分层（实测慢 4.7x，应全量或 MoE 用 `-ncmoe`）、大 `-ub`（峰值内存 4.4x + 解码 -46%，保持默认 512）。
 21. **双轨参数逻辑（2026-08-29，经用户确认）**：参数编辑分两轨——**临时轨道**自动持久化到 `settings.session_values` + `session_baseline`（800ms 节流，跨重启恢复，不碰预设文件，免"改完忘存"）；**预设轨道**仅显式保存写入 `<models_dir>/presets/*.json`。`hasChanges`（改动行橙描边 / 侧栏橙点）相对会话基线 `SessionBaseline { preset_name, values }` 逐键计算，不再依赖"对比出厂默认"的粗粒度判断。
 22. **切模型防丢确认 + 基线可视化（2026-08-29，经用户确认）**：切换模型 / 应用 GGUF 建议参数前检测未保存修改，`confirmDiscardDirty` 确认后重建临时基线（防静默丢失）；基线状态原由 `BaselineBadge` 双入口展示（参数页顶部 + 服务页状态卡；2026-09 状态卡自服务页迁入概览 `ServiceStatusCard`，徽章随迁；2026-09-03 徽章作为冗余提示整体移除，「恢复基线」入口保留在参数页状态条），支持就地「恢复基线」与「清除会话」，用户不必进入参数页即可感知"当前参数偏离了哪个基线"。
-23. **手写模块 vs 成熟库取舍（2026-09-08 审计）**：全库手写模块对照成熟库逐项评估后，**采纳两项**——`structuredClone` 替换 `JSON.parse(JSON.stringify())` 深拷贝/序列化（params 会话快照、`toPlain` IPC 转换，语义与 contextBridge 一致且不丢 undefined/函数）；zod 替换 settings/presets 的手写逐字段校验（`normalizeSettings`/`parsePreset`，声明式 schema + 逐字段 `.catch()` 回退默认，语义与原容错行为等价）。**评估后明确不建议替换**（理由各有实测/工程依据）：
+23. **手写模块 vs 成熟库取舍（2026-09-08 审计）**：全库手写模块对照成熟库逐项评估后，**采纳两项**——`structuredClone` 替换 `JSON.parse(JSON.stringify())` 深拷贝/序列化（**2026-09-20 核对：仅部分落地**——params 会话快照已用 `structuredClone`（stores/params.ts:298），但 `useIPC.ts:23` 与 preload `clonePlain`（index.cjs:60）**仍是 `JSON.parse(JSON.stringify())`**，且前者带注释说明原因：structuredClone 无法克隆 Vue reactive Proxy（DataCloneError）；原文写成已全部替换，属过度声明）；zod 替换 settings/presets 的手写逐字段校验（`normalizeSettings`/`parsePreset`，声明式 schema + 逐字段 `.catch()` 回退默认，语义与原容错行为等价）。**评估后明确不建议替换**（理由各有实测/工程依据）：
     - **下载/HF HTTP 传输层**（`download-manager.ts` / `huggingface-client.ts`）→ got/axios：Electron 内置 Node 的 BoringSSL TLS 指纹被 hf-mirror.com 直接 RST，必须注入基于 Electron `net` 的传输（决策 13）；got/axios 无法承载该注入传输，只能替换非 Electron 路径，价值打折。
     - **设备探测**（`devices.ts`）→ systeminformation：现走 `llama-server --list-devices`，与引擎实际可用设备天然一致；系统级 GPU 探测反而可能误导。
     - **进程/启动编排**（`process.ts`/`launcher.ts`）→ execa：Windows 进程树清理（`taskkill /F /T`）与 Electron 生命周期是平台特定实现，`node:child_process` 已够。

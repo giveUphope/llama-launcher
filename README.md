@@ -44,7 +44,8 @@
 | [packaging.md](docs/packaging.md)         | electron-builder 打包配置、常见故障、版本一致性清单（§11）              |
 | [ci-cd.md](docs/ci-cd.md)                 | CI/CD 工作流：PR/push 验证、main 分支自动版本递增与发版触发（§15）         |
 | [auto-release.md](docs/auto-release.md)   | 自动发版工作流：Windows runner 打包 + GitHub Release 自动创建（§16） |
-| [testing.md](docs/testing.md)             | 测试结构与用例说明（§12）                                       |
+| [testing.md](docs/testing.md)             | 测试结构与用例说明（§12）            
+| [workflow.md](docs/workflow.md)           | 开发工作流：日常命令、提交与发版约定、dev 会话收尾                           |
 | [CHANGELOG.md](docs/CHANGELOG.md)         | 版本历史                                                 |
 | [archive/INDEX.md](docs/archive/INDEX.md) | 历史归档：已结束的规划 / 实验 / 重构交接文档（非当前 Wiki，只读保留）             |
 
@@ -130,7 +131,7 @@
 
 - **GGUF 元数据读取**：流式读取 60 个字段（架构、量化、上下文长度、采样参数、组织/许可证/数据集等），内存占用恒定
 
-- **智能建议参数**：从模型元数据自动推导建议参数（上下文长度、采样、KV 缓存量化、Flash Attention、推测解码类型、别名等 12 条规则），一键应用
+- **智能建议参数**：从模型元数据自动推导建议参数（采样三件套 + 重复/存在惩罚、KV 缓存量化、Flash Attention、推测解码类型、别名等 **11 条**，见 core `gguf-meta.buildSuggestions`；`context_length` 只用于门控 Flash Attention 与联动上限，本身不作建议项），一键应用
 
 - **多模态投影器自动检测**：模型路径变化时自动检测同目录下的 mmproj 文件并填入；另支持视频多模态参数（`--video-fps` / `--video-timestamp-interval` / `--video-ffmpeg-dir`，b10734+）与投影器设备（`-mmdev`，自动/按 `--list-devices` 动态设备名）
 
@@ -296,7 +297,7 @@ pnpm test
 
 ```bash
 pnpm e2e:web        # Web 渲染层 E2E（真实构建产物 + demo-mock）
-pnpm e2e:electron   # Electron 冒烟（headless 启动打包产物）
+pnpm e2e:electron   # Electron 冒烟（headless 启动 apps/desktop 构建产物 dist + node_modules/electron，非 electron-builder 安装包）
 pnpm test:e2e       # 先全量构建，再依次执行上述两者
 ```
 

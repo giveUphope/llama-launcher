@@ -229,7 +229,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **描述**：原生 `title` 不受主题控制（深色下仍是系统白底浮层）、有约 1s 延迟、承载不了多段文本，与 §7.5.6 的 Arco 浮层体系（实底 + token 色 + `pre-line` 三段）观感不一致。#74 只统一了参数行三处，其余出现点仍是原生——「参数页一套、别处一套」。
 - **修复（先定边界再动，不逐处替换）**：① **页面级/铬面上的固定少量元素**转 `ToolTip`，共 **26 处 / 9 个文件**——TopBar 8（含 3 个 win-btn，`aria-label` 保留）、StatusBar 2、ParamsPage 4（显存统计块 + 性能目标/恢复基线/清除会话）、LogsPage 2、ServicePage 2、DownloadCard 3（HF Mirror / ModelScope / 打开模型目录）、ServiceStatusCard 3（外部实例徽章 + 打开网页 + 管理模型）、GeneralPanel 1、FileBrowserModal 1；② **保留原生的三类**写进 §7.5.6 成硬边界：组件 `title` prop（`a-modal`/`a-popconfirm`/`a-statistic`/`a-dgroup`/`iframe` 无障碍名）、**`v-for` 数据条目上的提示**（模型表格行、下载任务行、预设行、chip 列表——每条目一个 Arco trigger 实例，与 §7.1 热路径铁律相冲）、**截断值提示**（`.mono-val`/`.file-name`/`.task-name`/`.task-error`/`.summary-label`）与 `a-input :title`（外包 host 会动到表单控件盒型）。
 - **落地要点（实测）**：① 自带 `v-if` 的元素转 `ToolTip` 时 `v-if` 必须移到 `ToolTip` 上（否则渲染空 host 与空浮层）；DownloadCard 的 HF Mirror/ModelScope 是 `v-if`/`v-else` 成对钮，两条指令要一起移到两个 `ToolTip` 上才保持相邻成对；② **`a-dropdown` 触发器外包 `ToolTip` 不破坏下拉**——Trigger 挂在 host 上、点击由按钮冒泡触发，弹层锚点即 host 盒（实测顶栏模型下拉中心 x=493 = 触发器中心；参数页性能目标 `position="bl"` 弹层 x=723 恒等于触发器 x）；③ 顶栏几何零回归：`.right` 五子项宽 `234/82/82/82/131`、gap 恒 8px、`.model-name` 仍在 180px 处省略（`scrollWidth 279 / clientWidth 180`）、状态栏复制值 109px 未撑破。
-- **修复效果验证**：`:title` 计数 **60 → 34**（剩余逐条核过，全部属保留三类）；`<ToolTip` 使用点 25 处 / 16 文件；hover 实测顶栏「启动」浮层底 `rgb(29,33,41)` + 白字（Arco token，深色主题下不再是系统白底）、参数行 ✕ 浮层 108×30；`vue-tsc`、`vitest`（66）、`vite build`（index chunk 230.71 → 231.08 kB，+0.37 kB 为 26 处包裹）、`style:audit` 13/13、`pnpm lint` 全绿。规范落点：[frontend.md §7.5.6](../frontend.md)（「提示机制边界」「仍保留原生 `title` 的三类」「交互控件外包 ToolTip 的两条实测注意」三条）。
+- **修复效果验证**：原生浮层 `grep -rn ':title=' packages/ui/src --include=*.vue` 计数 **60 → 33**（另 1 处 `iframe title` 无障碍名 + 6 处组件 prop；用「`:title=` 或 `title="`」合并口径则为 34），转换 26 处 / 9 文件；`<ToolTip` 使用点 **35 处 / 16 文件**；hover 实测顶栏「启动」浮层底 `rgb(29,33,41)` + 白字（Arco token，深色主题下不再是系统白底）、参数行 ✕ 浮层 108×30；`vue-tsc`、`vitest`（66）、`vite build`（index chunk 230.71 → 231.08 kB，+0.37 kB 为 26 处包裹）、`style:audit` 13/13、`pnpm lint` 全绿。规范落点：[frontend.md §7.5.6](../frontend.md)（「提示机制边界」「仍保留原生 `title` 的三类」「交互控件外包 ToolTip 的两条实测注意」三条）。
 - **附带观察（已查清根因，决定不修）**：参数页首挂有 **60 条** `[Vue warn] toRefs() expects a reactive object but received a plain one`（一行一条）。根因在 Arco 侧：`form-item` 的 setup 里 `const formCtx = inject(formInjectionKey, {})` 后紧接 `const { autoLabelWidth, layout } = toRefs(formCtx)`（dev 包 `@arco-design_web-vue.js:20096`），而参数行是**刻意**「每行独立 `a-form-item`、无外层 `a-form`」（§7.5.4 记录的设计），注入落到默认值 `{}`（普通对象）→ 触发 dev 警告。**四条确认证据**：① 拦 `console.warn` 取栈，60 条全部落在 `form-item setup`，参数页首挂恰好 60 条 = 60 行；② 设置页三面板有外层 `a-form`，实测 **0 条**；③ 全库 `grep toRefs` 零命中，非我方代码；④ 该警告串在 `packages/ui/dist` 产物中**不存在**（`__DEV__` 门控），且无人依赖由此产生的 `arco-form-item-layout-undefined` 类（grep 零命中）。**不修的三条理由**：套 `a-form` 会启用每行 `setLabelWidth` 的挂载+更新测量并喂给 reactive `labelWidth` + `maxLabelWidth` computed（与 §7.1 热路径铁律相反），还会引入真实 `<form>` 元素与 Enter 提交语义；`provide(formInjectionKey, reactive({}))` 需深路径 import Arco **非公开导出**（`es/form/context.d.ts` 有声明但根 `index.d.ts` 未导出），与审计第 12 条「勿依赖 Arco 内部实现」同一脆弱性家族；纯 dev 噪声、零运行时成本。
 
 
@@ -263,6 +263,8 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 | 59 | 状态栏标签芯片深色主题下叠蓝铬面对比不足（gray ≈ 1.4:1 不可读） | 2026-09-13 |
 | 53 | 文字可读性专项：弹窗 panel 文字脱离 backdrop-filter 发虚（blur 移 ::before 叶子层）、StatusBar 白字去 opacity（0.65→~2.6:1 升满不透明 4.5:1）、新增 --success/warn/danger-text 自适应变体使浅色面语义文字由 2.2–3.8:1 升至 ≥4.5:1（控制台/日志保留亮色）、hint 去 opacity | 2026-09-04 |
 | 52 | 跨页面间距一致性统一（全量间距审查）：筛选 chip 水平内距 `0 9px`→`0 8px`（DownloadCard 对齐 level-chip）、fs-sm `.rec-chip` `2px 8px`→`3px 8px`、`.empty` 空态 `16px`→`20px`（BenchPanel 对齐 Presets/LocalModels）；标准固化 §7.5.4 ⑥⑦ | 2026-09-04 |
+| 51 | 浅色 `--fg-muted` 在蓝白渐变「浅蓝角」仅 AA-large（3.9–4.3:1）——2026-09-09 玻璃渐变底随迁移删除，前提消失，`--fg-muted` 归 Arco `--color-text-3` | 2026-09-09 |
+| 50 | 状态小圆点尺寸两制（StatusBar 8×8 vs StatusTag 7×7）——随 a-tag 迁移消解，自绘圆点已不存在（§7.5.7「状态指示」条同步订正） | 2026-09-09 |
 | 49 | 概览「最近问题」空态占位 `line-height: 72px` 违反行高语义化清单（style-audit #9 ❌）→ flex 居中 + `min-height: 60px` | 2026-09-04 |
 | 48 | 性能目标下拉面板 `.target-panel` 玻璃浮层违反「下拉/菜单实底」（#41 同型回潮）+ 引用未定义 `--radius-dropdown` → 实底 `--bg-card` + `--radius-row` | 2026-09-04 |
 | 47 | 概览页内容占位组件补强（Q1 空值 dash / Q4 空态占位行） | 2026-09-01 |
@@ -316,9 +318,9 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 ## 🟢 已确认设计决策（原「待确认」项，无需修改）
 
-- **mini-btn 默认文字色** **`--fg-secondary`**：行内小按钮使用次级文字色（区别于 `action-btn` 的 `--fg-primary`），符合「mini = 行内次级操作」语义层级，已确认保留（frontend.md §7.5.5）。
+- ~~**mini-btn 默认文字色** **`--fg-secondary`**：行内小按钮使用次级文字色（区别于 `action-btn` 的 `--fg-primary`），符合「mini = 行内次级操作」语义层级，已确认保留（frontend.md §7.5.5）。~~ **【2026-09-20 核对已失效】**：`mini-btn` 与 `--fg-secondary` 在 `packages/ui/src` 均 0 命中——全站按钮已 a-button 化后该自定义类删除（§7.5.5），此条仅作历史决策留档。
 
-- **筛选 chip 圆角**：DownloadCard 等筛选 chip 走胶囊 `--radius-pill`（筛选标签语义），已在 frontend.md §7.5.3 圆角体系中固化。**注（2026-09-18）**：该圆角是业务约定、非 Arco 默认（a-tag 默认 `--border-radius-small` 为 2px）；chip 的 hover/选中态自 2026-09-18 起一律交回 Arco 自带态（`color="arcoblue"`），不再覆写 `.arco-tag-checked`。注：本条原记录「容器卡片走 `--radius-card`（16px）」已失效——该 token 随 #20 分区风格 / #22 清理移除，分区卡片现为 `border-radius: 0`，圆角仅存 pill/modal/row/control 四 token + 2px 轨道 + 50% 圆形。
+- **筛选 chip 圆角**：DownloadCard 等筛选 chip 走胶囊 `--radius-pill`（筛选标签语义），已在 frontend.md §7.5.3 圆角体系中固化。**注（2026-09-18）**：该圆角是业务约定、非 Arco 默认（a-tag 默认 `--border-radius-small` 为 2px）；chip 的 hover/选中态自 2026-09-18 起一律交回 Arco 自带态（`color="arcoblue"`），不再覆写 `.arco-tag-checked`。注：本条原记录「容器卡片走 `--radius-card`（16px）」已失效——该 token 随 #20 分区风格 / #22 清理移除，分区卡片现为 `border-radius: 0`，圆角仅存 **pill / row / control 三 token**（`theme.scss:33-35`，均 4px；`--radius-modal` 已不存在）+ 2px 轨道 + 50% 圆形。
 
 - **彩色小徽章盒模型**：下载卡片的 `--badge-*` 彩色小徽章统一 `a-tag size="small"` 承载 + `1px 6px` 内距 + `--radius-pill` 圆角（§7.5.4 ①）。
 
@@ -338,7 +340,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 ## Arco 全站迁移完成说明（2026-09-07）
 
-自 `31273e4` 接入 Arco Design Vue 后，全站迁移已完成（明细见 `../ARCO_MIGRATION_TODO.md`，各批均已勾选）：
+自 `31273e4` 接入 Arco Design Vue 后，全站迁移已完成（明细见 `../archive/ARCO_MIGRATION_TODO.md`，各批均已勾选）：
 
 - 迁移：手写控件 → `a-button/a-input/a-select/a-table/a-list/a-tag/a-tag/a-dropdown/a-tabs/a-modal/a-progress/a-alert/a-popconfirm/a-result` 等；自定义遮罩/玻璃层/旧 `action-btn`/`mini-btn`/`tab-btn` 已移除。
 - 清理：孤儿 `variables.scss`/`buttons.scss`/`surface.scss` 与未用 `NavButton.vue` 已删除；`InfoStrip.vue` 亦已删除（零引用）；`theme.scss` 兼容 token 已进一步收敛——`--bg-active`/`--glass-*` 于 2026-09-09 移除（选中行改 `rgb(var(--primary-1))`、TopBar 直用 `--color-bg-2`/`--color-border-2`），现仅剩圆角/字号/动效映射（`--radius-*`/`--fs-*`/`--dur-*`/`--ease-*`）与业务语义色（徽章/控制台/状态栏）。
@@ -346,7 +348,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - 工程：UI 包加 happy-dom 组件测试环境（`arco-theme`/`status-tag` 测试）；**Arco 按需引入已于 2026-09-08 落地**（`unplugin-vue-components` + `ArcoResolver`，移除全量引入，产物 -27%，见 CHANGELOG v0.0.28 与 AGENTS.md）。
 - 本清单历史修复项（#1–#53）继续有效；新增或回归的手写样式应先对照 §7.5 与上述迁移边界。
 - 2026-09-07 补充：残留 `action-btn`/`mini-btn`/`tab-btn`/`theme-opt` 按钮已全部迁移到 `a-button`/`a-tabs`/`a-radio-group`（这些类原先依赖已删除的 `buttons.scss`，迁移前为无样式裸元素）；仅保留窗口控制 `win-btn`、列表项类按钮（`.result-item`/`.url-history-item`）与带 scoped 样式的筛选 chip（`.level-chip`）。
-- 2026-09-07 收尾二批（迁移后原生控件残留审计，明细见 `../ARCO_MIGRATION_TODO.md` 同名节）：`path-input` ×3 → `a-input`、`cmd-preview` 原生 textarea ×2 → `a-textarea`、`summary-chip` → `a-tag`、DownloadCard 类别筛选 `.chip` → checkable `a-tag`（更名 `.cat-chip`）、`ParamRow .clear-btn` → `a-button text/mini/circle`；§7.5.4 ⑥ 的 DownloadCard chip 类名引用同步更名。
+- 2026-09-07 收尾二批（迁移后原生控件残留审计，明细见 `../archive/ARCO_MIGRATION_TODO.md` 同名节）：`path-input` ×3 → `a-input`、`cmd-preview` 原生 textarea ×2 → `a-textarea`、`summary-chip` → `a-tag`、DownloadCard 类别筛选 `.chip` → checkable `a-tag`（更名 `.cat-chip`）、`ParamRow .clear-btn` → `a-button text/mini/circle`；§7.5.4 ⑥ 的 DownloadCard chip 类名引用同步更名。
 - 2026-09-07 收尾三批（完全迁移，用户确认方向）：最后一批自绘交互控件清零——`LogsPage .level-chip` 筛选 chip → `a-radio-group type="button"`、`DownloadCard .url-history-item` → `a-dropdown` + `a-doption`（含 `.arco-dropdown-group-title` 标题）、`.result-item` → `a-list`/`a-list-item`、`ParamRow .gguf-hint` → `a-tag`、`.dep-hint` → `a-tooltip`。**唯一保留的自绘控件 = TopBar `win-btn` 窗口控制**（Electron 无边框窗口协议，Arco 无对应物）；AppLogo（img）、PageHost/PageFrame（布局壳）非交互控件，不属迁移范畴。
 - 2026-09-07 收尾六批（窗口控制 a-button 化，用户提出右上角按钮应迁 Arco）：TopBar `win-btn` ×3 原生 `<button>` → `a-button type="text"` 基座 + 窗口铬覆盖（46×52 贴边热区、4px 圆角、关闭钮红色 hover），点击仍走 Electron 窗口协议——至此全应用交互控件 100% Arco 组件承载，原生 `<button>` 清零。
 - 2026-09-07 收尾五批（逐页面布局复查）：统计条自绘 `.stat-*` → `a-statistic` + `a-divider`（LocalModelsPanel 模型统计、ParamsPage 参数状态条，字符串值走 `#suffix` 插槽）；清理 `--font-family` 死 token 引用（StatusBar/DashboardPage）。恒深控制台（LogsPage/ServicePage/Dashboard 问题区/命令预览）与 DownloadCard task-stats 行内状态文本为语义性展示，非旧布局残留，保留。
