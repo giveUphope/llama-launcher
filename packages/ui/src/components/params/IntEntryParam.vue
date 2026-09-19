@@ -36,4 +36,22 @@ const tip = computed(() => {
 .auto-hint {
   white-space: nowrap;
 }
+
+/* 数字框撑满控件列（与输入框/下拉同右边缘）：a-space 默认按内容宽排布，
+   曾是固定 100px，导致同列控件宽 100 vs 400 两种、右边缘参差 */
+.param-control {
+  width: 100%;
+}
+:deep(.arco-space) {
+  width: 100%;
+}
+:deep(.arco-space-item) {
+  min-width: 0;
+}
+:deep(.arco-space-item:first-child) {
+  flex: 1;
+}
+:deep(.arco-input-number) {
+  width: 100%;
+}
 </style>

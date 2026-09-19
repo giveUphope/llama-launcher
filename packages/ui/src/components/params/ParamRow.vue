@@ -111,15 +111,20 @@ function onClear() {
       </div>
       <!-- GGUF 值提示：a-tag 原生外观（中性=默认标签，可点击建议=color="arcoblue"），
            自定义底/字色/下划线覆盖已移除（与 meta-chip 等非 checkable 标签统一走原生态） -->
-      <a-tag
-        v-if="ggufHint !== null"
-        size="small"
-        :color="hasGgufSuggestion ? 'arcoblue' : undefined"
-        class="gguf-hint"
-        :class="{ applicable: hasGgufSuggestion }"
-        :title="hasGgufSuggestion ? i18n.t('msg_click_to_apply') : i18n.t('msg_gguf_model_value')"
-        @click="hasGgufSuggestion && applyGgufHint()"
-      >{{ ggufHint }}</a-tag>
+      <!-- GGUF 值提示常驻槽位（定宽 72px = 提示最大宽）：提示本身 v-if，但槽位恒在——
+           否则 8/60 带提示行的控件宽从 400 掉到 296~352，整列右边缘不齐；且切换模型时
+           提示出现/消失会让控件宽度当场跳动（同「槽位常驻防跳动」口径） -->
+      <div class="gguf-hint-slot">
+        <a-tag
+          v-if="ggufHint !== null"
+          size="small"
+          :color="hasGgufSuggestion ? 'arcoblue' : undefined"
+          class="gguf-hint"
+          :class="{ applicable: hasGgufSuggestion }"
+          :title="hasGgufSuggestion ? i18n.t('msg_click_to_apply') : i18n.t('msg_gguf_model_value')"
+          @click="hasGgufSuggestion && applyGgufHint()"
+        >{{ ggufHint }}</a-tag>
+      </div>
       <a-tooltip v-if="showDepWarning" :content="dependencyHint">
         <span class="dep-hint">
           <Icon name="alert" :size="12" />
@@ -204,8 +209,32 @@ function onClear() {
   :deep(.arco-form-item-label) {
     line-height: 1.3;
   }
+  /* 标签列定宽 + 右对齐，取值与设置面板同族（GeneralPanel/AppearancePanel 110px、
+     AdvancedPanel 140px），但**必须用 `0 0`（不收缩）而不是设置面板那套 `0 1`**：
+     参数网格里控件列有内在最小宽（滑块 + 88px 数字框 + 72px 提示槽），且 Arco flex 项
+     默认 min-width:auto 不肯让位，可收缩的标签列就会被挤压——实测 `0 1 110px` 下标签
+     缩成 64 / 83px 两种、控件起点重新错位（x 346/365/797）；`0 0 110px` 下标签恒 110px、
+     控件起点恒两值（每列一个）。Arco label-col 原生默认 `flex: 0 0 auto` 更糟：按文字宽
+     自适应（实测 28–93px），控件起点从 x=318 一路漂到 380。 */
   :deep(.arco-form-item-label-col) {
     align-self: center;
+    flex: 0 0 110px;
+    min-width: 0;
+    justify-content: flex-end;
+    margin-right: 8px;
+  }
+  /* 长标签（英文/未命中 i18n 回落 snake）省略号截断，不换行不撑宽列 */
+  :deep(.arco-form-item-label) {
+    width: 100%;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  :deep(.arco-form-item-label .tooltip-host) {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
   }
 }
 
@@ -217,12 +246,25 @@ function onClear() {
   }
 }
 
+.gguf-hint-slot {
+  flex: 0 0 72px;
+  /* min-width: 0 不可省：flex 项默认 min-width:auto，长提示（如别名建议
+     "Qwen3-32B-A3B-Instruct-Q4_K_M"）会把定宽 72px 的槽位撑到 222px，
+     反过来把控件列挤到 146px、输入框实际只剩 0px 宽（实测） */
+  min-width: 0;
+  display: flex;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
 // GGUF 值提示：a-tag 原生外观，仅保留布局尺寸与 mono 字体（§7.5.1 数值 mono）
 .gguf-hint {
   font-family: var(--font-mono);
-  flex: 0 1 auto;
-  min-width: 44px;
-  max-width: 72px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: center;
 
   &.applicable {
