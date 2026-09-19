@@ -70,7 +70,7 @@
 要点与坑：
 
 - 浏览器二进制：首次运行需 `pnpm exec playwright install chromium`（CI 的 e2e job 已带 `--with-deps`）。
-- Web E2E 的 vite preview 由 `e2e/run-web-e2e.mjs` 独立启动（Playwright 内建 webServer 在部分 Windows 沙箱环境 spawn 会失败）；Linux CI 仍走 Playwright 自带 webServer。
+- **preview 进程单点归 `e2e/run-web-e2e.mjs` 拥有（本地与 CI 同一条路径）**——`pnpm e2e:web` 的定义就是「build ui + 跑该驱动」，CI 亦不例外。`playwright.config.ts` **不再声明 `webServer`**：旧配置只写 `port` 未写 `url`，而 Playwright 仅在给定 `url` 时才建可用性回调（`runner/index.js:839`），于是①不检测端口占用、②照样 spawn 一个 vite（因驱动已占 4173 而 EADDRINUSE 退出）、③`_waitForProcess` 在无 url/无 stdio 等待时直接 `processExitedPromise.catch(() => {})` 吞掉退出（`runner/index.js:935-939`）。净效果是每次白起一个必死进程、**由谁服务 4173 取决于两进程抢绑顺序**，且 `reuseExistingServer` / `timeout` 两个旋钮完全无效。驱动侧另加两道确定性保障：开跑前探测 4173，**已被占用即 exit 1**（不静默复用，避免"绿了但验的是旧产物/别人的服务"）；子进程 stdout/stderr 留末 60 行，超时或 spawn 失败时一并打印（此前 `stdio: 'ignore'` 只能看到干巴巴的超时）。
 - 演示数据：浏览器环境无 `window.api` 时 `main.ts` 注入 demo-mock，静态离线可验；但 demo 设置的 `last_tab` 会在启动时回跳「概览」，故用例统一从侧栏导航进目标页。
 - Electron 冒烟为 headless 启动（`--headless --disable-gpu`），结束后直接按进程树强杀（`taskkill /T`）而非优雅退出——应用会拦截 close 弹「退出二次确认」导致挂起；Windows 本地不会弹真实窗口。
 - 单实例锁：应用 `requestSingleInstanceLock`——跑 Electron 冒烟前请确保没有正在运行的应用实例。

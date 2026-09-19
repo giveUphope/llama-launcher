@@ -66,7 +66,7 @@ pull_request 和 push 事件都走 verify。
   - Chromium 下载实测是本 job 最长单步（**16s / 全 job 54s**），故按 lockfile 版本缓存。
   - 失败产物路径取自 `playwright.config.ts`：`outputDir: test-results` + HTML 报告 `playwright-report`（均在仓库根），`if-no-files-found: ignore`；此前失败只能靠 `list` 输出猜现场。
 - 不再单独 `pnpm build`：`e2e:web` / `e2e:electron` 脚本内部各自构建（ui/desktop），turbo 本地缓存去重。
-- Web 渲染层 E2E 走真实构建产物（vite preview + demo-mock，用例见 [testing.md](testing.md) 的 E2E 章节）；Electron 冒烟为 headless 启动打包产物，Linux 需 xvfb 虚拟显示。
+- Web 渲染层 E2E 走真实构建产物（vite preview + demo-mock，用例见 [testing.md](testing.md) 的 E2E 章节）；Electron 冒烟为 headless 启动打包产物，Linux 需 xvfb 虚拟显示。**preview 由 `e2e/run-web-e2e.mjs` 单点拥有**（`playwright.config.ts` 已移除死配置 `webServer`，详见 testing.md「要点与坑」）——CI 与本地跑的是同一条驱动路径。
 - 不参与 `bump` 的 needs 链（release 不等待 e2e）。
 
 ---
