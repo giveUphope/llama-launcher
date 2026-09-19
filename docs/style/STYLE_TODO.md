@@ -173,12 +173,22 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：gap 落到 a-tag 根元素本身——三处改为 `align-items: center; gap: 5px`（5px 为 §7.5.4 刻度表的「chip 内文本-计数徽章」档，即芯片内部文本间距），删除 `:deep(.arco-tag-content)` 死块并在注释写明「Arco 无该包装层」。
 - **修复效果验证**：服务页 `.summary-chip`（模型路径行）实测 `gap: normal → 5px`，几何间隙 key→eq `0 → 5px`、eq→val `0 → 5px`，标签高度 20px 不变（无重排）；`.meta-chip` / `.suggestion-chip` 同规则同组件、未逐一点开触发（概览模型元信息卡与本地模型建议行需选中模型 / 打开面板），真机顺带目视即可。规范落点：[frontend.md §7.5.4 ①](../frontend.md)。
 
+### 70. 页签标题图标与文字 0 间距——theme.scss 的全局修正被 Arco 同特异规则按注入顺序压掉 — 🟢 已修复（2026-09-19）
+
+- **位置**：`styles/theme.scss` 的 `.arco-tabs .arco-tabs-tab-title`（模型页 / 参数页 / 设置页三处页签共用体例）。
+- **描述（用户标注「优化图标与文字间距」后真机实测确认）**：该规则本意就是把页签标题的 `Icon + <span>` 改成 `inline-flex` 并给 `gap: 4px`，注释还写着「line 型另有高特异覆盖」——但它自身就是失效的那一个：Arco 的 `.arco-tabs-nav-type-line .arco-tabs-tab-title { display: inline-block }` 与本页选择器**同为 (0,2,0)**，而组件样式由 `unplugin-vue-components` + `ArcoResolver` 在运行时以 `<style>` 注入、顺序排在打包 CSS **之后**，同特异时后写者胜 → 实测计算值 `display: block`、`gap: 4px`（声明在，但 block 盒不认 gap），svg 右边界 277 = span 左边界 277，**图标与文字间距 0**。与 #65 ①（单类徽章被 Arco 深色规则压掉）、#66/#68/#69 同一类根因：对 Arco 的覆写在特异性或结构上不成立。
+- **修复**：选择器显式带上 nav 的类型类升到 (0,3,0)——`.arco-tabs .arco-tabs-tab-title, .arco-tabs .arco-tabs-nav-type-line .arco-tabs-tab-title`，并在注释写明「同特异会因运行时注入顺序而输」这一判据；间距取 `6px`，与同族的「图标 + 文本」行（`SettingsPage .summary-item`、状态栏条目）一致，而非孤立的 4px。
+- **修复效果验证**（内置浏览器 + demo-mock 实测三处页签）：设置页 常规/外观/高级/关于、参数页 参数预设/自定义参数、模型页 本地模型/模型库——`display: block → flex`、实测图标→文字间隙 **0 → 6px**；页签高度 40px 不变（无重排），图标与文字垂直中心差 0.5px（flex 居中的亚像素，肉眼不可见）；`pnpm style:audit` 12/12、`vite build` 通过，控制台 0 error。规范落点：[frontend.md §7.5.4](../frontend.md)「覆写 Arco 默认样式的两条硬规则」。
+
+
+
 ## 🟢 已修复索引
 
 完整的问题描述 / 修复方案 / 验证证据见 [已修复归档](../archive/style-todo-resolved.md)（只读留档）；修复后的规范落点见 [frontend.md §7.5](../frontend.md)。
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 70 | 页签标题图标与文字 0 间距（theme.scss 全局修正被 Arco 同特异规则按运行时注入顺序压掉） | 2026-09-19 |
 | 68 | 紧凑可选中行的 flex 被 Arco 插槽包装层（`.arco-list-item-main/-content`）吞掉 + 行内距被自家归零规则连带清零 | 2026-09-19 |
 | 69 | `a-tag` 无 `.arco-tag-content` 包装层，三处 `:deep(.arco-tag-content)` 死规则致 chip 内 0 间距 | 2026-09-19 |
 | 67 | 徽章调色板撞色（来源族与量化族同为 #2563eb）+ 来源标识同区块重复 | 2026-09-18 |

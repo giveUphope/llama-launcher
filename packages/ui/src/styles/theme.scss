@@ -86,12 +86,17 @@ body[arco-theme='dark'] {
   line-height: 26px;
 }
 
-/* 页签标题（icon + 文本）：Arco tab-title 默认 inline-block（line 型另有高特异覆盖），
-   图标与文本基线对齐偏下且无间距；统一 inline-flex + gap 4px 对齐（模型页/参数页/设置页同规） */
-.arco-tabs .arco-tabs-tab-title {
+/* 页签标题（icon + 文本）统一 inline-flex + gap 对齐（模型页/参数页/设置页同规）。
+   必须带上 nav 的 type-line 选择器：Arco 的 `.arco-tabs-nav-type-line .arco-tabs-tab-title`
+   把 display 定为 inline-block，与 `.arco-tabs .arco-tabs-tab-title` 同为 (0,2,0)，
+   而组件样式由 unplugin-vue-components 运行时注入、顺序在本 bundle 之后——只写两类的
+   选择器会被压掉，实测 gap 声明在但 display 仍是 inline-block，图标与文字间距为 0。
+   取 6px 与同族的图标+文本行（SettingsPage .summary-item、状态栏）一致。 */
+.arco-tabs .arco-tabs-tab-title,
+.arco-tabs .arco-tabs-nav-type-line .arco-tabs-tab-title {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 /* 设置面板 a-form 行距（标签定宽/右对齐走组件 label-col-style / label-align 原生 props，§7.5.4） */
