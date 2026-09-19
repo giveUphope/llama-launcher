@@ -287,8 +287,12 @@ async function onClearSession() {
             <template v-if="targetRecs.length">
               <div class="target-recs">
                 <div class="target-rec-chips">
-                  <a-tag v-for="r in targetRecs" :key="r.key" class="rec-chip" :title="r.reason">
-                    {{ r.key }} = {{ r.value }}
+                  <!-- size="small"：与其余建议值芯片同档（.gguf-hint / .suggestion-chip 实测 h20；
+                       原缺 size 走 a-tag 默认 h24，同一语义两种高度，见 STYLE_TODO #77） -->
+                  <a-tag v-for="r in targetRecs" :key="r.key" size="small" class="rec-chip" :title="r.reason">
+                    <span class="chip-key">{{ r.key }}</span>
+                    <span class="chip-eq">=</span>
+                    <span class="chip-val">{{ r.value }}</span>
                   </a-tag>
                 </div>
                 <a-button size="small" type="primary" @click="applyTargetRecs">
@@ -431,13 +435,16 @@ async function onClearSession() {
 .param-grid {
   // 自适应多列网格：auto-fill 不折叠空轨道——各组共享同一轨道宽度，参数少的组
   // 控件不会被拉伸（auto-fit 会折叠空轨道：2 参数组控件被撑到 ~795px，4 参数组仅 ~391px）。
-  // 最小轨 400px = 一行参数的实测最小舒适宽：标签列 140 + 8 + 控件 ≥176（滑块轨道 80 +
-  // 间隙 8 + 数字框 88）+ 4 + 提示槽 72。曾取 340px 并配 max-width:1160px 封顶 3 列，实测两头都坏：
+  // 最小轨 450px = 一行参数的实测最小舒适宽：边框 2 + 行内距 16 + 标签列 140 + 8 +
+  // 控件 ≥176（滑块轨道 80 + 间隙 8 + 数字框 88）+ 4 + 提示槽 76 + 4 + 还原 ✕ 槽 24。
+  // （旧值 400 少算了行的 2px 边框 + 16px 内距，实测 413px 轨道上控件只剩 171、
+  //  轨道 75px，已低于 #73 的 80px 下限；本轮把两个常驻槽位都计入后一次性校正。）
+  // 曾取 340px 并配 max-width:1160px 封顶 3 列，实测两头都坏：
   // ① ≥1600 视口卡片可用宽 1326→2286 而网格恒 1160（1920 右侧空 486px、2560 空 1126px）；
   // ② 1440（未触及封顶）排成 3 列 ×369px，滑块轨道被压到 31px。现不设上限，列数随宽度
-  // 单调增长：1280/1440 → 2 列，1600 → 3 列，1920 → 4 列，2560 → 5 列。窄屏退化为单列。
+  // 单调增长：1280/1440/1600 → 2 列，1920 → 3 列，2560 → 4 列。窄屏退化为单列。
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
   gap: 4px 14px;
 
   @media (max-width: 720px) {
@@ -492,12 +499,20 @@ async function onClearSession() {
   gap: 6px;
 }
 
+/* 建议值芯片：与参数行 .gguf-hint、模型页 .suggestion-chip 同档（a-tag size=small
+   + mono + --fs-sm + 内段 gap 5px + key/=/value 三段配色，§7.5.4 ① / STYLE_TODO #77）。
+   原 `color: --color-text-1` 是死声明（a-tag 原生文字色即 rgb(29,33,41)），已删 */
 .target-menu .rec-chip {
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
-  color: var(--color-text-1);
+  align-items: center;
+  gap: 5px;
   cursor: help;
 }
+
+.target-menu .chip-key { color: rgb(var(--primary-6)); font-weight: 600; }
+.target-menu .chip-eq { color: var(--color-text-3); }
+.target-menu .chip-val { color: var(--color-text-1); }
 
 .target-recs-empty {
   margin-top: 4px;

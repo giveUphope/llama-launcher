@@ -88,7 +88,7 @@ function formatGgufHint(v: unknown): string {
   return String(v);
 }
 
-/* 提示槽定宽 72px，a-tag 内距 8px → 文本可用 56px；mono 12px 实测 7.3px/字，即 8 字。
+/* 提示槽定宽 76px，a-tag size="small" 内距 8px → 文本可用 60px；mono 12px 实测 7.3px/字，即 8 字。
    长值（如别名建议 = 模型文件名 30 字）按尾部省略只会剩 "Qwen3-32B"（看不出是什么），
    故做「头 5 + … + 尾 2」中间省略——尾部（量化后缀 / 单位）才是区分信息；完整值走 tooltip。 */
 const HINT_MAX_CHARS = 8;
@@ -129,8 +129,8 @@ function onClear() {
       </div>
       <!-- GGUF 值提示：a-tag 原生外观（中性=默认标签，可点击建议=color="arcoblue"），
            自定义底/字色/下划线覆盖已移除（与 meta-chip 等非 checkable 标签统一走原生态） -->
-      <!-- GGUF 值提示常驻槽位（定宽 72px = 提示最大宽）：提示本身 v-if，但槽位恒在——
-           否则 8/60 带提示行的控件宽从 400 掉到 296~352，整列右边缘不齐；且切换模型时
+      <!-- GGUF 值提示常驻槽位（定宽 76px = 提示最大宽）：提示本身 v-if，但槽位恒在——
+           否则 8/60 带提示行的控件宽会跟着掉，整列右边缘不齐；且切换模型时
            提示出现/消失会让控件宽度当场跳动（同「槽位常驻防跳动」口径） -->
       <div class="gguf-hint-slot">
         <ToolTip v-if="ggufHintText !== null" :text="ggufHintTip">
@@ -149,20 +149,27 @@ function onClear() {
         </span>
       </a-tooltip>
     </div>
-    <!-- 提示走 ToolTip（Arco a-tooltip）而非原生 title：原生浮层不受主题控制、约 1s 延迟，
-         与建议值芯片同源；按钮基座仍是纯 Arco（.clear-btn 类无任何 CSS 覆写） -->
-    <ToolTip v-if="hasChange" :text="i18n.t('msg_clear_param')">
-      <a-button
-        class="clear-btn"
-        type="text"
-        size="mini"
-        shape="circle"
-        status="warning"
-        @click="onClear"
-      >
-        <Icon name="close" :size="12" />
-      </a-button>
-    </ToolTip>
+    <!-- 还原 ✕ 常驻定宽槽（24px，与建议值槽同一处理）：按钮仍 v-if（挂在 ToolTip 上，
+         避免空 host + 空浮层，见 §7.5.6），但槽位恒在——否则「已修改」行的按钮一出现
+         就把控件列挤掉 28px（实测 171 → 143，滑块轨道跌到 47px）并把提示槽整体左移
+         （芯片 x 569 vs 597），同列参差。用「槽位常驻 + 内容显隐」替代「元素 presence 切换」，
+         代价是网格最小轨从 400 提到 450（见 ParamsPage `.param-grid` 与 §7.5.7）。
+         按钮基座仍是纯 Arco（`a-button type="text" size="mini" shape="circle"`，
+         `.clear-btn` 类无任何 CSS 覆写），提示走 ToolTip 而非原生 title（§7.5.6） -->
+    <div class="clear-slot">
+      <ToolTip v-if="hasChange" :text="i18n.t('msg_clear_param')">
+        <a-button
+          class="clear-btn"
+          type="text"
+          size="mini"
+          shape="circle"
+          status="warning"
+          @click="onClear"
+        >
+          <Icon name="close" :size="12" />
+        </a-button>
+      </ToolTip>
+    </div>
   </div>
 </template>
 
@@ -268,9 +275,9 @@ function onClear() {
 }
 
 .gguf-hint-slot {
-  flex: 0 0 72px;
+  flex: 0 0 76px;
   /* min-width: 0 不可省：flex 项默认 min-width:auto，长提示（如别名建议
-     "Qwen3-32B-A3B-Instruct-Q4_K_M"）会把定宽 72px 的槽位撑到 222px，
+     "Qwen3-32B-A3B-Instruct-Q4_K_M"）会把定宽 76px 的槽位撑到 222px，
      反过来把控件列挤到 146px、输入框实际只剩 0px 宽（实测） */
   min-width: 0;
   display: flex;
@@ -283,12 +290,27 @@ function onClear() {
   }
 }
 
-// GGUF 值提示：a-tag 原生外观，仅保留布局尺寸与 mono 字体（§7.5.1 数值 mono）
+/* 还原 ✕ 的常驻槽：宽 = a-button size="mini" shape="circle" 原生 24px，
+   与 .gguf-hint-slot 同构（槽恒在、内容 v-if），使「是否有未保存修改」不影响
+   同行其它元素的宽度与位置 */
+.clear-slot {
+  flex: 0 0 24px;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  overflow: hidden;
+  :deep(.tooltip-host) {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+// GGUF 值提示：a-tag 原生外观，仅保留布局尺寸与 mono 字体（§7.5.1 数值 mono）。
+// 内距/字号一律走 a-tag size="small" 原生（0 8px / 12px）——与建议参数芯片
+// （.suggestion-chip / .rec-chip）同档，原先的 6px 覆写已删（槽同步提到 76px 补偿）
 .gguf-hint {
   font-family: var(--font-mono);
-  /* 横向内距收到 §7.5.4 ① 徽章档 6px（Arco small 默认 8px）：8 字 mono 12px 实测 58.7px，
-     配 8px 内距要 74.7px > 72px 槽，会差 2px 把尾部字母切掉 */
-  padding-inline: 6px;
+  font-size: var(--fs-sm);
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
