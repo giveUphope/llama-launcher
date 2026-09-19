@@ -317,6 +317,10 @@ function onClear() {
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
+  /* 只读档（模型自带值，非可点建议，如 上下文长度 / 聊天模板）给 help 光标：
+     与 .rec-chip、.dep-hint 同一套「悬浮有说明、本身不可点」光标词汇（实测原为
+     cursor: auto——与可点档只差底色，悬停零反馈，即用户批注的「与其他建议值不一致」） */
+  cursor: help;
 
   &.applicable {
     cursor: pointer;
