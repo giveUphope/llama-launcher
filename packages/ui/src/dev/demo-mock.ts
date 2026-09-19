@@ -212,25 +212,44 @@ export function createDemoApi() {
   // ---- 下载模拟状态 ----
   const progressCbs: Array<(p: DownloadProgressPayload) => void> = [];
   const completeCbs: Array<(p: DownloadCompletePayload) => void> = [];
-  function emitProgress(id: string, downloaded: number, total: number, speed: number) {
-    const payload = { id, downloadedSize: downloaded, totalSize: total, speed, status: 'downloading' } as never;
+
+  /**
+   * 每个模拟任务的进度游标与定时器。
+   * pause/resume/cancel 必须真正改变模拟状态并回推对应 status——此前三个桩全是 no-op
+   * （只 `Promise.resolve({ok:true})`），预览里点暂停/取消零反馈，既无法核对状态机，
+   * 也无法验证按钮态切换（暂停↔恢复、取消移除行）。真实侧由 DownloadManager 发
+   * `paused` / `canceled` 进度事件，这里保持同一事件契约。
+   */
+  interface DemoDl { fileName: string; total: number; done: number; timer: ReturnType<typeof setInterval> | null }
+  const demoDownloads = new Map<string, DemoDl>();
+
+  function emitProgress(id: string, dl: DemoDl, speed: number, status: string) {
+    const payload = { id, downloadedSize: dl.done, totalSize: dl.total, speed, status } as never;
     for (const cb of progressCbs) { try { cb(payload); } catch { /* 忽略 */ } }
   }
-  function simulateDownload(id: string, fileName: string, total: number) {
+
+  function stopFeed(id: string) {
+    const dl = demoDownloads.get(id);
+    if (dl?.timer) { clearInterval(dl.timer); dl.timer = null; }
+  }
+
+  function startFeed(id: string) {
+    const dl = demoDownloads.get(id);
+    if (!dl || dl.timer) return;
     // 与真实下载管理器同节奏：120ms 推一次、每次推进一小段（带抖动模拟网络波动）。
-    // 曾用 8 步 × 900ms（12.5% 一跳），预览里看到的进度条就是"卡一下跳一大截"，
-    // 与真机观感不符，无法用来核对进度是否连续。
-    let done = 0;
-    const baseStep = Math.floor(total / 125);
-    const iv = setInterval(() => {
-      done += Math.max(1, Math.floor(baseStep * (0.7 + Math.random() * 0.6)));
-      if (done >= total) {
-        clearInterval(iv);
-        emitProgress(id, total, total, 0);
-        const payload = { id, localPath: `${MODELS_DIR}/tmp/${fileName}`, modelId: 'demo', fileName, checksum: 'deadbeef' } as never;
+    // 曾用 8 步 × 900ms（12.5% 一跳），预览里看到的进度条就是"卡一下跳一大截"。
+    const baseStep = Math.max(1, Math.floor(dl.total / 125));
+    dl.timer = setInterval(() => {
+      dl.done += Math.max(1, Math.floor(baseStep * (0.7 + Math.random() * 0.6)));
+      if (dl.done >= dl.total) {
+        dl.done = dl.total;
+        stopFeed(id);
+        emitProgress(id, dl, 0, 'downloading');
+        demoDownloads.delete(id);
+        const payload = { id, localPath: `${MODELS_DIR}/tmp/${dl.fileName}`, modelId: 'demo', fileName: dl.fileName, checksum: 'deadbeef' } as never;
         for (const cb of completeCbs) { try { cb(payload); } catch { /* 忽略 */ } }
       } else {
-        emitProgress(id, done, total, Math.round(90_000_000 * (0.8 + Math.random() * 0.4)));
+        emitProgress(id, dl, Math.round(90_000_000 * (0.8 + Math.random() * 0.4)), 'downloading');
       }
     }, 120);
   }
@@ -467,13 +486,40 @@ export function createDemoApi() {
         } as never as ModelScopeFileListResult,
       }),
       start: (req: any) => {
-        const id = `demo-${Date.now()}`;
-        simulateDownload(id, req.fileName, req.fileSize || 4900000000);
+        // 同一毫秒内可连点多个文件，id 必须唯一（曾用纯 Date.now() 会撞号，
+        // 撞号后进度事件会串到别的任务行上）
+        const id = `demo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        demoDownloads.set(id, {
+          fileName: req.fileName,
+          total: req.fileSize || 4900000000,
+          done: 0,
+          timer: null,
+        });
+        startFeed(id);
         return Promise.resolve({ ok: true, data: id });
       },
-      cancel: () => Promise.resolve({ ok: true, data: true }),
-      pause: () => Promise.resolve({ ok: true, data: true }),
-      resume: () => Promise.resolve({ ok: true, data: true }),
+      cancel: (id: string) => {
+        const dl = demoDownloads.get(id);
+        if (dl) {
+          stopFeed(id);
+          emitProgress(id, dl, 0, 'canceled');
+          demoDownloads.delete(id);
+        }
+        return Promise.resolve({ ok: true, data: true });
+      },
+      pause: (id: string) => {
+        const dl = demoDownloads.get(id);
+        if (!dl || dl.timer === null) return Promise.resolve({ ok: false, data: false });
+        stopFeed(id);
+        emitProgress(id, dl, 0, 'paused');
+        return Promise.resolve({ ok: true, data: true });
+      },
+      resume: (id: string) => {
+        const dl = demoDownloads.get(id);
+        if (!dl || dl.timer) return Promise.resolve({ ok: false, data: false });
+        startFeed(id);
+        return Promise.resolve({ ok: true, data: true });
+      },
       onProgress: (cb: (p: DownloadProgressPayload) => void) => { progressCbs.push(cb); return () => {}; },
       onComplete: (cb: (p: DownloadCompletePayload) => void) => { completeCbs.push(cb); return () => {}; },
       onError: () => () => {},
