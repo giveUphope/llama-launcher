@@ -213,6 +213,16 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：① 参数滑块**一律不开 `show-ticks`**（删除 `TICK_LIMIT` 门控与 `showTicks` computed），并在 `SliderParam.vue` 注释与 §7.5.4 / AGENTS.md 写明「不得改回按步数门控」的原因；② 标签列提到 **140px**（与 AdvancedPanel 已有的 140px 同档）；仍被截断的两条「…（基准）」把限定语并入 tooltip——`PARAM_HELP` 原文已含「仅基准测试」，标签去掉冗余括注后信息零损失（`spec_synth_len` / `spec_synth_rates` 两条 zh 文案）。
 - **修复效果验证**（内置浏览器 demo-mock 重载后量 60 行）：`.arco-slider-ticks > *` 节点数 `39 → 0`、带刻度滑块 `1/13 → 0/13`，13 只滑块轨道宽全部 80px、数字框全部 88px（`spaceItemWidths = ["110x88"] → ["80x88"]` 单一值）；标签截断行（`scrollWidth > clientWidth`）`11 → 0`，trim 后全页最长标签自然宽 **127px**（「每槽位统一 KV 上限」），列可用宽 132px（140 − 8 margin）恰好容得下；标签列宽恒 `[140]`、右边缘恒两值 `[414, 846]`、控件区起点 `[422, 854]`、控件宽 `[176, 148]`（176 常规 / 148 带 ✕ 的已修改行）。代价：滑块轨道由 110px 降到 80px（140px 标签列挤占），如需更长轨道可缩提示槽 72→56px 或数字框 88→76px，属可再议的观感取舍。`vue-tsc`、`vitest`（66）、`vite build`、`pnpm lint` 全绿。规范落点：[frontend.md §7.5.4](../frontend.md)（新增「参数滑块一律不开 show-ticks」条）。
 
+### 74. 建议值芯片被硬切且值读不到 + 文本参数行 hover 出现两个 ✕ — 🟢 已修复（2026-09-19）
+
+- **位置**：`ParamRow.vue`（`.gguf-hint-slot` / `.gguf-hint`）、`TextParam.vue`（`allow-clear`）、`ToolTip.vue`（内容插槽）。
+- **描述（用户两条批注「修复建议值显示样式」「修复还原默认按钮重复出现」，同指「模型别名」行）**：
+  ① **建议值读不到**：别名建议是模型文件名（30 字），落在 72px 定宽槽里实测 `scrollWidth 220 / clientWidth 70`；而 `.arco-tag` 是 `inline-flex` 且无内容包装层（#69 同源），**CSS `text-overflow: ellipsis` 根本不生效**——界面显示成被硬切、连省略号都没有的 "Qwen3-32B"。原生 `title` 又只写了「点击应用此建议值」，于是**值本身在界面上任何地方都读不到**（与 §7.5.2「不用 opacity 削弱文字」同类的信息丢失）。
+  ② **一行两个 ✕**：`TextParam` 的 `a-input allow-clear` 会渲染 Arco 自带清除按钮（`.arco-input-clear-btn`，平时 `visibility: hidden`、hover 有值时现形），与行级「还原默认」✕ 同屏；且它写入**空串**而非默认值（`host` 清空即触发 `err_invalid_host`），与行级按钮语义冲突。
+  ③ 附带发现：`ToolTip` 走 `content` prop，而 `.arco-tooltip-content` 默认 `white-space: normal` → 全站「标签\n帮助」两段浮层实测被折成一行（高 30px）。
+- **修复**：① 提示文本改 JS 中间省略（头 5 + `…` + 尾 2；尾部量化后缀/单位才是区分信息），完整值 + 参数名 + 操作提示三段进 `ToolTip`（去掉原生 `title`）；`ToolTip` 改 `#content` 插槽 + 自有 `.tooltip-text { white-space: pre-line }`；芯片横向内距收到 §7.5.4 ① 徽章档 6px（8px 档下 8 字 mono 要 74.7px > 72px 槽，差 2px 切尾字母）。② 去掉 `allow-clear`，参数行还原入口唯一。
+- **修复效果验证**（内置浏览器 demo-mock；需先进「模型管理」触发 GGUF 读取，参数页才会出现 8 条建议值）：8/8 芯片 `scrollWidth === clientWidth`（**零裁切**），别名芯片 "Qwen3…_M" 宽 70px ≤ 72px 槽、高仍 20px；浮层实测 3 段 74px 高、文本 `模型别名 / Qwen3-32B-A3B-Instruct-Q4_K_M / 点击应用此建议值`；点芯片仍写入完整值（`45352452 → Qwen3-32B-A3B-Instruct-Q4_K_M`，`ToolTip` 包裹不吞点击）；全页 `.arco-input-clear-btn` 计数 **4 → 0**（4 个非空文本行：监听地址 / 模型别名 / GPU 层数 / 草稿模型 GPU 层数），行级 `.clear-btn` 保持 1。`vue-tsc`、`vitest`（66）、`vite build`、`style:audit` 13/13 全绿。规范落点：[frontend.md §7.5.7](../frontend.md)（「参数行不得开 allow-clear」「GGUF 建议值芯片」两条）+ [§7.5.6](../frontend.md)（多行 tooltip 走 `#content` 插槽）+ §7.5.8 豁免措辞收敛。
+
 
 ## 🟢 已修复索引
 
@@ -220,6 +230,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 74 | 建议值芯片被硬切成 "Qwen3-32B" 且浮层不带值（a-tag inline-flex 下 CSS 省略号不生效）+ 文本参数行 hover 两个 ✕（allow-clear 与行级还原冲突） | 2026-09-19 |
 | 73 | #72 二次不统一：滑块刻度门控只剩一只例外 + 110px 标签列截断长标签（改一律无刻度 + 140px，两条「（基准）」限定语移入 tooltip） | 2026-09-19 |
 | 72 | 参数页 60 行控件左右边缘都不齐（标签列按文字宽自适应 + 定宽槽位缺 min-width 被撑破；§7.5.4 文档与代码漂移） | 2026-09-19 |
 | 71 | 下载进度条与实际进度不一致（`a-progress` percent 是 0–1 比值，曾按 0–100 传值致满格） | 2026-09-19 |

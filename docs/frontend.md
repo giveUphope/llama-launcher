@@ -155,12 +155,15 @@
 - 玻璃拟态（`--glass-blur`/`.glass-layer`/backdrop-filter）已随完全迁移全部移除：`--glass-*` token 仅作兼容映射（→ Arco 实底面色），**任何新代码不得使用 `backdrop-filter`**。
 - 弹窗（`a-modal`）、下拉（`a-dropdown`/`a-select`/`a-trigger`）、工具提示（`a-tooltip`）、Popconfirm 一律 Arco 组件默认：实底面板 + Arco 自带阴影/动画，popup 挂 body。**自建浮层仅剩两处**（GeneralPanel 引擎帮助面板、`--shadow-dropdown` 兼容引用），不再新增。
 - 浮层内容排版：面板圆角/边框/背景走 Arco 默认；条目类（`a-doption`）hover 态走 Arco 默认，不手写背景。
+- **多行 tooltip 必须走 `#content` 插槽**：`a-tooltip` 的 `content` prop 渲染出的 `.arco-tooltip-content` 是 `white-space: normal`，传 `label\nhelp` 这类多段文本会被折成一行（实测高 30px）。`ToolTip.vue` 已改为插槽 + 自有 `.tooltip-text { white-space: pre-line }`（popup 虽传送 body，scoped 属性仍随元素走，故样式生效；实测三段文本高 74px）。新增多行浮层一律复用 `ToolTip` 组件，不要退回 `content` prop。
 - **非 scoped 样式块的命名空间**（popup 传送 body 时必需）：块内**每个顶层选择器都必须含至少一个组件私有类**，禁止只由 Arco 全局类名构成（否则会全局命中其他使用点）。范式：ParamsPage `.target-menu …`、GeneralPanel `.exe-help-panel …`、DownloadCard `.arco-dropdown-list:has(> .url-history-item) .arco-dropdown-group-title`（`a-dgroup` 渲染为 Fragment、标题 `li` 无法挂私有类，故用 `:has()` 反查）。审计第 11 条固化。
 - 例外：状态栏深蓝底上的白色半透明 hover（`rgba(255,255,255,.15)`）为**表面着色**而非 elevation；chip 计数底（`color-mix` 半透明底）同类，均不纳入阴影 token。
 
 #### 7.5.7 常用模式
 
 - **参数行**（`ParamRow` 统一承载，控件全部 Arco）：行容器 `padding: 4px 8px` + 圆角 `var(--radius-row)`，默认透明描边；hover 底色 `--color-fill-3` + 边框 `--color-border-2`；**值 ≠ 默认时边框 `rgb(var(--orange-6))`**（与还原按钮同色系）；依赖未满足同色描边 + 底色 + `a-tooltip` 警示图标；文件/目录类型渲染 `a-input-group` 文件选择控件。
+- **参数行不得开 `allow-clear`**（STYLE_TODO #74）：Arco 输入框自带清除 ✕（`.arco-input-clear-btn`，平时 `visibility: hidden`、hover 有值时现形），会与行级「还原默认」✕ 同屏 = 一行两个 ✕；且它写入**空串**而非参数默认值（`host` 清空即触发 `err_invalid_host`），与行级按钮语义冲突。参数行的还原入口唯一——行级 `.clear-btn`。
+- **GGUF 建议值芯片**（`.gguf-hint`，定宽 72px 常驻槽内）：长值**必须由 JS 做中间省略**（头 5 + `…` + 尾 2，8 字为实测上限：mono 12px ≈ 7.3px/字、槽内可用 60px），不能指望 CSS `text-overflow: ellipsis`——`a-tag` 是 `inline-flex` 且无内容包装层（§7.5.4 ① / #69 同源），CSS 省略号根本不生效，30 字别名建议会被硬切成无提示的 "Qwen3-32B"。尾部保留是因量化后缀/单位才是区分信息；**完整值 + 参数名 + 操作提示三段进 `ToolTip`**（禁原生 `title`，它承载不了多段文本）。芯片横向内距取 §7.5.4 ① 徽章档 `6px`（Arco small 默认 8px 下 8 字要 74.7px > 72px 槽，差 2px 切尾字母）。
 - **参数网格**：`param-grid`（参数设置页）`repeat(auto-fill, minmax(340px, 1fr))` + `max-width: 1160px`（auto-fill 不折叠空轨道，各组控件宽度一致；2026-09-13 起）、gap `4px 14px`、≤720px 单列；装饰一律 Arco 主色蓝 `rgb(var(--primary-6))`。
 - **筛选 chip 选中态**：`checkable a-tag` 的 hover/选中态**一律走 Arco 自带态**，不覆写 `.arco-tag-checked` 等 Arco 内部态类（审计第 12 条）；需可见选中底时用 Arco `color` prop（DownloadCard 类别筛选取 `color="arcoblue"`，选中底 = `rgb(var(--arcoblue-1))` / 深色 `rgba(var(--arcoblue-6), .2)`，与 `--row-selected-bg` 同源）。筛选组间距 6px（§7.5.4 刻度表）。
 - **列表行两种既定变体**（禁止第三种）：① **原生行**——`a-list` 默认（`split` 分隔线 + `size` 内距），如 PresetsPanel；② **紧凑可选中行**——`a-list :split="false"` + 行容器自带 `border` / `--radius-row` / `--color-fill-2` 底与内距（行内距归零须对齐 Arco 特异性：`:deep(.arco-list-content-wrapper .arco-list-content > .arco-list-item) { padding: 0 }`——普通 `:deep(.arco-list-item)` 会被 `size="small"` 规则压掉、实际不生效，真机实测为 9px 20px），承载整行点选、`--row-selected-bg` 选中态与行内徽章，如 DownloadCard `.file-item` / `.result-item`、FileBrowserModal `.fb-row`。除 `padding: 0` 外不得覆写 `a-list` 内部样式（分隔线用 `:split` prop；`.arco-list` / `.arco-list-item` 本身无背景色，无需覆写背景）。**两条落地要点（STYLE_TODO #68 实测）**：① Arco 会把默认插槽包进 `.arco-list-item-main > .arco-list-item-content`（均 `display: block`），行容器自带的 `display: flex` + `gap` 因此全部落空——必须对这两层写 `display: contents`，插槽子节点才会成为行的 flex item（`flex: 1` 撑开、`gap` 生效、徽章右对齐、文本省略号可用）；② 行类与 `.arco-list-item` 是**同一元素**，为压过 Arco `size="small"` 而写的同构选择器特异性更高，行的 `padding` 只能写进那条规则里（写在行类上会被自己清零）。
@@ -182,7 +185,7 @@
 - [ ] 浮层用 Arco 组件默认阴影/实底；自建浮层阴影引用 `--shadow-dropdown`，无裸 `box-shadow`
 - [ ] 字号走 `--fs-*`；行高按 §7.5.1 文字系统（正文 ≥1.3，`1` 仅限图标/单行居中）；字重只取 400/600/700
 - [ ] 圆角走 Arco 默认或 `--radius-*`（4px；仅 2px 轨道 / 50% 圆形例外），间距符合 7.5.4（gap 只取 4/5/6/8/10/12/14）
-- [ ] 控件一律 Arco 组件（按钮/输入/下拉/开关/弹窗/浮层），不新增自定义交互控件；**内容区操作按钮一律文本内联**（图标+文案；豁免：win-btn 窗口控制、输入框清除 ✕、参数还原 ✕、导航 ↑、披露 chevron——控件/导航/披露语义）
+- [ ] 控件一律 Arco 组件（按钮/输入/下拉/开关/弹窗/浮层），不新增自定义交互控件；**内容区操作按钮一律文本内联**（图标+文案；豁免：win-btn 窗口控制、搜索框清除 ✕（**参数行不得开 `allow-clear`**，见 §7.5.7）、参数还原 ✕、导航 ↑、披露 chevron——控件/导航/披露语义）
 - [ ] 按钮组用 flex + gap（8px 标准）
 - [ ] 无任何 `backdrop-filter`（玻璃体系已移除）
 - [ ] 非 scoped 样式块的每个顶层选择器都含组件私有类（禁裸 Arco 全局类名，§7.5.6）

@@ -35,7 +35,9 @@ const error = computed<string>(() => {
 <template>
   <a-form-item :label="label" :validate-status="error ? 'error' : undefined" :help="error" class="param-control">
     <template #label><ToolTip :text="tip"><span>{{ label }}</span></ToolTip></template>
-    <a-input v-model="model" allow-clear size="small" />
+    <!-- 不带 allow-clear：Arco 的清除 ✕ 只在 hover 时现形，会与行级「还原默认」✕ 同时出现
+         （一行两个 ✕），且它写入空串而非参数默认值（host 清空即报错），语义也是错的 -->
+    <a-input v-model="model" size="small" />
   </a-form-item>
 </template>
 

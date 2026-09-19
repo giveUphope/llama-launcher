@@ -11,6 +11,7 @@ import FileParam from './FileParam.vue';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 import Icon from '@/components/common/Icon.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 
 const props = defineProps<{
   p: ParamDef;
@@ -87,6 +88,23 @@ function formatGgufHint(v: unknown): string {
   return String(v);
 }
 
+/* 提示槽定宽 72px，a-tag 内距 8px → 文本可用 56px；mono 12px 实测 7.3px/字，即 8 字。
+   长值（如别名建议 = 模型文件名 30 字）按尾部省略只会剩 "Qwen3-32B"（看不出是什么），
+   故做「头 5 + … + 尾 2」中间省略——尾部（量化后缀 / 单位）才是区分信息；完整值走 tooltip。 */
+const HINT_MAX_CHARS = 8;
+const ggufHintText = computed<string | null>(() => {
+  const v = ggufHint.value;
+  if (v === null || v.length <= HINT_MAX_CHARS) return v;
+  return `${v.slice(0, 5)}…${v.slice(-2)}`;
+});
+
+const ggufHintTip = computed(() => {
+  const v = ggufHint.value;
+  if (v === null) return '';
+  const action = hasGgufSuggestion.value ? i18n.t('msg_click_to_apply') : i18n.t('msg_gguf_model_value');
+  return `${i18n.paramLabel(props.p.key)}\n${v}\n${action}`;
+});
+
 function applyGgufHint() {
   if (!hasGgufSuggestion.value) return;
   const sug = params.ggufSuggestions.find((s) => s.key === props.p.key);
@@ -115,15 +133,15 @@ function onClear() {
            否则 8/60 带提示行的控件宽从 400 掉到 296~352，整列右边缘不齐；且切换模型时
            提示出现/消失会让控件宽度当场跳动（同「槽位常驻防跳动」口径） -->
       <div class="gguf-hint-slot">
-        <a-tag
-          v-if="ggufHint !== null"
-          size="small"
-          :color="hasGgufSuggestion ? 'arcoblue' : undefined"
-          class="gguf-hint"
-          :class="{ applicable: hasGgufSuggestion }"
-          :title="hasGgufSuggestion ? i18n.t('msg_click_to_apply') : i18n.t('msg_gguf_model_value')"
-          @click="hasGgufSuggestion && applyGgufHint()"
-        >{{ ggufHint }}</a-tag>
+        <ToolTip v-if="ggufHintText !== null" :text="ggufHintTip">
+          <a-tag
+            size="small"
+            :color="hasGgufSuggestion ? 'arcoblue' : undefined"
+            class="gguf-hint"
+            :class="{ applicable: hasGgufSuggestion }"
+            @click="hasGgufSuggestion && applyGgufHint()"
+          >{{ ggufHintText }}</a-tag>
+        </ToolTip>
       </div>
       <a-tooltip v-if="showDepWarning" :content="dependencyHint">
         <span class="dep-hint">
@@ -256,11 +274,19 @@ function onClear() {
   display: flex;
   justify-content: flex-start;
   overflow: hidden;
+  /* 提示标签包在 ToolTip 的 host（inline-flex）里，host 同样要能收缩到槽内 */
+  :deep(.tooltip-host) {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
 // GGUF 值提示：a-tag 原生外观，仅保留布局尺寸与 mono 字体（§7.5.1 数值 mono）
 .gguf-hint {
   font-family: var(--font-mono);
+  /* 横向内距收到 §7.5.4 ① 徽章档 6px（Arco small 默认 8px）：8 字 mono 12px 实测 58.7px，
+     配 8px 内距要 74.7px > 72px 槽，会差 2px 把尾部字母切掉 */
+  padding-inline: 6px;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
