@@ -88,14 +88,15 @@ function formatGgufHint(v: unknown): string {
   return String(v);
 }
 
-/* 提示槽定宽 76px，a-tag size="small" 内距 8px → 文本可用 60px；mono 12px 实测 7.3px/字，即 8 字。
+/* 提示槽定宽 72px，a-tag size="small" 内距 8px + 边框 2px → 文本可用 54px；
+   mono 12px 实测 7.03px/字，即 7 字（49.2 + 18 = 67.2 ≤ 72，留 4.8px 字体回落余量）。
    长值（如别名建议 = 模型文件名 30 字）按尾部省略只会剩 "Qwen3-32B"（看不出是什么），
-   故做「头 5 + … + 尾 2」中间省略——尾部（量化后缀 / 单位）才是区分信息；完整值走 tooltip。 */
-const HINT_MAX_CHARS = 8;
+   故做「头 4 + … + 尾 2」中间省略——尾部（量化后缀 / 单位）才是区分信息；完整值走 tooltip。 */
+const HINT_MAX_CHARS = 7;
 const ggufHintText = computed<string | null>(() => {
   const v = ggufHint.value;
   if (v === null || v.length <= HINT_MAX_CHARS) return v;
-  return `${v.slice(0, 5)}…${v.slice(-2)}`;
+  return `${v.slice(0, 4)}…${v.slice(-2)}`;
 });
 
 const ggufHintTip = computed(() => {
@@ -129,7 +130,7 @@ function onClear() {
       </div>
       <!-- GGUF 值提示：a-tag 原生外观（中性=默认标签，可点击建议=color="arcoblue"），
            自定义底/字色/下划线覆盖已移除（与 meta-chip 等非 checkable 标签统一走原生态） -->
-      <!-- GGUF 值提示常驻槽位（定宽 76px = 提示最大宽）：提示本身 v-if，但槽位恒在——
+      <!-- GGUF 值提示常驻槽位（定宽 72px = 提示最大宽）：提示本身 v-if，但槽位恒在——
            否则 8/60 带提示行的控件宽会跟着掉，整列右边缘不齐；且切换模型时
            提示出现/消失会让控件宽度当场跳动（同「槽位常驻防跳动」口径） -->
       <div class="gguf-hint-slot">
@@ -236,18 +237,21 @@ function onClear() {
   :deep(.arco-form-item-label) {
     line-height: 1.3;
   }
-  /* 标签列定宽 140px + 右对齐（与 AdvancedPanel 同档）。取值依据：离屏探针量 60 行标签自然宽，
-     历史上最长「合成接受长度（基准）」= 140px，而 110px（设置面板值）扣掉 8px 右距后可用 94px
-     会截断 11 行——定宽是为对齐，不能以牺牲可读性为代价。该两条标签的限定语已并入 tooltip，
-     现全页最长 127px ≤ 可用 132px，零截断。
-     **必须 `flex: 0 0`（不收缩）**：参数行控件（滑块 + 88px 数字框 + 72px 提示槽）占满行，
-     可收缩的标签列会被挤压——实测 `0 1 110px` 下标签缩成 64 / 83px 两种、控件起点重新错位。
-     Arco label-col 原生 `flex: 0 0 auto` 更糟：按文字宽自适应（实测 28–93px 九种），
-     控件起点从 x=318 一路漂到 380。 */
+  /* 标签列定宽 124px + 右对齐。**124 = 可用 124 + Arco 自带右内距清零**：
+     `.arco-form-item-label-col` 原生带 `padding: 0 16px 0 0`，叠加我方 `margin-right: 8px`
+     后标签文字与控件之间实际空 24px——而 §7.5.4 写的是 8px（文档与实现漂移，STYLE_TODO #78）。
+     内距归零后列宽即文字可用宽，124 与旧 140 的可用值完全相同（140 − 16 = 124），
+     零截断风险变化，白省 16px 行宽。
+     **必须 `flex: 0 0`（不收缩）**：参数行控件（滑块 + 76px 数字框 + 72px 提示槽 + 24px ✕ 槽）
+     占满行，可收缩的标签列会被挤压——实测 `0 1 110px` 下标签缩成 64 / 83px 两种、
+     控件起点重新错位。Arco 原生 `flex: 0 0 auto` 更糟：按文字宽自适应（实测 28–93px 九种）。
+     取值下限由最长标签锁死：离屏探针（用标签真实字体 14px Inter/PingFang 栈）量得
+     最长「每槽位统一 KV 上限」= 122.8px → 可用 124 只剩 1.2px 余量，**不可再降**。 */
   :deep(.arco-form-item-label-col) {
     align-self: center;
-    flex: 0 0 140px;
+    flex: 0 0 124px;
     min-width: 0;
+    padding-right: 0;
     justify-content: flex-end;
     margin-right: 8px;
   }
@@ -275,9 +279,9 @@ function onClear() {
 }
 
 .gguf-hint-slot {
-  flex: 0 0 76px;
+  flex: 0 0 72px;
   /* min-width: 0 不可省：flex 项默认 min-width:auto，长提示（如别名建议
-     "Qwen3-32B-A3B-Instruct-Q4_K_M"）会把定宽 76px 的槽位撑到 222px，
+     "Qwen3-32B-A3B-Instruct-Q4_K_M"）会把定宽 72px 的槽位撑到 222px，
      反过来把控件列挤到 146px、输入框实际只剩 0px 宽（实测） */
   min-width: 0;
   display: flex;
@@ -307,7 +311,7 @@ function onClear() {
 
 // GGUF 值提示：a-tag 原生外观，仅保留布局尺寸与 mono 字体（§7.5.1 数值 mono）。
 // 内距/字号一律走 a-tag size="small" 原生（0 8px / 12px）——与建议参数芯片
-// （.suggestion-chip / .rec-chip）同档，原先的 6px 覆写已删（槽同步提到 76px 补偿）
+// （.suggestion-chip / .rec-chip）同档，原先的 6px 覆写已删
 .gguf-hint {
   font-family: var(--font-mono);
   font-size: var(--fs-sm);

@@ -43,12 +43,14 @@ const tip = computed(() => {
 .slider-control { display: flex; width: 100%; min-width: 0; }
 /* a-space 子项包裹在 .arco-space-item（其自身为 flex 容器）：
    - 滑块项 flex:1 弹性拉伸（min-width: 0），slider 填满该项
-   - 数字项固定 88px（hide-button 后无步进按钮；flex 下不给定宽会回退 input 默认
-     size 宽 ~139px 撑爆，把滑块挤成 0；88px 内容区可显示 262144 6 位值）
+   - 数字项固定 76px（hide-button 后无步进按钮；flex 下不给定宽会回退 input 默认
+     size 宽 ~139px 撑爆，把滑块挤成 0）。76 的实测依据：最长值 262144（6 位 mono
+     ≈ 42.2px）在 76px 盒内 input 的 scrollWidth ≤ clientWidth，全 13 只滑块 0 溢出
+     （原 88px 是 #72 拍的档，#78 逐视口复测后收到 76，省下的 12px 全部还给轨道）
    历史：旧 .arco-slider min-width: 160px 卡死，wrapper 不足时 input-number 溢出与右侧 gguf-hint 重叠 */
 .slider-control :deep(.arco-space-item) { min-width: 0; }
 .slider-control :deep(.arco-space-item:first-child) { flex: 1; }
 .slider-control :deep(.arco-slider) { width: 100%; }
-.slider-control :deep(.arco-space-item:last-child) { flex: 0 0 88px; }
+.slider-control :deep(.arco-space-item:last-child) { flex: 0 0 76px; }
 .slider-control :deep(.arco-input-number) { width: 100%; }
 </style>
