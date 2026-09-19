@@ -530,10 +530,12 @@ async function onOpenModelsDir() {
   }
 }
 
-// 任务进度(0-100 数值,供 a-progress 使用)
-function progressPct(task: DownloadTask): number {
+// 任务进度比值 0–1：Arco a-progress 的 percent 是**小数比例**不是百分数
+// （line.js：`width: percent * 100 %`、文本 `percent * 100 + '%'`）。
+// 曾按 0–100 传值，实测任何 ≥1% 的进度都会把条撑满——进度条与实际下载量完全脱钩。
+function progressRatio(task: DownloadTask): number {
   if (task.totalSize <= 0) return 0;
-  return Math.min(100, (task.downloadedSize / task.totalSize) * 100);
+  return Math.min(1, task.downloadedSize / task.totalSize);
 }
 
 // 格式化速度
@@ -892,7 +894,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
               </div>
               <div class="task-progress-bar">
                 <a-progress
-                  :percent="progressPct(t)"
+                  :percent="progressRatio(t)"
                   :show-text="false"
                   :stroke-width="6"
                   :color="'rgb(var(--primary-6))'"

@@ -14,7 +14,7 @@
 node scripts/style-audit.cjs      # 或 pnpm style:audit
 ```
 
-12 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
+13 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
 
 1. 组件内裸颜色（token 禁令；`#fff`/`#1a1a1a` 仅限彩色按钮文字）
 2. 组件内裸字号（应走 `--fs-*`）
@@ -28,6 +28,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 10. 字重只取 400 / 600 / 700（`normal`=400 / `bold`=700 等价放行）
 11. 非 scoped 样式块（`<style>` 无 `scoped`）的顶层选择器必须含至少一个组件私有类——禁止只由 Arco 全局类名构成，防 popup 传送 body 后全局命中他处（§7.5.6）
 12. 不覆写 Arco 内部态类（`.arco-*-checked` / `-active` / `-selected` / `-disabled` / `-current` / `-dragging` / `-expanded`）——随 Arco 版本升级易碎，选中态改用 Arco 自带态或 `color` prop
+13. `a-progress` 的 `:percent` 必须传 **0–1 比值**——Arco `line.js` 按 `width: percent * 100 %` 渲染，传百分数（含 `* 100` 或 `Pct` 命名）会把进度条钉满，实测即「下载进度条与实际进度不一致」（#71）
 
 ***
 
@@ -182,12 +183,22 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 
 
+### 71. 下载进度条与实际进度不一致——`a-progress` 的 percent 是 0–1 比值而非百分数 — 🟢 已修复（2026-09-19）
+
+- **位置**：`DownloadCard.vue` 的 `progressPct()` 与任务行 `<a-progress :percent>`。
+- **描述（用户报「模型下载进度与实际进度不一致」后核 Arco 源码 + 真机实测确认）**：Arco `progress/line.js` 用 `width: ${percent * 100}%` 渲染、文本为 `NP.times(percent, 100) + '%'`，即 **percent 约定是 0–1 小数**；本项目 `progressPct()` 返回 `Math.min(100, downloaded/total*100)`（注释还写着「0-100 数值,供 a-progress 使用」）。结果任何 ≥1% 的进度都会算出 ≥100% 的条宽，被轨道裁满——**下载一开始进度条就是满格**，与真实字节数完全脱钩；又因 `:show-text="false"` 没有百分比数字暴露矛盾，只能靠旁边的「584.1 MB / 4.56 GB」文本察觉。属 §7.5.4 新增「覆写/对接 Arco 必须核源码单位」类缺陷，与 #68/#69/#70 同族（对 Arco 内部实现的主观假设）。
+- **修复**：`progressPct` → `progressRatio()`，返回 `Math.min(1, downloaded/total)`，注释写明 Arco 的换算式；同时给 `style-audit.cjs` 加**第 13 条**回归规则——`:percent="…"` 表达式含 `100` 或 `Pct` 即 ❌（自检：旧写法 FLAG、新写法 pass），杜绝同类回潮。
+- **修复效果验证**（内置浏览器 + demo-mock 真跑一次下载，模拟按 12.5% 步进）：进度条宽 / 轨道宽实测 **12.5% → 25% → 37.5% → 50%**，与同行「584.1 MB / 1.14 GB / 1.71 GB / 2.28 GB ÷ 4.56 GB」逐级吻合（修复前这些点全部显示满格）；`pnpm style:audit` 13/13、`vue-tsc --noEmit`、`vitest run`（66）、`vite build` 全通过，控制台 0 error。规范落点：[frontend.md §7.5.4](../frontend.md)「数值型组件单位约定」。
+
+
+
 ## 🟢 已修复索引
 
 完整的问题描述 / 修复方案 / 验证证据见 [已修复归档](../archive/style-todo-resolved.md)（只读留档）；修复后的规范落点见 [frontend.md §7.5](../frontend.md)。
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 71 | 下载进度条与实际进度不一致（`a-progress` percent 是 0–1 比值，曾按 0–100 传值致满格） | 2026-09-19 |
 | 70 | 页签标题图标与文字 0 间距（theme.scss 全局修正被 Arco 同特异规则按运行时注入顺序压掉） | 2026-09-19 |
 | 68 | 紧凑可选中行的 flex 被 Arco 插槽包装层（`.arco-list-item-main/-content`）吞掉 + 行内距被自家归零规则连带清零 | 2026-09-19 |
 | 69 | `a-tag` 无 `.arco-tag-content` 包装层，三处 `:deep(.arco-tag-content)` 死规则致 chip 内 0 间距 | 2026-09-19 |

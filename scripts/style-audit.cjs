@@ -238,6 +238,20 @@ for (const f of files) {
   });
 }
 
+// ---------- 13. a-progress 的 percent 必须是 0–1 比值 ----------
+// Arco line.js 用 `width: percent * 100 %` 渲染，按百分数（0–100）传值会把进度条钉满，
+// 表现为「下载进度条与实际进度完全不一致」（STYLE_TODO #71）。
+const a13 = new Audit();
+for (const f of files) {
+  readLines(f).forEach((ln, i) => {
+    if (isComment(ln)) return;
+    const m = ln.match(/:percent\s*=\s*"([^"]*)"/);
+    if (!m) return;
+    const expr = m[1];
+    if (/100/.test(expr) || /Pct\b/.test(expr)) a13.add(f, i + 1, ln);
+  });
+}
+
 // ---------- 输出 ----------
 const out = [
   render('1. 组件内裸颜色（token 禁令）', a1.items),
@@ -253,11 +267,12 @@ const out = [
   render('10. 字重只取 400/600/700', a10.items),
   render('11. 非 scoped 样式块选择器含组件私有类（防 Arco 全局类名外泄）', a11.items),
   render('12. 不覆写 Arco 内部态类（.arco-*-checked/active/selected/disabled）', a12.items),
+  render('13. a-progress :percent 传 0–1 比值（禁 ×100 / Pct 命名）', a13.items),
   `\n扫描 ${files.length} 个文件 · 规范依据 docs/frontend.md §7.5`,
 ];
 
 console.log(out.join('\n'));
 
 const failed =
-  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12].some((a) => a.items.length > 0);
+  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13].some((a) => a.items.length > 0);
 process.exit(failed ? 1 : 0);

@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **模型下载进度条与实际进度不一致修复（STYLE_TODO #71）**：Arco `progress/line.js` 的 `percent` 约定是 **0–1 小数**（`width = percent × 100%`、文本 `percent × 100 + '%'`），而 `DownloadCard.progressPct()` 返回 `Math.min(100, downloaded/total×100)`（注释还写着「0-100 数值供 a-progress 使用」）→ 任何 ≥1% 的进度都算出 ≥100% 条宽被轨道裁满，**下载一开始进度条就是满格**；又因 `:show-text="false"` 无数字暴露矛盾，只能靠同行「584.1 MB / 4.56 GB」文本察觉。改 `progressRatio()` 返回 0–1 比值，并给 `style-audit.cjs` 加**第 13 条**回归规则（`:percent` 表达式含 `100`/`Pct` 即 ❌，自检旧写法 FLAG、新写法 pass）。真机实测（demo-mock 按 12.5% 步进跑一次下载）：条宽/轨道 **12.5% → 25% → 37.5% → 50%** 与字节数逐级吻合。规范落点 frontend.md §7.5.4 新增「数值型组件单位约定」（a-progress 0–1 / a-slider 原值 / 开关布尔）；审计条目 12 → 13 同步 STYLE_TODO 清单。`style:audit` 13/13、`vue-tsc`、`vitest`（66）、`vite build` 全绿。
+
 - **页签标题图标与文字 0 间距修复（STYLE_TODO #70）**：用户标注设置页签条「优化图标与文字间距」后真机实测——`theme.scss` 里那条 `.arco-tabs .arco-tabs-tab-title { display: inline-flex; gap: 4px }` **从未生效**：Arco 的 `.arco-tabs-nav-type-line .arco-tabs-tab-title { display: inline-block }` 与之**同为 (0,2,0)**，而组件样式由 `unplugin-vue-components` 运行时注入、排在打包 CSS 之后，同特异后写者胜 → 计算值仍是 block，而 block 盒不认 `gap`，实测 svg 右边界与文字左边界完全相接（0px）。现将选择器带上 nav 类型类升到 (0,3,0)，间距取 6px 与同族「图标 + 文本」行（`.summary-item`、状态栏条目）一致。实测三处页签（设置 4 页签 / 参数 2 / 模型 2）间隙 **0 → 6px**、页签高 40px 不变、图标与文字垂直中心差 0.5px（亚像素）。规范固化 frontend.md §7.5.4 新增两条硬规则：**覆写 Arco 必须严格更高特异性（同特异会因运行时注入顺序而输）**、**gap 只在 flex/grid 生效**，并新增「图标 + 文本行 = 6px」体例；`style:audit` 12/12、`vite build` 通过、控制台 0 error。
 
 - **应用性能专项（渲染层热路径 / 主进程 I/O / IPC / 解析，2026-09-19）**：按实测证据分五组修复，全部门禁绿（`pnpm lint` 4 包 + IPC 同步 + 文档链接 + i18n + oxlint；`pnpm test` core 355 + ui 66）。
