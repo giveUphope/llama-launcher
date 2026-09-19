@@ -50,15 +50,21 @@ pull_request 和 push 事件都走 verify。
 
 ### 1.3 changes job（纯文档变更判定）
 
-- `checkout`（fetch-depth: 0）后以 `github.event.before` 为基线执行 `git diff --name-only <before> HEAD`，汇总本次 push 的真实文件清单（不依赖 webhook `commits[].modified` 字段——Actions 环境中该字段不可靠）。
-- 任一文件不属于 `docs/*` / `README.md` / `AGENTS.md` → 输出 `non-doc=true`（允许 bump）；全部文件均为文档 → `non-doc=false`（跳过 bump）。
+- `checkout`（fetch-depth: 0）后取基线执行 `git diff --name-only <base> HEAD`，汇总本次变更的真实文件清单（不依赖 webhook `commits[].modified` 字段——Actions 环境中该字段不可靠）。
+- **基线按事件分取（2026-09-19 修）**：push → `github.event.before`；pull_request → `github.event.pull_request.base.sha`。**历史缺陷**：`pull_request` 事件**没有** `github.event.before`，旧实现展开成空串，`git diff --name-only "" HEAD` 以 **exit 128** 失败（本地实测复现），而 `run` 默认 `bash -e` → changes job 在 PR 上必红、`e2e`（`needs: changes`）连带被跳过。因该仓库以 push main 为主，此缺陷长期潜伏（仓库内两次 PR 运行都早于 changes job 引入，未暴露）。
+- **保守回退**：基线为空 / 全 0（首次 push）/ `git rev-parse --verify` 解析不出（浅克隆或历史被改写）→ 打 `::warning::` 并输出 `non-doc=true`（照跑 E2E、照走发版判定），**宁可多跑不可漏检**。
+- 任一文件不属于 `docs/*` / `README.md` / `AGENTS.md` → `non-doc=true`；全部为文档 → `non-doc=false`（跳过 bump 与 e2e）。
+- 事件上下文一律经 `env:` 注入脚本，不在 `run:` 里直接内插 `${{ }}`（防脚本注入姿势，也便于本地把同一段脚本抽出来跑）。
+- **本地可验证**：`changes` 的判定逻辑是纯 shell，可用 js-yaml 从工作流里取出 `run` 体、以不同 `EVENT_NAME/PUSH_BEFORE/PR_BASE` 组合直接执行——本轮 7 个场景（push 非文档 / push 纯文档 / 无改动 / PR 有 base / PR 无 base / 全 0 基线 / 未知 sha）全部实测通过。
 - 用途：文档更新不产生版本噪音、不触发 Release；`.github/`、`package.json`、`packages/`、`scripts/` 等工程/代码变更仍照常发版。
 
 ### 1.4 e2e job（PR + push 均执行，与 verify 并行；纯文档变更跳过）
 
-- **Runner**：ubuntu-latest
+- **Runner**：ubuntu-latest，`timeout-minutes: 20`
 - **触发门控（2026-09-09 新增）**：`needs: [changes]` + `if: needs.changes.outputs.non-doc == 'true'`——纯文档变更（changes 判定 `non-doc=false`）跳过 E2E，省去 Playwright 安装与构建。说明：job 级无 `paths-ignore`（事件级才支持），因此复用 changes job 的输出做门控。
-- **步骤**：install → `pnpm exec playwright install --with-deps chromium` → `pnpm e2e:web` → `xvfb-run -a pnpm e2e:electron`
+- **步骤**：install → `actions/cache@v6` 缓存 `~/.cache/ms-playwright`（key 含 `pnpm-lock.yaml` 哈希）→ `pnpm exec playwright install --with-deps chromium` → `pnpm e2e:web` → `xvfb-run -a pnpm e2e:electron` → **`if: failure()` 上传诊断产物**
+  - Chromium 下载实测是本 job 最长单步（**16s / 全 job 54s**），故按 lockfile 版本缓存。
+  - 失败产物路径取自 `playwright.config.ts`：`outputDir: test-results` + HTML 报告 `playwright-report`（均在仓库根），`if-no-files-found: ignore`；此前失败只能靠 `list` 输出猜现场。
 - 不再单独 `pnpm build`：`e2e:web` / `e2e:electron` 脚本内部各自构建（ui/desktop），turbo 本地缓存去重。
 - Web 渲染层 E2E 走真实构建产物（vite preview + demo-mock，用例见 [testing.md](testing.md) 的 E2E 章节）；Electron 冒烟为 headless 启动打包产物，Linux 需 xvfb 虚拟显示。
 - 不参与 `bump` 的 needs 链（release 不等待 e2e）。
@@ -77,6 +83,8 @@ pull_request 和 push 事件都走 verify。
 | `actions/setup-node` | @v4（node20） | @v7（node24），工作流 node-version 20 → 24 |
 | `pnpm/action-setup` | @v4（node20） | @v5（node24）— 不用 @v6：v6 存在指定 `version` 装错版本的问题（pnpm/action-setup#225） |
 | `softprops/action-gh-release` | @v2（node20） | @v3（node24） |
+| `actions/cache` | 未使用 | @v6（2026-09-19 引入，缓存 Playwright 浏览器；版本经 `gh api repos/actions/cache/releases/latest` 核对） |
+| `actions/upload-artifact` | 未使用 | @v7（同上核对，仅 `failure()` 上传 E2E 现场） |
 
 原 `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION` opt-out env 已移除（该 env 是为 Node 20 时代临时续命用的，Node 24 下不再需要）。
 
@@ -95,12 +103,33 @@ bump job 通过 `github.actor != 'github-actions[bot]'` 跳过 bot 自己的提�
 ### 2.5 并发控制
 
 ```yaml
+# ci.yml
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # 2026-09-19 改
+# release.yml
+concurrency:
+  group: release-v${{ inputs.version }}
+  cancel-in-progress: false
 ```
 
-同一 ref 的重复推送只保留最新的一次运行，避免积压。
+- **CI 的取消只对 PR 生效**：原先 push main 也 `cancel-in-progress: true`，而 `bump` job 会在**同一个 run 内**连续 `commit → tag → push → gh workflow run release.yml`，若这期间被新的 push 取消，可能留下「tag 已推、Release 未触发」的半程状态。实测 `bump` 仅 7s、整条流水线约 1 分钟，串行排队的代价可忽略，故 push 不取消。
+- **Release 按版本号分组且永不取消**：同一版本的两次手动 dispatch 会争抢同一个 tag / Release；打包中途取消会留下半成品 Release。
+
+### 2.6 超时兜底与耗时基线
+
+每个 job 都带 `timeout-minutes`（2026-09-19 补齐）：`changes` 5 / `verify` 15 / `e2e` 20 / `bump` 10 / `release.build` 45（其 build、dist 两步另有 20m 单步保险）。动机是 release 侧已实测过的挂死竞态（Windows runner 上 turbo daemon × vite 8 rolldown 的 stdout 管道——产物已生成但进程不退出）：没有 job 级超时时，一次挂死会白占 6h 额度。
+
+实测耗时基线（run 35255644716，push main，2026-09-17，总墙钟 **1m11s**）：
+
+| job | 耗时 | 最长单步 |
+|-----|------|---------|
+| verify | 56s | `pnpm build` 16s、`pnpm test` 15s |
+| changes | 5s | — |
+| e2e | 54s | **Playwright Chromium 下载 16s**（已改为缓存命中）、web e2e 13s、electron 冒烟 10s |
+| bump | 7s | — |
+
+结论：`pnpm install` 仅 4~5s（`setup-node` 的 `cache: pnpm` 已生效），跨 job 共享构建产物的 artifact 往返不划算；真正可省的是浏览器下载，故只对它上缓存。
 
 ---
 

@@ -17,6 +17,7 @@ release.yml 由 ci.yml 的 bump job 通过 `gh workflow run release.yml -f versi
 ## 2. 工作流步骤
 
 - **Runner**：windows-latest（Windows 打包必须，linux 无法生成 .exe）
+- **并发**：`group: release-v${{ inputs.version }}` + `cancel-in-progress: false`（同一版本不并发、在跑的绝不取消）；**job 级 `timeout-minutes: 45`** 兜底
 - **步骤**：
 
 | # | 步骤 | 说明 |
@@ -24,11 +25,12 @@ release.yml 由 ci.yml 的 bump job 通过 `gh workflow run release.yml -f versi
 | 1 | actions/checkout@v7 (ref: vX) | 检出对应版本的 tag |
 | 2 | pnpm/action-setup@v5 + actions/setup-node@v7 | 环境准备（Node 24, pnpm 11.21.0） |
 | 3 | pnpm install --frozen-lockfile | 安装依赖 |
-| 4 | pnpm build | 构建所有包 |
-| 5 | pnpm dist | electron-builder portable 打包，输出到 release/ |
-| 6 | Get-ChildItem -Recurse release/ | 诊断步骤，打印产物列表 |
-| 7 | 读取 package.json 中的版本 | `V=$(node -p "...")` |
-| 8 | softprops/action-gh-release@v3 | 创建 GitHub Release + 上传 .exe |
+| 4 | 校验 tag 版本与 package.json 一致 | 2026-09-19 新增闸门：比对 `inputs.version` 与 `package.json` 的 `version`、以及 `definitions.ts` 的 `APP_VERSION`（sed 提取，此时 dist 尚未构建），任一不符即 `::error::` 失败——否则会把「Release 标题 vA、exe 实际报 vB」的产物发出去（见 [packaging.md](packaging.md) §11.7） |
+| 5 | pnpm build | 构建所有包 |
+| 6 | pnpm dist | electron-builder portable 打包，输出到 release/ |
+| 7 | Get-ChildItem -Recurse release/ | 诊断步骤，打印产物列表 |
+| 8 | 读取 package.json 中的版本 | `V=$(node -p "...")` |
+| 9 | softprops/action-gh-release@v3 | 创建 GitHub Release + 上传 .exe |
 
 > Windows runner 上 turbo daemon 与 vite 8（rolldown）的 stdout 管道存在挂死竞态（构建产物已生成但进程不退出），`pnpm build` / `pnpm dist` 均设置 `TURBO_DAEMON: "false"` 并加 20 分钟超时兜底，挂死时快速失败而非空耗。
 

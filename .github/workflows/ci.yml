@@ -9,12 +9,57 @@ permissions:
   contents: read
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # push 到 main 不再取消在跑的运行：bump job 会在一个 run 内 commit → tag → push → 触发 Release，
+  # 中途取消可能留下「tag 已推、Release 未触发」的半程状态（实测 bump 仅 7s，串行排队的代价可忽略）。
+  # PR 仍是新提交取消旧运行。
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  verify:
+  # 判定本次变更是否仅涉及文档（docs/** 与仓库根 README.md / AGENTS.md）。
+  # 纯文档提交跳过 bump job（不递增版本、不发 Release）并跳过 E2E（渲染逻辑未动，无需 Playwright）。
+  # 基线取法分两种事件（实测坑：pull_request 事件**没有** github.event.before，早期版本在 PR 上
+  # 会让 git diff "" HEAD 以 exit 128 失败，导致 changes 变红、e2e 连带被跳过）：
+  #   - push：以 push 前基线 github.event.before；
+  #   - pull_request：以 github.event.pull_request.base.sha（checkout 的是 PR merge commit，与之 diff 即本 PR 改动集）。
+  # 拿不到/解析不出基线时一律**保守视为非文档变更**（照跑 E2E、照走发版判定），宁可多跑不可漏检。
+  changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      non-doc: ${{ steps.changes.outputs.non-doc }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          BASE="$PUSH_BEFORE"
+          [ "$EVENT_NAME" != "pull_request" ] || BASE="$PR_BASE"
+          ZERO="0000000000000000000000000000000000000000"
+          if [ -z "$BASE" ] || [ "$BASE" = "$ZERO" ] || ! git rev-parse --verify -q "${BASE}^{commit}" >/dev/null; then
+            echo "::warning::无法解析基线（event=$EVENT_NAME base=${BASE:-<empty>}），按「非文档变更」保守处理"
+            echo "non-doc=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          NON_DOC="false"
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              docs/*|README.md|AGENTS.md) ;;
+              *) NON_DOC="true"; break ;;
+            esac
+          done < <(git diff --name-only "$BASE" HEAD)
+          echo "non-doc=$NON_DOC" >> "$GITHUB_OUTPUT"
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      # pnpm/action-setup 固定 v5：v6 指定 version 时装错 pnpm 版本（pnpm/action-setup#225，见 CHANGELOG 2026-09-01）
       - name: Setup pnpm
         uses: pnpm/action-setup@v5
         with:
@@ -31,13 +76,12 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
   # Web 渲染层 E2E + Electron 冒烟（与 verify 并行）。
-  # 纯文档变更（changes 判定 non-doc=false）跳过 E2E——不发版、渲染逻辑未动，无需 Playwright。
-  # 注：job 级无 paths-ignore（事件级才支持），故复用 changes job 的输出做门控。
   # Web E2E 走真实构建产物（内部先构建 ui + vite preview + demo-mock）；Electron 冒烟在 Linux 用 xvfb 虚拟显示。
   e2e:
     runs-on: ubuntu-latest
     needs: [changes]
     if: needs.changes.outputs.non-doc == 'true'
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - name: Setup pnpm
@@ -52,47 +96,37 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       # 不单独构建全量产物：e2e:web / e2e:electron 内部各自 build（ui/desktop），turbo 本地缓存去重
+      # Chromium 下载实测占本 job 最长单步（16s / 全 job 54s），按 lockfile 版本缓存
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: Web 渲染层 E2E
         run: pnpm e2e:web
       - name: Electron 冒烟（xvfb 虚拟显示）
         run: xvfb-run -a pnpm e2e:electron
-  # 判定本次 push 是否仅涉及文档（docs/** 与仓库根 README.md / AGENTS.md）。
-  # 纯文档提交跳过 bump job —— 文档更新不会递增版本、不会发布 Release；
-  # 仅非文档变更（代码/配置/依赖等）才触发自动发版。
-  # 实现：checkout 后以 push 前基线（github.event.before）为基准，git diff 解析真实文件清单
-  # （不依赖 webhook commits[].modified 字段——Actions 环境中该字段不可靠）。
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      non-doc: ${{ steps.changes.outputs.non-doc }}
-    steps:
-      - uses: actions/checkout@v7
+      # 失败现场：playwright.config.ts 的 outputDir=test-results、HTML 报告=playwright-report（均在仓库根）。
+      # 无此步时失败只能靠 list 输出猜（历史多次），故仅 failure() 上传，不污染成功运行。
+      - name: 上传失败诊断产物
+        if: failure()
+        uses: actions/upload-artifact@v7
         with:
-          fetch-depth: 0
-      - id: changes
-        run: |
-          BASE="${{ github.event.before }}"
-          NON_DOC="false"
-          if [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
-            # 仓库首次 push（无基线）：保守视为非文档变更，走正常发版
-            NON_DOC="true"
-          else
-            FILES=$(git diff --name-only "$BASE" HEAD)
-            while IFS= read -r f; do
-              [ -z "$f" ] && continue
-              case "$f" in
-                docs/*|README.md|AGENTS.md) ;;
-                *) NON_DOC="true"; break ;;
-              esac
-            done <<< "$FILES"
-          fi
-          echo "non-doc=$NON_DOC" >> "$GITHUB_OUTPUT"
+          name: e2e-failure-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
   bump:
     needs: [verify, changes]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && needs.changes.outputs.non-doc == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
       actions: write
