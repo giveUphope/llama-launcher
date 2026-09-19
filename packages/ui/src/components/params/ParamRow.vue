@@ -149,18 +149,20 @@ function onClear() {
         </span>
       </a-tooltip>
     </div>
-    <a-button
-      v-if="hasChange"
-      class="clear-btn"
-      type="text"
-      size="mini"
-      shape="circle"
-      status="warning"
-      :title="i18n.t('msg_clear_param')"
-      @click="onClear"
-    >
-      <Icon name="close" :size="12" />
-    </a-button>
+    <!-- 提示走 ToolTip（Arco a-tooltip）而非原生 title：原生浮层不受主题控制、约 1s 延迟，
+         与建议值芯片同源；按钮基座仍是纯 Arco（.clear-btn 类无任何 CSS 覆写） -->
+    <ToolTip v-if="hasChange" :text="i18n.t('msg_clear_param')">
+      <a-button
+        class="clear-btn"
+        type="text"
+        size="mini"
+        shape="circle"
+        status="warning"
+        @click="onClear"
+      >
+        <Icon name="close" :size="12" />
+      </a-button>
+    </ToolTip>
   </div>
 </template>
 

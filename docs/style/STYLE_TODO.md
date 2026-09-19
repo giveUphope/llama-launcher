@@ -221,7 +221,14 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
   ② **一行两个 ✕**：`TextParam` 的 `a-input allow-clear` 会渲染 Arco 自带清除按钮（`.arco-input-clear-btn`，平时 `visibility: hidden`、hover 有值时现形），与行级「还原默认」✕ 同屏；且它写入**空串**而非默认值（`host` 清空即触发 `err_invalid_host`），与行级按钮语义冲突。
   ③ 附带发现：`ToolTip` 走 `content` prop，而 `.arco-tooltip-content` 默认 `white-space: normal` → 全站「标签\n帮助」两段浮层实测被折成一行（高 30px）。
 - **修复**：① 提示文本改 JS 中间省略（头 5 + `…` + 尾 2；尾部量化后缀/单位才是区分信息），完整值 + 参数名 + 操作提示三段进 `ToolTip`（去掉原生 `title`）；`ToolTip` 改 `#content` 插槽 + 自有 `.tooltip-text { white-space: pre-line }`；芯片横向内距收到 §7.5.4 ① 徽章档 6px（8px 档下 8 字 mono 要 74.7px > 72px 槽，差 2px 切尾字母）。② 去掉 `allow-clear`，参数行还原入口唯一。
-- **修复效果验证**（内置浏览器 demo-mock；需先进「模型管理」触发 GGUF 读取，参数页才会出现 8 条建议值）：8/8 芯片 `scrollWidth === clientWidth`（**零裁切**），别名芯片 "Qwen3…_M" 宽 70px ≤ 72px 槽、高仍 20px；浮层实测 3 段 74px 高、文本 `模型别名 / Qwen3-32B-A3B-Instruct-Q4_K_M / 点击应用此建议值`；点芯片仍写入完整值（`45352452 → Qwen3-32B-A3B-Instruct-Q4_K_M`，`ToolTip` 包裹不吞点击）；全页 `.arco-input-clear-btn` 计数 **4 → 0**（4 个非空文本行：监听地址 / 模型别名 / GPU 层数 / 草稿模型 GPU 层数），行级 `.clear-btn` 保持 1。`vue-tsc`、`vitest`（66）、`vite build`、`style:audit` 13/13 全绿。规范落点：[frontend.md §7.5.7](../frontend.md)（「参数行不得开 allow-clear」「GGUF 建议值芯片」两条）+ [§7.5.6](../frontend.md)（多行 tooltip 走 `#content` 插槽）+ §7.5.8 豁免措辞收敛。
+- **修复效果验证**（内置浏览器 demo-mock；需先进「模型管理」触发 GGUF 读取，参数页才会出现 8 条建议值）：8/8 芯片 `scrollWidth === clientWidth`（**零裁切**），别名芯片 "Qwen3…_M" 宽 70px ≤ 72px 槽、高仍 20px；浮层实测 3 段 74px 高、文本 `模型别名 / Qwen3-32B-A3B-Instruct-Q4_K_M / 点击应用此建议值`；点芯片仍写入完整值（`45352452 → Qwen3-32B-A3B-Instruct-Q4_K_M`，`ToolTip` 包裹不吞点击）；全页 `.arco-input-clear-btn` 计数 **4 → 0**（4 个非空文本行：监听地址 / 模型别名 / GPU 层数 / 草稿模型 GPU 层数），行级 `.clear-btn` 保持 1。`vue-tsc`、`vitest`（66）、`vite build`、`style:audit` 13/13 全绿。规范落点：[frontend.md §7.5.7](../frontend.md)（「参数行不得开 allow-clear」「GGUF 建议值芯片」两条）+ [§7.5.6](../frontend.md)（多行 tooltip 走 `#content` 插槽）+ §7.5.8 豁免措辞收敛。**同轮追加**：参数行还原 ✕ 的提示也由原生 `title` 改 `ToolTip`（用户指定），`<a-button>` 外包一层后几何实测零变化（按钮 24×24、`.tooltip-host` 同盒、行高 38px），浮层渲染「恢复为默认值」108×30，点击仍生效（别名 → 默认空值、✕ 随之消失）。
+
+### 75. 提示机制两套并存：原生 `title` vs Arco `ToolTip` — 🔴 待修复（2026-09-19 登记）
+
+- **位置**：16 个组件/页面，`grep -rn ':title=' packages/ui/src --include=*.vue` 实测 **60 处**（DownloadCard 11 / ParamsPage 9 / LocalModelsPanel 8 / TopBar 8 / ServiceStatusCard 6 / PresetsPanel 4 …），其中 6 处是 `a-dgroup` / `a-statistic` / `iframe` 等**组件 prop**（合法），其余为浏览器原生浮层。
+- **描述**：原生 `title` 不受主题控制（深色下仍是系统白底浮层）、有约 1s 延迟、承载不了多段文本，与 §7.5.6 的 Arco 浮层体系（实底 + token 色 + `pre-line` 三段）观感不一致。#74 已把**参数行三处**（标签 / 建议值芯片 / 还原 ✕）统一到 `ToolTip`，其余出现点未动——现状是「参数页一套、别处一套」，属已知并存，新增代码请按 §7.5.6 的边界执行，勿在同一行内混用两套。
+- **建议修复（先定边界再动，勿逐处替换）**：① 交互控件（按钮 / 图标钮 / 徽章）逐个包 `ToolTip`，实测外包一层不改变几何；② **表格单元格与文件名的截断提示建议保留原生 `title`**——长路径若逐个挂 Arco trigger，每个单元格一个 popup 实例，与 §7.1 热路径铁律（列表行成本入队时算一次、不在 `v-for` 里派生）相冲；③ 状态栏/TopBar 的按钮提示改 `ToolTip` 后须同时验证深蓝铬面上的浮层对比（§7.5.2）。
+- **验证方式**：`grep -rn ':title=' packages/ui/src --include=*.vue | wc -l` 按边界递减（60 → 保留项数）；hover 实测浮层底为 token 色（深色主题下不再是系统白底）；参数行 ✕ 外包 `ToolTip` 的几何基线 = 按钮 24×24 / 行高 38px / 控件宽 `[176, 148]`（#73 值）。
 
 
 ## 🟢 已修复索引

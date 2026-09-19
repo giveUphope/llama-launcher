@@ -156,6 +156,7 @@
 - 弹窗（`a-modal`）、下拉（`a-dropdown`/`a-select`/`a-trigger`）、工具提示（`a-tooltip`）、Popconfirm 一律 Arco 组件默认：实底面板 + Arco 自带阴影/动画，popup 挂 body。**自建浮层仅剩两处**（GeneralPanel 引擎帮助面板、`--shadow-dropdown` 兼容引用），不再新增。
 - 浮层内容排版：面板圆角/边框/背景走 Arco 默认；条目类（`a-doption`）hover 态走 Arco 默认，不手写背景。
 - **多行 tooltip 必须走 `#content` 插槽**：`a-tooltip` 的 `content` prop 渲染出的 `.arco-tooltip-content` 是 `white-space: normal`，传 `label\nhelp` 这类多段文本会被折成一行（实测高 30px）。`ToolTip.vue` 已改为插槽 + 自有 `.tooltip-text { white-space: pre-line }`（popup 虽传送 body，scoped 属性仍随元素走，故样式生效；实测三段文本高 74px）。新增多行浮层一律复用 `ToolTip` 组件，不要退回 `content` prop。
+- **参数行的提示一律 `ToolTip`（含图标钮）**：标签、建议值芯片、还原 ✕ 三处同源，不用原生 `title`（不受主题控制、约 1s 延迟、承载不了多段文本）。✕ 外包 `ToolTip` 后几何实测零变化（按钮 24×24、host 同盒、行高 38px）。**全站其余出现点仍是原生 `title`**（grep 实测 60 处，其中 6 处是 `a-dgroup`/`a-statistic`/`iframe` 等组件 prop），统一与否属独立待办（STYLE_TODO #75），勿在文档里当作已定规范。
 - **非 scoped 样式块的命名空间**（popup 传送 body 时必需）：块内**每个顶层选择器都必须含至少一个组件私有类**，禁止只由 Arco 全局类名构成（否则会全局命中其他使用点）。范式：ParamsPage `.target-menu …`、GeneralPanel `.exe-help-panel …`、DownloadCard `.arco-dropdown-list:has(> .url-history-item) .arco-dropdown-group-title`（`a-dgroup` 渲染为 Fragment、标题 `li` 无法挂私有类，故用 `:has()` 反查）。审计第 11 条固化。
 - 例外：状态栏深蓝底上的白色半透明 hover（`rgba(255,255,255,.15)`）为**表面着色**而非 elevation；chip 计数底（`color-mix` 半透明底）同类，均不纳入阴影 token。
 
