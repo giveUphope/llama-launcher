@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.37] - 2026-09-19
+
+
 - **修复参数页「显存占用(估算)」在真机不可用（探测静默失效）**：先自下而上排除——真机 `--list-devices` 正常（`Vulkan0: AMD Radeon RX 7900 XTX (24560 MiB, 22077 MiB free)`）、core 解析正常、按 handler 的入参形状跑真实会话模型也正常（当前会话 35B-IQ1_M → 64% 无警示；27B-Q4_K_S → 105% 警示），preload 四参数透传与 `env.d.ts` 签名也对。断点在**主进程探测用的 exe 路径**：`getDevicesCached()` 直接拼 `dirname(settings.server_exe) + llama-server.exe`，既不校验存在也无回退——引擎目录一旦改名/搬走（本机就发生过 `llama-b10938-*` → `llama-b11053-*`，settings 里留着旧路径）spawn 静默失败返回 `[]` → `primary` 为 null → `occupancy`/`recommendations` 全 null，界面只剩一个「—」且**没有任何原因可看**；更糟的是这个空结果按 30s TTL 缓存，把目录改对后还要空转半分钟。修法：① 解析策略下沉为 core 的 `candidateServerExes` / `resolveServerExe`（纯函数 + 注入 `exists`/`listSubDirs` 便于单测），按 `server_exe` → 其同目录 → `llama_dir` 根 → 一级子目录 → 开发态仓库根 `llama-*-bin-*` 依次校验存在；顺带修一处实现缺陷——去重必须忽略分隔符差异（win32 `path.join` 出反斜杠、settings 存正斜杠，同一路径会被当两个候选，单测直接抓到）；② **只缓存成功结果**（失败时 `at` 归零，改对目录即下次重探）；③ 结果新增 `probeError`（含尝试过的路径），参数页 tooltip 由「不可用」一句升级为带原因的说明。真机验证：把 settings 指向已删除的 b10938 后，`resolveServerExe` 回退命中 b11053 并返回真实双设备（`Vulkan0:23749MiB / Vulkan1:15413MiB`）——旧实现在同一状态下返回 `[]`。新增 4 条 core 单测（排序去重 / 空设置 / 失配回退 / 全无命中），`pnpm build` 4/4、`pnpm test`（core **359** + ui 66）、`pnpm lint` 全绿。文档落点 core-modules.md §devices 表、desktop-main.md `system:estimateVram`。
 ## \[0.0.36] - 2026-09-19
 
