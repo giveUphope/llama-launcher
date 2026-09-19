@@ -81,8 +81,8 @@ export const PARAM_LABELS: Record<string, ParamI18nEntry> = {
   video_fps: { zh: '视频帧率', en: 'Video FPS' },
   video_timestamp_interval: { zh: '视频时间戳间隔', en: 'Video Timestamp Interval' },
   video_ffmpeg_dir: { zh: 'FFmpeg 目录', en: 'FFmpeg Dir' },
-  spec_synth_len: { zh: '合成接受长度（基准）', en: 'Synthetic Accept Len' },
-  spec_synth_rates: { zh: '合成接受率（基准）', en: 'Synthetic Accept Rates' },
+  spec_synth_len: { zh: '合成接受长度', en: 'Synthetic Accept Len' },
+  spec_synth_rates: { zh: '合成接受率', en: 'Synthetic Accept Rates' },
 };
 
 export const PARAM_HELP: Record<string, ParamI18nEntry> = {

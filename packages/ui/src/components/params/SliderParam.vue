@@ -21,19 +21,19 @@ const tip = computed(() => {
   const help = i18n.paramHelp(props.p.key);
   return help ? `${label.value}\n${help}` : label.value;
 });
-// Arco 的 show-ticks 按 step 逐格渲染一个 <div>（slider-ticks.js: floor((max-min)/step)），
-// 且 isActive 依赖 value → 拖拽时每帧重算全部刻度。参数页实测：13 只滑块共 9717 个刻度节点，
-// 「缓存重用大小」(0..262144 step 32) 单只就 8195 个，占整页 DOM 的 84%。
-// 刻度只在肉眼可分辨时才有识读价值（轨道约 250px，>40 格即亚像素噪声），故按步数门控。
-const TICK_LIMIT = 40;
-const showTicks = computed(() => (max.value - min.value) / step.value <= TICK_LIMIT);
+// 参数滑块一律不开 show-ticks：Arco 的刻度按 step 逐格建一个 <div>
+// （slider-ticks.js: floor((max-min)/step)），且 isActive 依赖 value → 拖拽时每帧重算；
+// 「缓存重用大小」(0..262144 step 32) 单只就 8195 个节点，占参数页 DOM 的 84%。
+// 曾按 (max-min)/step ≤ 40 门控保留小量程滑块的刻度，结果 13 只滑块里只有「温度」画刻度、
+// 其余 12 只不画——同页混排本身就是样式不统一（且这些量程的刻度在 ~200px 轨道上都是
+// 亚像素噪声），故统一不画。
 </script>
 
 <template>
   <a-form-item :label="label" class="param-control">
     <template #label><ToolTip :text="tip"><span>{{ label }}</span></ToolTip></template>
     <a-space class="slider-control">
-      <a-slider v-model="model" :min="min" :max="max" :step="step" :show-ticks="showTicks" />
+      <a-slider v-model="model" :min="min" :max="max" :step="step" />
       <a-input-number v-model="model" size="small" hide-button :min="min" :max="max" :step="step" :precision="isFloat ? 2 : 0" />
     </a-space>
   </a-form-item>

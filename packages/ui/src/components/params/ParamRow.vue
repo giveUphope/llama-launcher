@@ -209,16 +209,17 @@ function onClear() {
   :deep(.arco-form-item-label) {
     line-height: 1.3;
   }
-  /* 标签列定宽 + 右对齐，取值与设置面板同族（GeneralPanel/AppearancePanel 110px、
-     AdvancedPanel 140px），但**必须用 `0 0`（不收缩）而不是设置面板那套 `0 1`**：
-     参数网格里控件列有内在最小宽（滑块 + 88px 数字框 + 72px 提示槽），且 Arco flex 项
-     默认 min-width:auto 不肯让位，可收缩的标签列就会被挤压——实测 `0 1 110px` 下标签
-     缩成 64 / 83px 两种、控件起点重新错位（x 346/365/797）；`0 0 110px` 下标签恒 110px、
-     控件起点恒两值（每列一个）。Arco label-col 原生默认 `flex: 0 0 auto` 更糟：按文字宽
-     自适应（实测 28–93px），控件起点从 x=318 一路漂到 380。 */
+  /* 标签列定宽 140px + 右对齐（与 AdvancedPanel 同档）。取值依据：离屏探针量 60 行标签自然宽，
+     历史上最长「合成接受长度（基准）」= 140px，而 110px（设置面板值）扣掉 8px 右距后可用 94px
+     会截断 11 行——定宽是为对齐，不能以牺牲可读性为代价。该两条标签的限定语已并入 tooltip，
+     现全页最长 127px ≤ 可用 132px，零截断。
+     **必须 `flex: 0 0`（不收缩）**：参数行控件（滑块 + 88px 数字框 + 72px 提示槽）占满行，
+     可收缩的标签列会被挤压——实测 `0 1 110px` 下标签缩成 64 / 83px 两种、控件起点重新错位。
+     Arco label-col 原生 `flex: 0 0 auto` 更糟：按文字宽自适应（实测 28–93px 九种），
+     控件起点从 x=318 一路漂到 380。 */
   :deep(.arco-form-item-label-col) {
     align-self: center;
-    flex: 0 0 110px;
+    flex: 0 0 140px;
     min-width: 0;
     justify-content: flex-end;
     margin-right: 8px;
