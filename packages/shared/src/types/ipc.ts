@@ -17,7 +17,9 @@ export const IPC = {
   SERVER_RESTART: 'server:restart',
   SERVER_STATUS: 'server:status',
   SERVER_PREVIEW: 'server:preview',
-  SERVER_OUTPUT: 'server:output',
+  // 控制台输出：主进程按 16ms 窗口成批推送（载荷为 OutputEntry[]），
+  // 逐行 send 会让每条日志各起一次 IPC + 结构化克隆 + 渲染层一次 Vue 刷新
+  SERVER_OUTPUT_BATCH: 'server:output-batch',
   // 应用日志（区别于服务控制台：记录应用自身生命周期/操作）
   LOGS_LIST: 'logs:list',
   LOGS_CLEAR: 'logs:clear',

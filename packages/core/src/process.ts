@@ -217,7 +217,9 @@ export class LlamaServerProcess extends EventEmitter {
     let alive = true;
     while (Date.now() < deadline) {
       if (!isPidAlive(pid)) { alive = false; break; }
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+      // 25ms 步进：绝大多数进程在收到终止请求后几十毫秒内就消失，100ms 步进等于
+      // 把主进程的同步阻塞下限抬到了 100ms（本方法刻意同步，见上方注释）
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
     }
 
     if (!alive) {
@@ -241,7 +243,7 @@ export class LlamaServerProcess extends EventEmitter {
     let aliveAfterForced = true;
     while (Date.now() < forcedDeadline) {
       if (!isPidAlive(pid)) { aliveAfterForced = false; break; }
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 80);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
     }
     this.proc = null;
     return !aliveAfterForced;

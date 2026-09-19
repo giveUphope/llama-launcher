@@ -47,7 +47,7 @@
 
 ### 4.4 模型扫描 (models-scanner.ts)
 
-- **`scanModels(dir, opts)`**：递归扫描 `.gguf` 文件（异步 `fs/promises` 并行遍历，不阻塞主进程），跳过文件名含 `mmproj` / `projector` / `multimodal` 关键词的文件（多模态投影器）与 `dflash` / `draft` 关键词的草稿模型文件。结果按 `dir:mtimeMs` 缓存（上限 8 条），`invalidateScanCache()` 用于 `MODELS_WATCH` 失效。
+- **`scanModels(dir, opts)`**：递归扫描 `.gguf` 文件（异步 `fs/promises` 并行遍历，不阻塞主进程），跳过文件名含 `mmproj` / `projector` / `multimodal` 关键词的文件（多模态投影器）与 `dflash` / `draft` 关键词的草稿模型文件。目录条目用 `withFileTypes` 的 `Dirent` 判类型（仅对返回的 `.gguf` 才 `stat` 取大小）。缓存按**目录**为键，指纹是该目录及其每个子目录的 `mtime+ctime`（上限 200 个目录指纹、8 条结果），任一子树变更都能被感知而不再只比对顶层目录 mtime；`invalidateScanCache(changedPath?)` 传变化文件的绝对路径时只失效覆盖该路径的条目（`MODELS_WATCH` 已按此传参，单个 `.gguf` 变动不再清空全部缓存导致整树重扫），不传/非绝对路径则保守全清。
 
 - **目录不存在**：抛出 `DIR_NOT_FOUND` 错误码，`createIfMissing` 选项可自动创建目录。
 
@@ -60,6 +60,10 @@
 ### 4.5 GGUF 元数据读取 (gguf-meta.ts)
 
 - **流式读取**：`BufferReader` 按 64KB 块按需加载文件内容，内存占用恒定，可读取数 GB 的模型文件。
+
+- **数组跳过策略**：固定大小数组按 `count × elementSize` 一次性 `skipBytes`；字符串数组（`tokenizer.ggml.tokens` 常 10 万~25 万元素）走 `skipStringArray()`——游标仍在已加载块内时直接 `readUInt32LE` 取长度并前移，只在跨块时回到异步 `skipString()`。此前逐元素 `await` 会产生同量级的微任务与 8 字节 Buffer 分配，把主进程事件循环灌满、饿死同进程的 IPC 回包。实测（合成 20 万 token / 3.4 MB 头部）解析耗时 **48–53ms → 5.0–5.8ms**。
+
+- **IPC 载荷裁剪**：`MODELS_READ_GGUF_META` 不回传 `info.metadata`（完整 KV 映射）与 `chat_template` 原文（截断至 200 字符）——渲染层只用派生字段与「有无模板」的勾选（`ModelMetaCard`）。
 
 - **版本兼容**：支持 GGUF v1 / v2 / v3，校验魔数 `0x46554747`（"GGUF" ASCII）。
 

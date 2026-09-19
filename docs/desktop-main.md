@@ -37,7 +37,7 @@ IPC 按功能域声明式注册：`ipc/` 目录下 settings/models/presets/serve
 ### 6.4 Launcher 桥接 (launcher-bridge.ts)
 
 - **单例** `launcherBridge`，跨窗口共享同一个 Launcher 实例。
-- **输出缓冲区**：上限 5000 条，新窗口连接时重放历史输出，保证状态可见；输出经 **16ms 窗口聚合后同步逐条冲刷**（突发日志不即时逐行 send，但仍每条目一条 `SERVER_OUTPUT` 消息，不做数组打包）。
+- **输出缓冲区**：上限 5000 条，新窗口连接时重放历史输出（按 200 行分块），保证状态可见；输出经 **16ms 窗口聚合成一批后一次性下发**（`SERVER_OUTPUT_BATCH`，载荷 `OutputEntry[]`）。此前是「聚合后仍逐条 send」——模型加载阶段数百行意味着数百次 IPC + 结构化克隆 + 数百次渲染层刷新，实测会把渲染进程压住；渲染层对应 `server` store 的 `pushOutputBatch()`（一批入队 + 一次裁剪）。
 - **清理**：`disposeSync()`（同步强杀，供 `before-quit`）/ `dispose()`（异步等待 `exit` 或 5 秒超时）。
 - **重启竞态规避**：`Launcher.restart()` 在运行中会 `proc.once('exit', () => start)` 等旧进程退出后再启动新进程（未运行时直接 start），避免手动 stop() 后立即 start() 时 `launcher.proc` 仍指向旧进程导致的 `Server is already running` 误判（taskkill 异步杀进程，exit 事件触发前 proc 未置 null）。
 

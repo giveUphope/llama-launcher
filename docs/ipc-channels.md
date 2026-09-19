@@ -42,7 +42,7 @@
 | `server:restart` | 重启服务                                            |
 | `server:status`  | 查询服务状态                                          |
 | `server:preview` | 预览启动命令                                          |
-| `server:output`  | 输出推送（主进程 → 渲染进程）                                |
+| `server:output-batch` | 输出推送（主进程 → 渲染进程），**载荷为 `OutputEntry[]` 数组**：16ms 窗口内的行合并成一条消息 |
 
 ### Logs（3）
 

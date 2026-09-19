@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, mkdirSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, mkdirSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { Preset, PresetValues } from '@llama-launcher/shared';
@@ -93,17 +93,92 @@ function ensureDir(dir: string): boolean {
   return true;
 }
 
+// ---------------- 解析记忆化 ----------------
+
+/** 预设解析缓存保留的目录数上限（见 setCacheEntry） */
+const MAX_CACHED_PRESET_DIRS = 8;
+
+/**
+ * 目录 → 文件名 → 解析结果（preset=null 表示损坏文件，同样缓存以免每次 list 都重解析）。
+ *
+ * 键含文件指纹（mtime+size），但**指纹不单独作为命中依据**：NTFS 时间戳是延迟刷新的，
+ * 实测同一毫秒内两次等长改写有九成以上报出完全相同的 mtimeNs/ctimeNs，只比指纹会在外部
+ * 快速改写预设文件后返回旧数据。故命中还须比对建立缓存时读到的原始字节（字节一致 ⇒
+ * 解析结果一致）。省下的正是每个未变更文件的 JSON.parse + zod 校验 + values 重排序。
+ */
+const parseCache = new Map<string, Map<string, { key: string; raw: string; preset: Preset | null }>>();
+
+/** 文件身份指纹（mtime+size）；不可 stat 返回 null（该文件不进缓存）。 */
+function fingerprint(filePath: string): string | null {
+  try {
+    const st = statSync(filePath, { bigint: true });
+    return `${st.mtimeNs}:${st.size}`;
+  } catch {
+    return null;
+  }
+}
+
+/** 缓存对象按只读共享：进出缓存都取副本，防调用方就地改写污染缓存。 */
+function clonePreset(preset: Preset): Preset {
+  return { ...preset, values: { ...preset.values } };
+}
+
+function setCacheEntry(dir: string, file: string, key: string | null, raw: string, preset: Preset | null): void {
+  let dirCache = parseCache.get(dir);
+  if (!dirCache) {
+    // 模型目录可被切换（每次切换换一个 dir 键）：只保留少量目录的缓存，超量整体作废防残留累积
+    if (parseCache.size >= MAX_CACHED_PRESET_DIRS) parseCache.clear();
+    dirCache = new Map();
+    parseCache.set(dir, dirCache);
+  }
+  if (key === null) dirCache.delete(file);
+  else dirCache.set(file, { key, raw, preset: preset ? clonePreset(preset) : null });
+}
+
+/** 清掉本目录中已不存在的文件条目（删除/改名/换模型目录后不留残值）。 */
+function sweepDirCache(dir: string, presentFiles: string[]): void {
+  const dirCache = parseCache.get(dir);
+  if (!dirCache) return;
+  const present = new Set(presentFiles);
+  for (const file of dirCache.keys()) if (!present.has(file)) dirCache.delete(file);
+  if (dirCache.size === 0) parseCache.delete(dir);
+}
+
+/**
+ * 读并解析单个预设文件，内容未变更时直接复用缓存的解析结果。
+ * 读失败与解析失败都返回 null（损坏文件不污染列表）。
+ */
+function readPresetFile(dir: string, file: string, fallbackName: string): Preset | null {
+  const path = join(dir, file);
+  let raw: string;
+  try {
+    raw = readFileSync(path, 'utf-8');
+  } catch {
+    parseCache.get(dir)?.delete(file);
+    return null;
+  }
+  const key = fingerprint(path);
+  if (key !== null) {
+    const hit = parseCache.get(dir)?.get(file);
+    if (hit && hit.key === key && hit.raw === raw) {
+      return hit.preset ? clonePreset(hit.preset) : null;
+    }
+  }
+  const preset = parsePreset(raw, fallbackName);
+  setCacheEntry(dir, file, key, raw, preset);
+  return preset;
+}
+
 export function listPresets(dir: string): Preset[] {
   if (!dir || !existsSync(dir)) return [];
   const presets: Preset[] = [];
   try {
     const files = readdirSync(dir).filter(f => f.endsWith('.json'));
     for (const f of files) {
-      try {
-        const preset = parsePreset(readFileSync(join(dir, f), 'utf-8'), f.replace(/\.json$/, ''));
-        if (preset) presets.push(preset);
-      } catch { /* skip */ }
+      const preset = readPresetFile(dir, f, f.replace(/\.json$/, ''));
+      if (preset) presets.push(preset);
     }
+    sweepDirCache(dir, files);
   } catch {
     return [];
   }
@@ -113,10 +188,7 @@ export function listPresets(dir: string): Preset[] {
 export function loadPreset(dir: string, name: string): Preset | null {
   if (!dir || !existsSync(dir)) return null;
   const safe = name.replace(/[\\/:*?"<>|]/g, '_');
-  const path = join(dir, `${safe}.json`);
-  try {
-    return parsePreset(readFileSync(path, 'utf-8'), safe);
-  } catch { return null; }
+  return readPresetFile(dir, `${safe}.json`, safe);
 }
 
 /**
@@ -127,20 +199,14 @@ export function loadPreset(dir: string, name: string): Preset | null {
  */
 export function savePreset(dir: string, name: string, values: PresetValues): Preset {
   const safe = name.replace(/[\\/:*?"<>|]/g, '_');
+  const file = `${safe}.json`;
   const modelRaw = values[MODEL_KEY];
   const model = typeof modelRaw === 'string' && modelRaw ? modelRaw : null;
   const now = new Date().toISOString();
   // created_at 继承：旧文件存在且带创建时间则沿用（v1 文件由 parsePreset 以 saved_at 回填）
   let createdAt = now;
-  const prevPath = join(dir, `${safe}.json`);
-  try {
-    if (existsSync(prevPath)) {
-      const prev = parsePreset(readFileSync(prevPath, 'utf-8'), safe);
-      if (prev && prev.created_at) createdAt = prev.created_at;
-    }
-  } catch {
-    // 旧文件读取/解析失败按新预设处理
-  }
+  const prev = dir ? readPresetFile(dir, file, safe) : null;
+  if (prev?.created_at) createdAt = prev.created_at;
   const preset: Preset = {
     preset_version: PRESET_VERSION,
     name,
@@ -154,15 +220,18 @@ export function savePreset(dir: string, name: string, values: PresetValues): Pre
     throw new Error(`Cannot create presets directory: ${dir}`);
   }
   // 原子写：先写 .tmp 再 rename，避免崩溃/断电留下半个预设文件
-  const finalPath = join(dir, `${safe}.json`);
+  const finalPath = join(dir, file);
   const tmpPath = `${finalPath}.tmp`;
-  writeFileSync(tmpPath, JSON.stringify(preset, null, 2), 'utf-8');
+  const text = JSON.stringify(preset, null, 2);
+  writeFileSync(tmpPath, text, 'utf-8');
   try {
     renameSync(tmpPath, finalPath);
   } catch (e) {
     try { unlinkSync(tmpPath); } catch { /* 清理失败则忽略 */ }
     throw e;
   }
+  // 刷新记忆化：内容与指纹都是刚写下的，下次 list/load 直接命中、不再解析
+  setCacheEntry(dir, file, fingerprint(finalPath), text, preset);
   return preset;
 }
 
@@ -171,6 +240,7 @@ export function deletePreset(dir: string, name: string): boolean {
   const safe = name.replace(/[\\/:*?"<>|]/g, '_');
   try {
     unlinkSync(join(dir, `${safe}.json`));
+    parseCache.get(dir)?.delete(`${safe}.json`);
     return true;
   } catch { return false; }
 }
@@ -194,18 +264,20 @@ export function deletePresetsForModel(modelsDir: string, modelPath: string): str
     const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
     for (const f of files) {
       try {
-        const preset = parsePreset(readFileSync(join(dir, f), 'utf-8'), f.replace(/\.json$/, ''));
+        const preset = readPresetFile(dir, f, f.replace(/\.json$/, ''));
         if (!preset) continue;
         const model = norm(String(preset.model ?? ''));
         if (!model) continue;
         if (model === prefix || model.startsWith(prefix + '/')) {
           unlinkSync(join(dir, f));
+          parseCache.get(dir)?.delete(f);
           removed.push(preset.name);
         }
       } catch {
         // 单个预设解析/删除失败跳过，不影响其余
       }
     }
+    sweepDirCache(dir, files);
   } catch {
     // 目录读取失败时返回已删除部分
   }

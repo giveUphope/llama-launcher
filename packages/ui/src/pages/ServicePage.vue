@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, ref, watch } from 'vue';
+import { computed, onActivated, onDeactivated, ref, watch } from 'vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
-import { useServerStore } from '@/stores/server';
+import { useServerStore, type ConsoleTone } from '@/stores/server';
 import { useI18nStore } from '@/stores/i18n';
-import type { OutputEntry } from '@llama-launcher/shared';
 import CommandPreviewCard from '@/components/service/CommandPreviewCard.vue';
 import ParamSummaryCard from '@/components/service/ParamSummaryCard.vue';
 import TrashCleanCard from '@/components/service/TrashCleanCard.vue';
@@ -18,9 +17,15 @@ const i18n = useI18nStore();
 // 本页聚焦：命令预览、参数摘要、配置清理与后端完整输出控制台。
 
 // ---- 控制台输出 ----
-const ERROR_RE = /\b(error|failed|fatal|exception|cannot|unable|abort|crash|segfault)\b/i;
-const WARN_RE = /\b(warn|warning|deprecat|slow|out of)\b/i;
-const SUCCESS_RE = /\b(listening|loaded|ready|initialized|running|success)\b/i;
+// 关键词分类已下沉到 server store 的入队环节（OutputLine.tone），渲染期只做一次映射；
+// 此前每条新日志都会对最多 1000 个渲染行各跑 3 条正则
+const TONE_CLASS: Record<ConsoleTone, string> = {
+  error: 'kind-error',
+  warn: 'kind-warn',
+  success: 'kind-success',
+  info: 'kind-info',
+  plain: 'kind-default',
+};
 
 const consoleEl = ref<HTMLElement | null>(null);
 const renderedLimit = 1000;
@@ -29,41 +34,47 @@ const renderedOutputs = computed(() => {
   return outs.length > renderedLimit ? outs.slice(-renderedLimit) : outs;
 });
 
-function lineClass(entry: OutputEntry): string {
-  if (entry.kind === 'error') return 'kind-error';
-  if (entry.kind === 'success') return 'kind-success';
-  if (entry.kind === 'info') return 'kind-info';
-  const text = entry.data || '';
-  if (ERROR_RE.test(text)) return 'kind-error';
-  if (WARN_RE.test(text)) return 'kind-warn';
-  if (SUCCESS_RE.test(text)) return 'kind-success';
-  return 'kind-default';
-}
-
 const autoScroll = ref(true);
 const hasNewLogs = ref(false);
+// keep-alive 下本页停用后仍会收到日志推送：滚动会强制布局，停用时不再滚动（回来时补滚到底）
+const pageActive = ref(true);
 
-async function scrollConsoleToBottom() {
-  await nextTick();
-  if (consoleEl.value) {
-    consoleEl.value.scrollTop = consoleEl.value.scrollHeight;
+// 多条日志同帧到达时只滚一次：直接读 scrollHeight 是强制同步布局，
+// 原实现每条日志一次 nextTick + 赋值，刷屏启动阶段（数百行）代价叠加
+let scrollScheduled = false;
+function scheduleScrollToBottom() {
+  if (scrollScheduled) return;
+  scrollScheduled = true;
+  requestAnimationFrame(() => {
+    scrollScheduled = false;
+    const el = consoleEl.value;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
     autoScroll.value = true;
     hasNewLogs.value = false;
-  }
+  });
 }
 
 watch(
   () => server.outputs.length,
   () => {
+    if (!pageActive.value) {
+      hasNewLogs.value = true;
+      return;
+    }
     if (autoScroll.value) {
-      void scrollConsoleToBottom();
+      scheduleScrollToBottom();
     } else {
       hasNewLogs.value = true;
     }
   },
 );
 
-onActivated(() => { void scrollConsoleToBottom(); });
+onActivated(() => {
+  pageActive.value = true;
+  scheduleScrollToBottom();
+});
+onDeactivated(() => { pageActive.value = false; });
 
 function onScroll() {
   if (!consoleEl.value) return;
@@ -112,7 +123,7 @@ const logCount = computed(() => server.outputs.length);
       </template>
       <!-- 有新日志胶囊：a-button 基座（点击回到底部），仅在有提示时渲染 -->
       <div v-if="hasNewLogs" class="console-header">
-        <a-button class="new-logs" type="text" size="mini" @click="void scrollConsoleToBottom()">
+        <a-button class="new-logs" type="text" size="mini" @click="scheduleScrollToBottom()">
           <Icon name="chevron_down" :size="12" />
           <span>{{ i18n.t('msg_new_logs') }}</span>
         </a-button>
@@ -122,7 +133,7 @@ const logCount = computed(() => server.outputs.length);
         class="console"
         @scroll="onScroll"
       >
-        <span v-for="(line, idx) in renderedOutputs" :key="idx" :class="['output-line', lineClass(line)]">{{ line.data }}</span>
+        <span v-for="line in renderedOutputs" :key="line.id" :class="['output-line', TONE_CLASS[line.tone]]">{{ line.data }}</span>
       </div>
     </Card>
   </PageFrame>

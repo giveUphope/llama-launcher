@@ -4,7 +4,7 @@
 // display:none 不会销毁 iframe 的浏览上下文，因此从 Web UI 切到其他菜单页再切回时，
 // 页面不会重新加载（若由 keep-alive 将组件 DOM 移出文档，iframe 会因浏览上下文销毁而重载）。
 // 服务停止时清空 src（后端已不存在，页面需随重启重新加载）；服务运行中跨页切换 src 不变，保持原页面。
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useServerStore } from '@/stores/server';
 import { useI18nStore } from '@/stores/i18n';
@@ -20,13 +20,19 @@ const running = computed(() => server.status === 'running');
 // API 地址统一取 server.apiUrl（单一来源）：running 返回实际地址（url 残留时回退推导）、
 // starting 推导、stopped 返回空——下方面板同时保留 running 门控，双保险
 const webUrl = computed(() => server.apiUrl);
+// 首次进入本页才真正加载 iframe：服务一启动就在隐藏帧里拉起整套 llama.cpp Web UI，
+// 会在后台跑自己的 JS 与渲染循环（用户可能根本不看）。一旦加载过就保留 src，
+// 跨页切换不重载（原设计意图不变）。
+const everVisited = ref(active.value);
+watch(active, (v) => { if (v) everVisited.value = true; });
+const frameSrc = computed(() => (running.value && everVisited.value ? webUrl.value : ''));
 </script>
 
 <template>
   <div v-show="active" class="webui-frame">
     <iframe
-      v-show="running && webUrl"
-      :src="running ? webUrl : ''"
+      v-show="frameSrc"
+      :src="frameSrc"
       class="webui-iframe"
       title="llama Web UI"
     />

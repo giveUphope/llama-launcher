@@ -92,12 +92,26 @@ function updateDuration() {
   now.value = Date.now();
 }
 
-onActivated(() => {
-  if (isRunning.value && startTimeMs.value == null) {
-    void server.refreshStatus();
-  }
-  if (timer) clearInterval(timer);
+// 1s 心跳只在真的运行时开：原实现在概览页激活时无条件开表，服务停止后仍每秒写 now.value
+// （durationSec 虽短路为 0，但每秒的唤醒 + 响应式写入照旧发生）
+let pageActive = false;
+function startDurationTimer() {
+  if (timer || !pageActive) return;
+  updateDuration();
   timer = setInterval(updateDuration, 1000);
+}
+function stopDurationTimer() {
+  if (timer) { clearInterval(timer); timer = null; }
+}
+
+onActivated(() => {
+  pageActive = true;
+  if (isRunning.value) {
+    if (startTimeMs.value == null) {
+      void server.refreshStatus();
+    }
+    startDurationTimer();
+  }
   // 外部实例探测：激活立即探一次 + 定时轮询（失活/卸载即停）
   probeExternal();
   if (externalTimer) clearInterval(externalTimer);
@@ -105,12 +119,14 @@ onActivated(() => {
 });
 
 onDeactivated(() => {
-  if (timer) { clearInterval(timer); timer = null; }
+  pageActive = false;
+  stopDurationTimer();
   if (externalTimer) { clearInterval(externalTimer); externalTimer = null; }
 });
 
 onUnmounted(() => {
-  if (timer) { clearInterval(timer); timer = null; }
+  pageActive = false;
+  stopDurationTimer();
   if (externalTimer) { clearInterval(externalTimer); externalTimer = null; }
 });
 
@@ -126,8 +142,10 @@ watch(() => server.status, (s) => {
     if (startTimeMs.value == null) {
       startTimeMs.value = Date.now();
     }
+    startDurationTimer();
   } else if (s === 'stopped') {
     startTimeMs.value = null;
+    stopDurationTimer();
   }
 });
 
@@ -139,11 +157,9 @@ async function copyViaApi(text: string | undefined) {
 
 // ---- OOM 归因：启动失败/崩溃时扫描输出尾部的显存不足特征，给出可执行的缓解建议 ----
 // 估算模型（参数页提示条）回答「能开多大」，此处回答「失败了怎么救」——两条路径互补。
-const OOM_RE = /\b(out of memory|VK_ERROR_OUT_OF_DEVICE_MEMORY|cudaErrorOutOfMemory|out_of_memory|failed to allocate|unable to allocate|not enough memory|std::bad_alloc)\b/i;
-const oomDetected = computed(() =>
-  statusInfo.value.status === 'error' &&
-  server.outputs.slice(-300).some((o) => OOM_RE.test(o.data)),
-);
+// 逐行 OOM 标记由 server store 在入队时算好（server.oomDetected 扫最近 300 行布尔），
+// 此处不再 slice + 正则——原实现每条新日志都要重扫 300 行文本
+const oomDetected = computed(() => statusInfo.value.status === 'error' && server.oomDetected);
 
 // 上下文减半：当前 -c（0 = 从模型加载时按训练上限折算）的一半，按 1024 粒度、下限 4096
 function onOomHalveCtx() {

@@ -1,4 +1,5 @@
-import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync, type Dirent } from 'node:fs';
+import { readdir, stat } from 'node:fs/promises';
 import { join, relative, resolve, sep, extname, basename } from 'node:path';
 import { CONFIG_DIR, SETTINGS_FILE, PRESETS_DIR, resolvePresetsDir } from './paths.js';
 import { DOWNLOAD_LOG_SUFFIX, LEGACY_META_SUFFIX } from './download-log.js';
@@ -85,8 +86,16 @@ function isSymbolicLink(absPath: string): boolean {
   }
 }
 
-/** 递归计算目录大小 */
-function calcDirSize(dirPath: string): number {
+/** 目录大小遍历的条目间让出步长：避免超大目录长时间钉住主进程事件循环 */
+const DIR_SIZE_YIELD_EVERY = 64;
+
+function yieldEventLoop(): Promise<void> {
+  return new Promise((r) => setImmediate(r));
+}
+
+/** 递归计算目录大小（同步版，深度上限与异步版一致，保证两条路径返回值相同） */
+function calcDirSize(dirPath: string, depth = MODELS_SCAN_MAX_DEPTH): number {
+  if (depth <= 0) return 0;
   let total = 0;
   try {
     const entries = readdirSync(dirPath, { withFileTypes: true });
@@ -95,7 +104,7 @@ function calcDirSize(dirPath: string): number {
       try {
         if (entry.isSymbolicLink()) continue; // 跳过符号链接
         if (entry.isDirectory()) {
-          total += calcDirSize(childPath);
+          total += calcDirSize(childPath, depth - 1);
         } else if (entry.isFile()) {
           total += statSync(childPath).size;
         }
@@ -106,6 +115,40 @@ function calcDirSize(dirPath: string): number {
   } catch {
     // 忽略读取错误
   }
+  return total;
+}
+
+/**
+ * 递归计算目录大小（异步版）：withFileTypes 取类型 + 深度上限 + 周期性让出事件循环，
+ * 供 IPC 侧（detectTrash/cleanTrash）使用，避免大型目录树冻结主进程。
+ */
+async function calcDirSizeAsync(dirPath: string): Promise<number> {
+  let total = 0;
+  let visited = 0;
+  const walk = async (dir: string, depth: number): Promise<void> => {
+    if (depth <= 0) return;
+    let entries: Dirent[];
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return; // 忽略读取错误
+    }
+    for (const entry of entries) {
+      if (++visited % DIR_SIZE_YIELD_EVERY === 0) await yieldEventLoop();
+      const childPath = join(dir, entry.name);
+      if (entry.isSymbolicLink()) continue; // 跳过符号链接
+      if (entry.isDirectory()) {
+        await walk(childPath, depth - 1);
+      } else if (entry.isFile()) {
+        try {
+          total += (await stat(childPath)).size;
+        } catch {
+          // 跳过无法访问的项
+        }
+      }
+    }
+  };
+  await walk(dirPath, MODELS_SCAN_MAX_DEPTH);
   return total;
 }
 
@@ -237,7 +280,8 @@ function scanModelsDir(
 }
 
 /**
- * 检测应用生成文件中的可清理项（配置目录 + 模型目录）。
+ * 收集可清理项（配置目录 + 模型目录）。
+ * dirSizeOf 注入目录大小的求和方式：同步版直接递归，异步版预先算好（见 detectTrashAsync）。
  *
  * 识别规则（强校验）：
  *  1. CONFIG_DIR/presets：旧预设目录（已迁移到 modelsDir/presets）→ stale_presets_dir
@@ -249,7 +293,7 @@ function scanModelsDir(
  *
  * 白名单（永不清理）：settings.json、有效预设、CONFIG_DIR/modelsDir 自身、未识别文件
  */
-export function detectTrash(opts: TrashScanOptions = {}): DetectResult {
+function collectTrashItems(opts: TrashScanOptions, dirSizeOf: (dir: string) => number): TrashItem[] {
   const items: TrashItem[] = [];
   const modelsDir = String(opts.modelsDir ?? '').trim();
   const protectedPaths = opts.protectedPaths ?? new Set<string>();
@@ -261,13 +305,12 @@ export function detectTrash(opts: TrashScanOptions = {}): DetectResult {
       try {
         const st = statSync(PRESETS_DIR);
         if (st.isDirectory()) {
-          const size = calcDirSize(PRESETS_DIR);
           items.push({
             relPath: relative(CONFIG_DIR, PRESETS_DIR),
             absPath: PRESETS_DIR,
             root: 'config',
             kind: 'stale_presets_dir',
-            size,
+            size: dirSizeOf(PRESETS_DIR),
           });
         }
       } catch {
@@ -319,9 +362,12 @@ export function detectTrash(opts: TrashScanOptions = {}): DetectResult {
   if (modelsDir && existsSync(modelsDir) && !isInsideDir(CONFIG_DIR, modelsDir) && modelsDir !== CONFIG_DIR) {
     scanModelsDir(modelsDir, protectedPaths, items);
   }
+  return items;
+}
 
+/** 汇总结果：总大小 + 稳定排序（根 → 类型 → 相对路径） */
+function finalizeTrash(items: TrashItem[]): DetectResult {
   const totalSize = items.reduce((sum, it) => sum + it.size, 0);
-  // 稳定排序：根 → 类型 → 相对路径
   items.sort(
     (a, b) =>
       a.root.localeCompare(b.root) ||
@@ -329,6 +375,31 @@ export function detectTrash(opts: TrashScanOptions = {}): DetectResult {
       a.relPath.localeCompare(b.relPath),
   );
   return { items, totalSize };
+}
+
+/** 目录形态的清理项（当前仅旧 presets 目录）需要递归求和 */
+function needsDirSize(item: TrashItem): boolean {
+  return item.kind === 'stale_presets_dir';
+}
+
+/**
+ * 检测应用生成文件中的可清理项（配置目录 + 模型目录）。同步实现，
+ * 目录大小走同步递归遍历；主进程内建议使用 detectTrashAsync。
+ */
+export function detectTrash(opts: TrashScanOptions = {}): DetectResult {
+  return finalizeTrash(collectTrashItems(opts, calcDirSize));
+}
+
+/**
+ * detectTrash 的异步版：目录大小改为异步遍历（withFileTypes + 深度上限 + 让出事件循环），
+ * 避免旧 presets 目录过大时长时间阻塞主进程；返回内容与 detectTrash 一致。
+ */
+export async function detectTrashAsync(opts: TrashScanOptions = {}): Promise<DetectResult> {
+  const items = collectTrashItems(opts, () => 0);
+  for (const item of items) {
+    if (needsDirSize(item)) item.size = await calcDirSizeAsync(item.absPath);
+  }
+  return finalizeTrash(items);
 }
 
 /**
@@ -377,7 +448,7 @@ function revalidateItem(item: TrashItem, modelsDir: string, protectedPaths: Set<
 }
 
 /**
- * 执行清理：删除指定的清理项。
+ * 执行清理：删除指定的清理项（dirSizeOf 注入目录大小的求和方式，见 cleanTrash/cleanTrashAsync）。
  *
  * 安全策略：
  *  - 对每个待清理项重新校验根目录归属（config → CONFIG_DIR，models → modelsDir）
@@ -386,7 +457,7 @@ function revalidateItem(item: TrashItem, modelsDir: string, protectedPaths: Set<
  *  - 重新检测符号链接（防止清理期间被替换）
  *  - settings.json 与有效预设永不清理
  */
-export function cleanTrash(items: TrashItem[], opts: TrashScanOptions = {}): CleanResult {
+function runClean(items: TrashItem[], opts: TrashScanOptions, dirSizeOf: (dir: string) => number): CleanResult {
   let cleaned = 0;
   let failed = 0;
   let totalSize = 0;
@@ -414,7 +485,7 @@ export function cleanTrash(items: TrashItem[], opts: TrashScanOptions = {}): Cle
       const st = lstatSync(item.absPath);
       if (st.isDirectory()) {
         // 目录：递归删除（仅 stale_presets_dir 一种目录形态）
-        const sizeBefore = calcDirSize(item.absPath);
+        const sizeBefore = dirSizeOf(item.absPath);
         rmSync(item.absPath, { recursive: true, force: true });
         cleaned++;
         totalSize += sizeBefore;
@@ -433,6 +504,25 @@ export function cleanTrash(items: TrashItem[], opts: TrashScanOptions = {}): Cle
   }
 
   return { cleaned, failed, totalSize };
+}
+
+/** 执行清理（同步版，目录大小走同步递归遍历）。 */
+export function cleanTrash(items: TrashItem[], opts: TrashScanOptions = {}): CleanResult {
+  return runClean(items, opts, calcDirSize);
+}
+
+/**
+ * cleanTrash 的异步版：删除前对目录项以异步遍历求和（深度上限 + 让出事件循环），
+ * 避免大目录阻塞主进程；校验与删除逻辑与同步版完全一致。
+ */
+export async function cleanTrashAsync(items: TrashItem[], opts: TrashScanOptions = {}): Promise<CleanResult> {
+  const dirSizes = new Map<string, number>();
+  for (const item of items ?? []) {
+    if (!needsDirSize(item) || dirSizes.has(item.absPath)) continue;
+    dirSizes.set(item.absPath, await calcDirSizeAsync(item.absPath));
+  }
+  // 非 stale_presets_dir 但实际为目录的极端项（伪造/竞态）回退同步求和，保证字节数不虚低
+  return runClean(items, opts, (dir) => dirSizes.get(dir) ?? calcDirSize(dir));
 }
 
 /** 格式化字节大小为人类可读字符串 */

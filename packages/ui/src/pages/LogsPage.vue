@@ -2,7 +2,7 @@
 // 应用日志页：展示应用自身生命周期/操作日志（服务启停、下载、错误等）。
 // 区别于「服务」页控制台——控制台保留后端 llama-server 原始输出（server store）。
 // 数据源：主进程 app-log 缓冲（logs:list 拉取 + logs:onlog 实时推送）。
-import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onActivated, onDeactivated, onMounted, ref, watch } from 'vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Icon from '@/components/common/Icon.vue';
 import { useAppLogStore } from '@/stores/appLog';
@@ -15,7 +15,15 @@ const settings = useSettingsStore();
 const i18n = useI18nStore();
 
 // ---- 搜索 + 级别筛选 ----
+// searchQuery 绑定输入框，deferredQuery 去抖 150ms 后才参与筛选：
+// 每次按键都重算 2000 行筛选会得到新数组身份，进而整表重渲染
 const searchQuery = ref('');
+const deferredQuery = ref('');
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+watch(searchQuery, (q) => {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { deferredQuery.value = q; }, 150);
+});
 const levelFilter = ref<AppLogKind | 'all'>('all');
 
 const LEVELS: Array<{ key: AppLogKind | 'all'; label: string; icon: string }> = [
@@ -31,10 +39,11 @@ function setLevel(l: AppLogKind | 'all') {
 }
 
 const filteredEntries = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase();
+  const q = deferredQuery.value.trim().toLowerCase();
   return appLog.entries.filter((entry) => {
     if (levelFilter.value !== 'all' && entry.kind !== levelFilter.value) return false;
-    if (q && !entry.data.toLowerCase().includes(q)) return false;
+    // lower 由 store 在入队时算好，避免逐行 toLowerCase
+    if (q && !entry.lower.includes(q)) return false;
     return true;
   });
 });
@@ -49,21 +58,8 @@ const displayEntries = computed(() => {
   return outs.length > renderLimit.value ? outs.slice(-renderLimit.value) : outs;
 });
 
-// ---- 行着色：按日志级别直接映射（应用日志不含 stdout/stderr，无需正则探测） ----
-function lineClass(entry: { kind: AppLogKind }): string {
-  switch (entry.kind) {
-    case 'error': return 'kind-error';
-    case 'warn': return 'kind-warn';
-    case 'success': return 'kind-success';
-    default: return 'kind-info';
-  }
-}
-
-// ---- 格式化时间戳 ----
-function formatTs(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleTimeString(settings.language, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
+// 行着色与时间戳格式化均已前置到 appLog store 入队时（entry.cls / entry.time）：
+// 此前每次重渲染都要对最多 2000 行各调一次 Intl 格式化，而每条新日志都触发重渲染。
 
 // ---- 复制全部 ----
 async function onCopyAll() {
@@ -81,37 +77,47 @@ function onClear() {
 const consoleEl = ref<HTMLElement | null>(null);
 const autoScroll = ref(true);
 const hasNewLogs = ref(false);
+// keep-alive 下本页停用时不再滚动（回来时补滚到底），避免后台每行都强制布局
+const pageActive = ref(true);
 
-async function scrollConsoleToBottom() {
-  await nextTick();
-  if (consoleEl.value) {
-    consoleEl.value.scrollTop = consoleEl.value.scrollHeight;
+// 同帧多条日志只滚一次：读 scrollHeight 是强制同步布局
+let scrollScheduled = false;
+function scheduleScrollToBottom() {
+  if (scrollScheduled) return;
+  scrollScheduled = true;
+  requestAnimationFrame(() => {
+    scrollScheduled = false;
+    const el = consoleEl.value;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
     autoScroll.value = true;
     hasNewLogs.value = false;
-  }
+  });
 }
 
+// 单一滚动源：原实现同时 watch entries.length 与 filteredEntries.length，
+// 同一条日志到达会触发两次 nextTick + 两次 scrollHeight 读取
 watch(
   () => appLog.entries.length,
   () => {
-    if (autoScroll.value) {
-      void scrollConsoleToBottom();
-    } else {
+    if (!pageActive.value) {
       hasNewLogs.value = true;
+      return;
     }
+    if (autoScroll.value) scheduleScrollToBottom();
+    else hasNewLogs.value = true;
   },
 );
 
-watch(
-  () => filteredEntries.value.length,
-  () => { void scrollConsoleToBottom(); },
-);
-
 onMounted(() => appLog.subscribe());
-onActivated(() => { void scrollConsoleToBottom(); });
-onUnmounted(() => {
-  // 无显式退订（store 全局单例，保留订阅以持续接收实时日志）
+onActivated(() => {
+  pageActive.value = true;
+  scheduleScrollToBottom();
 });
+onDeactivated(() => { pageActive.value = false; });
+
+// 语言切换只需重算已缓存行的时间串（store 内一次遍历）
+watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, { immediate: true });
 
 function onScroll() {
   if (!consoleEl.value) return;
@@ -171,7 +177,7 @@ function onScroll() {
         <span>{{ i18n.t('msg_app_logs_hint') }}</span>
       </div>
       <!-- 有新日志胶囊：a-button 基座（点击回到底部），仅在有提示时渲染 -->
-      <a-button v-if="hasNewLogs" class="new-logs-bar" type="text" size="mini" @click="void scrollConsoleToBottom()">
+      <a-button v-if="hasNewLogs" class="new-logs-bar" type="text" size="mini" @click="scheduleScrollToBottom()">
         <Icon name="chevron_down" :size="12" />
         <span>{{ i18n.t('msg_new_logs') }}</span>
       </a-button>
@@ -185,11 +191,11 @@ function onScroll() {
           <span>{{ i18n.t('msg_empty_no_logs') }}</span>
         </div>
         <div
-          v-for="(entry, idx) in displayEntries"
-          :key="idx"
-          :class="['log-line', lineClass(entry)]"
+          v-for="entry in displayEntries"
+          :key="entry.id"
+          :class="['log-line', entry.cls]"
         >
-          <span class="log-ts">{{ formatTs(entry.ts) }}</span>
+          <span class="log-ts">{{ entry.time }}</span>
           <span class="log-kind">{{ entry.kind.toUpperCase() }}</span>
           <span class="log-text">{{ entry.data }}</span>
         </div>

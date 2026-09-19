@@ -157,7 +157,8 @@ class BufferReader {
 
   /**
    * 读取 GGUF 字符串（uint64 长度 + UTF-8 字节）。
-   * 大字符串（如 chat_template）会被截断到 MAX_STRING_LEN 以节省内存。
+   * 长度上限走 10 MB 的健全性校验；调用方若只需「有无」语义请自行截断，
+   * 大字符串（如 chat_template）不应原样跨 IPC 传递（见 ipc/models.ts 的载荷裁剪）。
    */
   async readString(): Promise<string> {
     const len = await this.readU64();
@@ -209,6 +210,25 @@ class BufferReader {
     this.skipBytes(len);
   }
 
+  /**
+   * 批量跳过字符串数组（tokenizer.ggml.tokens 常有 10 万~25 万个元素）。
+   * 逐个 `await skipString()` 会产生同量级的微任务与 8 字节 Buffer 分配，把事件循环灌满
+   * 微任务、饿死同进程内的 IPC 回包与渲染；游标仍在已加载块内时直接按 LE 读长度并前移，
+   * 只在跨块时回到异步路径。
+   */
+  async skipStringArray(count: number): Promise<void> {
+    for (let i = 0; i < count; i++) {
+      const off = this.pos - this.bufStart;
+      if (this.bufStart >= 0 && off >= 0 && off + 8 <= this.bufLen) {
+        const lo = this.buf.readUInt32LE(off);
+        const hi = this.buf.readUInt32LE(off + 4);
+        this.skipBytes(8 + hi * 0x100000000 + lo);
+        continue;
+      }
+      await this.skipString();
+    }
+  }
+
   get position(): number {
     return this.pos;
   }
@@ -256,10 +276,8 @@ async function skipArray(reader: BufferReader, elementType: GgufValueType, count
     // 固定大小类型：一次性跳过
     reader.skipBytes(count * elemSize);
   } else if (elementType === GgufValueType.STRING) {
-    // 字符串数组：逐个读取长度并跳过内容
-    for (let i = 0; i < count; i++) {
-      await reader.skipString();
-    }
+    // 字符串数组：批量跳过（块内直读长度，避免 10 万+ 次 await 与逐元素 Buffer 分配）
+    await reader.skipStringArray(count);
   } else if (elementType === GgufValueType.ARRAY) {
     // 嵌套数组：递归跳过（罕见情况）
     for (let i = 0; i < count; i++) {

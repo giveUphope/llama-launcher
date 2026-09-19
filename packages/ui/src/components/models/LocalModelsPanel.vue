@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch, onMounted, onUnmounted } from 'vue';
+import { computed, ref, shallowRef, watch, onMounted, onActivated, onDeactivated, onUnmounted } from 'vue';
 import type { ModelInfo, ModelFitResult, LlamaBenchJobState } from '@llama-launcher/shared';
 import { MODEL_KEY } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
@@ -182,7 +182,12 @@ onMounted(() => {
     void params.reattachModelRuntime(modelPath.value);
   }
   // 选中态由模板直接比较 m.path === modelPath（O(1)/行），扫描完成后自动同步，无需手动恢复
-  // 订阅文件变更通知，自动刷新模型列表
+});
+
+// keep-alive 下本页失活后组件并不卸载，onUnmounted 永不触发：文件变更订阅与体检轮询必须
+// 配对 activate/deactivate，否则离开模型页后仍会在每次 .gguf 变更时整树重扫、每 2.5s 轮询作业状态
+function subscribeModelsChanged() {
+  if (unsubModelsChanged) return;
   try {
     unsubModelsChanged = window.api.models.onChanged(() => {
       void onRefresh();
@@ -190,10 +195,25 @@ onMounted(() => {
   } catch {
     // 浏览器预览环境(无 Electron preload)下 window.api.models 未定义,忽略事件订阅
   }
+}
+function unsubscribeModelsChanged() {
+  if (unsubModelsChanged) { unsubModelsChanged(); unsubModelsChanged = null; }
+}
+
+onActivated(() => {
+  subscribeModelsChanged();
+  // 有在跑的体检作业才恢复轮询（离开页面期间作业仍在主进程继续，回来即补状态）
+  if (polling.size && !pollTimer) pollTimer = setInterval(pollBench, 2500);
+});
+
+onDeactivated(() => {
+  unsubscribeModelsChanged();
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
 });
 
 onUnmounted(() => {
-  if (unsubModelsChanged) { unsubModelsChanged(); unsubModelsChanged = null; }
+  unsubscribeModelsChanged();
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
 });
 
 async function onRefresh() {
@@ -317,7 +337,9 @@ async function pollBench() {
   for (const p of polling) {
     try {
       const st = await window.api.system.benchLlamaStatus(p);
-      if (st) benchJobs.value = { ...benchJobs.value, [p]: st };
+      // 就地写单个 key：整体替换 benchJobs 会让每一行的 benchBadge 依赖全部失效，
+      // 表格（数百行 × 每行多枚徽章）在轮询期间被整表重渲染
+      if (st) benchJobs.value[p] = st;
       if (st && st.state !== 'running') polling.delete(p);
     } catch {
       polling.delete(p);
@@ -369,13 +391,6 @@ function benchTitle(m: ModelInfo): string {
   if (!s) return '';
   return `${s.modelType ?? ''} · ${s.backend ?? ''} · ${new Date(s.testedAt).toLocaleString()}`;
 }
-
-onUnmounted(() => {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
-  }
-});
 </script>
 
 <template>

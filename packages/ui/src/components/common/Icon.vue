@@ -1,12 +1,51 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue';
-import {
-  IconBook, IconCheck, IconCheckCircle, IconCheckSquare, IconClockCircle, IconClose, IconCloseCircle,
-  IconCloud, IconCodeBlock, IconCopy, IconDashboard, IconDelete, IconDown, IconDownload, IconEmpty,
-  IconExclamationCircle, IconExport, IconExperiment, IconFile, IconFolder, IconFullscreen, IconFullscreenExit,
-  IconInfoCircle, IconLeft, IconLink, IconLoading, IconMinus, IconPlayArrow, IconPublic, IconQuestionCircle, IconRefresh,
-  IconRight, IconRobot, IconSave, IconSearch, IconSettings, IconStar, IconStop, IconStorage, IconSunFill, IconTool,
-} from '@arco-design/web-vue/es/icon';
+// 逐个深路径引入，不走 @arco-design/web-vue/es/icon 桶：桶文件除具名再导出外还带一行
+// `export { default } from './arco-vue-icon.js'`（全局注册用的 250 项插件对象），
+// 深路径引入后该对象与其引用链整体不进包。实测产物 Icon chunk 139.65 → 130.29 kB
+// （gzip 38.70 → 36.79）；余下体积是 Arco 每个图标编译后的 render 函数本身
+// （本文件 43 个字形 ≈ 118 kB），不是桶引入造成的。
+import IconBook from '@arco-design/web-vue/es/icon/icon-book/index.js';
+import IconCheck from '@arco-design/web-vue/es/icon/icon-check/index.js';
+import IconCheckCircle from '@arco-design/web-vue/es/icon/icon-check-circle/index.js';
+import IconCheckSquare from '@arco-design/web-vue/es/icon/icon-check-square/index.js';
+import IconClockCircle from '@arco-design/web-vue/es/icon/icon-clock-circle/index.js';
+import IconClose from '@arco-design/web-vue/es/icon/icon-close/index.js';
+import IconCloseCircle from '@arco-design/web-vue/es/icon/icon-close-circle/index.js';
+import IconCloud from '@arco-design/web-vue/es/icon/icon-cloud/index.js';
+import IconCodeBlock from '@arco-design/web-vue/es/icon/icon-code-block/index.js';
+import IconCopy from '@arco-design/web-vue/es/icon/icon-copy/index.js';
+import IconDashboard from '@arco-design/web-vue/es/icon/icon-dashboard/index.js';
+import IconDelete from '@arco-design/web-vue/es/icon/icon-delete/index.js';
+import IconDown from '@arco-design/web-vue/es/icon/icon-down/index.js';
+import IconDownload from '@arco-design/web-vue/es/icon/icon-download/index.js';
+import IconEmpty from '@arco-design/web-vue/es/icon/icon-empty/index.js';
+import IconExclamationCircle from '@arco-design/web-vue/es/icon/icon-exclamation-circle/index.js';
+import IconExport from '@arco-design/web-vue/es/icon/icon-export/index.js';
+import IconExperiment from '@arco-design/web-vue/es/icon/icon-experiment/index.js';
+import IconFile from '@arco-design/web-vue/es/icon/icon-file/index.js';
+import IconFolder from '@arco-design/web-vue/es/icon/icon-folder/index.js';
+import IconFullscreen from '@arco-design/web-vue/es/icon/icon-fullscreen/index.js';
+import IconFullscreenExit from '@arco-design/web-vue/es/icon/icon-fullscreen-exit/index.js';
+import IconInfoCircle from '@arco-design/web-vue/es/icon/icon-info-circle/index.js';
+import IconLeft from '@arco-design/web-vue/es/icon/icon-left/index.js';
+import IconLink from '@arco-design/web-vue/es/icon/icon-link/index.js';
+import IconLoading from '@arco-design/web-vue/es/icon/icon-loading/index.js';
+import IconMinus from '@arco-design/web-vue/es/icon/icon-minus/index.js';
+import IconPlayArrow from '@arco-design/web-vue/es/icon/icon-play-arrow/index.js';
+import IconPublic from '@arco-design/web-vue/es/icon/icon-public/index.js';
+import IconQuestionCircle from '@arco-design/web-vue/es/icon/icon-question-circle/index.js';
+import IconRefresh from '@arco-design/web-vue/es/icon/icon-refresh/index.js';
+import IconRight from '@arco-design/web-vue/es/icon/icon-right/index.js';
+import IconRobot from '@arco-design/web-vue/es/icon/icon-robot/index.js';
+import IconSave from '@arco-design/web-vue/es/icon/icon-save/index.js';
+import IconSearch from '@arco-design/web-vue/es/icon/icon-search/index.js';
+import IconSettings from '@arco-design/web-vue/es/icon/icon-settings/index.js';
+import IconStar from '@arco-design/web-vue/es/icon/icon-star/index.js';
+import IconStop from '@arco-design/web-vue/es/icon/icon-stop/index.js';
+import IconStorage from '@arco-design/web-vue/es/icon/icon-storage/index.js';
+import IconSunFill from '@arco-design/web-vue/es/icon/icon-sun-fill/index.js';
+import IconTool from '@arco-design/web-vue/es/icon/icon-tool/index.js';
 
 const props = withDefaults(defineProps<{
   name: string;

@@ -83,8 +83,10 @@ const subcategoryGroups = computed(() => {
   return ordered;
 });
 
+// 目录类参数不计入「已生效参数」（其值随模型/目录选择联动，非用户显式开关）
+const INACTIVE_COUNT_KEYS = new Set(['mmproj', 'spec_draft_model']);
 const activeParamCount = computed(() =>
-  PARAMS.filter((p) => !new Set(['mmproj', 'spec_draft_model']).has(p.key) && params.values[p.key] !== p.default).length,
+  PARAMS.filter((p) => !INACTIVE_COUNT_KEYS.has(p.key) && params.values[p.key] !== p.default).length,
 );
 
 const totalParamCount = computed(() => PARAMS.length);

@@ -172,7 +172,7 @@ const LLAMA_LINES: string[] = [
 export function createDemoApi() {
   // ---- 服务模拟状态 ----
   const serverOutputs: OutputEntry[] = [];
-  const outputCbs: Array<(e: OutputEntry) => void> = [];
+  const outputCbs: Array<(entries: OutputEntry[]) => void> = [];
   const statusCbs: Array<(s: string) => void> = [];
   let serverStatus = 'running';
   let outputIdx = -1;
@@ -187,7 +187,8 @@ export function createDemoApi() {
   function pushOutput(kind: string, data: string) {
     const entry = { kind, data: data + '\n', ts: Date.now() } as never as OutputEntry;
     serverOutputs.push(entry);
-    for (const cb of outputCbs) { try { cb(entry); } catch { /* 忽略 */ } }
+    // 真实 preload 走 SERVER_OUTPUT_BATCH（载荷恒为数组），mock 同形以免渲染层两套逻辑
+    for (const cb of outputCbs) { try { cb([entry]); } catch { /* 忽略 */ } }
   }
 
   function startOutputFeed() {
@@ -313,7 +314,7 @@ export function createDemoApi() {
           concurrent: null,
         },
       }),
-      onOutput: (cb: (e: OutputEntry) => void) => {
+      onOutputBatch: (cb: (entries: OutputEntry[]) => void) => {
         outputCbs.push(cb);
         return () => { const i = outputCbs.indexOf(cb); if (i >= 0) outputCbs.splice(i, 1); };
       },

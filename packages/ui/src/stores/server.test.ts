@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { LLAMA_SERVER_NAME_RE, PORT_BUSY_RE, useServerStore } from './server';
 
-// —— window.api 桩：捕获 onOutput/onStatus 回调，getStatus 返回可控的主进程状态 ——
+// —— window.api 桩：捕获 onOutputBatch/onStatus 回调，getStatus 返回可控的主进程状态 ——
 type StatusCb = (s: any) => void;
-type OutputCb = (e: any) => void;
+type OutputCb = (entries: any[]) => void;
 let statusCb: StatusCb = () => {};
 let outputCb: OutputCb = () => {};
 let mainStatus: any = { status: 'stopped', pid: null, host: '127.0.0.1', port: 8080, url: '', values: {} };
@@ -14,7 +14,7 @@ let checkPortResult: { inUse: boolean; pid?: number; name?: string } | null = { 
 (globalThis as any).window = (globalThis as any).window ?? {};
 (globalThis as any).window.api = {
   server: {
-    onOutput: (cb: OutputCb) => { outputCb = cb; },
+    onOutputBatch: (cb: OutputCb) => { outputCb = cb; },
     onStatus: (cb: StatusCb) => { statusCb = cb; },
     getStatus: () => Promise.resolve(mainStatus),
     start: () => Promise.resolve({ ok: true }),
@@ -31,9 +31,9 @@ vi.mock('@/stores/i18n', () => ({
   useI18nStore: () => ({ t: (k: string) => k }),
 }));
 
-/** 模拟主进程推送的一行服务输出 */
+/** 模拟主进程推送的一行服务输出（preload 载荷恒为批次数组） */
 function out(data: string) {
-  outputCb({ kind: 'stderr', data, ts: Date.now() });
+  outputCb([{ kind: 'stderr', data, ts: Date.now() }]);
 }
 
 beforeEach(() => {

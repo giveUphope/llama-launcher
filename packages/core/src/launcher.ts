@@ -54,6 +54,9 @@ export class Launcher extends EventEmitter {
     });
     this.proc.on('output', (entry: OutputEntry) => {
       this.emit('output', entry);
+      // 只有 starting 阶段需要识别"已监听"；服务运行后每行都 toLowerCase（最长 8KB 的新串）
+      // + 2~3 次子串扫描纯属浪费，运行期日志量远大于启动期
+      if (this.status !== 'starting') return;
       // Detect "listening" message to flip status to running.
       // llama-server 输出格式因版本而异，采用通用匹配策略：
       //   旧版: "llama server is listening" / "http server listening"

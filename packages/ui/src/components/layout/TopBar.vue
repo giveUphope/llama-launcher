@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, onMounted, onUnmounted, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
@@ -16,7 +16,6 @@ const settings = useSettingsStore();
 const server = useServerStore();
 const params = useParamsStore();
 const i18n = useI18nStore();
-const route = useRoute();
 const router = useRouter();
 
 // 统一的启动/重启前置校验与流程（LaunchPage 共用）
@@ -62,10 +61,9 @@ watch(() => settings.settings?.models_dir ?? '', () => {
 
 // 订阅模型列表变更事件（下载完成、文件增删等）
 let unsubModelsChanged: (() => void) | null = null;
-// 路由切换时也刷新（从下载页返回时确保列表最新）
-watch(() => route.path, () => {
-  void refreshModels();
-});
+// 不再按 route.path 刷新：TopBar 是全局铬，原先每次导航都触发一次整树递归扫描 IPC
+// （主进程 walk 整个 models_dir + 每个 GGUF 读元数据），与模型页自身的扫描重复。
+// 文件真实变化由 onChanged 广播覆盖，目录变更由上面的 models_dir watch 覆盖。
 
 async function onSelectModel(path: string) {
   modelDropdownOpen.value = false;

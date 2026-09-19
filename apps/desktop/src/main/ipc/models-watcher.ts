@@ -1,5 +1,6 @@
 // 模型目录文件监听（单例）：供 models / download 两个 IPC 域共用。
 import { watch, type FSWatcher } from 'node:fs';
+import { join } from 'node:path';
 import { BrowserWindow } from 'electron';
 import { invalidateScanCache } from '@llama-launcher/core';
 import { IPC } from '@llama-launcher/shared';
@@ -35,8 +36,10 @@ export function watchModelsDir(dir: string): { ok: boolean; error?: string } {
     modelsWatcher = watch(dir, { recursive: true }, (_eventType, _filename) => {
       // 仅 .gguf 文件变化才通知（_filename 可能只含相对路径片段）
       if (_filename && !_filename.toLowerCase().endsWith('.gguf')) return;
-      // 扫描结果缓存同步失效，避免 UI 重新扫描时命中陈旧缓存
-      invalidateScanCache();
+      // 扫描结果缓存同步失效，避免 UI 重新扫描时命中陈旧缓存。
+      // 传变化的绝对路径 → core 只失效覆盖该路径的目录条目（单个 .gguf 变动不再清空全部缓存，
+      // 否则每次下载完成都要整树重扫）；_filename 为空时保守全清。
+      invalidateScanCache(_filename ? join(dir, _filename) : undefined);
       notifyModelsChanged();
     });
     modelsWatcher.on('error', () => {

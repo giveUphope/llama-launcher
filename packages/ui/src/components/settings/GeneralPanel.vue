@@ -2,7 +2,7 @@
 // 阶段三：设置页「常规」分组 —— 模型目录、llama 后端（引擎目录）+ 引擎检测、关闭窗口行为。
 // 设计稿 §14.10 / 补充指南 §14.10：模型目录提供「打开目录」；
 // 原独立「llama.cpp」标签（LlamaPanel）已整合为本卡片内的引擎目录行。
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
+import { computed, ref, watch, onMounted, onActivated, onDeactivated, onUnmounted } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
@@ -150,16 +150,31 @@ function hideHelp() {
 function onHelpReposition() {
   if (helpVisible.value) updateHelpPanelPosition();
 }
-onMounted(() => {
+// 帮助浮层跟随重定位：本组件在 keep-alive 的「应用设置」页内，onUnmounted 永不触发——
+// 监听必须配对 activate/deactivate，否则访问过一次设置页后，非 passive 的捕获期 scroll
+// 监听会终身驻留并在每次滚动（含两个控制台的自动滚动）上回调。
+function startHelpTracking() {
   window.addEventListener('resize', onHelpReposition);
-  window.addEventListener('scroll', onHelpReposition, true);
+  window.addEventListener('scroll', onHelpReposition, { capture: true, passive: true });
+}
+function stopHelpTracking() {
+  window.removeEventListener('resize', onHelpReposition);
+  window.removeEventListener('scroll', onHelpReposition, { capture: true });
+}
+onMounted(() => {
+  startHelpTracking();
+});
+onActivated(() => {
+  startHelpTracking();
+});
+onDeactivated(() => {
+  stopHelpTracking();
 });
 onUnmounted(() => {
   if (detectTimer) { clearTimeout(detectTimer); detectTimer = null; }
   if (helpShowTimer) clearTimeout(helpShowTimer);
   if (helpHideTimer) clearTimeout(helpHideTimer);
-  window.removeEventListener('resize', onHelpReposition);
-  window.removeEventListener('scroll', onHelpReposition, true);
+  stopHelpTracking();
 });
 
 // ---- 关闭窗口行为 ----

@@ -1,11 +1,13 @@
 // IPC 域：系统（端口/文件/引擎检测、回收站、文件系统只读列举、剪贴板、外链/打开目录）。
 import { clipboard, shell, type IpcMain } from 'electron';
-import { existsSync, readdirSync, statSync, mkdirSync } from 'node:fs';
+import { existsSync, readdirSync, mkdirSync } from 'node:fs';
+import { readdir as fsReaddir, stat as fsStat } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
+import { promisify } from 'node:util';
 import { join, dirname } from 'node:path';
 import { totalmem, freemem } from 'node:os';
-import { detectTrash, cleanTrash, getDownloadManager, loadSettings, listDevices, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench, detectMmproj } from '@llama-launcher/core';
+import { detectTrashAsync, cleanTrashAsync, getDownloadManager, loadSettings, listDevices, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench, detectMmproj } from '@llama-launcher/core';
 import { IPC } from '@llama-launcher/shared';
 import type { TrashItem, VramEstimateResult, LlamaBenchJobState, PerfTarget, DeviceMemInfo, ModelFitResult, OccupancyConfig } from '@llama-launcher/shared';
 
@@ -29,16 +31,42 @@ function probePort(port: number, bindHost: string): Promise<boolean> {
   });
 }
 
+/** 以固定并发度分块执行（块内并行、块间串行），保持入参顺序语义。 */
+async function runBounded<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  for (let i = 0; i < items.length; i += limit) {
+    await Promise.all(items.slice(i, i + limit).map((item) => fn(item)));
+  }
+}
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * 采集外部命令 stdout（异步，避免 netstat/tasklist 阻塞主进程事件循环）。
+ * 非零退出时仍取已产出内容：lsof 无匹配进程即以退出码 1 结束并照常输出表头，
+ * 与旧的 spawnSync 行为保持一致。
+ */
+async function captureStdout(cmd: string, args: string[]): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync(cmd, args, {
+      windowsHide: true,
+      encoding: 'utf8',
+      maxBuffer: 8 * 1024 * 1024,
+    });
+    return typeof stdout === 'string' ? stdout : '';
+  } catch (err: any) {
+    return typeof err?.stdout === 'string' ? err.stdout : '';
+  }
+}
+
 /**
  * 识别占用指定端口的进程（尽力而为）：
  * - Windows：`netstat -ano` 取 LISTENING 行 PID → `tasklist /FI` 查进程名
  * - POSIX：`lsof -nP -iTCP:<port> -sTCP:LISTEN`（缺失回退 `ss -ltnp`）提取 pid/comm
  */
-function getPortOwner(port: number): PortOwner {
+async function getPortOwner(port: number): Promise<PortOwner> {
   try {
     if (process.platform === 'win32') {
-      const ns = spawnSync('netstat', ['-ano'], { windowsHide: true, encoding: 'utf8' });
-      const text = ns.stdout ?? '';
+      const text = await captureStdout('netstat', ['-ano']);
       const line = text.split(/\r?\n/).find(
         (l) => l.includes(`:${port}`) && /LISTENING/i.test(l),
       );
@@ -46,19 +74,14 @@ function getPortOwner(port: number): PortOwner {
       const pidStr = line.trim().split(/\s+/).pop() ?? '';
       const pid = Number(pidStr);
       if (!Number.isFinite(pid) || pid <= 0) return {};
-      const tl = spawnSync('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'], {
-        windowsHide: true,
-        encoding: 'utf8',
-      });
-      const m = (tl.stdout ?? '').match(/"([^"]+)"/);
+      const tl = await captureStdout('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH']);
+      const m = tl.match(/"([^"]+)"/);
       return { pid, name: m ? m[1] : undefined };
     }
     // POSIX：lsof 优先，ss 兜底
-    let out = spawnSync('lsof', ['-nP', '-iTCP:' + port, '-sTCP:LISTEN'], { encoding: 'utf8' });
-    let text = out.stdout ?? '';
+    let text = await captureStdout('lsof', ['-nP', '-iTCP:' + port, '-sTCP:LISTEN']);
     if (text.includes('command not found') || text.trim() === '') {
-      out = spawnSync('ss', ['-ltnp'], { encoding: 'utf8' });
-      text = out.stdout ?? '';
+      text = await captureStdout('ss', ['-ltnp']);
       const line = text.split('\n').find((l) => l.includes(`:${port}`));
       const pidM = line ? line.match(/pid=(\d+)/) : null;
       const pid = pidM ? Number(pidM[1]) : NaN;
@@ -78,28 +101,46 @@ function getPortOwner(port: number): PortOwner {
   }
 }
 
+/** 目录条目（FS_LIST_DIR 返回形状，渲染层 FileBrowserModal 依赖） */
+interface FsEntry {
+  name: string;
+  isDir: boolean;
+  isFile: boolean;
+}
+
+function sortFsEntries(entries: FsEntry[]): FsEntry[] {
+  return entries.sort((a, b) => {
+    // 目录在前、文件在后，同组按名称（不区分大小写）排序
+    if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  });
+}
+
 export function registerSystemIpc(ipcMain: IpcMain): void {
   // 文件系统只读列举：供渲染进程自定义文件浏览器使用（渲染进程无 fs 权限）。
-  ipcMain.handle(IPC.FS_LIST_DIR, (_e, path: string) => {
+  ipcMain.handle(IPC.FS_LIST_DIR, async (_e, path: string) => {
     const target = path && path.trim() ? path : process.cwd();
     // 始终计算父目录,即使 target 不存在 —— 这样用户在路径失效时仍可向上导航
     const parent = dirname(target);
     try {
-      const names = readdirSync(target);
-      const entries = names
-        .map((name) => {
-          let st;
-          try { st = statSync(join(target, name)); } catch { return null; }
-          const isDir = st.isDirectory();
-          return { name, isDir, isFile: st.isFile() };
-        })
-        .filter((x): x is { name: string; isDir: boolean; isFile: boolean } => x !== null)
-        .sort((a, b) => {
-          // 目录在前、文件在后，同组按名称（不区分大小写）排序
-          if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-        });
-      return { path: target, parent: parent === target ? null : parent, entries, exists: true };
+      const dirents = await fsReaddir(target, { withFileTypes: true });
+      const entries: FsEntry[] = [];
+      for (const entry of dirents) {
+        let isDir = entry.isDirectory();
+        let isFile = entry.isFile();
+        if (!isDir && !isFile) {
+          // 符号链接/类型未知：按目标类型归类（旧实现以 statSync 跟随链接判定）
+          try {
+            const st = await fsStat(join(target, entry.name));
+            isDir = st.isDirectory();
+            isFile = st.isFile();
+          } catch {
+            continue;
+          }
+        }
+        entries.push({ name: entry.name, isDir, isFile });
+      }
+      return { path: target, parent: parent === target ? null : parent, entries: sortFsEntries(entries), exists: true };
     } catch {
       // 目录不存在或无权限：返回空列表,但保留 parent 以便向上导航
       return { path: target, parent: parent === target ? null : parent, entries: [], exists: false };
@@ -152,7 +193,7 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
     const bindHost = host && host.trim() ? host.trim() : '127.0.0.1';
     const free = await probePort(port, bindHost);
     if (free) return { inUse: false };
-    return { inUse: true, ...getPortOwner(port) };
+    return { inUse: true, ...(await getPortOwner(port)) };
   });
 
   // 结束指定进程（端口占用处理：先确认再调用，仅接受纯数字 PID；Windows taskkill /F /PID、
@@ -175,11 +216,21 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
   // 从指定端口开始向后扫描，返回首个空闲端口（host 语义同 checkPort；失败/越界返回 null）。
   ipcMain.handle(IPC.SYSTEM_FIND_FREE_PORT, async (_e, port: number, host?: string, tries = 100) => {
     const bindHost = host && host.trim() ? host.trim() : '127.0.0.1';
-    const from = Number.isInteger(port) ? port : 1;
-    for (let i = 0; i < tries; i++) {
-      const candidate = from + i;
-      if (candidate > 65535) break;
-      if (await probePort(candidate, bindHost)) return candidate;
+    const first = Number.isInteger(port) ? port : 1;
+    // 分块并行探测（串行 100 次绑定往返在端口被大量占用时可累积数百毫秒）；
+    // 块内取最小空闲口，与"自起始端口向上首个空闲"语义一致
+    const CHUNK = 16;
+    for (let i = 0; i < tries; i += CHUNK) {
+      const candidates: number[] = [];
+      for (let k = i; k < Math.min(i + CHUNK, tries); k++) {
+        const candidate = first + k;
+        if (candidate > 65535) break;
+        candidates.push(candidate);
+      }
+      if (candidates.length === 0) break;
+      const results = await Promise.all(candidates.map((c) => probePort(c, bindHost)));
+      const idx = results.indexOf(true);
+      if (idx >= 0) return candidates[idx];
     }
     return null;
   });
@@ -199,13 +250,14 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
   }
 
   /** 模型有效权重体积（Bytes）= 主模型 + 同目录多模态投影器（mmproj）。
-   *  投影器同样整体驻留显存，估算时必须计入，否则多模态模型的 fit/占用判定过于乐观。 */
-  function effectiveWeightBytes(modelPath: string): number | null {
+   *  投影器同样整体驻留显存，估算时必须计入，否则多模态模型的 fit/占用判定过于乐观。
+   *  dirEntries 为调用方已读到的目录名列表（批量场景按父目录去重读取，避免重复 readdir）。 */
+  async function effectiveWeightBytes(modelPath: string, dirEntries?: string[]): Promise<number | null> {
     let bytes: number | null = null;
-    try { bytes = statSync(modelPath).size; } catch { return null; }
-    const mmproj = detectMmproj(modelPath);
+    try { bytes = (await fsStat(modelPath)).size; } catch { return null; }
+    const mmproj = detectMmproj(modelPath, dirEntries);
     if (mmproj) {
-      try { bytes += statSync(mmproj).size; } catch { /* 伴随文件不可读：仅按主模型估算 */ }
+      try { bytes += (await fsStat(mmproj)).size; } catch { /* 伴随文件不可读：仅按主模型估算 */ }
     }
     return bytes;
   }
@@ -238,7 +290,7 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
     const devices = await getDevicesCached();
 
     // 有效权重体积 = 主模型 + 同目录 mmproj 投影器：投影器整体驻留显存，遗漏会把占用/上下文估计得过乐观
-    const fileSizeBytes = effectiveWeightBytes(modelPath);
+    const fileSizeBytes = await effectiveWeightBytes(modelPath);
     let info = null;
     try { ({ info } = await readGgufMetadata(modelPath)); } catch { /* 非 GGUF/损坏 */ }
 
@@ -333,12 +385,27 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
     const devices = await getDevicesCached();
     const primary = [...devices].sort((a, b) => b.freeMiB - a.freeMiB)[0] ?? null;
     const totalVramMiB = devices.reduce((s, d) => s + d.totalMiB, 0);
-    for (const p of paths.slice(0, 100)) {
-      const base: ModelFitResult = { verdict: null, maxContext: null, weightsMiB: null, dtype };
+    // 目录名列表按父目录去重：detectMmproj 会 readdir 整个模型目录，
+    // 批量路径通常同属少数目录，逐路径重复读盘是这一 IPC 的主要开销
+    const dirEntriesCache = new Map<string, Promise<string[]>>();
+    const listDirNames = (dir: string): Promise<string[]> => {
+      let names = dirEntriesCache.get(dir);
+      if (!names) {
+        names = fsReaddir(dir).catch(() => [] as string[]);
+        dirEntriesCache.set(dir, names);
+      }
+      return names;
+    };
+    const slots = paths.slice(0, 100).map((p) => ({
+      p,
+      base: { verdict: null, maxContext: null, weightsMiB: null, dtype } as ModelFitResult,
+    }));
+    // GGUF 元数据读取按 8 并发分块：串行逐个解析在 100 个模型时可达数秒
+    await runBounded(slots, 8, async ({ p, base }) => {
       try {
         // 有效权重体积 = 主模型 + 同目录 mmproj 投影器：多模态投影器同样整体驻留显存，
         // 遗漏会把 fit 判定得过乐观（全卸载放不下时可能被误判为可容纳）
-        const size = effectiveWeightBytes(p);
+        const size = await effectiveWeightBytes(p, await listDirNames(dirname(p)));
         if (size === null) throw new Error('unreadable');
         base.weightsMiB = size / (1024 * 1024);
         if (primary) {
@@ -353,8 +420,8 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
           base.verdict = base.weightsMiB > totalVramMiB ? 'no' : (est.fullOffloadFits ? 'fit' : 'partial');
         }
       } catch { /* 非 GGUF/损坏/不可读：保持 null */ }
-      out[p] = base;
-    }
+    });
+    for (const { p, base } of slots) out[p] = base;
     return out;
   });
 
@@ -397,18 +464,14 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
   // 检测应用生成文件中的可清理项（配置目录 + 模型目录全清单）
   // 强校验：仅返回明确识别的无效/过时文件，settings.json 与有效预设永不清理；
   // 进行中/暂停/可重试下载任务占用的 .part/续传日志自动保护
-  ipcMain.handle(IPC.SYSTEM_DETECT_TRASH, () => {
-    return detectTrash({
-      modelsDir: loadSettings().models_dir ?? '',
-      protectedPaths: getDownloadManager().getProtectedPaths(),
-    });
-  });
+  ipcMain.handle(IPC.SYSTEM_DETECT_TRASH, async () => detectTrashAsync({
+    modelsDir: loadSettings().models_dir ?? '',
+    protectedPaths: getDownloadManager().getProtectedPaths(),
+  }));
 
   // 执行清理：对每个待清理项重新校验根归属、kind 特征、保护集与符号链接
-  ipcMain.handle(IPC.SYSTEM_CLEAN_TRASH, (_e, items: TrashItem[]) => {
-    return cleanTrash(items ?? [], {
-      modelsDir: loadSettings().models_dir ?? '',
-      protectedPaths: getDownloadManager().getProtectedPaths(),
-    });
-  });
+  ipcMain.handle(IPC.SYSTEM_CLEAN_TRASH, async (_e, items: TrashItem[]) => cleanTrashAsync(items ?? [], {
+    modelsDir: loadSettings().models_dir ?? '',
+    protectedPaths: getDownloadManager().getProtectedPaths(),
+  }));
 }

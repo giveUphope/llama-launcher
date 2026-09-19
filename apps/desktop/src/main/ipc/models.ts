@@ -40,7 +40,23 @@ export function registerModelsIpc(ipcMain: IpcMain): void {
   });
   ipcMain.handle(IPC.MODELS_READ_GGUF_META, async (_e, modelPath: string) => {
     try {
-      return { ok: true, data: await readGgufMetadata(modelPath) };
+      const info = await readGgufMetadata(modelPath);
+      // IPC 载荷裁剪：info.metadata 是完整 KV 映射（数十~数百键，含 tokenizer 特殊 token
+      // 数组），info.chat_template 原文可达 50–200 KB，两者每次选择模型都要被结构化克隆
+      // 进渲染进程，而界面只用派生字段 + chat_template 的「有无」（ModelMetaCard 显示 ✓）。
+      // 派生计算（suggestions 等）都在 core 内部完成，裁剪不影响任何消费方。
+      const { metadata, chat_template, ...infoRest } = info.info;
+      void metadata;
+      return {
+        ok: true,
+        data: {
+          ...info,
+          info: {
+            ...infoRest,
+            chat_template: chat_template ? chat_template.slice(0, 200) : chat_template,
+          },
+        },
+      };
     } catch (err: any) {
       return { ok: false, error: err?.message ?? String(err) };
     }

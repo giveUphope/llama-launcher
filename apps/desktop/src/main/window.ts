@@ -193,12 +193,16 @@ export function createMainWindow(opts?: WindowOptions): BrowserWindow {
   win.on('unmaximize', onUnmaximize);
   win.on('leave-full-screen', onGeometryChange);
 
+  // 首帧就绪即显示：ready-to-show 由 Chromium 在首次绘制后发出，早于 load 事件
+  // （load 要等整页资源就绪，dev 模式下即数百个 Vite 模块图全部拉完）——
+  // 用它可把「双击图标 → 看到界面」的时间明显缩短。
+  win.once('ready-to-show', () => win.show());
+
   if (isDev) {
     // 开发模式 / 热重载模式：加载 Vite dev server
     const devUrl = resolveDevServerUrl();
     win.loadURL(devUrl)
       .then(() => {
-        win.show();
         // 开发模式默认不打开 DevTools 控制台；仅当 LLAMA_DEV_CONSOLE=1
         // （`pnpm dev:console`）或生产热重载逃生口（LLAMA_DEV_SERVER_URL）时打开
         if (process.env.LLAMA_DEV_CONSOLE === '1' || process.env.LLAMA_DEV_SERVER_URL) {
@@ -214,7 +218,6 @@ export function createMainWindow(opts?: WindowOptions): BrowserWindow {
     // UI 产物由 copy-ui.cjs 复制到 dist/ui/，即 app.asar/dist/ui/index.html
     const uiPath = join(__dirname, '..', 'ui', 'index.html');
     win.loadFile(uiPath)
-      .then(() => win.show())
       .catch(err => {
         console.error('[window] Failed to load UI:', err);
       });

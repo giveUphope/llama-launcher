@@ -11,6 +11,40 @@ export type EffectiveStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 
 
 // 失败/崩溃关键词（服务页状态卡原实现下沉至此，三处状态显示共用单一判定）
 const FAIL_RE = /\b(error|failed|fatal|exception|cannot|unable|abort|crash|segfault|exit code|killed|killed by signal)\b/i;
+// 显存/内存耗尽（状态卡 OOM 警示行）——与着色正则一样在入队时一次性匹配
+const OOM_RE = /\b(out of memory|VK_ERROR_OUT_OF_DEVICE_MEMORY|cudaErrorOutOfMemory|out_of_memory|failed to allocate|unable to allocate|not enough memory|std::bad_alloc)\b/i;
+// 控制台着色关键词：kind 为 error/success/info 时直接定色，其余按关键词判定
+const CONSOLE_ERROR_RE = /\b(error|failed|fatal|exception|cannot|unable|abort|crash|segfault)\b/i;
+const CONSOLE_WARN_RE = /\b(warn|warning|deprecat|slow|out of)\b/i;
+const CONSOLE_SUCCESS_RE = /\b(listening|loaded|ready|initialized|running|success)\b/i;
+
+/** 控制台一行的着色语义（渲染期只做 tone→class 映射，不再跑正则）。 */
+export type ConsoleTone = 'error' | 'warn' | 'success' | 'info' | 'plain';
+
+/**
+ * 渲染层消费的输出行：IPC 原始条目 + 入队时一次算好的派生标记。
+ * 关键词匹配（着色 / 失败判定 / OOM）原先都在渲染期按行重算——控制台最多渲染 1000 行、
+ * 每条新日志触发一次整表重渲染，即每行 3 条正则；effectiveStatus 亦每行 join 80 行文本
+ * 再跑一次正则。改为入队时 O(1) 判定后，这些热路径退化为布尔读。
+ */
+export interface OutputLine extends OutputEntry {
+  /** 单调递增行号：v-for 的稳定 key（数组按 MAX_LINES 裁剪时索引会整体前移） */
+  id: number;
+  tone: ConsoleTone;
+  fail: boolean;
+  oom: boolean;
+}
+
+function toneOf(entry: OutputEntry): ConsoleTone {
+  if (entry.kind === 'error') return 'error';
+  if (entry.kind === 'success') return 'success';
+  if (entry.kind === 'info') return 'info';
+  const text = entry.data || '';
+  if (CONSOLE_ERROR_RE.test(text)) return 'error';
+  if (CONSOLE_WARN_RE.test(text)) return 'warn';
+  if (CONSOLE_SUCCESS_RE.test(text)) return 'success';
+  return 'plain';
+}
 // 端口绑定失败（llama-server 启动被端口占用时的原始输出，跨版本匹配：
 // "bind() failed: Address already in use" / "address already in use" / "EADDRINUSE" / "OS Error: 10048" /
 // "cannot assign requested address" / "errno 98" / "http: bind"）
@@ -40,7 +74,9 @@ export const useServerStore = defineStore('server', () => {
   const url = ref('');
   // 最近一次启动/重启使用的参数快照（含 _enabled），用于判断服务是否与当前参数一致
   const runningValues = ref<Record<string, string | number | boolean> | null>(null);
-  const outputs = ref<OutputEntry[]>([]);
+  const outputs = ref<OutputLine[]>([]);
+  // 输出行号源（单调递增，跨 clearOutputs 不复用，供 v-for 稳定 key）
+  let outputSeq = 0;
   const MAX_LINES = 5000;
   // 当前这一轮运行的失败判定只看本轮输出：每次进入 starting（start/restart 拉起新进程）时
   // 重置为本次运行的起始下标。若不加区分，上一轮端口冲突等失败残留行会留在输出缓冲尾部，
@@ -111,14 +147,31 @@ export const useServerStore = defineStore('server', () => {
     external.value = null;
   }
 
-  function pushOutput(entry: OutputEntry) {
-    outputs.value.push(entry);
+  function decorate(entry: OutputEntry): OutputLine {
+    const text = entry.data || '';
+    return {
+      ...entry,
+      id: ++outputSeq,
+      tone: toneOf(entry),
+      fail: FAIL_RE.test(text),
+      oom: OOM_RE.test(text),
+    };
+  }
+
+  /** 一批入队 + 一次裁剪：主进程按 16ms 窗口成批推送，逐条 push 会让数组每次变更都触发依赖刷新 */
+  function pushOutputBatch(batch: OutputEntry[]) {
+    if (!batch || batch.length === 0) return;
+    for (const entry of batch) outputs.value.push(decorate(entry));
     if (outputs.value.length > MAX_LINES) {
       const removed = outputs.value.length - MAX_LINES;
       outputs.value.splice(0, removed);
       if (runStart.value > removed) runStart.value -= removed;
       else runStart.value = 0;
     }
+  }
+
+  function pushOutput(entry: OutputEntry) {
+    pushOutputBatch([entry]);
   }
 
   // 端口占用友好提示：同一端口 5s 内只提示一次，避免重复输出刷屏
@@ -147,9 +200,9 @@ export const useServerStore = defineStore('server', () => {
     if (subscribed) return;
     subscribed = true;
     try {
-      api.server.onOutput((e) => {
-        pushOutput(e);
-        portBusyHint(e);
+      api.server.onOutputBatch((entries) => {
+        pushOutputBatch(entries);
+        for (const e of entries) portBusyHint(e);
       });
       api.server.onStatus((s) => {
         // 进入 starting 即意味着拉起了一个新进程：失败/崩溃判定边界重置到本轮输出起点。
@@ -230,12 +283,23 @@ export const useServerStore = defineStore('server', () => {
   });
 
   // ---- 增强状态机（单一事实源，ServicePage / Dashboard Q1 / StatusBar 共用）----
-  // 仅取本轮运行的输出尾部（最多 80 行，限长避免正则性能问题）：
-  // 上一轮（如端口冲突失败）残留的失败关键词不得把本轮 starting/running 误判为 failed/crashed。
-  const outputTail = computed(() => {
+  // 本轮运行输出窗口（最多 80 行）内是否出现失败关键词：
+  // 逐行读入队时算好的 fail 标记。上一轮（如端口冲突失败）残留的失败关键词不得把本轮
+  // starting/running 误判为 failed/crashed，故窗口起点仍是 runStart 下标。
+  // （此前这里是 slice(80).map(data).join('') 再对整串跑正则，每条新日志一次。）
+  const tailHasFail = computed(() => {
     const arr = outputs.value;
     const from = Math.max(runStart.value, arr.length - TAIL_LINES, 0);
-    return arr.slice(from).map((o) => o.data).join('');
+    for (let i = from; i < arr.length; i++) if (arr[i].fail) return true;
+    return false;
+  });
+
+  /** 最近 OOM_LOOKBACK 行内是否出现显存/内存耗尽（状态卡 OOM 警示） */
+  const OOM_LOOKBACK = 300;
+  const oomDetected = computed(() => {
+    const arr = outputs.value;
+    for (let i = Math.max(0, arr.length - OOM_LOOKBACK); i < arr.length; i++) if (arr[i].oom) return true;
+    return false;
   });
 
   /**
@@ -244,18 +308,18 @@ export const useServerStore = defineStore('server', () => {
    * stopped 但本轮残留失败输出 → failed。UI 层临时态（stopping）由调用方按需覆盖。
    */
   const effectiveStatus = computed<EffectiveStatus>(() => {
-    if (status.value === 'running') return FAIL_RE.test(outputTail.value) ? 'crashed' : 'running';
-    if (status.value === 'starting') return FAIL_RE.test(outputTail.value) ? 'failed' : 'starting';
-    if (status.value === 'stopped' && FAIL_RE.test(outputTail.value)) return 'failed';
+    if (status.value === 'running') return tailHasFail.value ? 'crashed' : 'running';
+    if (status.value === 'starting') return tailHasFail.value ? 'failed' : 'starting';
+    if (status.value === 'stopped' && tailHasFail.value) return 'failed';
     return status.value;
   });
 
   return {
     status, pid, host, port, url, apiUrl, outputs, runningValues,
-    effectiveStatus,
+    effectiveStatus, oomDetected,
     external,
     refreshExternal, adoptExternal, clearExternal,
-    subscribe, refreshStatus, clearOutputs, pushOutput,
+    subscribe, refreshStatus, clearOutputs, pushOutput, pushOutputBatch,
     start, stop, restart, previewCommand,
   };
 });

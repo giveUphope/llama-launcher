@@ -181,6 +181,20 @@ const MAX_RETRY_DELAY_MS = 30000;
 const MAX_SEGMENT_REDIRECTS = 5;
 /** 速度统计/进度推送间隔(节流:从 1s 降至 500ms 更顺滑) */
 const PROGRESS_INTERVAL_MS = 500;
+/**
+ * 写入流缓冲上限:2MB(曾是 16MB)。单任务最多 8 段 × 最多 5 个并发任务,16MB 意味着
+ * 数百 MB 的在途缓冲;速率曲线的平滑本就由 EMA 采样器负责(见 startSpeedTracker),
+ * 无需靠放大写缓冲来压 pause/resume 频率。
+ */
+const WRITE_STREAM_HWM = 2 * 1024 * 1024;
+/** .part 删除重试次数与间隔(Windows 上写流句柄释放有延迟);间隔用定时器等待,不阻塞事件循环 */
+const DELETE_PARTIAL_RETRIES = 20;
+const DELETE_PARTIAL_RETRY_MS = 50;
+/**
+ * 无期望校验和时仍补算「信息性」SHA-256 的文件大小上限。
+ * 超过此值时整读只为上报一个没人比对的哈希(20GB 模型要白付一次全量读盘),故跳过并上报 null。
+ */
+const INFO_CHECKSUM_MAX_BYTES = 512 * 1024 * 1024;
 
 // ---------------- 辅助函数 ----------------
 
@@ -256,6 +270,15 @@ function computeFileSha256(filePath: string): Promise<string | null> {
   });
 }
 
+/**
+ * 无期望校验和时,本次整读算 SHA-256 是否仍划算(只有小文件划算:纯信息性上报,无人比对)。
+ * 文件不存在/无法 stat 按「不划算」处理——随后真正需要校验和时自有其错误路径。
+ */
+function worthHashingForInfo(filePath: string): boolean {
+  const st = fs.statSync(filePath, { throwIfNoEntry: false });
+  return !!st && st.size <= INFO_CHECKSUM_MAX_BYTES;
+}
+
 // ---------------- 下载管理器 ----------------
 
 /** 下载管理器:单例,管理所有下载任务 */
@@ -275,6 +298,8 @@ export class DownloadManager extends EventEmitter {
   private taskSegments = new Map<string, Segment[]>();
   /** 每任务期望校验和(来自 startDownload 请求,源 API 提供时生效) */
   private expectedChecksums = new Map<string, string | null>();
+  /** 进行中的 .part 删除(按路径):删除已异步化,复用同一路径前须等待,否则会波及新一轮下载的断点文件 */
+  private pendingDeletes = new Map<string, Promise<void>>();
   private maxConcurrent = 3;
   private activeCount = 0;
 
@@ -397,6 +422,9 @@ export class DownloadManager extends EventEmitter {
     // 旧版本把未完成的 .gguf 直接写在目标路径,会导致模型管理提前检出损坏文件——
     // 检测到未完整的目标文件时先迁移为 part 文件再续传(完整文件走下方快路径)。
     let downloadedSize = 0;
+    // 上一轮取消的 .part 删除是异步的:先等其落定再判断断点,否则会读到正被删除的文件
+    const pendingDelete = this.pendingDeletes.get(partPath);
+    if (pendingDelete) await pendingDelete;
     if (fs.existsSync(partPath)) {
       downloadedSize = fs.statSync(partPath).size;
     } else if (fs.existsSync(localPath)) {
@@ -506,8 +534,8 @@ export class DownloadManager extends EventEmitter {
     // 汇总一次 downloadedSize(取消前确保进度准确)
     this.recomputeDownloadedSize(id);
 
-    // 删除部分下载文件与事件日志
-    this.deletePartials(task.partPath);
+    // 删除部分下载文件与事件日志(异步清理:不阻塞主进程,同路径重启下载会等它落定)
+    void this.deletePartials(task.partPath);
     deleteDownloadLog(task.localPath);
     this.expectedChecksums.delete(id);
     this.taskSegments.delete(id);
@@ -878,17 +906,31 @@ export class DownloadManager extends EventEmitter {
     });
   }
 
-  /** 删除部分下载文件 */
-  private deletePartials(localPath: string) {
-    if (!fs.existsSync(localPath)) return;
-    // Windows 上句柄释放可能有延迟，重试几次
-    for (let i = 0; i < 20; i++) {
+  /**
+   * 删除部分下载文件(.part)。
+   * Windows 上写流句柄释放可能有延迟,故带重试;重试间隔用定时器 await —— 原先的
+   * Atomics.wait 同步等待会把主进程事件循环整段挂起(最长 20×50ms=1s)。
+   * 失败(始终被占用)静默放弃:续传日志已删,下一轮下载会重新清理并从头开始。
+   * 同一文件的同时删除请求合并为同一个 Promise(见 pendingDeletes)。
+   */
+  private deletePartials(filePath: string): Promise<void> {
+    const running = this.pendingDeletes.get(filePath);
+    if (running) return running;
+    const pending = this.unlinkWithRetries(filePath).finally(() => {
+      this.pendingDeletes.delete(filePath);
+    });
+    this.pendingDeletes.set(filePath, pending);
+    return pending;
+  }
+
+  private async unlinkWithRetries(filePath: string): Promise<void> {
+    for (let i = 0; i < DELETE_PARTIAL_RETRIES; i++) {
       try {
-        fs.unlinkSync(localPath);
+        await fs.promises.unlink(filePath);
         return;
-      } catch {
-        // 短暂同步等待后重试
-        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException)?.code === 'ENOENT') return;
+        if (i < DELETE_PARTIAL_RETRIES - 1) await delay(DELETE_PARTIAL_RETRY_MS);
       }
     }
   }
@@ -951,7 +993,7 @@ export class DownloadManager extends EventEmitter {
       } else {
         // 无有效续传点:清理残留并从头开始,记录 start 事件(含段布局)
         deleteDownloadLog(task.localPath);
-        this.deletePartials(task.partPath);
+        await this.deletePartials(task.partPath);
         task.downloadedSize = 0;
         segments = this.createSegments(totalSize, probe.supportsRange, task.downloadedSize);
         this.taskSegments.set(id, segments);
@@ -971,7 +1013,7 @@ export class DownloadManager extends EventEmitter {
         // 取消:清理日志和临时文件(暂停需要保留以支持续传)
         if (task.status === 'canceled') {
           deleteDownloadLog(task.localPath);
-          this.deletePartials(task.partPath);
+          await this.deletePartials(task.partPath);
         }
         this.taskSegments.delete(id);
         this.stopSpeedTracker(id);
@@ -987,11 +1029,15 @@ export class DownloadManager extends EventEmitter {
       // 最终汇总一次,确保 downloadedSize 准确
       this.recomputeDownloadedSize(id);
 
-      // 完整性校验:流式计算已下载文件的 SHA-256(恒定内存,不整读大文件);
-      // 提供期望校验和(源 API,如 HF LFS oid)时比对,不匹配则显式失败,可归因而非静默
-      const checksum = await computeFileSha256(task.partPath);
+      // 完整性校验:提供期望校验和(源 API,如 HF LFS oid)时才流式整读算 SHA-256(恒定内存)
+      // 并比对,不匹配则显式失败,可归因而非静默。无期望值时读盘不产生校验价值,
+      // 仅对小文件补一个信息性哈希上报(见 INFO_CHECKSUM_MAX_BYTES),大文件上报 null。
       const expected = this.expectedChecksums.get(id) ?? null;
       this.expectedChecksums.delete(id);
+      let checksum: string | null = null;
+      if (expected || worthHashingForInfo(task.partPath)) {
+        checksum = await computeFileSha256(task.partPath);
+      }
       if (expected && checksum && checksum !== expected) {
         this.failTask(
           id,
@@ -1144,12 +1190,12 @@ export class DownloadManager extends EventEmitter {
     }
 
     // 打开写入流(统一使用 r+ 模式,文件已由 ensureFileExists 创建;写入 part 临时文件)
-    // highWaterMark: 16MB —— 4MB 在多段并发写入时 pause/resume 周期过短(~200ms,5Hz),
-    // 导致速度采样器(500ms)看到明显波动;16MB 将周期拉长至 ~800ms,大幅平滑速率曲线
+    // highWaterMark 取小值:写满即 pause/resume,在途数据不超 WRITE_STREAM_HWM;
+    // 速率曲线的平滑由 startSpeedTracker 的 EMA 负责,不再靠放大写缓冲压采样抖动
     const stream = fs.createWriteStream(task.partPath, {
       flags: 'r+',
       start,
-      highWaterMark: 16 * 1024 * 1024,
+      highWaterMark: WRITE_STREAM_HWM,
     });
     segment.stream = stream;
     this.writeStreams.set(id, stream);

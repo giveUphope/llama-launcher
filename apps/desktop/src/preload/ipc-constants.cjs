@@ -21,7 +21,7 @@ const IPC = {
   SERVER_RESTART: 'server:restart',
   SERVER_STATUS: 'server:status',
   SERVER_PREVIEW: 'server:preview',
-  SERVER_OUTPUT: 'server:output',
+  SERVER_OUTPUT_BATCH: 'server:output-batch',
   LOGS_LIST: 'logs:list',
   LOGS_CLEAR: 'logs:clear',
   LOGS_ONLOG: 'logs:onlog',

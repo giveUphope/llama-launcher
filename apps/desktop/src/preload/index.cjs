@@ -14,8 +14,8 @@ let downloadCompleteListeners = [];
 let downloadErrorListeners = [];
 let appLogListeners = [];
 
-ipcRenderer.on(IPC.SERVER_OUTPUT, (_e, entry) => {
-  outputListeners.forEach(cb => { try { cb(entry); } catch {} });
+ipcRenderer.on(IPC.SERVER_OUTPUT_BATCH, (_e, entries) => {
+  outputListeners.forEach(cb => { try { cb(entries); } catch {} });
 });
 ipcRenderer.on(IPC.SERVER_STATUS, (_e, s) => {
   statusListeners.forEach(cb => { try { cb(s); } catch {} });
@@ -99,7 +99,7 @@ const api = {
     restart: (values, settings) => invoke(IPC.SERVER_RESTART, values, settings),
     getStatus: () => invoke(IPC.SERVER_STATUS),
     previewCommand: (values, settings) => invoke(IPC.SERVER_PREVIEW, values, settings),
-    onOutput: (cb) => {
+    onOutputBatch: (cb) => {
       outputListeners.push(cb);
       return () => {
         outputListeners = outputListeners.filter(l => l !== cb);

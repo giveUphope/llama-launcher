@@ -30,6 +30,8 @@ const DEP_SOURCE_KEYS = new Set<string>(
 
 // 自动检测/自动填充的参数，不计入"已修改"指示（mmproj / 草稿模型路径由 app 管理）
 const IGNORE_FOR_DIRTY = new Set<string>(['mmproj', 'spec_draft_model']);
+// 参数键常量表（hasChanges 每次求值都要用它建集合，避免逐次 PARAMS.map 分配）
+const PARAM_KEYS: string[] = PARAMS.map((p) => p.key);
 
 function findParamDef(key: string): ParamDef | undefined {
   return PARAMS.find((p) => p.key === key);
@@ -252,7 +254,9 @@ export const useParamsStore = defineStore('params', () => {
       return false;
     }
     const b = baseline.value.values;
-    const keys = new Set([...Object.keys(b), ...PARAMS.map((p) => p.key)]);
+    // PARAM_KEYS 为模块级常量表：这里只需并入基线里多出的键（预设文件可能含已删参数）
+    const keys = new Set<string>(PARAM_KEYS);
+    for (const k of Object.keys(b)) keys.add(k);
     for (const k of keys) {
       if (isIgnored(k)) continue;
       if (String(values[k] ?? '') !== String(b[k] ?? '')) return true;

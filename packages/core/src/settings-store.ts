@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, unlinkSync, statSync, promises as fsp } from 'node:fs';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { z } from 'zod';
 import { SETTINGS_FILE, DEFAULT_SERVER_EXE, DEFAULT_MODELS_DIR } from './paths.js';
 import { setHfMirrorHost } from './huggingface-client.js';
@@ -13,6 +14,9 @@ const SETTINGS_VERSION = 1;
 const THEME_MODES = ['dark', 'light', 'system'] as const;
 const LANGUAGES = ['zh', 'en'] as const;
 const CLOSE_BEHAVIORS = ['ask', 'exit', 'tray'] as const;
+
+/** 异步保存瞬时失败（EBUSY/EPERM，Windows 句柄未释放）的重试间隔；总尝试次数与同步版一致（3） */
+const ASYNC_SAVE_RETRY_MS = 50;
 
 export function getDefaultSettings(): AppSettings {
   return {
@@ -165,29 +169,61 @@ function writeFileAtomic(filePath: string, content: string): void {
   }
 }
 
-/** 读取磁盘当前设置（仅解析，不做备份/归一化）；缺失或损坏返回 undefined。 */
-function readDiskSettings(): Record<string, unknown> | undefined {
+/** 异步原子写：同样的 .tmp → rename 保证（崩溃/断电不留半个 JSON），但不占用事件循环。 */
+async function writeFileAtomicAsync(filePath: string, content: string): Promise<void> {
+  const tmp = `${filePath}.tmp`;
+  await fsp.writeFile(tmp, content, 'utf-8');
   try {
-    if (!existsSync(SETTINGS_FILE)) return undefined;
-    const raw = readFileSync(SETTINGS_FILE, 'utf-8');
-    const data = JSON.parse(raw) as unknown;
-    if (!data || typeof data !== 'object' || Array.isArray(data)) return undefined;
-    return data as Record<string, unknown>;
-  } catch {
-    return undefined;
+    await fsp.rename(tmp, filePath);
+  } catch (e) {
+    try {
+      await fsp.unlink(tmp);
+    } catch { /* 清理失败则忽略 */ }
+    throw e;
   }
 }
 
-export function loadSettings(): AppSettings {
-  const defaults = getDefaultSettings();
-  if (!existsSync(SETTINGS_FILE)) return defaults;
+/**
+ * 读盘记忆化。命中即免去 JSON.parse + zod 校验 + 归一化（这是加载路径上真正贵的部分）。
+ *
+ * 键含文件指纹（mtimeNs + size，覆盖缺失/截断/改写），但**指纹不足以证明内容未变**：
+ * NTFS 的时间戳是延迟刷新的，实测同一毫秒内两次等长改写有九成以上报出完全相同的
+ * mtimeNs/ctimeNs，只比指纹会在外部（手工编辑 / 测试 / 其他实例）快速改写后返回旧数据。
+ * 故命中还须比对建立缓存时读到的原始字节：字节一致 ⇒ 解析结果一致，可放心复用。
+ * 代价是每次加载仍要 stat + 读这个小文件（~1.5KB），但省去解析/校验/对象分配。
+ */
+let readCache: { key: string; raw: string; settings: AppSettings } | null = null;
+
+/** 文件身份指纹（mtime+size）；不可 stat（不存在/无权限）返回 null。 */
+function fileFingerprint(filePath: string): string | null {
+  try {
+    const st = statSync(filePath, { bigint: true });
+    return `${st.mtimeNs}:${st.size}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 读取 + 迁移 + 归一化磁盘设置（命中记忆化则零解析）。
+ * 返回 null 表示没有可用文件；损坏文件在此备份为 .bak，与 loadSettings 旧行为一致。
+ */
+function readNormalizedSettings(): AppSettings | null {
+  const key = fileFingerprint(SETTINGS_FILE);
+  if (key === null) {
+    readCache = null;
+    return null;
+  }
   let raw: string;
   try {
     raw = readFileSync(SETTINGS_FILE, 'utf-8');
   } catch (e) {
     console.error('Failed to read settings file:', e);
-    return defaults;
+    readCache = null;
+    return null;
   }
+  if (readCache && readCache.key === key && readCache.raw === raw) return readCache.settings;
+
   let data: unknown;
   try {
     data = JSON.parse(raw);
@@ -195,18 +231,47 @@ export function loadSettings(): AppSettings {
     // 损坏 JSON：备份现场并回退默认，不静默吞掉用户配置
     backupCorrupt(SETTINGS_FILE);
     console.error('Settings file is corrupt; backed up and falling back to defaults.');
-    return defaults;
+    readCache = null;
+    return null;
   }
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     backupCorrupt(SETTINGS_FILE);
     console.error('Settings file has invalid shape; backed up and falling back to defaults.');
-    return defaults;
+    readCache = null;
+    return null;
   }
-  const migrated = migrateSettings(data as Record<string, unknown>);
-  const settings = normalizeSettings(migrated);
+  const settings = normalizeSettings(migrateSettings(data as Record<string, unknown>));
+  readCache = { key, raw, settings };
+  return settings;
+}
+
+/** 落盘成功后刷新记忆化：内容与指纹都是刚写下的，下次加载直接命中。 */
+function rememberWritten(content: string, normalized: AppSettings): void {
+  const key = fileFingerprint(SETTINGS_FILE);
+  readCache = key ? { key, raw: content, settings: normalized } : null;
+}
+
+export function loadSettings(): AppSettings {
+  const settings = readNormalizedSettings();
+  if (!settings) return getDefaultSettings();
   // 设置是镜像源配置的唯一入口：加载后同步到 huggingface-client（下载/列表/跳转统一生效）
   setHfMirrorHost(settings.hf_mirror_host ?? '');
-  return settings;
+  // 调用方会就地改写字段（如 window.ts 写回窗口几何），故返回副本，缓存对象始终与磁盘一致
+  return { ...settings };
+}
+
+/**
+ * 合并磁盘基线（CAS）+ 单次归一化 + 盖章版本 + 序列化。
+ * 磁盘值已由记忆化读取归一化过，故只需一次 schema parse（曾是两次：磁盘一次、合并结果一次）。
+ * 落盘内容格式不变：键序由 settingsSchema 声明顺序决定，2 空格缩进。
+ */
+function buildSavePayload(settings: AppSettings): { normalized: AppSettings; content: string } {
+  const disk = readNormalizedSettings();
+  // disk 为 null（无可用文件）时展开是 no-op
+  const normalized = normalizeSettings({ ...getDefaultSettings(), ...disk, ...settings });
+  normalized.settings_version = SETTINGS_VERSION;
+  setHfMirrorHost(normalized.hf_mirror_host ?? '');
+  return { normalized, content: JSON.stringify(normalized, null, 2) };
 }
 
 export function saveSettings(settings: AppSettings): void {
@@ -216,21 +281,46 @@ export function saveSettings(settings: AppSettings): void {
   let attempt = 0;
   while (attempt < 3) {
     try {
-      const disk = readDiskSettings();
-      const merged = disk
-        ? { ...normalizeSettings(disk), ...settings }
-        : settings;
-      // 写入前归一化 + 盖章版本，保证落盘内容始终是合法 schema
-      const normalized = normalizeSettings({ ...getDefaultSettings(), ...merged });
-      normalized.settings_version = SETTINGS_VERSION;
-      setHfMirrorHost(normalized.hf_mirror_host ?? '');
-      writeFileAtomic(SETTINGS_FILE, JSON.stringify(normalized, null, 2));
+      const { normalized, content } = buildSavePayload(settings);
+      writeFileAtomic(SETTINGS_FILE, content);
+      rememberWritten(content, normalized);
       return;
     } catch (e) {
       attempt++;
       if (attempt >= 3) {
         console.error('Failed to save settings:', e);
       }
+    }
+  }
+}
+
+/**
+ * saveSettings 的异步变体：合并/归一化/序列化与同步版完全一致，仅落盘改为 fs.promises +
+ * 定时器退避重试（EBUSY/EPERM 等瞬时失败），不阻塞主进程事件循环。
+ * 与同步版一样不抛出：写失败只记日志。当前设置写入点（窗口几何/关闭行为/SETTINGS_SAVE IPC）
+ * 都在同步上下文里、且退出前必须落盘，故仍走 saveSettings；新代码可 await 本函数。
+ */
+let saveChain: Promise<void> = Promise.resolve();
+
+export function saveSettingsAsync(settings: AppSettings): Promise<void> {
+  // 串行化：异步写共用同一个 <file>.tmp，两个写同时在飞会互相踩（先完成的 rename 搬走半成品）
+  saveChain = saveChain.then(() => writeSettingsAsync(settings));
+  return saveChain;
+}
+
+async function writeSettingsAsync(settings: AppSettings): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { normalized, content } = buildSavePayload(settings);
+      await writeFileAtomicAsync(SETTINGS_FILE, content);
+      rememberWritten(content, normalized);
+      return;
+    } catch (e) {
+      if (attempt >= 2) {
+        console.error('Failed to save settings:', e);
+        return;
+      }
+      await sleep(ASYNC_SAVE_RETRY_MS);
     }
   }
 }

@@ -570,30 +570,32 @@ function formatDownloaded(task: DownloadTask): string {
   return `${downloaded} / ${total}`;
 }
 
-// 任务状态文本
+// 任务状态文本 / 颜色：静态映射表提到模块级（原先每次调用都新建 Record 字面量，
+// 而下载中每 500ms 一次进度推送就会重渲染全部任务行）
+const STATUS_TEXT_KEY: Record<string, string> = {
+  queued: 'status_queued',
+  downloading: 'status_downloading',
+  paused: 'status_paused',
+  completed: 'status_completed',
+  error: 'status_error',
+  canceled: 'status_canceled',
+};
+const STATUS_COLOR: Record<string, string> = {
+  queued: 'var(--color-text-3)',
+  downloading: 'rgb(var(--primary-6))',
+  paused: 'rgb(var(--orange-6))',
+  completed: 'rgb(var(--success-6))',
+  error: 'rgb(var(--danger-6))',
+  canceled: 'var(--color-text-3)',
+};
+
 function statusText(status: string): string {
-  const map: Record<string, string> = {
-    queued: i18n.t('status_queued'),
-    downloading: i18n.t('status_downloading'),
-    paused: i18n.t('status_paused'),
-    completed: i18n.t('status_completed'),
-    error: i18n.t('status_error'),
-    canceled: i18n.t('status_canceled'),
-  };
-  return map[status] ?? status;
+  const key = STATUS_TEXT_KEY[status];
+  return key ? i18n.t(key) : status;
 }
 
-// 任务状态颜色
 function statusColor(status: string): string {
-  const map: Record<string, string> = {
-    queued: 'var(--color-text-3)',
-    downloading: 'rgb(var(--primary-6))',
-    paused: 'rgb(var(--orange-6))',
-    completed: 'rgb(var(--success-6))',
-    error: 'rgb(var(--danger-6))',
-    canceled: 'var(--color-text-3)',
-  };
-  return map[status] ?? 'var(--color-text-1)';
+  return STATUS_COLOR[status] ?? 'var(--color-text-1)';
 }
 
 // 文件类别徽标文本（category 缺失时回退「其他」，避免 cat_undefined 裸键）
@@ -602,8 +604,15 @@ function categoryLabel(c: FileCategory): string {
 }
 
 // 任务量化徽标:从文件名解析(任务对象不携带 quantization 字段,避免扩展 IPC)
+// 量化解析按文件名记忆：模板里同一行要取 4 次（存在性 / family 类 / title / 文本），
+// 而下载中每 500ms 的进度推送就会重渲染任务行——parseQuantization 是纯函数，缓存即可
+const quantMemo = new Map<string, QuantizationInfo | null>();
 function taskQuant(task: DownloadTask): QuantizationInfo | null {
-  return parseQuantization(task.fileName);
+  const cached = quantMemo.get(task.fileName);
+  if (cached !== undefined) return cached;
+  const q = parseQuantization(task.fileName);
+  quantMemo.set(task.fileName, q);
+  return q;
 }
 
 // 错误类型友好提示:优先返回 i18n 文案,无 errorType 时回退到原始 error
@@ -1374,6 +1383,13 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 .task-progress-bar {
   min-width: 0;
+
+  /* Arco 进度条默认 `transition: all .6s`——动的是 width（布局属性），而进度每 500ms
+     推送一次，0.6s 的过渡永远跑不完就被重启，任务行持续重排。进度本身已是逐步语义，
+     关掉过渡后 2Hz 的步进观感一致且零重排（§7.5.7 动效：只允许 transform/opacity） */
+  :deep(.arco-progress-line-bar) {
+    transition: none;
+  }
 }
 
 .task-stats {

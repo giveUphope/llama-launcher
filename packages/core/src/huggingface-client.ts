@@ -17,6 +17,16 @@ const TIMEOUT_MS = 20000;
 const MAX_REDIRECTS = 5;
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 1000;
+/** listHfFiles 结果缓存 TTL：同一仓库的文件列表在会话内被反复拉取，分类/量化解析无需每次重算 */
+const LIST_FILES_TTL_MS = 60_000;
+const LIST_FILES_CACHE_MAX = 32;
+
+/**
+ * 进程级 keep-alive 连接池。默认 globalAgent 是 keep-alive 关闭的，
+ * 若每个请求都新建 TCP+TLS 握手，镜像站单次 API 调用要多付一个往返时间。
+ * 空闲 socket 被服务端 reset 只会让下一次请求拿到 ECONNRESET，由 requestWithRetry 兜住。
+ */
+const keepAliveAgent = new https.Agent({ keepAlive: true, maxSockets: 16, maxFreeSockets: 4, timeout: 30_000 });
 
 /**
  * 单次 HTTP GET 的传输抽象。
@@ -58,14 +68,11 @@ const nodeHttpsTransport: HfHttpTransport = {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'llama-launcher/1.0',
-          // 显式关闭 keep-alive,避免服务端在连接池中 reset socket 导致 ECONNRESET
-          Connection: 'close',
           // 不接受压缩,避免需手动解压 gzip
           'Accept-Encoding': 'identity',
         },
         timeout: timeoutMs,
-        // agent: false —— 完全禁用连接池,每次请求独立 TCP+TLS 连接并在结束后销毁
-        agent: false,
+        agent: keepAliveAgent,
       };
 
       const req = https.request(options, (res) => {
@@ -97,6 +104,7 @@ let _transport: HfHttpTransport = nodeHttpsTransport;
  */
 export function setHfTransport(t: HfHttpTransport): void {
   _transport = t;
+  listFilesCache.clear();
 }
 
 /** 当前镜像源 host（可配置，settings.hf_mirror_host 驱动）。 */
@@ -111,12 +119,20 @@ export function setHfMirrorHost(host: string): void {
     host && host.trim()
       ? host.trim().replace(/^https?:\/\//, '').replace(/\/$/, '')
       : DEFAULT_MIRROR_HOST;
+  listFilesCache.clear();
 }
 
 /** 当前镜像源 host。 */
 export function getHfMirrorHost(): string {
   return _mirrorHost;
 }
+
+/** listHfFiles 结果缓存：键含镜像源 host，换源后自然失效（切换时亦显式清空）。 */
+interface ListFilesCacheEntry {
+  at: number;
+  result: ModelScopeFileListResult;
+}
+const listFilesCache = new Map<string, ListFilesCacheEntry>();
 
 /**
  * 判断 hostname 是否为当前配置的镜像源（含子域）。
@@ -203,16 +219,32 @@ function extractSha256(oid: unknown): string | null {
   return m ? m[1].toLowerCase() : null;
 }
 
+/** listHfFiles 选项 */
+export interface ListHfFilesOptions {
+  /** 绕过 TTL 缓存强制重新拉取（渲染层显式「刷新」时传 true） */
+  forceRefresh?: boolean;
+}
+
 /**
  * 获取 HuggingFace 模型仓库的文件列表(通过 hf-mirror.com 镜像)
- * 使用 /api/models/{ns}/{name}/tree/main?recursive=true 接口,返回含文件大小
+ * 使用 /api/models/{ns}/{name}/tree/main?recursive=true 接口,返回含文件大小。
+ * 结果按 namespace/name 短 TTL 缓存（分类/量化解析只算一次），失败不入缓存，重试必然重新请求。
  * @param namespace 命名空间/作者
  * @param name 模型名
  */
 export async function listHfFiles(
   namespace: string,
   name: string,
+  opts: ListHfFilesOptions = {},
 ): Promise<ModelScopeFileListResult> {
+  const cacheKey = `${_mirrorHost}|${namespace}/${name}`;
+  if (opts.forceRefresh) {
+    listFilesCache.delete(cacheKey);
+  } else {
+    const hit = listFilesCache.get(cacheKey);
+    if (hit && Date.now() - hit.at < LIST_FILES_TTL_MS) return hit.result;
+  }
+
   const path = `/api/models/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/tree/main?recursive=true`;
   const resp = await requestWithRetry(path);
 
@@ -241,7 +273,13 @@ export async function listHfFiles(
       };
     });
 
-  return { files, namespace, name };
+  const result: ModelScopeFileListResult = { files, namespace, name };
+  if (listFilesCache.size >= LIST_FILES_CACHE_MAX) {
+    const firstKey = listFilesCache.keys().next().value;
+    if (firstKey !== undefined) listFilesCache.delete(firstKey);
+  }
+  listFilesCache.set(cacheKey, { at: Date.now(), result });
+  return result;
 }
 
 /**

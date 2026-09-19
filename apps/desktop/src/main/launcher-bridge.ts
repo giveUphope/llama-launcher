@@ -16,6 +16,8 @@ class LauncherBridge {
   private outputQueue: OutputEntry[] = [];
   private outputFlushTimer: ReturnType<typeof setTimeout> | null = null;
   private static OUTPUT_FLUSH_INTERVAL_MS = 16;
+  /** 历史缓冲重放的分块行数（单条 send 载荷过大也会拖住渲染进程） */
+  private static REPLAY_CHUNK = 200;
 
   constructor() {
     // 事件监听器只注册一次，避免重复 start 时累积监听
@@ -55,18 +57,21 @@ class LauncherBridge {
     const batch = this.outputQueue;
     this.outputQueue = [];
     if (this.win && !this.win.isDestroyed()) {
-      for (const e of batch) {
-        this.win.webContents.send(IPC.SERVER_OUTPUT, e);
-      }
+      // 一个 16ms 窗口一次 send：逐行 send 时每条日志都要走一遍 IPC + 结构化克隆 +
+      // 渲染层一次刷新，模型加载阶段数百行会直接把渲染进程压住
+      this.win.webContents.send(IPC.SERVER_OUTPUT_BATCH, batch);
     }
   }
 
   setWindow(win: BrowserWindow | null) {
     this.win = win;
     if (win && !win.isDestroyed() && win !== this.bufferedWin) {
-      // Send any buffered output to the new window
-      for (const e of this.outputBuffer) {
-        win.webContents.send(IPC.SERVER_OUTPUT, e);
+      // 缓冲历史按批重放（同样走 SERVER_OUTPUT_BATCH），避免整段 5000 行逐条 send
+      for (let i = 0; i < this.outputBuffer.length; i += LauncherBridge.REPLAY_CHUNK) {
+        win.webContents.send(
+          IPC.SERVER_OUTPUT_BATCH,
+          this.outputBuffer.slice(i, i + LauncherBridge.REPLAY_CHUNK),
+        );
       }
       this.bufferedWin = win;
     } else if (!win) {
