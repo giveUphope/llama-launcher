@@ -47,7 +47,7 @@
 | `DashboardPage` | 概览：服务状态卡（`ServiceStatusCard`，自服务页迁入——状态/当前模型/API 地址/主机/端口/PID/运行时长，服务状态的唯一页面级展示区）+ 最近问题（应用日志 warn/error 最近 3 条，`.q-section` 分区分隔） |
 | `ModelsPage` | 2 子标签：本地模型（`LocalModelsPanel`）/ 模型库（`LibraryPanel`，DownloadCard library 模式，内置下载任务区） |
 | `ServicePage` | 命令预览（`CommandPreviewCard`：**双文本框**——「内置参数命令」**只读**展示、随参数实时自动生成（改内置参数走参数设置页控件，无编辑/还原逻辑）；「扩展参数」为唯一可编辑区，绑定 `settings.custom_args` 持久化、原样追加到启动命令末尾；复制 = 内置+扩展合并）、参数摘要（`ParamSummaryCard`）、配置目录清理（`TrashCleanCard`）、控制台输出（上限 5000 行；运行状态卡已迁至概览，本页不再重复展示状态/模型/API 地址） |
-| `ParamsPage` | 页内 tab-strip 两页签（与设置页统一）：参数预设（`PresetsPanel`）/ 自定义参数（13 个子分类分区，`param-grid` `repeat(auto-fill, minmax(340px, 1fr))` 响应式网格）；60 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；自定义页签状态条含**硬件占用估算 stat**（`useVramEstimate`：显存占用百分比 + 构成明细 tooltip，超限橙色警示）与**性能目标选择器**（四档联动建议差集 chips + 一键应用）；恢复基线/清除会话入口（无基线徽章，与「已调整」统计去重） |
+| `ParamsPage` | 页内 tab-strip 两页签（与设置页统一）：参数预设（`PresetsPanel`）/ 自定义参数（13 个子分类分区，`param-grid` `repeat(auto-fill, minmax(400px, 1fr))` 响应式网格，无列数上限）；60 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；自定义页签状态条含**硬件占用估算 stat**（`useVramEstimate`：显存占用百分比 + 构成明细 tooltip，超限橙色警示）与**性能目标选择器**（四档联动建议差集 chips + 一键应用）；恢复基线/清除会话入口（无基线徽章，与「已调整」统计去重） |
 | `LogsPage` | 应用日志中心：级别筛选 chips、搜索、控制台渲染上限 3000 行、自动滚动 |
 | `SettingsPage` | 4 子标签：常规（`GeneralPanel`，引擎/模型目录内联检测）/ 外观（`AppearancePanel`）/ 高级（`AdvancedPanel`）/ 关于（`AboutPanel`）；原 llama.cpp 标签已并入常规；全部即时保存；顶部状态摘要（即时保存提示 + 模型目录/引擎文件状态）**整体仅常规页签展示**，版本提示已移除（「关于」页签与侧边栏页脚已展示；idle「未设置」与 missing「路径不存在」文案分离，不再自相矛盾） |
 | `WebUiPage` | 内置 Web UI 路由占位（侧栏一级项「内置 Web UI」）；实际渲染由布局层 `WebUiFrame`（iframe 常驻文档，`v-show` 切换显隐，切页不重载）承担：服务运行时展示 llama-server Web UI，未运行时显示占位提示 |
@@ -167,7 +167,19 @@
 - **参数行**（`ParamRow` 统一承载，控件全部 Arco）：行容器 `padding: 4px 8px` + 圆角 `var(--radius-row)`，默认透明描边；hover 底色 `--color-fill-3` + 边框 `--color-border-2`；**值 ≠ 默认时边框 `rgb(var(--orange-6))`**（与还原按钮同色系）；依赖未满足同色描边 + 底色 + `a-tooltip` 警示图标；文件/目录类型渲染 `a-input-group` 文件选择控件。
 - **参数行不得开 `allow-clear`**（STYLE_TODO #74）：Arco 输入框自带清除 ✕（`.arco-input-clear-btn`，平时 `visibility: hidden`、hover 有值时现形），会与行级「还原默认」✕ 同屏 = 一行两个 ✕；且它写入**空串**而非参数默认值（`host` 清空即触发 `err_invalid_host`），与行级按钮语义冲突。参数行的还原入口唯一——行级 `.clear-btn`。
 - **GGUF 建议值芯片**（`.gguf-hint`，定宽 72px 常驻槽内）：长值**必须由 JS 做中间省略**（头 5 + `…` + 尾 2，8 字为实测上限：mono 12px ≈ 7.3px/字、槽内可用 60px），不能指望 CSS `text-overflow: ellipsis`——`a-tag` 是 `inline-flex` 且无内容包装层（§7.5.4 ① / #69 同源），CSS 省略号根本不生效，30 字别名建议会被硬切成无提示的 "Qwen3-32B"。尾部保留是因量化后缀/单位才是区分信息；**完整值 + 参数名 + 操作提示三段进 `ToolTip`**（禁原生 `title`，它承载不了多段文本）。芯片横向内距取 §7.5.4 ① 徽章档 `6px`（Arco small 默认 8px 下 8 字要 74.7px > 72px 槽，差 2px 切尾字母）。
-- **参数网格**：`param-grid`（参数设置页）`repeat(auto-fill, minmax(340px, 1fr))` + `max-width: 1160px`（auto-fill 不折叠空轨道，各组控件宽度一致；2026-09-13 起）、gap `4px 14px`、≤720px 单列；装饰一律 Arco 主色蓝 `rgb(var(--primary-6))`。
+- **参数网格**：`param-grid`（参数设置页）`repeat(auto-fill, minmax(400px, 1fr))`，**不设 `max-width` 上限**（2026-09-20 起，见 STYLE_TODO #76）、gap `4px 14px`、≤720px 单列；装饰一律 Arco 主色蓝 `rgb(var(--primary-6))`。
+  - **最小轨 400px 的推导**：一行参数的最小舒适宽 = 标签列 140 + 8 + 控件 ≥176（滑块轨道 80 + 间隙 8 + 数字框 88）+ 4 + 提示槽 72 ≈ 400。**不得为凑列数下调**：380px 时 1920 虽能排到 4 列，但滑块轨道被压到 **55px**（低于 #73 定的 80px 下限）；340px 时 1440 排 3 列、轨道仅 **31px**。
+  - **不设上限的理由（实测）**：旧 `max-width: 1160px` 硬封顶 3 列，卡片可用宽 ≥1326px 后全部变成右侧空白——1920 空 **486px**、2560 空 **1126px**（近半宽度未用）。现列数随宽度单调增长且 `waste=0`：
+
+    | 视口 | 卡片可用 | 网格宽 | 列数 × 轨宽 | 滑块轨道 | 标签截断 |
+    |---|---|---|---|---|---|
+    | 1280 | 1006 | 974 | 2 × 480 | 142 | 0 |
+    | 1440 | 1166 | 1134 | 2 × 560 | 222 | 0 |
+    | 1600 | 1326 | 1294 | 3 × 422 | 84 | 0 |
+    | 1920 | 1646 | 1614 | 3 × 529 | 191 | 0 |
+    | 2560 | 2286 | 2254 | 5 × 440 | 102 | 0 |
+
+  - 各列宽下对齐不变量恒成立：标签列宽 `[140]` 单一值、控件起点每列一个值、0 行标签截切、0 刻度节点（Playwright 逐视口实测）。
 - **筛选 chip 选中态**：`checkable a-tag` 的 hover/选中态**一律走 Arco 自带态**，不覆写 `.arco-tag-checked` 等 Arco 内部态类（审计第 12 条）；需可见选中底时用 Arco `color` prop（DownloadCard 类别筛选取 `color="arcoblue"`，选中底 = `rgb(var(--arcoblue-1))` / 深色 `rgba(var(--arcoblue-6), .2)`，与 `--row-selected-bg` 同源）。筛选组间距 6px（§7.5.4 刻度表）。
 - **列表行两种既定变体**（禁止第三种）：① **原生行**——`a-list` 默认（`split` 分隔线 + `size` 内距），如 PresetsPanel；② **紧凑可选中行**——`a-list :split="false"` + 行容器自带 `border` / `--radius-row` / `--color-fill-2` 底与内距（行内距归零须对齐 Arco 特异性：`:deep(.arco-list-content-wrapper .arco-list-content > .arco-list-item) { padding: 0 }`——普通 `:deep(.arco-list-item)` 会被 `size="small"` 规则压掉、实际不生效，真机实测为 9px 20px），承载整行点选、`--row-selected-bg` 选中态与行内徽章，如 DownloadCard `.file-item` / `.result-item`、FileBrowserModal `.fb-row`。除 `padding: 0` 外不得覆写 `a-list` 内部样式（分隔线用 `:split` prop；`.arco-list` / `.arco-list-item` 本身无背景色，无需覆写背景）。**两条落地要点（STYLE_TODO #68 实测）**：① Arco 会把默认插槽包进 `.arco-list-item-main > .arco-list-item-content`（均 `display: block`），行容器自带的 `display: flex` + `gap` 因此全部落空——必须对这两层写 `display: contents`，插槽子节点才会成为行的 flex item（`flex: 1` 撑开、`gap` 生效、徽章右对齐、文本省略号可用）；② 行类与 `.arco-list-item` 是**同一元素**，为压过 Arco `size="small"` 而写的同构选择器特异性更高，行的 `padding` 只能写进那条规则里（写在行类上会被自己清零）。
 - **布局范式**：内容区一律 flex（`display: flex` + gap 刻度）；`display: grid` 仅限本节的 `param-grid`。

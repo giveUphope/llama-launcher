@@ -232,6 +232,15 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复效果验证**：原生浮层 `grep -rn ':title=' packages/ui/src --include=*.vue` 计数 **60 → 33**（另 1 处 `iframe title` 无障碍名 + 6 处组件 prop；用「`:title=` 或 `title="`」合并口径则为 34），转换 26 处 / 9 文件；`<ToolTip` 使用点 **35 处 / 16 文件**；hover 实测顶栏「启动」浮层底 `rgb(29,33,41)` + 白字（Arco token，深色主题下不再是系统白底）、参数行 ✕ 浮层 108×30；`vue-tsc`、`vitest`（66）、`vite build`（index chunk 230.71 → 231.08 kB，+0.37 kB 为 26 处包裹）、`style:audit` 13/13、`pnpm lint` 全绿。规范落点：[frontend.md §7.5.6](../frontend.md)（「提示机制边界」「仍保留原生 `title` 的三类」「交互控件外包 ToolTip 的两条实测注意」三条）。
 - **附带观察（已查清根因，决定不修）**：参数页首挂有 **60 条** `[Vue warn] toRefs() expects a reactive object but received a plain one`（一行一条）。根因在 Arco 侧：`form-item` 的 setup 里 `const formCtx = inject(formInjectionKey, {})` 后紧接 `const { autoLabelWidth, layout } = toRefs(formCtx)`（dev 包 `@arco-design_web-vue.js:20096`），而参数行是**刻意**「每行独立 `a-form-item`、无外层 `a-form`」（§7.5.4 记录的设计），注入落到默认值 `{}`（普通对象）→ 触发 dev 警告。**四条确认证据**：① 拦 `console.warn` 取栈，60 条全部落在 `form-item setup`，参数页首挂恰好 60 条 = 60 行；② 设置页三面板有外层 `a-form`，实测 **0 条**；③ 全库 `grep toRefs` 零命中，非我方代码；④ 该警告串在 `packages/ui/dist` 产物中**不存在**（`__DEV__` 门控），且无人依赖由此产生的 `arco-form-item-layout-undefined` 类（grep 零命中）。**不修的三条理由**：套 `a-form` 会启用每行 `setLabelWidth` 的挂载+更新测量并喂给 reactive `labelWidth` + `maxLabelWidth` computed（与 §7.1 热路径铁律相反），还会引入真实 `<form>` 元素与 Enter 提交语义；`provide(formInjectionKey, reactive({}))` 需深路径 import Arco **非公开导出**（`es/form/context.d.ts` 有声明但根 `index.d.ts` 未导出），与审计第 12 条「勿依赖 Arco 内部实现」同一脆弱性家族；纯 dev 噪声、零运行时成本。
 
+### 76. 参数网格 `max-width: 1160px` 硬封顶 3 列 → 宽屏右侧大面积空白 + 中间宽度滑块被压瘪 — 🟢 已修复（2026-09-20）
+
+- **位置**：`ParamsPage.vue` `.param-grid`（`max-width` 与 `grid-template-columns`）。
+- **描述（用户批注「硬限制每行 3 个参数项，1920×1080 等常用分辨率右侧大面积空白」后，Playwright 逐视口实测）**：一处封顶同时造成**两个方向**的坏结果——
+  ① **宽屏浪费**：`max-width: 1160px` 使网格恒 1160px，而卡片可用宽在 1600 视口已达 1326、1920 为 1646、2560 为 2286 → 右侧空白分别 **166 / 486 / 1126px**（2560 下近半宽度未用）。
+  ② **中间宽度反而退化**：1440 视口尚未触及封顶，`minmax(340px, 1fr)` 排成 3 列 × 369px，控件仅剩 145px、**滑块轨道 31px**（拇指几乎占满轨道，0..262144 量程不可用）；同页 1280 两列时轨道却有 142px——同一控件在不同分辨率下尺寸相差 4.6 倍。
+- **修复**：删除 `max-width` 上限，最小轨由 340px 提到 **400px**（推导：标签列 140 + 8 + 控件 ≥176〔滑块轨道 80 + 间隙 8 + 数字框 88〕+ 4 + 提示槽 72 ≈ 400），列数交给 `auto-fill` 按容器宽度决定。**400 而非 380 的实测依据**：380 可让 1920 排到 4 列，但滑块轨道压到 **55px**，低于 #73 定的 80px 下限——为凑列数牺牲控件可用性是本末倒置，故取 400 并在 §7.5.7 写明「不得为凑列数下调」。
+- **修复效果验证**（Playwright 无头 Chromium，视口 1280/1440/1600/1728/1920/2560，逐档量网格宽/列数/轨道/控件/截断）：`waste`（容器宽 − 已用轨道和）**六档全为 0**；列数 2 / 2 / 3 / 3 / 3 / 5 随宽度单调增长；滑块轨道 **142 / 222 / 84 / 127 / 191 / 102px**（全部 ≥80px 下限）；对齐不变量在各列宽下恒成立——标签列宽 `[140]` 单一值、控件起点每列恰一个值、**0 行标签截断**、0 刻度节点。同类扫描：全库 `grep "max-width: [0-9]"` 复核，其余命中均为元素级截断（TopBar 模型名 180px、DownloadCard 文本 200/480px）或 `max-width: 100%` 伙伴声明，**无第二处内容区硬封顶**。`vue-tsc`、`style:audit` 13/13（42 文件）、`vite build` 全绿。规范落点：[frontend.md §7.5.7](../frontend.md)「参数网格」条重写（含 400px 推导、实测表与「不得为凑列数下调」）。
+
 
 ## 🟢 已修复索引
 
@@ -239,6 +248,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 76 | 参数网格 `max-width:1160px` 硬封顶 3 列：1920 右侧空 486px / 2560 空 1126px，且 1440 未封顶时排 3 列把滑块轨道压到 31px（改为无上限 + 最小轨 400px） | 2026-09-20 |
 | 75 | 提示机制两套并存（原生 `title` vs Arco `ToolTip`）：26 处页面级/铬面控件转 ToolTip，并立「组件 prop / v-for 条目 / 截断值」三类保留边界 | 2026-09-19 |
 | 74 | 建议值芯片被硬切成 "Qwen3-32B" 且浮层不带值（a-tag inline-flex 下 CSS 省略号不生效）+ 文本参数行 hover 两个 ✕（allow-clear 与行级还原冲突） | 2026-09-19 |
 | 73 | #72 二次不统一：滑块刻度门控只剩一只例外 + 110px 标签列截断长标签（改一律无刻度 + 140px，两条「（基准）」限定语移入 tooltip） | 2026-09-19 |

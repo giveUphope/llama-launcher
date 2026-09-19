@@ -424,13 +424,15 @@ async function onClearSession() {
 
 .param-grid {
   // 自适应多列网格：auto-fill 不折叠空轨道——各组共享同一轨道宽度，参数少的组
-  // 控件不会被拉伸（auto-fit 会折叠空轨道：2 参数组控件被撑到 ~795px，4 参数组仅 ~391px）；
-  // max-width 封顶单行最多 3 个参数（4 列需容器 ≥1402px，1160 上限内最多 3 列），
-  // 超出自动换行多行显示；窄屏退化为单列
+  // 控件不会被拉伸（auto-fit 会折叠空轨道：2 参数组控件被撑到 ~795px，4 参数组仅 ~391px）。
+  // 最小轨 400px = 一行参数的实测最小舒适宽：标签列 140 + 8 + 控件 ≥176（滑块轨道 80 +
+  // 间隙 8 + 数字框 88）+ 4 + 提示槽 72。曾取 340px 并配 max-width:1160px 封顶 3 列，实测两头都坏：
+  // ① ≥1600 视口卡片可用宽 1326→2286 而网格恒 1160（1920 右侧空 486px、2560 空 1126px）；
+  // ② 1440（未触及封顶）排成 3 列 ×369px，滑块轨道被压到 31px。现不设上限，列数随宽度
+  // 单调增长：1280/1440 → 2 列，1600 → 3 列，1920 → 4 列，2560 → 5 列。窄屏退化为单列。
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 4px 14px;
-  max-width: 1160px;
 
   @media (max-width: 720px) {
     grid-template-columns: 1fr;
