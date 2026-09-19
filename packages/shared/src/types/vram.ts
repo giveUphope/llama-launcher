@@ -87,6 +87,11 @@ export interface VramEstimateResult {
   recommendations: TargetRecommendation[];
   /** 硬件资源占用估算（显存 + 内存双侧，由会话参数驱动）；无设备/模型不可读为 null */
   occupancy: HardwareOccupancy | null;
+  /**
+   * 设备探测失败原因（成功为 null/缺省）。显存估算失败过去是**静默**的——界面只留一个「—」，
+   * 用户无从知道是引擎目录失配还是模型不可读；有此字段即可在 tooltip 直接给出路径与原因。
+   */
+  probeError?: string | null;
 }
 
 /** 渲染端传入的会话占用估算配置（与参数页当前值一致，保证前后端链路同源） */

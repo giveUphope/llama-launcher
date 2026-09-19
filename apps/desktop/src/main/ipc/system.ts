@@ -7,7 +7,7 @@ import { execFile, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { join, dirname } from 'node:path';
 import { totalmem, freemem } from 'node:os';
-import { detectTrashAsync, cleanTrashAsync, getDownloadManager, loadSettings, listDevices, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench, detectMmproj } from '@llama-launcher/core';
+import { detectTrashAsync, cleanTrashAsync, getDownloadManager, loadSettings, listDevices, resolveServerExe, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench, detectMmproj, DEFAULT_SERVER_EXE } from '@llama-launcher/core';
 import { IPC } from '@llama-launcher/shared';
 import type { TrashItem, VramEstimateResult, LlamaBenchJobState, PerfTarget, DeviceMemInfo, ModelFitResult, OccupancyConfig } from '@llama-launcher/shared';
 
@@ -235,17 +235,37 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
     return null;
   });
 
-  // 设备探测缓存（30s）：空闲显存变化不频繁，避免 estimate / fit 批量调用重复 spawn --list-devices
+  // 设备探测缓存（30s）：空闲显存变化不频繁，避免 estimate / fit 批量调用重复 spawn --list-devices。
+  // **只缓存成功结果**：失败若也按 TTL 缓存，用户把引擎目录改回来后显存估算仍要空转半分钟。
   const devicesCache: { at: number; devices: DeviceMemInfo[] } = { at: 0, devices: [] };
   const DEVICES_CACHE_TTL_MS = 30_000;
+  let devicesProbeError: string | null = null;
+
+  /**
+   * 解析用于 `--list-devices` 的可执行文件（策略在 core `resolveServerExe`，含单测）：
+   * settings.server_exe 本身 → 其同目录 → llama_dir 根 → llama_dir 一级子目录 → 开发态仓库根 `llama-*-bin-*`。
+   * 旧实现直接拼 `dirname(server_exe) + llama-server.exe` 且不校验存在——引擎目录一旦改名/搬走
+   * （实测本机就发生过 b10938 → b11053），spawn 静默失败返回 []，显存占用永远显示「—」且无任何原因。
+   */
   async function getDevicesCached(): Promise<DeviceMemInfo[]> {
     if (Date.now() - devicesCache.at < DEVICES_CACHE_TTL_MS) return devicesCache.devices;
     const settings = loadSettings();
-    const exeDir = settings.server_exe ? dirname(settings.server_exe) : (settings.llama_dir || '');
-    const exeName = process.platform === 'win32' ? 'llama-server.exe' : 'llama-server';
-    const devices = exeDir ? await listDevices(join(exeDir, exeName)) : [];
-    devicesCache.at = Date.now();
-    devicesCache.devices = devices;
+    const { exe, tried } = resolveServerExe(
+      { server_exe: settings.server_exe, llama_dir: settings.llama_dir },
+      DEFAULT_SERVER_EXE,
+    );
+    const devices = exe ? await listDevices(exe) : [];
+    if (devices.length > 0) {
+      devicesCache.at = Date.now();
+      devicesCache.devices = devices;
+      devicesProbeError = null;
+    } else {
+      devicesCache.at = 0;
+      devicesCache.devices = [];
+      devicesProbeError = exe
+        ? `探测无输出：${exe}`
+        : `未找到 llama-server 可执行文件，已尝试：${tried.join(' ｜ ') || '（设置中没有引擎目录记录）'}`;
+    }
     return devices;
   }
 
@@ -281,6 +301,7 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
       devices: [], weightsMiB: null, kvLayers: null,
       kvBytesPerToken: null, maxContext: null, fullOffloadFits: null,
       dtype, target: validTarget, recommendations: [], occupancy: null,
+      probeError: devicesProbeError,
     };
     if (!modelPath || !existsSync(modelPath)) return empty;
     const key = `${modelPath}|${dtype}|${validTarget}|${occCfg.ngl}|${occCfg.ctxSize}`;
@@ -333,6 +354,7 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
       target: validTarget,
       recommendations,
       occupancy,
+      probeError: devicesProbeError,
     };
     if (estimateCache.size >= 16) {
       const first = estimateCache.keys().next().value;

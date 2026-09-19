@@ -134,7 +134,13 @@ const giB = (mib: number | null | undefined) => (mib == null ? '—' : (mib / 10
 const vramTooltip = computed(() => {
   const o = vramOcc.value;
   const e = vramEstimate.value;
-  if (!o || !e || !e.devices.length) return i18n.t('msg_vram_unavailable');
+  if (!o || !e || !e.devices.length) {
+    // 过去这里只有一句「不可用」，真机上引擎目录改名/搬走时永远只有「—」可看，无从排查。
+    // 主进程现在把探测失败原因（含尝试过的路径）随结果带回，直接并进 tooltip。
+    return e?.probeError
+      ? `${i18n.t('msg_vram_unavailable')}\n${e.probeError}`
+      : i18n.t('msg_vram_unavailable');
+  }
   const v = o.vram;
   const lines: string[] = [];
   lines.push(
