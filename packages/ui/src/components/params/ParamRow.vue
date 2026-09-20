@@ -154,7 +154,7 @@ function onClear() {
          避免空 host + 空浮层，见 §7.5.6），但槽位恒在——否则「已修改」行的按钮一出现
          就把控件列挤掉 28px（实测 171 → 143，滑块轨道跌到 47px）并把提示槽整体左移
          （芯片 x 569 vs 597），同列参差。用「槽位常驻 + 内容显隐」替代「元素 presence 切换」，
-         代价是网格最小轨从 400 提到 450（见 ParamsPage `.param-grid` 与 §7.5.7）。
+         代价是网格最小轨从 400 提到 418（见 ParamsPage `.param-grid` 与 §7.5.7）。
          按钮基座仍是纯 Arco（`a-button type="text" size="mini" shape="circle"`，
          `.clear-btn` 类无任何 CSS 覆写），提示走 ToolTip 而非原生 title（§7.5.6） -->
     <div class="clear-slot">

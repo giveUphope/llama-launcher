@@ -6,7 +6,7 @@ import { computed, onActivated, onDeactivated, onMounted, ref, watch } from 'vue
 import PageFrame from '@/components/common/PageFrame.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
-import { useAppLogStore } from '@/stores/appLog';
+import { useAppLogStore, APP_LOG_MAX_LINES } from '@/stores/appLog';
 import { useSettingsStore } from '@/stores/settings';
 import { useI18nStore } from '@/stores/i18n';
 import type { AppLogKind } from '@llama-launcher/shared';
@@ -52,7 +52,8 @@ const filteredEntries = computed(() => {
 const filteredCount = computed(() => filteredEntries.value.length);
 
 // ---- 行数限制 ----
-const RENDER_LIMIT = 3000;
+// 与应用日志缓冲同上限：缓冲本身就只留 2000 行，渲染再给更高的数只是永不触发的死余量
+const RENDER_LIMIT = APP_LOG_MAX_LINES;
 const renderLimit = ref(RENDER_LIMIT);
 const displayEntries = computed(() => {
   const outs = filteredEntries.value;

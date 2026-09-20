@@ -8,7 +8,7 @@ export type ParamType =
   | 'file'
   | 'dir';
 
-export type ParamGroupKey = 'basic' | 'advanced' | 'sampling' | 'server';
+export type ParamGroupKey = 'basic' | 'advanced' | 'server';
 
 export interface FileFilter {
   name: string;

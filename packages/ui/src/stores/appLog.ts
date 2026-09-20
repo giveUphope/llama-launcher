@@ -30,10 +30,13 @@ function formatTime(ts: number, locale: string): string {
 }
 
 // 应用日志 store：读取/订阅主进程的应用生命周期/操作日志（区别于 server store 的后端 llama 输出）。
+// 应用日志缓冲上限：导出给日志页作为渲染上限，避免两处各写一个数（曾出现页面 RENDER_LIMIT 3000
+// 高于缓冲 2000 而永远触发不到的死余量）。
+export const APP_LOG_MAX_LINES = 2000;
+
 // 订阅防重入：与 server store 同模式，避免 dev HMR 下 listener 累积导致重复推送。
 export const useAppLogStore = defineStore('appLog', () => {
   const entries = ref<AppLogLine[]>([]);
-  const MAX_LINES = 2000;
 
   let subscribed = false;
   let locale = 'zh-CN';
@@ -52,8 +55,8 @@ export const useAppLogStore = defineStore('appLog', () => {
 
   function push(entry: AppLogEntry) {
     entries.value.push(decorate(entry));
-    if (entries.value.length > MAX_LINES) {
-      entries.value.splice(0, entries.value.length - MAX_LINES);
+    if (entries.value.length > APP_LOG_MAX_LINES) {
+      entries.value.splice(0, entries.value.length - APP_LOG_MAX_LINES);
     }
   }
 
@@ -63,7 +66,7 @@ export const useAppLogStore = defineStore('appLog', () => {
     try {
       // 初始拉取当前缓冲（浏览器预览/mock 环境下 list 可能返回 null）
       void window.api.logs.list().then((list) => {
-        if (Array.isArray(list) && list.length > 0) entries.value = list.slice(-MAX_LINES).map(decorate);
+        if (Array.isArray(list) && list.length > 0) entries.value = list.slice(-APP_LOG_MAX_LINES).map(decorate);
       });
       window.api.logs.onLog((e) => push(e));
     } catch {

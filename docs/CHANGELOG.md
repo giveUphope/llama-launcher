@@ -4,6 +4,16 @@
 
 ## \[Unreleased]
 
+- **拉取后全量复核：修 4 处代码缺陷 + 6 处文档漂移（2026-09-20）**：对 v0.0.38 树做一次代码/文档对账，逐项读源码复现后落地。
+  - **`pnpm lint` 假报错根因消除**：`turbo.json` 的 `lint` 补 `dependsOn: ["^build"]`。`apps/desktop` 的 `tsc --noEmit` 走 project references，解析 `@llama-launcher/core`/`shared` 走的是包 `exports` 指向的 `dist/*.d.ts`；拉取新代码后未构建就 lint，会报出一整批假的 `has no exported member 'detectTrashAsync'` / `'probeError' does not exist` / `Property 'SERVER_OUTPUT_BATCH' does not exist`（CI 里 `pnpm build` 显式先于 `pnpm lint` 正是同一原因，此前只写在 ci-cd.md §2.3，本地必踩）。现在 lint 自动带上游构建。
+  - **mock 预览深链被弹回**：`packages/ui/src/main.ts` 的 `last_tab` 恢复改为「URL 已带显式 hash 时跳过」。实测 `127.0.0.1:5173/?x#/logs` 整页加载后停在 `#/dashboard`，只能靠点侧边导航进页（AGENTS.md 收尾动作要求「导航到本轮改动的页面」，此前每次都得点一遍）。Electron 走 `loadFile` 无 hash，生产启动行为不变。
+  - **`ParamGroupKey` 死成员**：删 `'sampling'`——`PARAM_GROUPS` 只有 3 组，60 个参数无一带 `group: 'sampling'`，采样一律是 `group: 'basic'` + `subcategory: 'sampling'`（`ParamsPage` 的 13 子分类走 `SUBCATEGORY_ORDER`，与该联合类型无关）。留着会让后来者误以为存在第四个参数组。
+  - **日志页渲染上限死余量**：`LogsPage` 的 `RENDER_LIMIT` 原为 3000，而 `appLog` 缓冲 `MAX_LINES` 只有 2000，该限制永不触发；把缓冲上限提为 store 导出的 `APP_LOG_MAX_LINES` 并让页面直接引用，两处不再各写一个数。
+  - **过时注释/类型**：`shared/src/types/server.ts` 与 `ui/src/stores/server.ts` 的 `ServerInfo.values` / `runningValues` 注释仍写「含 `_enabled`」，该逐参数启用位已随双轨逻辑移除；`ParamRow.vue` 还原 ✕ 槽注释仍写「最小轨 400 → 450」，#78 已回收到 418。
+  - **文档对齐实现**：`core-modules.md` 的 trash-cleaner 索引补 `detectTrashAsync` / `cleanTrashAsync`（IPC 实际只用异步版）；`core-modules.md` HF 客户端「302 手动跟随且始终保持在镜像 host 内」按传输拆开讲清——默认 `node:https` 传输成立，主进程注入的 `net` 传输用 `redirect: 'follow'`（net 的 `manual` 会抛 `Redirect was cancelled`），跟随由 Chromium 完成、可能离开镜像 host，`request()` 的 3xx 分支只是不触发的兜底；`ipc-channels.md` 的 `system:estimateVram` 行补上 `d788d24` 漏掉的 `probeError` 透出、设备探测「只缓存成功结果」与 `resolveServerExe` 回退链（`desktop-main.md` 早已写明）；`frontend.md` 日志页 3000 → 2000。
+  - **测试规模**：`AGENTS.md` / `testing.md` 的 core 用例数 355 → 359（实测 `pnpm test`）。
+  - 验证：`pnpm build` → `pnpm lint`（4 包类型检查 + IPC 56 通道同步 + 155 文档链接 + i18n 364 键 + oxlint 203 文件 0 告警）→ `pnpm test`（core 359 + ui 66）全绿。
+
 ## \[0.0.38] - 2026-09-19
 
 

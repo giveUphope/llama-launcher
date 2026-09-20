@@ -6,7 +6,7 @@ export interface ServerInfo {
   host: string;
   port: number;
   url: string;
-  /** 最近一次启动/重启使用的参数快照（含 _enabled），用于判断服务是否与当前参数一致 */
+  /** 最近一次启动/重启使用的参数快照（仅参数值，无逐参数启用位），用于判断服务是否与当前参数一致 */
   values?: Record<string, string | number | boolean>;
 }
 

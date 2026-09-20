@@ -101,7 +101,7 @@
 
 **`modelscope-client`**：匿名访问 ModelScope API，搜索模型、列出仓库文件。文件项包含 `quantization` 字段（由 `parseQuantization` 从文件名解析）。
 
-**`huggingface-client`**：通过 `hf-mirror.com` 镜像访问 HuggingFace API（`/api/models/{ns}/{name}/tree/main?recursive=true`），列出仓库文件。支持可注入传输（`HfHttpTransport` / `setHfTransport`），Electron 主进程注入基于 `net` 模块的传输以规避 BoringSSL TLS 指纹被 hf-mirror.com 拒绝的问题；302 重定向**手动跟随**（最多 5 跳，且始终保持在镜像 host 内，不跳外部 CDN）。镜像 host 可配置（`setHfMirrorHost`，由 settings 的 `hf_mirror_host` 驱动），可自建反代。3 次指数退避重试。
+**`huggingface-client`**：通过 `hf-mirror.com` 镜像访问 HuggingFace API（`/api/models/{ns}/{name}/tree/main?recursive=true`），列出仓库文件。支持可注入传输（`HfHttpTransport` / `setHfTransport`），Electron 主进程注入基于 `net` 模块的传输以规避 BoringSSL TLS 指纹被 hf-mirror.com 拒绝的问题。**重定向行为随传输而变**：core 默认传输（`node:https`）不自动跟随，由 `request()` 手动跟随（最多 5 跳，每跳用 `pathname + search` 重拼回当前镜像 host，保持在镜像域内）；而主进程注入的 `net` 传输用 `redirect: 'follow'`（Electron net 的 `'manual'` 模式不返回 3xx 而是抛 `Redirect was cancelled`），重定向由 Chromium 自动跟随、**可能离开镜像 host**，此时 `request()` 的 3xx 分支只是兜底、实际不会触发（见 `apps/desktop/src/main/hf-transport.ts`）。镜像 host 可配置（`setHfMirrorHost`，由 settings 的 `hf_mirror_host` 驱动），可自建反代。3 次指数退避重试。
 
 **`url-parser`**：解析 LM Studio / HuggingFace / ModelScope 三种来源的模型 URL。`huggingface.co` 与 `hf-mirror.com` 均识别为 `source: 'huggingface'`，DownloadCard 跳过 ModelScope 搜索直接走 HF 镜像链路。
 
@@ -183,7 +183,7 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | `download-manager.ts`   | `DownloadManager`（单例 `getDownloadManager`）/ `setDownloadTransport` / `DownloadTransport`                                                                        | 多任务断点续传（§4.6）                         |
 | `download-log.ts`       | `appendDownloadEvent` / `replayDownloadLog` / `deleteDownloadLog` / `migrateLegacyMeta`                                                                         | 续传事件日志（§4.10）                         |
 | `retry.ts`              | `isRetryableError` / `retryDelayMs`                                                                                                                             | 重试判定与退避（§4.9）                        |
-| `trash-cleaner.ts`      | `detectTrash` / `cleanTrash`（`TrashScanOptions`）                                                                                                                | 应用生成文件清理（§4.13）                       |
+| `trash-cleaner.ts`      | `detectTrash` / `detectTrashAsync` / `cleanTrash` / `cleanTrashAsync`（`TrashScanOptions`；IPC 侧一律用异步版）                                              | 应用生成文件清理（§4.13）                       |
 | `cleanup-logger.ts`     | `cleanupLogger`（debug/info/warn/error）/ `setCleanupLogLevel`                                                                                                    | 进程清理日志（§4.12）                         |
 
 **`packages/shared/src`（类型/参数/i18n 唯一来源）**

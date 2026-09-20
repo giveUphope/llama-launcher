@@ -28,7 +28,10 @@ void (async () => {
       (async () => {
         await settings.load();
         const last = settings.settings?.last_tab;
-        if (last && last !== '/' && last !== router.currentRoute.value.fullPath) {
+        // URL 已带显式路由（#/logs、#/params?tab=custom）时不恢复 last_tab——否则深链打开的页面
+        // 会被弹回上次页签（Electron 走 loadFile 无 hash，此判断不影响生产启动行为）
+        const explicitRoute = /^#\/.+/.test(window.location.hash);
+        if (!explicitRoute && last && last !== '/' && last !== router.currentRoute.value.fullPath) {
           await router.replace(last).catch(() => {});
         }
       })(),

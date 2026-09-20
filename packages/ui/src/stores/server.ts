@@ -72,7 +72,7 @@ export const useServerStore = defineStore('server', () => {
   const host = ref('127.0.0.1');
   const port = ref(8080);
   const url = ref('');
-  // 最近一次启动/重启使用的参数快照（含 _enabled），用于判断服务是否与当前参数一致
+  // 最近一次启动/重启使用的参数快照（仅参数值，无逐参数启用位），用于判断服务是否与当前参数一致
   const runningValues = ref<Record<string, string | number | boolean> | null>(null);
   const outputs = ref<OutputLine[]>([]);
   // 输出行号源（单调递增，跨 clearOutputs 不复用，供 v-for 稳定 key）
