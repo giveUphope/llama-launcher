@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.39] - 2026-09-20
+
+
 - **拉取后全量复核：修 4 处代码缺陷 + 6 处文档漂移（2026-09-20）**：对 v0.0.38 树做一次代码/文档对账，逐项读源码复现后落地。
   - **`pnpm lint` 假报错根因消除**：`turbo.json` 的 `lint` 补 `dependsOn: ["^build"]`。`apps/desktop` 的 `tsc --noEmit` 走 project references，解析 `@llama-launcher/core`/`shared` 走的是包 `exports` 指向的 `dist/*.d.ts`；拉取新代码后未构建就 lint，会报出一整批假的 `has no exported member 'detectTrashAsync'` / `'probeError' does not exist` / `Property 'SERVER_OUTPUT_BATCH' does not exist`（CI 里 `pnpm build` 显式先于 `pnpm lint` 正是同一原因，此前只写在 ci-cd.md §2.3，本地必踩）。现在 lint 自动带上游构建。
   - **mock 预览深链被弹回**：`packages/ui/src/main.ts` 的 `last_tab` 恢复改为「URL 已带显式 hash 时跳过」。实测 `127.0.0.1:5173/?x#/logs` 整页加载后停在 `#/dashboard`，只能靠点侧边导航进页（AGENTS.md 收尾动作要求「导航到本轮改动的页面」，此前每次都得点一遍）。Electron 走 `loadFile` 无 hash，生产启动行为不变。
