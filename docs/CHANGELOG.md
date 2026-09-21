@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.40] - 2026-09-21
+
+
 - **参数页英文标签截断归零 + 几何判定扩到参数页（残留清单第 7、10 条，2026-09-21，STYLE_TODO #80）**：#79 修的是设置页（英文标签压控件），参数页是同一列宽口径的另一半——124px 由 #78 按**中文**最长标签 122.8px 定，英文侧没逐条量。用页面真实字体 canvas 实测 **11/60 条英文标签 > 124**（超 4–45px，被 `overflow: hidden` + 省略号截断；中文态 0/60）。
   - 两条路线交用户选边：① 列宽 124→176 彻底不截断，但最小轨 418→470，**1600 由 3 列退 2 列、2560 由 5 列退 4 列**，与 #78「不拿列数换对齐」冲突；② 缩短英文文案（零布局代价，完整术语在 `PARAM_HELP` 与 tooltip 里）→ **选 ②**。
   - `labels.ts` 的 `en` 改 11 条（zh 一字未动）：`Continuous Batch` / `Multimodal Proj.` / `Proj. GPU Offload` / `Video TS Interval` / `Jinja Engine` / `Draft KV Type K|V` / `Synth. Accept Len` / `Synth. Accept Rate`（顺带修单复数 bug，zh 为「合成接受率」）/ `Reasoning Budget` / `Budget End Msg`。**每条候选改前都实测 ≤122px** 留余量；键名逐条 grep 对回（我按表推断的 key 有 4 个不准）。
