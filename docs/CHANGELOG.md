@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.42] - 2026-09-21
+
+
 - **发版后回查：上一轮「根因修复」其实没修住，补第七道门禁（2026-09-22）**：推送后核对 bot 的 `chore(release): v0.0.41` 提交，发现 `docs/architecture.md` 的 desktop 行**又漂了一次**（文档 0.0.40 / 实际 0.0.41）。读码定位：上一轮我只把 `docs/architecture.md` 写进了 `bump-version.cjs` 的**文件头注释**，第 5 步的**清单数组**仍是三个文件——注释声称已同步、代码没动，等于没修。这正是本项目「文档声明必须与实测对拍」要防的东西，却发生在我自己声称的修复上。
   - **清单数组补 `docs/architecture.md`**，与头注释对齐；用只读同构 dry-run 验证（不能真跑脚本，它会写版本+打 tag）：下一轮 bump 命中该行 1 处，README/AGENTS 不误伤。
   - **不靠「清单写全」，改由不变量兜底**：新增 `scripts/verify-version-sync.cjs` 并接入 `pnpm lint`（第 7 项）。断言 root/desktop `package.json`、`APP_VERSION`、`architecture.md` 版本表、`CHANGELOG` 最新已发布标题**五处相等**；且**解析不到值同样 fail**——否则表格改版会让检查静默变空转，比没检查更糟。
