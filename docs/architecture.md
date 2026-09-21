@@ -103,6 +103,7 @@ llama_launcher/
 │   ├── verify-ipc-sync.cjs          # IPC 常量一致性校验 + 文档通道数声明校验
 │   ├── verify-help-drift.cjs        # 二进制升级后的参数漂移审计
 │   ├── verify-i18n-usage.cjs        # i18n 键使用一致性（六项检查：键集/悬空键/裸中文/手工插值/实参匹配/动态键族）
+│   ├── verify-version-sync.cjs      # 版本声明一致性（root/desktop package.json + APP_VERSION + architecture 版本表 + CHANGELOG 标题，五处必须相等）
 │   ├── check-docs-links.cjs         # 文档相对链接与锚点完整性（lint 阶段执行）
 │   ├── style-audit.cjs              # UI 风格规范审计（条目与计数以脚本输出为准，勿在文档写死）
 │   ├── verify-server-start.mjs      # Launcher 手动冒烟测试（需 core/dist 先构建；模型由 --model / LLAMA_SMOKE_MODEL / 模型目录解析）
@@ -131,7 +132,7 @@ llama_launcher/
 
 | 包名                        | 版本    | 职责                          |
 | ------------------------- | ----- | --------------------------- |
-| `@llama-launcher/desktop` | 0.0.40 | Electron 主进程 + preload + 打包 |
+| `@llama-launcher/desktop` | 0.0.41 | Electron 主进程 + preload + 打包 |
 | `@llama-launcher/core`    | 1.0.0 | 核心业务逻辑（进程/命令/扫描/下载/GGUF）    |
 | `@llama-launcher/shared`  | 1.0.0 | 类型定义、参数表、i18n 的唯一来源         |
 | `@llama-launcher/ui`      | 1.0.0 | Vue 3 + Vite + Pinia 前端     |

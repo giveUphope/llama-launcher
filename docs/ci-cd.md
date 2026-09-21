@@ -25,7 +25,7 @@
   3. `actions/setup-node@v7`（node-version: 24, cache: pnpm）
   4. `pnpm install --frozen-lockfile`
   5. `pnpm build` — **必须先于 `pnpm lint`**（tsc project references 依赖 shared/dist / core/dist）
-  6. `pnpm lint`（turbo run lint + `verify-ipc-sync.cjs` + `verify-params-sync.cjs` + `check-docs-links.cjs` + `verify-i18n-usage.cjs` + `lint:ox`（oxlint）——六项缺一不进门禁）
+  6. `pnpm lint`（turbo run lint + `verify-ipc-sync.cjs` + `verify-params-sync.cjs` + `verify-version-sync.cjs` + `check-docs-links.cjs` + `verify-i18n-usage.cjs` + `lint:ox`（oxlint）——七项缺一不进门禁）
   7. `pnpm test`
 
 pull_request 和 push 事件都走 verify。
@@ -41,7 +41,7 @@ pull_request 和 push 事件都走 verify。
 - **步骤**：
   1. `actions/checkout@v7`（fetch-depth: 0, persist-credentials: true）
   2. `actions/setup-node@v7`（**不跑 `pnpm install`**：`bump-version.cjs` 是纯 node 脚本、无 npm 依赖，2026-09-09 起免装）
-  3. `node scripts/bump-version.cjs patch` — patch 递增
+  3. `node scripts/bump-version.cjs patch` — patch 递增。同步范围由脚本内**两处**定义：文件头「同步范围」注释 + 第 5 步的清单数组 `['docs/packaging.md','README.md','AGENTS.md','docs/architecture.md']`。二者曾经不一致（注释声称已收 `docs/architecture.md`、数组没动），导致 monorepo 版本表的 desktop 行连漂三轮 `0.0.12 → 0.0.34 → 0.0.40 → 0.0.41`；现已对齐，并由 `verify-version-sync.cjs` 在 `pnpm lint` 侧守住最终不变量。**该脚本自身不在文档路径内**，改它照常 bump 发版。
   4. 配置 git user.name / git user.email 为 github-actions[bot]
   5. 读取新版本：`V=$(node -p "require('./package.json').version")`
   6. `git add -A` → `git commit -m "chore(release): vX"` → `git tag -a vX` → `git push origin HEAD:main` + `git push origin vX`

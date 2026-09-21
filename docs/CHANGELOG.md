@@ -4,6 +4,13 @@
 
 ## \[Unreleased]
 
+- **发版后回查：上一轮「根因修复」其实没修住，补第七道门禁（2026-09-22）**：推送后核对 bot 的 `chore(release): v0.0.41` 提交，发现 `docs/architecture.md` 的 desktop 行**又漂了一次**（文档 0.0.40 / 实际 0.0.41）。读码定位：上一轮我只把 `docs/architecture.md` 写进了 `bump-version.cjs` 的**文件头注释**，第 5 步的**清单数组**仍是三个文件——注释声称已同步、代码没动，等于没修。这正是本项目「文档声明必须与实测对拍」要防的东西，却发生在我自己声称的修复上。
+  - **清单数组补 `docs/architecture.md`**，与头注释对齐；用只读同构 dry-run 验证（不能真跑脚本，它会写版本+打 tag）：下一轮 bump 命中该行 1 处，README/AGENTS 不误伤。
+  - **不靠「清单写全」，改由不变量兜底**：新增 `scripts/verify-version-sync.cjs` 并接入 `pnpm lint`（第 7 项）。断言 root/desktop `package.json`、`APP_VERSION`、`architecture.md` 版本表、`CHANGELOG` 最新已发布标题**五处相等**；且**解析不到值同样 fail**——否则表格改版会让检查静默变空转，比没检查更糟。
+  - **连带发现一个内容篡改级缺陷**：`bump-version.cjs` 对文档做全文 `replace(旧版本 → 新版本)`，把 `packaging.md` 里一段**历史反例**（记录「旧文字错误声称 electron-builder 会剥 SemVer 尾零」）中的举例版本号一并改写，`v0.0.38 → v0.0.41` 三轮连改，如今反例写成「`0.0.41` → `0.0.5`」——一个尾零都没有的版本号，论证对象自己失效了。修法：第 5 步改**按行**替换，含 `bump-ignore` 标记的行跳过（与 `// i18n-ignore` 同构）；同时把该段拆成两行——「实测产物名」是真声明，继续跟随 bump；「历史反例」加标记固定住，并把举例改回永不与当前版本碰撞的 `x.y.34` 形式。dry-run 复核：受保护段逐字不动，声明行照常更新。
+  - 验证：`pnpm lint`（七项门禁 + 157 文档链接）/ `pnpm test`（core 362 + ui 69）/ `pnpm e2e:web`（15 例）/ `pnpm build` 全绿。新门禁跑过两次**负测试**：把版本表退回 `0.0.34` → 点名「应为 0.0.41」；把该行改成非版本号 → 报「解析不到版本号（检查本身失效）」，两次均 exit 1，还原用反向 Edit（不用 `git checkout`，那会连本轮未提交改动一起回退）。
+  - 文档同步：`AGENTS.md`（脚本清单 + lint 组成 + fail 条件 + bump 规则「新增版本声明处两件事都要做」）、`docs/ci-cd.md`（lint 七项、bump 同步范围与「脚本自身不在文档路径内」）、`docs/workflow.md`、`docs/architecture.md`（脚本树 + 版本表对齐 0.0.41）、`docs/packaging.md`（§11.7 反例拆分与标记说明）。
+
 ## \[0.0.41] - 2026-09-21
 
 
