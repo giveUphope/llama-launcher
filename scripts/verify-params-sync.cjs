@@ -87,21 +87,30 @@ console.log(`两边一致的 flag 数: ${both.length}\n`);
 
 // Also report truly unsupported-by-function params in doc
 const docParamsNotInCode = docSupportedParams.filter(flags => !flags.some(f => codeFlags.has(f)));
+
+// 两类漂移从「只打印」升级为硬门禁（2026-09-21 硬编码审计收尾）：本脚本已接入
+// pnpm lint，只打印等于没有——漂移会一直躺着没人管（历史上 flag 数与文档就是靠
+// 人工对表订正过一轮）。今天实测两类皆空，故转 fail 不会立刻炸 CI。
+const syncDrift = [];
 if (docParamsNotInCode.length) {
-  console.log('【清单标为已支持，但代码中没有任何对应 flag 的参数】');
-  for (const flags of docParamsNotInCode) console.log(`  ${flags.join(', ')}`);
-  console.log('');
+  syncDrift.push('清单标为已支持，但代码中没有任何对应 flag 的参数：');
+  for (const flags of docParamsNotInCode) syncDrift.push('  ' + flags.join(', '));
 }
-
 if (onlyInCode.length) {
-  console.log('【代码中有 flag，但清单未把这些参数标为已支持】');
-  for (const f of onlyInCode.sort()) console.log(`  ${f}`);
-  console.log('');
+  syncDrift.push('代码中有 flag，但清单未把这些参数标为已支持：');
+  for (const f of onlyInCode.sort()) syncDrift.push('  ' + f);
 }
-
-if (!onlyInCode.length && !docParamsNotInCode.length) {
-  console.log('✅ 按参数维度检查完全一致，无出入。\n');
+if (syncDrift.length) {
+  console.error('[verify-params-sync] ❌ 参数定义 ↔ 文档清单 ↔ help 三方对拍有出入：');
+  for (const line of syncDrift) console.error('  ' + line);
+  console.error(
+    '修复二选一：① 代码侧补/改 flag（packages/shared/src/params/definitions.ts）；' +
+      '② 文档侧改标注或重新生成对照表（node scripts/generate-params-doc.cjs）。' +
+      '二进制升级导致的漂移见 scripts/verify-help-drift.cjs 与 docs/params-system.md §5.5。',
+  );
+  process.exit(1);
 }
+console.log('✅ 按参数维度检查完全一致，无出入。\n');
 
 // ============================================================
 // 文档里的参数计数声明必须等于 definitions.ts 实测（2026-09-21 硬编码审计补）。

@@ -25,7 +25,7 @@
   3. `actions/setup-node@v7`（node-version: 24, cache: pnpm）
   4. `pnpm install --frozen-lockfile`
   5. `pnpm build` — **必须先于 `pnpm lint`**（tsc project references 依赖 shared/dist / core/dist）
-  6. `pnpm lint`（turbo run lint + `verify-ipc-sync.cjs` + `check-docs-links.cjs` + `verify-i18n-usage.cjs` + `lint:ox`（oxlint）——五项缺一不进门禁）
+  6. `pnpm lint`（turbo run lint + `verify-ipc-sync.cjs` + `verify-params-sync.cjs` + `check-docs-links.cjs` + `verify-i18n-usage.cjs` + `lint:ox`（oxlint）——六项缺一不进门禁）
   7. `pnpm test`
 
 pull_request 和 push 事件都走 verify。

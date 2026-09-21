@@ -4,6 +4,12 @@
 
 ## \[Unreleased]
 
+- **参数三方对拍升级为硬门禁（残留清单第 6 条，2026-09-21）**：`verify-params-sync.cjs` 的两类漂移——「代码有 flag 而清单未标已支持」与「清单标已支持而代码无 flag」——此前**只 `console.log` 不 `process.exit`**，等于打印一条没人看的提示；而本脚本上一轮刚接入 `pnpm lint`，只打印意味着门禁名存实亡。今天实测两类皆空（`✅ 按参数维度检查完全一致`），故转 fail 不会立刻炸 CI。
+  - 失败信息给两条出路：① 代码侧补/改 flag（`definitions.ts`）；② 文档侧改标注或 `node scripts/generate-params-doc.cjs` 重生成对照表；并指向二进制升级漂移的 re-pin 流程（`verify-help-drift.cjs` + params-system §5.5）。
+  - **负测试**：把 `temperature` 的 flag 临时改成 `--zzz-bogus` → 同时报出两类出入（文档侧 `--temp, --temperature` 无对应 flag、代码侧 `--zzz-bogus` 未标），**真实退出码 1**（第一次注入锚点把 `--temp` 抄成 `-temp` 导致 `INJECT FAILED`，取真实行文本后成功）；`.bak` 还原后回到 ✅。
+  - 顺带修一处文档落后：`docs/ci-cd.md` 仍写 lint 是「五项」且未列 `verify-params-sync.cjs`（上一轮接入时漏改），改为六项；AGENTS.md 的脚本职责同步「对拍有出入即 fail」与字典双向相等。
+
+
 - **动态拼接键族门禁（残留清单第 5 条，2026-09-21）**：`DownloadCard.vue:627` 写的是 `i18n.t('dl_err_' + task.errorType)`——键名由代码拼出来，检查 1「字面量 `t('k')` 悬空」完全看不见，`DownloadErrorType` 成员改名或新增不会有任何报警，界面直接渲染 `dl_err_xxx`。实测今天 11 个成员的双语 `dl_err_*` 齐全。
   - `verify-i18n-usage.cjs` 新增检查 6：按枚举成员逐个断言 `前缀+成员` 在 zh/en 都存在，并反查该前缀下的**字典孤儿**；规则做成 `DYNAMIC_KEY_FAMILIES` 表，将来同类前缀加一行即可。成员解析按行首 `| 'name'`：该类型每成员一行且行尾带中文注释，按 `|` 切分会把注释吞进成员名（本会话前一次量覆盖度时就这样误报过 10 条「缺键」，只有行尾是 `';` 的 `unknown` 躲过）。
   - 负测试双向成立：从 en.ts 删 `dl_err_checksum_mismatch` → 报「动态键缺失」；往 zh.ts 注入 `dl_err_ghost_case` → 报「动态键孤儿」。均 `.bak` 还原。
