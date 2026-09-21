@@ -4,6 +4,11 @@
 
 ## \[Unreleased]
 
+- **E2E 预览端口收敛（残留清单第 3 条，2026-09-21）**：`4173` 原本在 `e2e/run-web-e2e.mjs:9`（`PREVIEW_PORT`）与 `playwright.config.ts:20`（`baseURL`）各写一份。改为**驱动做唯一所有者**：spawn `playwright test` 时注入 `E2E_PREVIEW_URL`，配置读该变量作 `baseURL`，并在 `test` 调用下缺变量即 `exit 1`。
+  - 为什么是快速失败而非「留一个默认值」：2026-09-20 的 CHANGELOG 记过同类事故——`pnpm test:e2e` 曾绕开驱动直接 `playwright test`，`webServer` 移除后没人起 4173，浏览器连到残留占用进程，11 条用例全红且原因难定位。留默认值等于把这个坑重新敞开（静默连到 `127.0.0.1:4173` 上的任何东西）。
+  - 验证：`pnpm e2e:web` 13 例全绿；绕开驱动 `pnpm exec playwright test --project=web` 实测**真实退出码 1** 并打印指引（第一次读管道 `$?` 得到的是 `tail` 的退出码，改用 `> /dev/null 2>&1; echo $?` 才拿到真值——管道尾码陷阱本轮第二次踩，记入纪律）。改后 `git grep 4173` 在 e2e/配置里只剩驱动那一处代码字面量，其余全是注释与文档叙述。同步 docs/testing.md 的端口归属说明。
+
+
 - **对外链接收敛（残留清单第 2 条，2026-09-21）**：先把 `ui`/`desktop`/`core` 三处的全部 `https?://` 字面量捞干净（排除 scheme 前缀判断、注释、SVG 命名空间、由 host 变量拼接的模板串），真实外链只有 **3 条**：`AboutPanel.vue` 的仓库地址与 llama.cpp 发布页、`GeneralPanel.vue:110` 又写了一份**完整相同的**发布页 URL（改地址必漏一处）。
   - `definitions.ts` 与 `APP_NAME`/`APP_VERSION` 并列新增 `APP_REPO_URL` / `LLAMA_CPP_RELEASES_URL`，AboutPanel 去掉两个本地 `const` 别名直接引用常量（模板可读 script setup 导入），GeneralPanel 的 `openExternal` 改引常量。
   - 验证：`git grep` 实测 ui/desktop 已无 github/modelscope/hf-mirror 字面量；「关于」面板两个按钮实测仍渲染出完整 URL（`https://github.com/giveUphope/llama-launcher`、`https://github.com/ggml-org/llama.cpp/releases`），版本 v0.0.39；build / lint / test（core 359 + ui 69）全绿。

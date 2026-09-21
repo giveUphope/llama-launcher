@@ -67,7 +67,11 @@ try {
 
   // 定位 playwright CLI（import.meta.resolve 尊重 exports 映射）
   const cliPath = fileURLToPath(import.meta.resolve('@playwright/test/cli'));
-  const result = spawnSync(process.execPath, [cliPath, 'test', '--project=web'], { stdio: 'inherit' });
+  const result = spawnSync(process.execPath, [cliPath, 'test', '--project=web'], {
+    stdio: 'inherit',
+    // 端口唯一所有者是本脚本：把 baseURL 交给配置读，避免 playwright.config.ts 再写一份 4173
+    env: { ...process.env, E2E_PREVIEW_URL: PREVIEW_URL },
+  });
   status = result.status ?? 1;
   if (result.error) throw result.error;
 } catch (e) {
