@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+- **下载并发默认值收敛（第 2 项，2026-09-21）**：`download_max_concurrent` 的默认 `3` 与闭区间 `1..5` 实测散落 **6 处 8 个点**（`settings-store` 默认值 + zod schema、`download-manager` 字段初值 + `setMaxConcurrent` 钳制、`ipc/download` + `ipc/settings` 两处 `?? 3`、`AdvancedPanel` 输入钳制 + 下拉 `[1,2,3,4,5]`）。新增 `shared/src/settings-limits.ts`（`DOWNLOAD_CONCURRENCY_DEFAULT/MIN/MAX/OPTIONS` + `clampDownloadConcurrency`）作唯一来源并全量替换——放 shared 是因为依赖流单向 `ui ↛ core`，若常量放 core 则设置页无法引用，正是「各写一份」的成因。实测风险面：改大 MAX 后只要漏改一处，就会出现「设置里能选 6、下载层悄悄压回 5」。下拉列表改由边界推导（`Array.from`），不再手写 5 个字面量。同步 data-persistence.md 标注来源。build / lint / test 全绿。
+
+
 - **手工插值收敛到 `t(key, [args])`（第 1 项，2026-09-21）**：`.replace('{0}', x)` 是与 `t(key, args)` 并行的第二套填参机制——只替换首个占位符（键里 `{0}` 出现两次时第二个裸奔）、多槽链式顺序易错、且 `t()` 与 `.replace()` 混排难读。实测 12 个文件共 **48 处**，全部改为 `t(key, [a, b, …])`。
   - 做法：写平衡括号 + 字符串状态机的 codemod（正则处理不了 `String(e?.message ?? e)`、模板串与嵌套 `t()` 实参），**干跑核对每一处 -/+ 后再应用**；只收敛「槽号自 0 连续」的链，非连续一律跳过留人工。首轮 codemod 有累积 bug（`out` 每轮从 `src` 重算，导致每文件只保留首处），跑门禁时以 48 处残留暴露出来，修正后二次收敛余下 36 处。
   - 语义差别即修复点：`tr` 的 `/\{(\d+)\}/g` 是全局替换，改后同键多占位一次填满。

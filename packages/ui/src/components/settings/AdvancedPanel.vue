@@ -4,6 +4,11 @@ import { computed } from 'vue';
 import Card from '@/components/common/Card.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useI18nStore } from '@/stores/i18n';
+import {
+  DOWNLOAD_CONCURRENCY_DEFAULT,
+  DOWNLOAD_CONCURRENCY_OPTIONS,
+  clampDownloadConcurrency,
+} from '@llama-launcher/shared';
 
 const settings = useSettingsStore();
 const i18n = useI18nStore();
@@ -13,14 +18,14 @@ const hfMirrorHost = computed<string>({
   set: (v) => { if (settings.settings) { settings.settings.hf_mirror_host = v; void settings.save(); } },
 });
 const maxConcurrent = computed<number>({
-  get: () => settings.settings?.download_max_concurrent ?? 3,
+  get: () => settings.settings?.download_max_concurrent ?? DOWNLOAD_CONCURRENCY_DEFAULT,
   set: (v) => {
     if (!settings.settings) return;
-    settings.settings.download_max_concurrent = Math.min(5, Math.max(1, Math.floor(Number(v) || 3)));
+    settings.settings.download_max_concurrent = clampDownloadConcurrency(Number(v) || DOWNLOAD_CONCURRENCY_DEFAULT);
     void settings.save();
   },
 });
-const concurrentOptions = [1, 2, 3, 4, 5];
+const concurrentOptions = DOWNLOAD_CONCURRENCY_OPTIONS;
 </script>
 
 <template>

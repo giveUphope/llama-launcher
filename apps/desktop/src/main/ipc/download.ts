@@ -8,7 +8,7 @@ import {
   listModelFiles,
   listHfFiles,
 } from '@llama-launcher/core';
-import { IPC } from '@llama-launcher/shared';
+import { IPC, DOWNLOAD_CONCURRENCY_DEFAULT } from '@llama-launcher/shared';
 import type {
   StartDownloadRequest,
   DownloadSource,
@@ -79,7 +79,7 @@ function flushPendingProgress(): void {
 export function registerDownloadIpc(ipcMain: IpcMain): void {
   const downloadManager = getDownloadManager();
   // 初始化最大并发数(从已保存的 settings 读取)
-  downloadManager.setMaxConcurrent(loadSettings().download_max_concurrent ?? 3);
+  downloadManager.setMaxConcurrent(loadSettings().download_max_concurrent ?? DOWNLOAD_CONCURRENCY_DEFAULT);
 
   for (const win of BrowserWindow.getAllWindows()) addTarget(win);
   app.on('browser-window-created', (_e, win) => addTarget(win));

@@ -3,6 +3,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { z } from 'zod';
 import { SETTINGS_FILE, DEFAULT_SERVER_EXE, DEFAULT_MODELS_DIR } from './paths.js';
 import { setHfMirrorHost } from './huggingface-client.js';
+import { DOWNLOAD_CONCURRENCY_DEFAULT, DOWNLOAD_CONCURRENCY_MIN, DOWNLOAD_CONCURRENCY_MAX } from '@llama-launcher/shared';
 import type { AppSettings } from '@llama-launcher/shared';
 
 /**
@@ -36,7 +37,7 @@ export function getDefaultSettings(): AppSettings {
     language: 'zh',
     last_tab: '',
     // 最大并发下载任务数(1-5)
-    download_max_concurrent: 3,
+    download_max_concurrent: DOWNLOAD_CONCURRENCY_DEFAULT,
     // HuggingFace 镜像源（空 = 默认 hf-mirror.com）
     hf_mirror_host: '',
     // 扩展参数（追加到启动命令末尾的用户自定义参数，空 = 无）
@@ -114,7 +115,7 @@ const settingsSchema = z.object({
   sidebar_collapsed: bool(false),
   language: enumOf(LANGUAGES, 'zh'),
   last_tab: str(''),
-  download_max_concurrent: num(3, 1, 5),
+  download_max_concurrent: num(DOWNLOAD_CONCURRENCY_DEFAULT, DOWNLOAD_CONCURRENCY_MIN, DOWNLOAD_CONCURRENCY_MAX),
   hf_mirror_host: str(''),
   custom_args: str(''),
   session_values: sessionValuesSchema,

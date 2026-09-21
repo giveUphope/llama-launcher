@@ -26,6 +26,7 @@ import type {
   DownloadCompletePayload,
   DownloadErrorPayload,
 } from '@llama-launcher/shared';
+import { DOWNLOAD_CONCURRENCY_DEFAULT, clampDownloadConcurrency } from '@llama-launcher/shared';
 import { buildDownloadUrl } from './modelscope-client.js';
 import { buildHfDownloadUrl, isHfMirrorHostname } from './huggingface-client.js';
 import {
@@ -309,7 +310,7 @@ export class DownloadManager extends EventEmitter {
   private expectedChecksums = new Map<string, string | null>();
   /** 进行中的 .part 删除(按路径):删除已异步化,复用同一路径前须等待,否则会波及新一轮下载的断点文件 */
   private pendingDeletes = new Map<string, Promise<void>>();
-  private maxConcurrent = 3;
+  private maxConcurrent = DOWNLOAD_CONCURRENCY_DEFAULT;
   private activeCount = 0;
 
   /** HTTPS Agent(probe 与段下载的 HTTP/1.1 分支:modelscope.cn 等,非 hf-mirror) */
@@ -324,7 +325,7 @@ export class DownloadManager extends EventEmitter {
   /** 设置最大并发任务数(由 settings.download_max_concurrent 驱动) */
   setMaxConcurrent(n: number): void {
     if (typeof n !== 'number' || n < 1) return;
-    this.maxConcurrent = Math.min(5, Math.max(1, Math.floor(n)));
+    this.maxConcurrent = clampDownloadConcurrency(n);
     // 设置后立即尝试启动队列中的任务(可能允许更多任务并发)
     this.tryStartNext();
   }
