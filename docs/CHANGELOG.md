@@ -6,7 +6,7 @@
 
 - **文档对齐审计（2026-09-21）**：逐条把文档声明与代码/实测对账（先量再改，未凭记忆）。**9 处修正 + 1 处根因修复**：
   - **两处旧用例数**：`AGENTS.md` 与 `docs/testing.md` 的「core 359 / ui 66」→ 实测 **362 / 69**（本轮新增 6 例：core download-log +3、ui params +3）。
-  - **`architecture.md` 的 monorepo 版本表 desktop 行 0.0.34 → 0.0.39**，并修根因：`scripts/bump-version.cjs` 的文档同步清单缺 `docs/architecture.md`，该行已在 0.0.12 → 0.0.34 → 0.0.39 两轮发版中持续漂移。补进清单后用**只读模拟**验证（不能真跑该脚本——它会写版本、CHANGELOG 并打 tag）：该文档里当前版本串只出现在这一行，历史版本引用不会误改。
+  - **`architecture.md` 的 monorepo 版本表 desktop 行 0.0.34 → 0.0.40**，并修根因：`scripts/bump-version.cjs` 的文档同步清单缺 `docs/architecture.md`，该行已在 0.0.12 → 0.0.34 → 0.0.40 两轮发版中持续漂移。补进清单后用**只读模拟**验证（不能真跑该脚本——它会写版本、CHANGELOG 并打 tag）：该文档里当前版本串只出现在这一行，历史版本引用不会误改。注意该修复只能防住**今后**的漂移——旧值 0.0.34 不在当时脚本认识的字符串里，替换不会命中，须一次性手工对齐到最新（本轮已做），否则永远不自愈。
   - **`architecture.md` 脚本树补 3 个漏收脚本**（`dev.cjs` / `reinstall-electron.cjs` / `verify-i18n-usage.cjs`），并把 `style-audit.cjs` 的「十项检查」改为**不写死项数**——实测脚本输出 12 项且编号 7 自首个提交起即空缺；`frontend.md` §7.5 自己就定了「计数勿在文档写死」的口径，architecture 那处正是反例。
   - **`docs/workflow.md` 的 `pnpm lint` 行**只列了两个脚本，补齐六项组成。
   - **`docs/params-system.md` §5.5 第 8 步**写着「该脚本目前只打印差异、不阻塞 lint」——上一轮已把 `verify-params-sync` 升级为硬 fail，该句连同新增的三类校验（三方对拍 / 计数声明 / 字典双向相等）一并重写。
