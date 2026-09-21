@@ -35,7 +35,7 @@ async function onCleanTrash() {
   try {
     // 1. 检测
     const detected = await window.api.system.detectTrash().catch((e: any) => {
-      pushError(i18n.t('msg_trash_detect_failed').replace('{0}', String(e?.message ?? e)));
+      pushError(i18n.t('msg_trash_detect_failed', [String(e?.message ?? e)]));
       return null;
     });
     if (!detected) {
@@ -64,9 +64,7 @@ async function onCleanTrash() {
       .map(([kind, { count, size }]) =>
         `${i18n.t(TRASH_KIND_LABEL_KEY[kind])}×${count} (${formatBytes(size)})`)
       .join(', ');
-    const msg = i18n.t('msg_trash_confirm')
-      .replace('{0}', String(detected.items.length))
-      .replace('{1}', formatBytes(detected.totalSize))
+    const msg = i18n.t('msg_trash_confirm', [String(detected.items.length), formatBytes(detected.totalSize)])
       + '\n\n' + summary;
 
     const confirmed = await confirm({
@@ -89,17 +87,13 @@ async function onCleanTrash() {
     if (result.failed > 0) {
       server.pushOutput({
         kind: 'warn',
-        data: `[Clean] ${i18n.t('msg_trash_failed')
-          .replace('{0}', String(result.cleaned))
-          .replace('{1}', String(result.failed))}\n`,
+        data: `[Clean] ${i18n.t('msg_trash_failed', [String(result.cleaned), String(result.failed)])}\n`,
         ts: Date.now(),
       });
     } else {
       server.pushOutput({
         kind: 'success',
-        data: `[Clean] ${i18n.t('msg_trash_cleaned')
-          .replace('{0}', String(result.cleaned))
-          .replace('{1}', formatBytes(result.totalSize))}\n`,
+        data: `[Clean] ${i18n.t('msg_trash_cleaned', [String(result.cleaned), formatBytes(result.totalSize)])}\n`,
         ts: Date.now(),
       });
     }

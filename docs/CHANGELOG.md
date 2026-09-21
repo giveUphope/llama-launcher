@@ -4,6 +4,13 @@
 
 ## \[Unreleased]
 
+- **手工插值收敛到 `t(key, [args])`（第 1 项，2026-09-21）**：`.replace('{0}', x)` 是与 `t(key, args)` 并行的第二套填参机制——只替换首个占位符（键里 `{0}` 出现两次时第二个裸奔）、多槽链式顺序易错、且 `t()` 与 `.replace()` 混排难读。实测 12 个文件共 **48 处**，全部改为 `t(key, [a, b, …])`。
+  - 做法：写平衡括号 + 字符串状态机的 codemod（正则处理不了 `String(e?.message ?? e)`、模板串与嵌套 `t()` 实参），**干跑核对每一处 -/+ 后再应用**；只收敛「槽号自 0 连续」的链，非连续一律跳过留人工。首轮 codemod 有累积 bug（`out` 每轮从 `src` 重算，导致每文件只保留首处），跑门禁时以 48 处残留暴露出来，修正后二次收敛余下 36 处。
+  - 语义差别即修复点：`tr` 的 `/\{(\d+)\}/g` 是全局替换，改后同键多占位一次填满。
+  - **新门禁**：`verify-i18n-usage.cjs` 增加检查 4——源码出现 `.replace('{N}', …)` 即 fail（豁免走同一白名单）；`xxxKey: 'yyy'` 间接引用键纳入双字典存在性校验（`reasonKey` 不含 `t()` 调用，旧的悬空检测看不见这类键）。规则本身用 4 组输入自测（含 `i18n/index.ts` 自身的全局替换正则为负例）。
+  - 顺手：`ParamsPage` 显存/内存/上下文三行 tooltip 的 `lines.push()` 塌回单行。验证：`pnpm build` / `pnpm lint` / `pnpm test`（core 359 + ui 66）全绿。
+
+
 - **硬编码全量审计与清除：4 类真缺陷 + 3 道新门禁（2026-09-21）**：按「机器专属值 / 默认值散落 / 数据层文案 / 无门禁数字」四类扫 `ui`+`core`+`shared`+`desktop`，逐项读源码复核后落地。
   - **`verify-server-start.mjs` 去掉本机绝对路径**：原 `modelPath` 写死 `C:\Users\<user>\.lmstudio\...\nomic-embed...gguf`（全库唯一含机器路径的受控文件），换机或模型删除即失效且报错误导。改为 `--model=` → `LLAMA_SMOKE_MODEL` → 设置的 `models_dir` 中**最小的 `.gguf`**（启动最快）三级解析，端口同步支持 `--port=`，解析不出模型时打印可操作提示并 exit 1（不静默跳过）；`host` 改引 `DEFAULT_HOST`。
   - **网络默认值收敛到单一事实源**：`definitions.ts` 由 `host`/`port` 两条目派生导出 `DEFAULT_HOST`/`DEFAULT_PORT`，替换散落的 7 处回退字面量（`launcher.ts` 字段初值与 `start()` 回退、`stores/server.ts`、`useStartServer.ts` ×3 + 接管 host、`ServiceStatusCard.vue`、`ipc/system.ts` checkPort/findFreePort）。此前改默认端口只要漏一处就会出现「UI 探 8080、服务实际起在别端口」的假端口占用告警。实测 `'127.0.0.1'` / `8080` 在 `src/**` 仅剩事实源、注释与测试夹具。

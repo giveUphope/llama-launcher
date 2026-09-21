@@ -72,7 +72,7 @@ async function confirmNameModelMismatch(name: string): Promise<boolean> {
   const base = binding.split(/[/\\]/).pop() ?? binding;
   return (await confirm({
     title: i18n.t('msg_preset_model_mismatch_title'),
-    message: i18n.t('msg_preset_model_mismatch').replace('{0}', name).replace('{1}', base),
+    message: i18n.t('msg_preset_model_mismatch', [name, base]),
     variant: 'warning',
   })) === true;
 }
@@ -85,7 +85,7 @@ async function onSavePreset() {
   if (exists) {
     const ok = await confirm({
       title: i18n.t('msg_confirm_overwrite_title'),
-      message: i18n.t('msg_confirm_overwrite').replace('{0}', name),
+      message: i18n.t('msg_confirm_overwrite', [name]),
       variant: 'warning',
     });
     if (!ok) return;
@@ -112,7 +112,7 @@ async function onApplyPreset(name: string) {
       void settings.save();
     }
     // 反馈：面板内短暂提示 + 控制台输出，让用户确认预设确实覆盖了参数配置
-    const msg = i18n.t('msg_preset_applied').replace('{0}', loaded.name).replace('{1}', String(count));
+    const msg = i18n.t('msg_preset_applied', [loaded.name, String(count)]);
     server.pushOutput({
       kind: 'success',
       data: `[preset] ${msg}\n`,
@@ -192,7 +192,7 @@ onActivated(() => { void onRefreshList(); });
                 </a-button>
                 <a-popconfirm
                   :title="i18n.t('msg_preset_delete_title')"
-                  :content="i18n.t('msg_preset_delete').replace('{0}', p.name)"
+                  :content="i18n.t('msg_preset_delete', [p.name])"
                   @ok="onDeletePreset(p.name)"
                 >
                   <a-button size="small" status="danger" class="row-action" :title="i18n.t('preset_delete')">

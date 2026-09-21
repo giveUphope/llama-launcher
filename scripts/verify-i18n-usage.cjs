@@ -177,6 +177,22 @@ function main() {
     }
   }
 
+  // 4) 手工插值 `.replace('{0}', x)`：与 t(key, args) 并行的第二套填参机制，
+  //    只能填首个占位符且槽序易错（2026-09-21 一次性收敛 48 处后立此门禁）。
+  const RE_MANUAL_ARG = /\.replace\(\s*['"]\{\d+\}['"]\s*,/g;
+  for (const dir of SCAN_DIRS) {
+    for (const file of collectFiles(dir)) {
+      if (skippedForLiteralScan(file)) continue;
+      const rel = path.relative(ROOT, file).replace(/\\/g, '/');
+      fs.readFileSync(file, 'utf8').split(/\r?\n/).forEach((line, idx) => {
+        if (RE_MANUAL_ARG.test(line)) {
+          errors.push(`手工插值: ${rel}:${idx + 1} 改用 t(key, [..]) —— ${line.trim().slice(0, 60)}`);
+        }
+        RE_MANUAL_ARG.lastIndex = 0;
+      });
+    }
+  }
+
   if (errors.length) {
     console.error(`[verify-i18n-usage] ❌ 发现 ${errors.length} 个问题：`);
     for (const e of errors) console.error('  - ' + e);

@@ -312,12 +312,12 @@ export const useParamsStore = defineStore('params', () => {
     // 无基线（出厂默认轨道）时脏 = 偏离默认值，来源显示「默认参数」
     const from = baseline.value
       ? baseline.value.preset_name
-        ? i18n.t('baseline_preset').replace('{0}', baseline.value.preset_name)
+        ? i18n.t('baseline_preset', [baseline.value.preset_name])
         : i18n.t('baseline_custom')
       : i18n.t('baseline_default');
     return (await confirm({
       title: i18n.t('msg_discard_dirty_title'),
-      message: i18n.t('msg_discard_dirty').replace('{0}', from),
+      message: i18n.t('msg_discard_dirty', [from]),
       variant: 'warning',
     })) === true;
   }
@@ -359,7 +359,7 @@ export const useParamsStore = defineStore('params', () => {
         values['mmproj'] = mmprojPath;
         server.pushOutput({
           kind: 'info',
-          data: `[mmproj] ${i18n.t('msg_mmproj_detected').replace('{0}', mmprojPath)}\n`,
+          data: `[mmproj] ${i18n.t('msg_mmproj_detected', [mmprojPath])}\n`,
           ts: Date.now(),
         });
       } else {
@@ -399,14 +399,14 @@ export const useParamsStore = defineStore('params', () => {
             values['spec_draft_n_max'] = 15;
             server.pushOutput({
               kind: 'success',
-              data: `[spec] ${i18n.t('msg_dflash_detected').replace('{0}', draftPath)}\n`,
+              data: `[spec] ${i18n.t('msg_dflash_detected', [draftPath])}\n`,
               ts: Date.now(),
             });
           } else {
             values['spec_type'] = 'draft-simple';
             server.pushOutput({
               kind: 'success',
-              data: `[spec] ${i18n.t('msg_draft_detected').replace('{0}', draftPath)}\n`,
+              data: `[spec] ${i18n.t('msg_draft_detected', [draftPath])}\n`,
               ts: Date.now(),
             });
           }
@@ -491,7 +491,7 @@ export const useParamsStore = defineStore('params', () => {
     if (count > 0) {
       server.pushOutput({
         kind: 'success',
-        data: i18n.t('msg_gguf_applied').replace('{0}', String(count)) + '\n',
+        data: i18n.t('msg_gguf_applied', [String(count)]) + '\n',
         ts: Date.now(),
       });
     }

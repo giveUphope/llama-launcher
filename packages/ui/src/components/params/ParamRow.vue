@@ -57,12 +57,12 @@ const dependencyHint = computed(() => {
   const depLabel = i18n.paramLabel(dep.key);
   const fmt = (v: string) => (v === '' ? i18n.t('lbl_dep_empty') : v);
   if (dep.notValues && dep.notValues.length > 0) {
-    return i18n.t('msg_dependency_not_values').replace('{0}', depLabel).replace('{1}', dep.notValues.map(fmt).join(' / '));
+    return i18n.t('msg_dependency_not_values', [depLabel, dep.notValues.map(fmt).join(' / ')]);
   }
   if (dep.values && dep.values.length > 0) {
-    return i18n.t('msg_dependency_values').replace('{0}', depLabel).replace('{1}', dep.values.map(fmt).join(' / '));
+    return i18n.t('msg_dependency_values', [depLabel, dep.values.map(fmt).join(' / ')]);
   }
-  return i18n.t('msg_dependency_enable').replace('{0}', depLabel);
+  return i18n.t('msg_dependency_enable', [depLabel]);
 });
 
 const ggufHint = computed<string | null>(() => {

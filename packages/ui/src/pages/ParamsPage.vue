@@ -143,30 +143,9 @@ const vramTooltip = computed(() => {
   }
   const v = o.vram;
   const lines: string[] = [];
-  lines.push(
-    i18n.t('msg_occ_vram_line')
-      .replace('{0}', e.devices[0].name)
-      .replace('{1}', giB(v.weightsMiB))
-      .replace('{2}', giB(v.kvMiB))
-      .replace('{3}', giB(v.reserveMiB))
-      .replace('{4}', giB(v.totalMiB))
-      .replace('{5}', giB(v.availableMiB))
-      .replace('{6}', v.fits === false ? i18n.t('occ_over') : i18n.t('occ_ok')),
-  );
-  lines.push(
-    i18n.t('msg_occ_ram_line')
-      .replace('{0}', giB(o.ram.weightsMiB))
-      .replace('{1}', giB(o.ram.kvMiB))
-      .replace('{2}', giB(o.ram.reserveMiB))
-      .replace('{3}', giB(o.ram.totalMiB))
-      .replace('{4}', giB(o.ram.availableMiB)),
-  );
-  lines.push(
-    i18n.t('msg_occ_ctx_line')
-      .replace('{0}', (o.contextTokens ?? 0).toLocaleString())
-      .replace('{1}', (o.maxContext ?? 0).toLocaleString())
-      .replace('{2}', kvDtype.value),
-  );
+  lines.push(i18n.t('msg_occ_vram_line', [e.devices[0].name, giB(v.weightsMiB), giB(v.kvMiB), giB(v.reserveMiB), giB(v.totalMiB), giB(v.availableMiB), v.fits === false ? i18n.t('occ_over') : i18n.t('occ_ok')]));
+  lines.push(i18n.t('msg_occ_ram_line', [giB(o.ram.weightsMiB), giB(o.ram.kvMiB), giB(o.ram.reserveMiB), giB(o.ram.totalMiB), giB(o.ram.availableMiB)]));
+  lines.push(i18n.t('msg_occ_ctx_line', [(o.contextTokens ?? 0).toLocaleString(), (o.maxContext ?? 0).toLocaleString(), kvDtype.value]));
   return lines.join('\n');
 });
 
@@ -206,7 +185,7 @@ async function applyTargetRecs() {
 async function onClearSession() {
   const ok = await confirm({
     title: i18n.t('msg_clear_session'),
-    message: i18n.t('msg_discard_dirty').replace('{0}', i18n.t('baseline_default')),
+    message: i18n.t('msg_discard_dirty', [i18n.t('baseline_default')]),
     variant: 'warning',
   });
   if (!ok) return;

@@ -59,7 +59,7 @@ export function useModelPreset() {
       }
       server.pushOutput({
         kind: 'success',
-        data: `[preset] ${i18n.t('msg_preset_applied').replace('{0}', preset.name).replace('{1}', String(count))}\n`,
+        data: `[preset] ${i18n.t('msg_preset_applied', [preset.name, String(count)])}\n`,
         ts: Date.now(),
       });
       return true;

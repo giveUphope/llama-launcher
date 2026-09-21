@@ -72,7 +72,7 @@ export function useStartServer() {
       // 防御性检查：浏览器预览/mock 环境下 checkPort 可能返回 null
       if (portCheck && portCheck.inUse) {
         // 设计稿 §13.2：先说明发生了什么，再说明如何解决
-        return { ok: false, message: i18n.t('msg_port_in_use').replace('{0}', String(port)), needPort: true };
+        return { ok: false, message: i18n.t('msg_port_in_use', [String(port)]), needPort: true };
       }
     }
     return { ok: true };
@@ -92,7 +92,7 @@ export function useStartServer() {
     const port = Number(params.values.port ?? DEFAULT_PORT);
     const pc = await window.api.system.checkPort(port, hostVal);
     if (pc && pc.inUse) {
-      pushError(i18n.t('msg_port_in_use').replace('{0}', String(port)));
+      pushError(i18n.t('msg_port_in_use', [String(port)]));
       const resolved = await resolvePortConflict(port, pc, hostVal);
       if (!resolved) return false;
     }
@@ -116,13 +116,10 @@ export function useStartServer() {
     // 占用者是 llama-server：大概率是应用外启动的实例，给出专属文案与「接管监控」选项
     const isLlamaServer = LLAMA_SERVER_NAME_RE.test(owner.name ?? '');
     const message = isLlamaServer
-      ? i18n.t('msg_port_conflict_llama')
-          .replace('{0}', String(port))
-          .replace('{1}', owner.name ?? '?')
-          .replace('{2}', String(owner.pid ?? '?'))
+      ? i18n.t('msg_port_conflict_llama', [String(port), owner.name ?? '?', String(owner.pid ?? '?')])
       : owner.name && owner.pid !== undefined
-        ? i18n.t('msg_port_conflict').replace('{0}', String(port)).replace('{1}', owner.name).replace('{2}', String(owner.pid))
-        : i18n.t('msg_port_conflict_no_name').replace('{0}', String(port));
+        ? i18n.t('msg_port_conflict', [String(port), owner.name, String(owner.pid)])
+        : i18n.t('msg_port_conflict_no_name', [String(port)]);
     const actions: { key: string; labelKey: string; variant?: 'primary' | 'danger' | 'warning' | 'ghost' }[] = [];
     if (isLlamaServer) {
       actions.push({ key: 'adopt', labelKey: 'act_adopt_external' });
@@ -152,12 +149,12 @@ export function useStartServer() {
     if (choice === 'kill' && owner.pid !== undefined) {
       const res = await window.api.system.killProcess(owner.pid);
       if (!res.ok) {
-        pushError(i18n.t('msg_kill_failed').replace('{0}', res.error ?? ''));
+        pushError(i18n.t('msg_kill_failed', [res.error ?? '']));
         return false;
       }
       server.pushOutput({
         kind: 'info',
-        data: `[Launcher] ${i18n.t('msg_port_owner_killed').replace('{0}', owner.name ?? `PID ${owner.pid}`)}\n`,
+        data: `[Launcher] ${i18n.t('msg_port_owner_killed', [owner.name ?? `PID ${owner.pid}`])}\n`,
         ts: Date.now(),
       });
       // 端口释放可能滞后于 taskkill 返回（TIME_WAIT/句柄收敛/占用者进程树未清），
@@ -170,17 +167,17 @@ export function useStartServer() {
         const recheck = await window.api.system.checkPort(port, hostVal);
         if (!(recheck && recheck.inUse)) return true;
       }
-      pushError(i18n.t('msg_port_still_busy').replace('{0}', String(port)));
+      pushError(i18n.t('msg_port_still_busy', [String(port)]));
       return false;
     }
     if (choice === 'change') {
       const free = await window.api.system.findFreePort(port + 1, hostVal);
       if (free === null) {
-        pushError(i18n.t('msg_free_port_not_found').replace('{0}', String(port + 1)).replace('{1}', '65535'));
+        pushError(i18n.t('msg_free_port_not_found', [String(port + 1), '65535']));
         return false;
       }
       params.set('port', free); // 写回参数（会话自动持久化），后续校验与命令预览同步
-      server.pushOutput({ kind: 'info', data: `[Launcher] ${i18n.t('msg_port_switched').replace('{0}', String(free))}\n`, ts: Date.now() });
+      server.pushOutput({ kind: 'info', data: `[Launcher] ${i18n.t('msg_port_switched', [String(free)])}\n`, ts: Date.now() });
       return true;
     }
     return false;

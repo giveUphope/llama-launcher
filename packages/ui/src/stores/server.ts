@@ -109,10 +109,7 @@ export const useServerStore = defineStore('server', () => {
         if (appeared) {
           pushOutput({
             kind: 'info',
-            data: `[Launcher] ${useI18nStore().t('msg_external_detected')
-              .replace('{0}', res.name ?? '?')
-              .replace('{1}', String(res.pid ?? '?'))
-              .replace('{2}', `http://${h}:${p}`)}\n`,
+            data: `[Launcher] ${useI18nStore().t('msg_external_detected', [res.name ?? '?', String(res.pid ?? '?'), `http://${h}:${p}`])}\n`,
             ts: Date.now(),
           });
         }
@@ -121,7 +118,7 @@ export const useServerStore = defineStore('server', () => {
       if (external.value) {
         pushOutput({
           kind: 'info',
-          data: `[Launcher] ${useI18nStore().t('msg_external_gone').replace('{0}', String(p))}\n`,
+          data: `[Launcher] ${useI18nStore().t('msg_external_gone', [String(p)])}\n`,
           ts: Date.now(),
         });
       }
@@ -137,9 +134,7 @@ export const useServerStore = defineStore('server', () => {
     external.value = instance;
     pushOutput({
       kind: 'info',
-      data: `[Launcher] ${useI18nStore().t('msg_external_adopted')
-        .replace('{0}', instance.name ?? '?')
-        .replace('{1}', String(instance.pid ?? '?'))}\n`,
+      data: `[Launcher] ${useI18nStore().t('msg_external_adopted', [instance.name ?? '?', String(instance.pid ?? '?')])}\n`,
       ts: Date.now(),
     });
   }
@@ -188,7 +183,7 @@ export const useServerStore = defineStore('server', () => {
     lastPortHintTs = now;
     pushOutput({
       kind: 'error',
-      data: `[Launcher] ${useI18nStore().t('svc_port_busy_hint').replace('{0}', key)}\n`,
+      data: `[Launcher] ${useI18nStore().t('svc_port_busy_hint', [key])}\n`,
       ts: now,
     });
   }

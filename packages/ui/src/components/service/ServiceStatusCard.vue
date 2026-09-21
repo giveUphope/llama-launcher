@@ -45,10 +45,7 @@ const externalTagLabel = computed(() => {
 
 const externalHint = computed(() => {
   if (!server.external) return '';
-  return i18n.t('msg_external_detected')
-    .replace('{0}', server.external.name ?? '?')
-    .replace('{1}', String(server.external.pid ?? '?'))
-    .replace('{2}', externalUrl.value);
+  return i18n.t('msg_external_detected', [server.external.name ?? '?', String(server.external.pid ?? '?'), externalUrl.value]);
 });
 
 /** 打开 Web UI：本应用实例跳内置 WebUI 页；外部实例直接在系统浏览器打开其地址 */

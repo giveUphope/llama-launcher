@@ -81,7 +81,7 @@ const activeParamCount = computed(() => {
 <template>
   <Card title-key="card_param_summary">
     <div class="summary-hint">
-      {{ i18n.t('msg_param_summary_hint').replace('{0}', String(activeParamCount)) }}
+      {{ i18n.t('msg_param_summary_hint', [String(activeParamCount)]) }}
     </div>
     <div class="summary-groups">
       <div v-for="g in summaryGroups" :key="g.groupKey" class="summary-group">

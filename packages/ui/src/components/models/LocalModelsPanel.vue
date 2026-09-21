@@ -49,7 +49,7 @@ async function onOpenModelDir(m: ModelInfo) {
 async function onRemoveModel(m: ModelInfo) {
   const confirmed = await confirm({
     title: i18n.t('btn_remove_model'),
-    message: i18n.t('msg_remove_model_confirm').replace('{0}', m.name),
+    message: i18n.t('msg_remove_model_confirm', [m.name]),
     variant: 'danger',
   });
   if (!confirmed) return;
@@ -60,14 +60,14 @@ async function onRemoveModel(m: ModelInfo) {
     } else {
       server.pushOutput({
         kind: 'error',
-        data: i18n.t('msg_remove_model_failed').replace('{0}', res?.error ?? 'unknown') + '\n',
+        data: i18n.t('msg_remove_model_failed', [res?.error ?? 'unknown']) + '\n',
         ts: Date.now(),
       });
     }
   } catch (e: any) {
     server.pushOutput({
       kind: 'error',
-      data: i18n.t('msg_remove_model_failed').replace('{0}', e?.message ?? String(e)) + '\n',
+      data: i18n.t('msg_remove_model_failed', [e?.message ?? String(e)]) + '\n',
       ts: Date.now(),
     });
   }
@@ -150,7 +150,7 @@ async function applySuggestions() {
   const previewLines = params.ggufSuggestions
     .map((s) => `  ${s.key} = ${formatValue(s.value)}`)
     .join('\n');
-  const message = `${i18n.t('msg_apply_suggestions_preview').replace('{0}', String(params.ggufSuggestions.length))}\n\n${previewLines}\n\n${i18n.t('msg_apply_suggestions_confirm')}`;
+  const message = `${i18n.t('msg_apply_suggestions_preview', [String(params.ggufSuggestions.length)])}\n\n${previewLines}\n\n${i18n.t('msg_apply_suggestions_confirm')}`;
 
   const confirmed = await confirm({
     title: i18n.t('gguf_apply_suggestions'),
@@ -227,7 +227,7 @@ async function onRefresh() {
       // 用自定义弹窗询问是否创建（替代原生消息框）
       const ok = await confirm({
         title: i18n.t('msg_ask_create_title'),
-        message: i18n.t('msg_ask_create_dir').replace('{0}', dir),
+        message: i18n.t('msg_ask_create_dir', [dir]),
         confirmKey: 'dlg_confirm',
         cancelKey: 'dlg_cancel',
         variant: 'warning',
@@ -239,7 +239,7 @@ async function onRefresh() {
         } catch (e2: any) {
           server.pushOutput({
             kind: 'error',
-            data: `[Models] ${i18n.t('msg_dir_create_failed').replace('{0}', e2?.message ?? String(e2))}\n`,
+            data: `[Models] ${i18n.t('msg_dir_create_failed', [e2?.message ?? String(e2)])}\n`,
             ts: Date.now(),
           });
         }
@@ -315,10 +315,10 @@ function fitTitle(m: ModelInfo): string {
   if (!f) return '';
   if (f.verdict === 'no') return i18n.t('msg_fit_no_tip');
   if (f.verdict === 'partial') {
-    return i18n.t('msg_fit_partial_tip').replace('{0}', f.maxContext ? f.maxContext.toLocaleString() : '—');
+    return i18n.t('msg_fit_partial_tip', [f.maxContext ? f.maxContext.toLocaleString() : '—']);
   }
   if (f.verdict === 'fit' && f.maxContext !== null) {
-    return i18n.t('msg_fit_full_tip').replace('{0}', f.maxContext.toLocaleString()).replace('{1}', f.dtype);
+    return i18n.t('msg_fit_full_tip', [f.maxContext.toLocaleString(), f.dtype]);
   }
   return '';
 }
@@ -480,7 +480,7 @@ function benchTitle(m: ModelInfo): string {
       <Card v-if="modelPath && (params.ggufLoading || params.ggufError)" title-key="card_model_info">
         <div v-if="params.ggufLoading" class="gguf-status">{{ i18n.t('msg_gguf_reading') }}</div>
         <div v-else-if="params.ggufError" class="gguf-status error">
-          {{ i18n.t('msg_gguf_read_failed').replace('{0}', params.ggufError) }}
+          {{ i18n.t('msg_gguf_read_failed', [params.ggufError]) }}
         </div>
       </Card>
 

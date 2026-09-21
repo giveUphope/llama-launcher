@@ -31,7 +31,7 @@ async function updatePreview() {
     commandPreview.value = await server.previewCommand(params.snapshot(), settings.settings);
   } catch (err: any) {
     // 生成失败时给出友好提示（i18n），不直接暴露底层错误文本
-    commandPreview.value = i18n.t('msg_cmd_preview_error').replace('{0}', err?.message ?? String(err));
+    commandPreview.value = i18n.t('msg_cmd_preview_error', [err?.message ?? String(err)]);
   }
 }
 
