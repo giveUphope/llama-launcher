@@ -30,7 +30,7 @@ IPC 按功能域声明式注册：`ipc/` 目录下 settings/models/presets/serve
 - 下载完成时调用 `notifyModelsChanged()` 刷新模型列表。
 - `models:watch` 递归监听 `.gguf` 文件变化，500ms 防抖后通知渲染进程。
 - `system:findLlamaExe` 在指定目录（含一级子目录）查找 `llama-server.exe`，用于内联检测。
-- `system:estimateVram` / `system:estimateModelFit`：显存探测（spawn `llama-server --list-devices`）+ GGUF KV 内存模型，估算显存/内存双侧占用、无 OOM 上下文上限、性能目标联动建议与模型适配判定（委托 core `devices.ts` / `vram-estimate.ts` / `target-recommend.ts`）。**设备探测 30s 共享缓存只缓存成功结果**——失败时把 `at` 归零，用户改回引擎目录后下一次调用立即重探（旧实现连空结果一起缓存，改对目录也要空转半分钟）；探测失败原因（含尝试过的路径）随结果的 `probeError` 带回，参数页「显存占用」tooltip 直接显示，不再只剩一个「—」。**探测 exe 由 core `resolveServerExe` 解析**（settings → 同目录 → llama_dir 及一级子目录 → 开发态默认，逐个校验存在），引擎目录改名/搬走时自动回退而非静默失效。结果按 模型|dtype|target|ngl|ctxSize 缓存 60s。
+- `system:estimateVram` / `system:estimateModelFit`：显存探测（spawn `llama-server --list-devices`）+ GGUF KV 内存模型，估算显存/内存双侧占用、无 OOM 上下文上限、性能目标联动建议与模型适配判定（委托 core `devices.ts` / `vram-estimate.ts` / `target-recommend.ts`）。**设备探测 30s 共享缓存只缓存成功结果**——失败时把 `at` 归零，用户改回引擎目录后下一次调用立即重探（旧实现连空结果一起缓存，改对目录也要空转半分钟）；探测失败原因（含尝试过的路径）随结果的 `probeError` 带回，参数页「显存占用」tooltip 直接显示，不再只剩一个「—」；该文案由 `tr()` 按当前语言生成（主进程语言在 `IPC.SETTINGS_SAVE` 里经 `setLang` 同步，见 `ipc/settings.ts`），不得写中文字面量——裸中文会被 `verify-i18n-usage.cjs` 判 fail。**探测 exe 由 core `resolveServerExe` 解析**（settings → 同目录 → llama_dir 及一级子目录 → 开发态默认，逐个校验存在），引擎目录改名/搬走时自动回退而非静默失效。结果按 模型|dtype|target|ngl|ctxSize 缓存 60s。
 - `system:benchLlamaRun` / `system:benchLlamaStatus`：llama-bench 离线体检（pp512/tg128，单模型单作业 + 状态轮询，委托 core `llama-bench.ts`）。
 - **关闭行为链路**：窗口关闭请求统一走 `app-exit.ts`，按设置 `close_behavior`（`ask`/`exit`/`tray`）分流；`ask` 时主进程向渲染进程发 `window:showCloseDialog`，渲染进程经 `window:closeDialogResult` 应答（10 秒超时兜底**最小化到托盘**，不丢数据），服务运行中附带二次确认。
 

@@ -57,7 +57,7 @@
 
 - **改 IPC**：先读 [ipc-channels.md](docs/ipc-channels.md)，改完跑 `pnpm lint`（`verify-ipc-sync.cjs` 校验）。
 
-- **改参数**：对照 [params/LLAMA\_SERVER\_PARAMS.md](docs/params/LLAMA_SERVER_PARAMS.md) 与 [params-system.md](docs/params-system.md)，改完跑 `node scripts/verify-params-sync.cjs`。
+- **改参数**：对照 [params/LLAMA\_SERVER\_PARAMS.md](docs/params/LLAMA_SERVER_PARAMS.md) 与 [params-system.md](docs/params-system.md)，改完跑 `pnpm lint`（已含 `verify-params-sync.cjs`：三方对拍 + 文档参数计数声明校验；文档里的「60 参数」等数字漂移会直接 fail）。
 
 - **改 UI**：先对照 [frontend.md](docs/frontend.md) §7.5 检查清单；发现问题登记 [style/STYLE\_TODO.md](docs/style/STYLE_TODO.md)。
 
@@ -309,7 +309,7 @@ pnpm test:e2e       # 先全量构建，再依次执行上述两者
 pnpm lint
 ```
 
-运行各包类型检查（`tsc --noEmit`），并校验 IPC 预生成常量未过期（`verify-ipc-sync.cjs`）、文档链接/锚点完整（`check-docs-links.cjs`）、i18n 键集一致且无悬空引用（`verify-i18n-usage.cjs`），最后以 oxlint correctness 静态分析门禁收尾（`pnpm lint:ox`）。
+运行各包类型检查（`tsc --noEmit`），并校验 IPC 预生成常量未过期且文档通道数声明与实测一致（`verify-ipc-sync.cjs`）、参数定义↔文档↔help 三方对拍与文档参数计数一致（`verify-params-sync.cjs`）、文档链接/锚点完整（`check-docs-links.cjs`）、i18n 键集一致 / 无悬空引用 / 注释外无裸中文串字面量（`verify-i18n-usage.cjs`），最后以 oxlint correctness 静态分析门禁收尾（`pnpm lint:ox`）。
 
 ***
 

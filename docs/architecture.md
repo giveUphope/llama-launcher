@@ -97,8 +97,8 @@ llama_launcher/
 │   ├── generate-params-doc.cjs      # 从 help 输出再生 docs/params/LLAMA_SERVER_PARAMS.md
 │   ├── dev-watch.cjs                # 开发热重载：监视主进程 dist / preload 源 / shared 类型，变更重启 Electron
 │   ├── dist-with-fallback.cjs       # 打包输出目录锁定回退
-│   ├── verify-params-sync.cjs       # 参数定义 ↔ 文档 ↔ help 三方对拍
-│   ├── verify-ipc-sync.cjs          # IPC 常量一致性校验
+│   ├── verify-params-sync.cjs       # 参数定义 ↔ 文档 ↔ help 三方对拍 + 文档参数计数声明校验
+│   ├── verify-ipc-sync.cjs          # IPC 常量一致性校验 + 文档通道数声明校验
 │   ├── verify-help-drift.cjs        # 二进制升级后的参数漂移审计
 │   ├── check-docs-links.cjs         # 文档相对链接与锚点完整性（lint 阶段执行）
 │   ├── style-audit.cjs              # UI 风格规范审计（frontend.md §7.5 十项检查）

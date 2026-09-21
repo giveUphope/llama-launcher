@@ -4,6 +4,18 @@
 
 ## \[Unreleased]
 
+- **硬编码全量审计与清除：4 类真缺陷 + 3 道新门禁（2026-09-21）**：按「机器专属值 / 默认值散落 / 数据层文案 / 无门禁数字」四类扫 `ui`+`core`+`shared`+`desktop`，逐项读源码复核后落地。
+  - **`verify-server-start.mjs` 去掉本机绝对路径**：原 `modelPath` 写死 `C:\Users\<user>\.lmstudio\...\nomic-embed...gguf`（全库唯一含机器路径的受控文件），换机或模型删除即失效且报错误导。改为 `--model=` → `LLAMA_SMOKE_MODEL` → 设置的 `models_dir` 中**最小的 `.gguf`**（启动最快）三级解析，端口同步支持 `--port=`，解析不出模型时打印可操作提示并 exit 1（不静默跳过）；`host` 改引 `DEFAULT_HOST`。
+  - **网络默认值收敛到单一事实源**：`definitions.ts` 由 `host`/`port` 两条目派生导出 `DEFAULT_HOST`/`DEFAULT_PORT`，替换散落的 7 处回退字面量（`launcher.ts` 字段初值与 `start()` 回退、`stores/server.ts`、`useStartServer.ts` ×3 + 接管 host、`ServiceStatusCard.vue`、`ipc/system.ts` checkPort/findFreePort）。此前改默认端口只要漏一处就会出现「UI 探 8080、服务实际起在别端口」的假端口占用告警。实测 `'127.0.0.1'` / `8080` 在 `src/**` 仅剩事实源、注释与测试夹具。
+  - **数据层不再产文案**（新立约定，见 AGENTS.md「数据层不产文案」）：`target-recommend.ts` 删 `TARGET_LABEL` 与 6 条中文模板串，改发 `reasonKey`（`target_rec_*` 六键）+ 仅含数值/枚举的 `reasonArgs`，`ParamsPage` 芯片 tooltip 走 `i18n.t(...)`——原实现在英文界面直出「目标「均衡」：显存预算内最大无 OOM 上下文」；`TargetRecommendation` 类型随之变更，demo-mock 同步。`ipc/system.ts` 两条探测失败原因改 `tr('msg_probe_*')`，并在 `IPC.SETTINGS_SAVE` 里 `setLang(s.language)`（此前主进程语言只在托盘创建时同步一次）。
+  - **「在浏览器打开」跟随镜像设置**：`DownloadCard.vue` 原写死 `hf-mirror.com` / `www.modelscope.cn`，而 `settings.hf_mirror_host` 是可配置项（高级设置 → `setHfMirrorHost`），自定义镜像后下载走自建站、外链仍跳默认站。新增 `shared/src/hosts.ts`（`MODELSCOPE_HOST` / `DEFAULT_HF_MIRROR_HOST` / `normalizeMirrorHost`）作唯一来源，core 的 `setHfMirrorHost` 与 `modelscope-client` 同时改为引用（剥协议/尾斜杠的归一化逻辑从两份合一）。
+  - **死载荷与平行字典**：`GgufSuggestedParam.description`（core 11 条中文说明）实测**无任何渲染端消费者**（建议芯片只显示 key=value，tooltip 用 `paramLabel`+value+`t('msg_click_to_apply')`），连字段一并从类型删除；`shared/src/time-format.ts` 的私有 `REL_ZH`/`REL_EN` 双表迁入 zh/en 字典（新增 `rel_*` 5 键，`i18n` 加 `trAt(lang, …)` 供需显式语言的纯函数用），此前它绕开字典因而完全逃过键集一致性检查。
+  - **新门禁三道**：① `verify-i18n-usage.cjs` 扫描范围扩到 `shared`/`desktop`（原仅 `ui`/`core`），并新增「注释外裸中文串字面量即 fail」——状态机剥 `//`、`/* */`、Vue `<!-- -->` 三类注释，白名单仅 i18n 字典与 demo-mock，确不进界面的诊断日志须就地 `// i18n-ignore`（本轮 3 处：`ipc/models.ts`、`tray.ts` ×2）。负测试：故意改一个键名即报 2 处悬空 + 退出 1。② `verify-ipc-sync.cjs` 校验文档「N 个通道」声明与实测一致（实测命中 8 处，AGENTS/README/docs 全覆盖；CHANGELOG 与 archive 属历史陈述不比对）。③ `verify-params-sync.cjs` 校验 7 处文档参数计数声明 == `definitions.ts` 实测（60：basic 22 / advanced 28 / server 10）。负测试实测 exit 1 后还原。
+  - **顺手清**：TopBar 三个窗口按钮的 `aria-label`（英文字面量，与其 tooltip 的 `t('win_*')` 是平行副本）改走 i18n；裸时序数字提常量（`params.ts` 会话保存节流 `SESSION_SAVE_THROTTLE_MS = 800`、`main.ts` 设置加载兜底 `SETTINGS_LOAD_TIMEOUT_MS = 3000`）；`huggingface-client` 重试耗尽的错误串中英混排改全英文。
+  - 文档同步：AGENTS.md（三脚本职责、新增「数据层不产文案」约定）、README lint 段、core-modules（新增 `hosts.ts` 行与两个唯一来源说明）、desktop-main（probeError 文案口径）、architecture 脚本清单。**键数 364 → 378**（`target_rec_*` 6 + `msg_probe_*` 3 + `rel_*` 5）。验证：`pnpm build` → `pnpm lint`（4 包类型检查 + IPC 56 通道同步 + 文档计数断言 + docs 链接 + i18n 378 键含裸中文门禁 + oxlint）→ `pnpm test`（core 359 + ui 66）全绿。
+  - **本轮明确不动**（避免范围漂移，留待需要时处理）：`.replace('{0}', …)` 手工插值在 11 个文件共 49 处并存（`t(key, args)` 已支持，属并行机制收敛，与硬编码无关）；`download_max_concurrent` 的默认 `3` 与钳制 `1..5` 同样散落 6 处（`settings-store` ×2、`ipc/{download,settings}`、`AdvancedPanel` ×2，属同一缺陷类，但 `ui ↛ core` 需先在 shared 立边界常量）；`url-parser.ts` 的 `huggingface.co`/`modelscope.cn` 是**识别**用后缀匹配（换常量会破坏非 www URL 判定，有测试覆盖）；dev 端口 5173/4173 已有 `.vite-dev-port` 文件协商，兜底值属合理硬编码。
+
+
 ## \[0.0.39] - 2026-09-20
 
 
