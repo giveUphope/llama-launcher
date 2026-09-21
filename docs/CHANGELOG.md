@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+- **第 4 道 i18n 门禁：实参数与占位符数匹配（2026-09-21）**：`t('key', [..])` 的实参个数须等于该键 zh/en 文案里 `{N}` 的槽数——少一个就渲染出裸 `{1}`（`tr` 只替换存在的槽），多一个是白传；两语言槽数不一致也在此暴露。检查 48 处收敛结果时发现**首版计数器有缺陷**：`countArrayArgs` 的字符串分支只跳过不累加 `cur`，导致含字符串实参的调用**计数恒少 1**，误报 4 个调用点（`msg_search_failed` / `msg_files_load_failed` / `msg_free_port_not_found` / `msg_external_detected`）——逐处读源码判为假阳性后修正计数器，再跑全绿。负测试：删掉 `msg_port_in_use` 的一个实参 → 双语各报一处「需要 1 个（槽 0）」，`.bak` 副本还原后恢复全绿（**不用 `git checkout` 还原**，那会连该文件未提交改动一起回退）。
+
+
 - **站点识别后缀归位（第 3 项，2026-09-21）**：`url-parser.ts` 的两处站点判定原写死 `host.includes('huggingface.co') || host.includes('hf-mirror.com')` 与 `host.includes('modelscope.cn')`，与 `hosts.ts` 的建站 URL 常量是两份字面量。做法是**新增「识别后缀」而非复用建站 host**：`MODELSCOPE_HOST` 是 `www.modelscope.cn`（用于拼下载/浏览 URL），若拿它做后缀匹配，裸域 `modelscope.cn/...` 链接会判为无法识别（`url-parser.test.ts` 有该用例）。故 `hosts.ts` 增 `HF_SOURCE_HOST_SUFFIXES`（内部引用 `DEFAULT_HF_MIRROR_HOST`，不再重复字面量）与 `MODELSCOPE_HOST_SUFFIX = 'modelscope.cn'`，url-parser 消费之，语义逐字不变。回归：`url-parser.test.ts` 12 例（含 www/裸域/镜像三种写法）+ 全量 build/lint/test 全绿。已知边界照旧：**用户自定义镜像域名不被识别**为 huggingface 源（本轮不改判定范围，仅去字面量重复）。
 
 

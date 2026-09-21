@@ -309,7 +309,7 @@ pnpm test:e2e       # 先全量构建，再依次执行上述两者
 pnpm lint
 ```
 
-运行各包类型检查（`tsc --noEmit`），并校验 IPC 预生成常量未过期且文档通道数声明与实测一致（`verify-ipc-sync.cjs`）、参数定义↔文档↔help 三方对拍与文档参数计数一致（`verify-params-sync.cjs`）、文档链接/锚点完整（`check-docs-links.cjs`）、i18n 键集一致 / 无悬空引用 / 注释外无裸中文串字面量（`verify-i18n-usage.cjs`），最后以 oxlint correctness 静态分析门禁收尾（`pnpm lint:ox`）。
+运行各包类型检查（`tsc --noEmit`），并校验 IPC 预生成常量未过期且文档通道数声明与实测一致（`verify-ipc-sync.cjs`）、参数定义↔文档↔help 三方对拍与文档参数计数一致（`verify-params-sync.cjs`）、文档链接/锚点完整（`check-docs-links.cjs`）、i18n 四件套（`verify-i18n-usage.cjs`：键集中英一致 + 无悬空引用含 `xxxKey` 间接键 + 注释外无裸中文串字面量 + 无 `.replace('{0}', x)` 手工插值且 `t(key, [..])` 实参数与占位符数匹配），最后以 oxlint correctness 静态分析门禁收尾（`pnpm lint:ox`）。
 
 ***
 

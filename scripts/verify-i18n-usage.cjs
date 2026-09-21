@@ -12,6 +12,11 @@
 //     豁免必须写在现场，避免「以后谁都能再加一条」。
 //     此检查是 2026-09-21 硬编码审计后补的：此前 core/主进程把中文字面量拼好后
 //     经 IPC 直出（target-recommend 的理由、探测错误），英文界面显示中文而门禁全绿。
+//  4. 手工插值：`.replace('{0}', x)` 与 t(key, args) 并行的第二套填参机制（只填首个
+//     占位符、槽序易错），出现即 fail。
+//  5. 实参匹配：t('key', [..]) 的实参个数须等于该键 zh/en 文案里的占位符槽数
+//     （少一个渲染出裸 {1}，多一个是白传；两语言槽数不一致也会在这里暴露）。
+//     间接引用键（labelKey / reasonKey 等 xxxKey 字段）同样校验双字典存在。
 //
 // 用法：node scripts/verify-i18n-usage.cjs（已接入 pnpm lint）
 const fs = require('node:fs');
@@ -109,6 +114,58 @@ function findCjkLiterals(src) {
   return hits;
 }
 
+/**
+ * 字典键 → 该键值里出现的占位符槽号集合。
+ * 扁平字典按「两空格缩进的 key:」切块，块内所有 `{N}` 归该键（值可能是跨行字符串，
+ * 用边界扫描而非单行正则才不会漏掉续行里的占位符）。
+ */
+function dictSlots(file) {
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+  const map = new Map();
+  let cur = null;
+  for (const line of lines) {
+    const keyHit = /^ {2}([a-z0-9_]+)\s*:/.exec(line);
+    if (keyHit) cur = keyHit[1];
+    if (!cur) continue;
+    const set = map.get(cur) ?? new Set();
+    for (const m of line.matchAll(/\{(\d+)\}/g)) set.add(Number(m[1]));
+    map.set(cur, set);
+  }
+  return map;
+}
+
+/** 顶层逗号切分实参（跳过嵌套括号与字符串），用于数出 t(key, [..]) 的实参个数 */
+function countArrayArgs(src, openBracketIdx) {
+  let depth = 0;
+  let i = openBracketIdx + 1;
+  let cur = '';
+  const parts = [];
+  while (i < src.length) {
+    const c = src[i];
+    if (c === "'" || c === '"' || c === '`') {
+      const q = c;
+      cur += c;
+      i++;
+      while (i < src.length) {
+        if (src[i] === '\\') { cur += src[i] + (src[i + 1] ?? ''); i += 2; continue; }
+        if (src[i] === q) { cur += src[i]; i++; break; }
+        cur += src[i];
+        i++;
+      }
+      continue;
+    }
+    if (c === '[' || c === '(' || c === '{') { depth++; i++; continue; }
+    if (c === ']' || c === ')' || c === '}') {
+      if (c === ']' && depth === 0) { if (cur.trim()) parts.push(cur.trim()); return parts.length; }
+      depth--; i++; continue;
+    }
+    if (c === ',' && depth === 0) { if (cur.trim()) parts.push(cur.trim()); cur = ''; i++; continue; }
+    cur += c;
+    i++;
+  }
+  return null; // 未闭合，跳过（不猜测）
+}
+
 function main() {
   const zh = dictKeys(path.join(I18N_DIR, 'zh.ts'));
   const en = dictKeys(path.join(I18N_DIR, 'en.ts'));
@@ -193,6 +250,36 @@ function main() {
     }
   }
 
+  // 5) 实参数与占位符数匹配：t('key', [a, b]) 的实参个数须等于键值里的占位符槽数。
+  //    少一个就渲染出裸 {1}（t() 只替换存在的槽），多一个是白传；zh/en 槽数不一致也在此暴露。
+  const zhSlots = dictSlots(path.join(I18N_DIR, 'zh.ts'));
+  const enSlots = dictSlots(path.join(I18N_DIR, 'en.ts'));
+  const RE_T_WITH_ARGS = /\bt\(\s*'([a-z0-9_]+)'\s*,\s*\[/g;
+  for (const dir of SCAN_DIRS) {
+    for (const file of collectFiles(dir)) {
+      if (skippedForLiteralScan(file)) continue;
+      const src = fs.readFileSync(file, 'utf8');
+      const rel = path.relative(ROOT, file).replace(/\\/g, '/');
+      let m;
+      RE_T_WITH_ARGS.lastIndex = 0;
+      while ((m = RE_T_WITH_ARGS.exec(src))) {
+        const bracket = src.indexOf('[', m.index + m[0].length - 1);
+        const n = countArrayArgs(src, bracket);
+        if (n === null) continue;
+        const line = src.slice(0, m.index).split(/\r?\n/).length;
+        for (const [lang, map] of [['zh', zhSlots], ['en', enSlots]]) {
+          const slots = map.get(m[1]);
+          if (!slots || slots.size === 0) {
+            if (n > 0) errors.push(`多余实参: ${rel}:${line} t('${m[1]}', [${n} 个]) 而 ${lang} 文案无占位符`);
+            continue;
+          }
+          const need = Math.max(...slots) + 1;
+          if (need !== n) errors.push(`实参不符: ${rel}:${line} t('${m[1]}', [${n} 个]) 而 ${lang} 需要 ${need} 个（槽 ${[...slots].sort().join(',')}）`);
+        }
+      }
+    }
+  }
+
   if (errors.length) {
     console.error(`[verify-i18n-usage] ❌ 发现 ${errors.length} 个问题：`);
     for (const e of errors) console.error('  - ' + e);
@@ -201,7 +288,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    `[verify-i18n-usage] ✅ zh/en 各 ${zh.size} 键一致，无悬空引用，注释外无未豁免中文串字面量。`,
+    `[verify-i18n-usage] ✅ zh/en 各 ${zh.size} 键一致，无悬空引用，注释外无未豁免中文串字面量，无手工插值且实参数与占位符匹配。`,
   );
 }
 
