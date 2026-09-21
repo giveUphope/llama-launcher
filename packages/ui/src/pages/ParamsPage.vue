@@ -289,7 +289,7 @@ async function onClearSession() {
                 <div class="target-rec-chips">
                   <!-- size="small"：与其余建议值芯片同档（.gguf-hint / .suggestion-chip 实测 h20；
                        原缺 size 走 a-tag 默认 h24，同一语义两种高度，见 STYLE_TODO #77） -->
-                  <a-tag v-for="r in targetRecs" :key="r.key" size="small" class="rec-chip" :title="r.reason">
+                  <a-tag v-for="r in targetRecs" :key="r.key" size="small" class="rec-chip" :title="i18n.t(r.reasonKey, r.reasonArgs)">
                     <span class="chip-key">{{ r.key }}</span>
                     <span class="chip-eq">=</span>
                     <span class="chip-val">{{ r.value }}</span>

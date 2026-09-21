@@ -260,3 +260,18 @@ export const PARAMS: ParamDef[] = [
     default: false, invert_flag: '--no-context-shift', subcategory: 'behavior',
   },
 ];
+
+/**
+ * 网络默认值（host/port）的唯一事实源 = 上面 PARAMS 表的 host、port 两个条目。
+ * 主进程、core、渲染层的回退值一律引这两个常量，不得重写字面量：
+ * 曾散落 7 处 `?? 8080` / `'127.0.0.1'`，改默认端口只要漏一处就会出现
+ * 「UI 探测 8080、服务实际起在别端口」的假端口占用告警。
+ */
+function paramDefaultOf(key: string): string | number | boolean {
+  const def = PARAMS.find((p) => p.key === key);
+  if (!def) throw new Error(`PARAMS entry missing for default derivation: ${key}`);
+  return def.default;
+}
+
+export const DEFAULT_HOST: string = String(paramDefaultOf('host'));
+export const DEFAULT_PORT: number = Number(paramDefaultOf('port'));

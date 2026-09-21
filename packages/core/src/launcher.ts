@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { LlamaServerProcess } from './process.js';
 import { buildCommand } from './command-builder.js';
+import { DEFAULT_HOST, DEFAULT_PORT } from '@llama-launcher/shared';
 import type { AppSettings, ServerStatus, ServerInfo, OutputEntry } from '@llama-launcher/shared';
 
 export interface StartOptions {
@@ -15,8 +16,8 @@ export class Launcher extends EventEmitter {
   // 最近一次 start/restart 使用的参数快照（用于判断当前运行服务是否与某组参数一致，
   // 参数未变时可据此避免重复加载）
   private currentValues: Record<string, string | number | boolean> = {};
-  private host = '127.0.0.1';
-  private port = 8080;
+  private host = DEFAULT_HOST;
+  private port = DEFAULT_PORT;
 
   start(opts: StartOptions): void {
     if (this.proc && this.proc.isRunning()) {
@@ -29,8 +30,8 @@ export class Launcher extends EventEmitter {
     // Track host/port from start() values so getStatus() can report them.
     const hostVal = opts.values.host;
     const portVal = opts.values.port;
-    this.host = hostVal != null && String(hostVal) !== '' ? String(hostVal) : '127.0.0.1';
-    this.port = portVal != null && !Number.isNaN(Number(portVal)) ? Number(portVal) : 8080;
+    this.host = hostVal != null && String(hostVal) !== '' ? String(hostVal) : DEFAULT_HOST;
+    this.port = portVal != null && !Number.isNaN(Number(portVal)) ? Number(portVal) : DEFAULT_PORT;
 
     let cmd: string[];
     try {

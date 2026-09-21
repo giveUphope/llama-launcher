@@ -156,7 +156,8 @@ export interface GgufModelInfo {
 
 /**
  * 从 GGUF 元数据推导出的建议参数。
- * 每项包含参数 key、建议值、来源元数据 key 和说明。
+ * 每项包含参数 key、建议值与来源元数据 key；不含说明文案（渲染端只显示 key=value，
+ * 若将来要展示理由，按 target-recommend 的做法发 i18n key + 实参）。
  */
 export interface GgufSuggestedParam {
   /** 参数 key（对应 PARAMS 中的 key） */
@@ -165,8 +166,6 @@ export interface GgufSuggestedParam {
   value: string | number | boolean;
   /** 来源元数据 key */
   source: string;
-  /** 说明 */
-  description: string;
 }
 
 /**

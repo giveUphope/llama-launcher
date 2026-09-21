@@ -14,8 +14,8 @@ export function getLang(): Language {
   return _lang;
 }
 
-export function tr(key: keyof Dict | string, args?: (string | number)[]): string {
-  const dict = _lang === 'en' ? en : zh;
+export function trAt(lang: Language, key: keyof Dict | string, args?: (string | number)[]): string {
+  const dict = lang === 'en' ? en : zh;
   let text: string = (dict as Record<string, string>)[key] ?? (zh as Record<string, string>)[key] ?? String(key);
   if (args && args.length) {
     try {
@@ -25,6 +25,11 @@ export function tr(key: keyof Dict | string, args?: (string | number)[]): string
     }
   }
   return text;
+}
+
+/** 按当前语言取文案（语言由 setLang 维护；需要显式语言的纯函数用 trAt） */
+export function tr(key: keyof Dict | string, args?: (string | number)[]): string {
+  return trAt(_lang, key, args);
 }
 
 export function paramLabel(key: string): string {

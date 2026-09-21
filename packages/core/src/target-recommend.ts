@@ -18,15 +18,9 @@ const TARGET_KV_DTYPE: Record<PerfTarget, string> = {
   memory: 'q4_0',
 };
 
-const TARGET_LABEL: Record<PerfTarget, string> = {
-  'max-context': '最大上下文',
-  balanced: '均衡',
-  latency: '最低延迟',
-  memory: '省显存',
-};
-
 /**
- * 生成目标联动参数建议。
+ * 生成目标联动参数建议。理由以 `reasonKey`（i18n 键）+ 数值实参下发，本模块不产文案——
+ * 否则主进程算好的中文字面量会在英文界面直出（原 `TARGET_LABEL` + 模板串已因此删除）。
  * freeMiB = 最大空闲设备空闲显存；systemFreeMiB = 系统可用内存（null = 未知，不把 RAM 计入预算）。
  * 任一为 null/≤0（无设备）时不产生任何建议。
  */
@@ -39,12 +33,11 @@ export function recommendForTarget(
 ): TargetRecommendation[] {
   const recs: TargetRecommendation[] = [];
   if (freeMiB === null || freeMiB <= 0) return recs;
-  const label = TARGET_LABEL[target];
   const dtype = TARGET_KV_DTYPE[target];
   const dtypeBytes = KV_DTYPE_BYTES[dtype] ?? KV_DTYPE_BYTES.f16;
 
   // Flash Attention：prefill 提速 + KV 量化前置（所有目标受益）
-  recs.push({ key: 'flash_attn', value: 'on', reason: `目标「${label}」：提升 prefill 并为 KV 量化前置` });
+  recs.push({ key: 'flash_attn', value: 'on', reasonKey: 'target_rec_fa' });
 
   // 上下文 + 卸载层数：按目标 dtype 在显存（+内存）预算内求解无 OOM 最大值
   const allowPartial = target === 'max-context';
@@ -72,29 +65,29 @@ export function recommendForTarget(
     recs.push({
       key: 'ctx_size',
       value: solve.contextTokens,
-      reason: solve.fullOffload
-        ? `目标「${label}」：显存预算内最大无 OOM 上下文`
-        : `目标「${label}」：显存+内存联合预算推算（部分卸载以速度换上下文）`,
+      reasonKey: solve.fullOffload ? 'target_rec_ctx_full' : 'target_rec_ctx_partial',
     });
     if (!solve.fullOffload && solve.offloadLayers !== null && info.block_count) {
       recs.push({
         key: 'gpu_layers',
         value: solve.offloadLayers,
-        reason: `联合预算下建议卸载 ${solve.offloadLayers}/${info.block_count} 层（其余权重与 KV 留在内存）`,
+        reasonKey: 'target_rec_layers',
+        reasonArgs: [solve.offloadLayers, info.block_count],
       });
     }
   }
 
   // KV 缓存档位（目标策略的核心差异）
-  recs.push({ key: 'cache_type_k', value: dtype, reason: `目标「${label}」KV 缓存档位` });
-  recs.push({ key: 'cache_type_v', value: dtype, reason: `目标「${label}」KV 缓存档位` });
+  recs.push({ key: 'cache_type_k', value: dtype, reasonKey: 'target_rec_kv', reasonArgs: [dtype] });
+  recs.push({ key: 'cache_type_v', value: dtype, reasonKey: 'target_rec_kv', reasonArgs: [dtype] });
 
   // MTP 推测解码：decode 提速（模型含 MTP 头时，对延迟/均衡目标有意义）
   if ((target === 'latency' || target === 'balanced') && info.nextn_predict_layers && info.nextn_predict_layers > 0) {
     recs.push({
       key: 'spec_type',
       value: 'draft-mtp',
-      reason: `模型含 ${info.nextn_predict_layers} 层 MTP 头，目标「${label}」下启用推测解码提升 decode`,
+      reasonKey: 'target_rec_mtp',
+      reasonArgs: [info.nextn_predict_layers],
     });
   }
 

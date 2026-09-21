@@ -7,7 +7,7 @@ import type {
   ParsedModelUrl, OutputEntry, AppLogEntry,
   ModelScopeSearchResult, ModelScopeFileListResult,
   DownloadProgressPayload, DownloadCompletePayload,
-  ParamDef,
+  ParamDef, TargetRecommendation,
 } from '@llama-launcher/shared';
 
 const ENGINE_DIR = 'D:/Models/llama-bins';
@@ -115,12 +115,12 @@ const DEMO_GGUF: GgufReadResult = {
   // 与 core buildSuggestions 输出同构：附件守卫后仅主模型生成；ctx_size 为训练上限信息
   // 不再进入建议（-c 默认 0 = 从模型加载）；采样建议来自 general.sampling.*（作者推荐值）
   suggestions: [
-    { key: 'temperature', value: 1, source: 'general.sampling.temp', description: '模型推荐的采样温度' },
-    { key: 'top_k', value: 20, source: 'general.sampling.top_k', description: '模型推荐的 top-k 采样值' },
-    { key: 'alias', value: 'Qwen3-32B-A3B-Instruct-Q4_K_M', source: 'general.name+file_type+filename', description: '使用"模型名称-量化版本"作为服务器别名: Qwen3-32B-A3B-Instruct-Q4_K_M' },
-    { key: 'cache_type_k', value: 'q8_0', source: 'general.file_type', description: '模型已量化为 Q4_K_M，建议 KV cache K 使用 q8_0 节省显存' },
-    { key: 'cache_type_v', value: 'q8_0', source: 'general.file_type', description: '模型已量化为 Q4_K_M，建议 KV cache V 使用 q8_0 节省显存' },
-    { key: 'flash_attn', value: 'on', source: 'qwen3.context_length', description: '上下文长度较大，建议启用 Flash Attention 以减少显存占用' },
+    { key: 'temperature', value: 1, source: 'general.sampling.temp' },
+    { key: 'top_k', value: 20, source: 'general.sampling.top_k' },
+    { key: 'alias', value: 'Qwen3-32B-A3B-Instruct-Q4_K_M', source: 'general.name+file_type+filename' },
+    { key: 'cache_type_k', value: 'q8_0', source: 'general.file_type' },
+    { key: 'cache_type_v', value: 'q8_0', source: 'general.file_type' },
+    { key: 'flash_attn', value: 'on', source: 'qwen3.context_length' },
   ] as never,
 };
 
@@ -384,14 +384,14 @@ export function createDemoApi() {
         // max-context：联合显存+内存预算（部分卸载 ngl 59/64 换上下文）推到训练上限；其余全卸载预算
         const ctx: Record<string, number> = { 'max-context': 32768, balanced: 20480, latency: 10240, memory: 32768 };
         const kvD = kv[t] ?? 'q8_0';
-        const recs = [
-          { key: 'flash_attn', value: 'on', reason: `目标「${t}」：提升 prefill 并为 KV 量化前置` },
-          { key: 'cache_type_k', value: kvD, reason: `目标「${t}」KV 缓存档位` },
-          { key: 'cache_type_v', value: kvD, reason: `目标「${t}」KV 缓存档位` },
-          { key: 'ctx_size', value: ctx[t] ?? 20480, reason: `目标「${t}」：按显存+内存预算推算的无 OOM 上限` },
+        const recs: TargetRecommendation[] = [
+          { key: 'flash_attn', value: 'on', reasonKey: 'target_rec_fa' },
+          { key: 'cache_type_k', value: kvD, reasonKey: 'target_rec_kv', reasonArgs: [kvD] },
+          { key: 'cache_type_v', value: kvD, reasonKey: 'target_rec_kv', reasonArgs: [kvD] },
+          { key: 'ctx_size', value: ctx[t] ?? 20480, reasonKey: t === 'max-context' ? 'target_rec_ctx_partial' : 'target_rec_ctx_full' },
         ];
         if (t === 'max-context') {
-          recs.push({ key: 'gpu_layers', value: 59, reason: '联合预算下建议卸载 59/64 层（其余权重与 KV 留在内存）' });
+          recs.push({ key: 'gpu_layers', value: 59, reasonKey: 'target_rec_layers', reasonArgs: [59, 64] });
         }
         return Promise.resolve({
           devices: [{ id: 'Vulkan0', name: 'AMD Radeon RX 7900 XTX', totalMiB: 24560, freeMiB: 23749 }],

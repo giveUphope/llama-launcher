@@ -223,17 +223,17 @@ async function onOpenWeb() {
            Electron 窗口协议，贴边热区为无边框窗口必需（Arco 无窗口控制组件） -->
       <div class="window-controls">
         <ToolTip :text="i18n.t('win_minimize')">
-          <a-button class="win-btn" type="text" @click="onMinimize" aria-label="minimize">
+          <a-button class="win-btn" type="text" @click="onMinimize" :aria-label="i18n.t('win_minimize')">
             <Icon name="minimize" :size="12" />
           </a-button>
         </ToolTip>
         <ToolTip :text="isMaximized ? i18n.t('win_restore') : i18n.t('win_maximize')">
-          <a-button class="win-btn" type="text" @click="onToggleMaximize" aria-label="toggle maximize">
+          <a-button class="win-btn" type="text" @click="onToggleMaximize" :aria-label="isMaximized ? i18n.t('win_restore') : i18n.t('win_maximize')">
             <Icon :name="isMaximized ? 'restore' : 'maximize'" :size="12" />
           </a-button>
         </ToolTip>
         <ToolTip :text="i18n.t('win_close')">
-          <a-button class="win-btn win-close" type="text" @click="onClose" aria-label="close">
+          <a-button class="win-btn win-close" type="text" @click="onClose" :aria-label="i18n.t('win_close')">
             <Icon name="close" :size="12" />
           </a-button>
         </ToolTip>

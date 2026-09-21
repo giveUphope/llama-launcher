@@ -9,10 +9,10 @@ import type {
   ModelScopeFileListResult,
   ModelScopeFile,
 } from '@llama-launcher/shared';
-import { categorizeFile, parseQuantization, scoreRelevance, formatBytes } from '@llama-launcher/shared';
+import { categorizeFile, parseQuantization, scoreRelevance, formatBytes, MODELSCOPE_HOST } from '@llama-launcher/shared';
 import { isRetryableError, retryDelayMs } from './retry.js';
 
-const API_BASE = 'www.modelscope.cn';
+const API_BASE = MODELSCOPE_HOST;
 const TIMEOUT_MS = 15000;
 
 /** 发起 HTTPS GET/PUT 请求，返回 JSON 解析结果 */

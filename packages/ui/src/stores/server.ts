@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
+import { DEFAULT_HOST, DEFAULT_PORT } from '@llama-launcher/shared';
 import type { ServerStatus, OutputEntry } from '@llama-launcher/shared';
 import { useIPC, invokeOk, toPlain } from '@/composables/useIPC';
 import { useI18nStore } from '@/stores/i18n';
@@ -69,8 +70,8 @@ export const useServerStore = defineStore('server', () => {
 
   const status = ref<ServerStatus>('stopped');
   const pid = ref<number | null>(null);
-  const host = ref('127.0.0.1');
-  const port = ref(8080);
+  const host = ref(DEFAULT_HOST);
+  const port = ref(DEFAULT_PORT);
   const url = ref('');
   // 最近一次启动/重启使用的参数快照（仅参数值，无逐参数启用位），用于判断服务是否与当前参数一致
   const runningValues = ref<Record<string, string | number | boolean> | null>(null);
@@ -98,7 +99,7 @@ export const useServerStore = defineStore('server', () => {
       return false;
     }
     const p = portVal ?? port.value;
-    const h = (hostVal ?? host.value) || '127.0.0.1';
+    const h = (hostVal ?? host.value) || DEFAULT_HOST;
     try {
       const res = await api.system.checkPort(p, h);
       // 防御性检查：浏览器预览/mock 环境下 checkPort 可能返回 null

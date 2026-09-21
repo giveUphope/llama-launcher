@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import { join, dirname } from 'node:path';
 import { totalmem, freemem } from 'node:os';
 import { detectTrashAsync, cleanTrashAsync, getDownloadManager, loadSettings, listDevices, resolveServerExe, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench, detectMmproj, DEFAULT_SERVER_EXE } from '@llama-launcher/core';
-import { IPC } from '@llama-launcher/shared';
+import { IPC, DEFAULT_HOST, tr } from '@llama-launcher/shared';
 import type { TrashItem, VramEstimateResult, LlamaBenchJobState, PerfTarget, DeviceMemInfo, ModelFitResult, OccupancyConfig } from '@llama-launcher/shared';
 
 /** 占用端口进程信息（尽力而为：无法识别时为空） */
@@ -190,7 +190,7 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
   //     探对应地址可命中——按 host 探测覆盖"占用者绑定在其他网卡 IP"的场景；
   //     注意 Windows 上通配与回环可共存（SO_REUSEADDR 语义），探测结果为尽力而为）
   ipcMain.handle(IPC.SYSTEM_CHECK_PORT, async (_e, port: number, host?: string) => {
-    const bindHost = host && host.trim() ? host.trim() : '127.0.0.1';
+    const bindHost = host && host.trim() ? host.trim() : DEFAULT_HOST;
     const free = await probePort(port, bindHost);
     if (free) return { inUse: false };
     return { inUse: true, ...(await getPortOwner(port)) };
@@ -215,7 +215,7 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
 
   // 从指定端口开始向后扫描，返回首个空闲端口（host 语义同 checkPort；失败/越界返回 null）。
   ipcMain.handle(IPC.SYSTEM_FIND_FREE_PORT, async (_e, port: number, host?: string, tries = 100) => {
-    const bindHost = host && host.trim() ? host.trim() : '127.0.0.1';
+    const bindHost = host && host.trim() ? host.trim() : DEFAULT_HOST;
     const first = Number.isInteger(port) ? port : 1;
     // 分块并行探测（串行 100 次绑定往返在端口被大量占用时可累积数百毫秒）；
     // 块内取最小空闲口，与"自起始端口向上首个空闲"语义一致
@@ -263,8 +263,8 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
       devicesCache.at = 0;
       devicesCache.devices = [];
       devicesProbeError = exe
-        ? `探测无输出：${exe}`
-        : `未找到 llama-server 可执行文件，已尝试：${tried.join(' ｜ ') || '（设置中没有引擎目录记录）'}`;
+        ? tr('msg_probe_no_output', [exe])
+        : tr('msg_probe_exe_not_found', [tried.join(' ｜ ') || tr('msg_probe_no_engine_dir')]);
     }
     return devices;
   }

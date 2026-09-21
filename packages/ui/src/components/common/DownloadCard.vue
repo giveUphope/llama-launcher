@@ -20,6 +20,8 @@ import {
   sortFilesByRelevance,
   parseQuantization,
   formatBytes,
+  MODELSCOPE_HOST,
+  normalizeMirrorHost,
 } from '@llama-launcher/shared';
 
 const settings = useSettingsStore();
@@ -297,15 +299,16 @@ function toggleFile(path: string) {
 // 打开 ModelScope 模型页面
 function onOpenModelScope() {
   if (!selectedModel.value) return;
-  const url = `https://www.modelscope.cn/models/${selectedModel.value.path}/${selectedModel.value.name}`;
+  const url = `https://${MODELSCOPE_HOST}/models/${selectedModel.value.path}/${selectedModel.value.name}`;
   void window.api.openExternal(url);
 }
 
-// 打开 HF Mirror 模型页面
+// 打开 HF 镜像模型页面（host 跟随 settings.hf_mirror_host，与实际下载源一致）
 // 若解析出具体文件路径,则跳转到该文件页(blob/main/<filePath>),否则跳转仓库根
 function onOpenHfMirror() {
   if (!selectedModel.value) return;
-  const base = `https://hf-mirror.com/${selectedModel.value.path}/${selectedModel.value.name}`;
+  const host = normalizeMirrorHost(settings.settings?.hf_mirror_host);
+  const base = `https://${host}/${selectedModel.value.path}/${selectedModel.value.name}`;
   const filePath = parsedInfo.value?.filePath;
   const url = filePath
     ? `${base}/blob/main/${filePath}`

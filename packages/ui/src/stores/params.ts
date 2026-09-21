@@ -502,12 +502,14 @@ export const useParamsStore = defineStore('params', () => {
   // 重启可恢复会话，但**永不写入预设文件**（预设文件只由显式保存写入，
   // 消除旧 autoSave 静默覆盖预设导致的临时/预设混杂）。
   let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  // 节流窗口 800ms 是 AGENTS.md 双轨参数逻辑里写明的契约，改这里须同步文档
+  const SESSION_SAVE_THROTTLE_MS = 800;
   watch(values, async () => {
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
     if (typeof window?.api?.settings?.save === 'undefined') return;
     autoSaveTimer = setTimeout(() => {
       persistSession();
-    }, 800);
+    }, SESSION_SAVE_THROTTLE_MS);
   }, { deep: true });
 
   return {

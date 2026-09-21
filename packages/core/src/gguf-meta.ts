@@ -466,7 +466,6 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
       key: 'temperature',
       value: info.sampling_temp,
       source: 'general.sampling.temp',
-      description: '模型推荐的采样温度',
     });
   }
   if (info.sampling_top_k !== null && info.sampling_top_k > 0) {
@@ -474,7 +473,6 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
       key: 'top_k',
       value: info.sampling_top_k,
       source: 'general.sampling.top_k',
-      description: '模型推荐的 top-k 采样值',
     });
   }
   if (info.sampling_top_p !== null && info.sampling_top_p > 0) {
@@ -482,7 +480,6 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
       key: 'top_p',
       value: info.sampling_top_p,
       source: 'general.sampling.top_p',
-      description: '模型推荐的 top-p 采样值',
     });
   }
   if (info.sampling_min_p !== null && info.sampling_min_p > 0) {
@@ -490,7 +487,6 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
       key: 'min_p',
       value: info.sampling_min_p,
       source: 'general.sampling.min_p',
-      description: '模型推荐的 min-p 采样值',
     });
   }
   if (info.sampling_repeat_penalty !== null && info.sampling_repeat_penalty > 0) {
@@ -498,7 +494,6 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
       key: 'repeat_penalty',
       value: info.sampling_repeat_penalty,
       source: 'general.sampling.repetition_penalty',
-      description: '模型推荐的重复惩罚值',
     });
   }
   if (info.sampling_presence_penalty !== null) {
@@ -506,7 +501,6 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
       key: 'presence_penalty',
       value: info.sampling_presence_penalty,
       source: 'general.sampling.penalty_present',
-      description: '模型推荐的存在惩罚值',
     });
   }
   // MTP 推测解码 — 模型含 nextn_predict_layers 时启用 draft-mtp
@@ -515,7 +509,6 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
       key: 'spec_type',
       value: 'draft-mtp',
       source: `${arch}.nextn_predict_layers`,
-      description: `模型包含 ${info.nextn_predict_layers} 层 MTP 预测头，启用 MTP 推测解码`,
     });
   }
 
@@ -548,7 +541,6 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
         key: 'alias',
         value: aliasValue,
         source: 'general.name+file_type+filename',
-        description: `使用"模型名称-量化版本"作为服务器别名: ${aliasValue}`,
       });
     }
   }
@@ -560,13 +552,11 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
       key: 'cache_type_k',
       value: 'q8_0',
       source: 'general.file_type',
-      description: `模型已量化为 ${info.quantization}，建议 KV cache K 使用 q8_0 节省显存`,
     });
     suggestions.push({
       key: 'cache_type_v',
       value: 'q8_0',
       source: 'general.file_type',
-      description: `模型已量化为 ${info.quantization}，建议 KV cache V 使用 q8_0 节省显存`,
     });
   }
 
@@ -576,7 +566,6 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
       key: 'flash_attn',
       value: 'on',
       source: `${arch}.context_length`,
-      description: '上下文长度较大，建议启用 Flash Attention 以减少显存占用',
     });
   }
 

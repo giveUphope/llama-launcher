@@ -22,7 +22,9 @@ void (async () => {
     const { createDemoApi } = await import('./dev/demo-mock');
     (window as any).api = createDemoApi();
   }
-  const timeout = new Promise<void>((resolve) => setTimeout(resolve, 3000));
+  // 设置加载兜底超时：主进程 IPC 无应答时也必须让应用挂载（否则白屏无提示）
+  const SETTINGS_LOAD_TIMEOUT_MS = 3000;
+  const timeout = new Promise<void>((resolve) => setTimeout(resolve, SETTINGS_LOAD_TIMEOUT_MS));
   try {
     await Promise.race([
       (async () => {

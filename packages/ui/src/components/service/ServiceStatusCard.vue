@@ -12,7 +12,7 @@ import ToolTip from '@/components/common/ToolTip.vue';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
-import { MODEL_KEY, modelBaseName, formatDuration } from '@llama-launcher/shared';
+import { MODEL_KEY, modelBaseName, formatDuration, DEFAULT_PORT } from '@llama-launcher/shared';
 
 const server = useServerStore();
 const params = useParamsStore();
@@ -29,7 +29,7 @@ let externalTimer: ReturnType<typeof setInterval> | null = null;
 
 function probeExternal() {
   void server.refreshExternal(
-    Number(params.values.port ?? 8080),
+    Number(params.values.port ?? DEFAULT_PORT),
     String(params.values.host ?? '') || undefined,
   );
 }

@@ -172,6 +172,10 @@ export const zh = {
   msg_select_exe_dir: '选择 llama-server 所在目录',
   msg_exe_not_found: '未在目录中检测到 llama-server 可执行文件',
   msg_exe_file_missing: '引擎文件不存在，请检查目录',
+  // 显存设备探测失败原因（主进程生成，经 probeError 在参数页显存估算行悬浮显示）
+  msg_probe_no_output: '探测无输出：{0}',
+  msg_probe_exe_not_found: '未找到 llama-server 可执行文件，已尝试：{0}',
+  msg_probe_no_engine_dir: '（设置中没有引擎目录记录）',
   // 卡片标题行帮助图标悬浮显示的按步骤引导（每步一行，序号由 UI 渲染；
   // 发布页跳转由面板底部的 btn_open_llama_releases 按钮承载）
   msg_exe_help_steps:
@@ -200,6 +204,13 @@ export const zh = {
   target_apply_title: '应用目标建议',
   target_apply_msg: '将把以下参数写入当前会话（写入后仍可手动调整）：',
   target_no_recs: '当前目标下无需调整（参数已符合建议）',
+  // 性能目标联动建议的理由文案（core 只发 key + 数值实参，文案一律在此）
+  target_rec_fa: '提升 prefill 并为 KV 量化前置',
+  target_rec_ctx_full: '显存预算内最大无 OOM 上下文',
+  target_rec_ctx_partial: '显存+内存联合预算推算（部分卸载以速度换上下文）',
+  target_rec_layers: '联合预算下建议卸载 {0}/{1} 层（其余权重与 KV 留在内存）',
+  target_rec_kv: '{0} KV 缓存档位（本目标的显存/质量取舍）',
+  target_rec_mtp: '模型含 {0} 层 MTP 头，启用推测解码提升 decode',
   fit_full: '全卸载',
   fit_partial: '部分卸载',
   fit_no: '建议降档',
@@ -417,6 +428,12 @@ export const zh = {
   msg_external_gone: '外部 llama-server 实例已下线（端口 {0} 已空闲）',
   msg_external_adopted: '已接管外部 llama-server 实例：{0}（PID {1}）——仅监控展示，不受本应用进程管理',
   lbl_external_instance: '外部实例',
+  // 人性化相对时间（shared/src/time-format.ts 经 trAt 按显式语言取用）
+  rel_just_now: '刚刚',
+  rel_minutes_ago: '{0} 分钟前',
+  rel_hours_ago: '{0} 小时前',
+  rel_today: '今天',
+  rel_yesterday: '昨天',
 };
 
 export type Dict = typeof zh;

@@ -4,34 +4,23 @@
  * - 当天：HH:mm
  * - 当年：MM-DD HH:mm
  * - 跨年：YYYY-MM-DD
+ *
+ * 措辞一律取自 i18n 字典（trAt）：本模块曾自带平行 REL_ZH/REL_EN 双表，
+ * 与 zh.ts/en.ts 抢同一职责且逃过键集一致性检查（门禁只比那两个文件）。
  */
-
-type Lang = 'zh' | 'en';
-
-const REL_ZH: Record<string, string> = {
-  just_now: '刚刚',
-  minutes_ago: '{0} 分钟前',
-  hours_ago: '{0} 小时前',
-  today: '今天',
-  yesterday: '昨天',
-};
-
-const REL_EN: Record<string, string> = {
-  just_now: 'just now',
-  minutes_ago: '{0} min ago',
-  hours_ago: '{0} h ago',
-  today: 'Today',
-  yesterday: 'Yesterday',
-};
+import { trAt } from './i18n/index.js';
+import type { Language } from './types/index.js';
 
 function pad(n: number): string {
   return n < 10 ? '0' + n : String(n);
 }
 
 /**
- * 将 ISO 字符串或时间戳格式化为人性化时间
+ * 将 ISO 字符串或时间戳格式化为人性化时间。
+ * lang 由调用方显式传入（如 PresetsPanel 传 settings.language），既决定措辞
+ * 也注册响应式依赖，语言切换后模板会重渲染。
  */
-export function formatRelativeTime(input: string | number, lang: Lang = 'zh'): string {
+export function formatRelativeTime(input: string | number, lang: Language = 'zh'): string {
   if (!input) return '—';
   const date = typeof input === 'string' ? new Date(input) : new Date(input);
   if (isNaN(date.getTime())) return '—';
@@ -46,20 +35,18 @@ export function formatRelativeTime(input: string | number, lang: Lang = 'zh'): s
   yesterday.setDate(yesterday.getDate() - 1);
   const isYesterday = date.toDateString() === yesterday.toDateString();
 
-  const rel = lang === 'zh' ? REL_ZH : REL_EN;
-
   // 1 小时内显示相对时间
-  if (diffMin < 1) return rel.just_now;
-  if (diffMin < 60) return rel.minutes_ago.replace('{0}', String(diffMin));
+  if (diffMin < 1) return trAt(lang, 'rel_just_now');
+  if (diffMin < 60) return trAt(lang, 'rel_minutes_ago', [diffMin]);
 
   // 24 小时内显示 HH:mm
   if (diffHour < 24 && isSameDay) {
-    return `${rel.today} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    return `${trAt(lang, 'rel_today')} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
   // 昨天显示"昨天 HH:mm"
   if (isYesterday) {
-    return `${rel.yesterday} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    return `${trAt(lang, 'rel_yesterday')} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
   // 同年显示 MM-DD HH:mm

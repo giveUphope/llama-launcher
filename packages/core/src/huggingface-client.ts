@@ -8,11 +8,10 @@ import type {
   ModelScopeFileListResult,
   ModelScopeFile,
 } from '@llama-launcher/shared';
-import { categorizeFile, parseQuantization } from '@llama-launcher/shared';
+import { categorizeFile, parseQuantization, DEFAULT_HF_MIRROR_HOST, normalizeMirrorHost } from '@llama-launcher/shared';
 import { formatFileSize } from './modelscope-client.js';
 import { isRetryableError, retryDelayMs } from './retry.js';
 
-const DEFAULT_MIRROR_HOST = 'hf-mirror.com';
 const TIMEOUT_MS = 20000;
 const MAX_REDIRECTS = 5;
 const MAX_RETRIES = 3;
@@ -108,17 +107,15 @@ export function setHfTransport(t: HfHttpTransport): void {
 }
 
 /** 当前镜像源 host（可配置，settings.hf_mirror_host 驱动）。 */
-let _mirrorHost = DEFAULT_MIRROR_HOST;
+let _mirrorHost = DEFAULT_HF_MIRROR_HOST;
 
 /**
  * 设置 HuggingFace 镜像源 host（如自建镜像/内网缓存）。
- * 空字符串或无效值回退默认 hf-mirror.com；自动去除协议前缀与尾部斜杠。
+ * 归一化逻辑与 UI 的「在浏览器打开」共用 shared 的 normalizeMirrorHost：空值回退默认站，
+ * 自动去除协议前缀与尾部斜杠。分叉会让下载走自建镜像而外链仍跳默认站。
  */
 export function setHfMirrorHost(host: string): void {
-  _mirrorHost =
-    host && host.trim()
-      ? host.trim().replace(/^https?:\/\//, '').replace(/\/$/, '')
-      : DEFAULT_MIRROR_HOST;
+  _mirrorHost = normalizeMirrorHost(host);
   listFilesCache.clear();
 }
 
@@ -198,7 +195,7 @@ async function requestWithRetry(path: string): Promise<any> {
       if (isRetryableError(err)) {
         const e = err as Error;
         throw new Error(
-          `${e.message} (failed after ${MAX_RETRIES + 1} attempts, ${getHfMirrorHost()} 可能临时不可达)`,
+          `${e.message} (failed after ${MAX_RETRIES + 1} attempts, ${getHfMirrorHost()} may be temporarily unreachable)`,
         );
       }
       throw err;

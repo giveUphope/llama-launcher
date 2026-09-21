@@ -174,6 +174,9 @@ export const en: Dict = {
   msg_select_exe_dir: 'Select the directory containing llama-server',
   msg_exe_not_found: 'llama-server executable not found in the directory',
   msg_exe_file_missing: 'Engine file does not exist, please check the directory',
+  msg_probe_no_output: 'Probe returned no output: {0}',
+  msg_probe_exe_not_found: 'llama-server executable not found, tried: {0}',
+  msg_probe_no_engine_dir: '(no engine directory recorded in settings)',
   // Step-by-step guide shown in the card header help tooltip (one step per line; number rendered by UI;
   // the releases link is a jump button at the panel bottom via btn_open_llama_releases)
   msg_exe_help_steps:
@@ -202,6 +205,12 @@ export const en: Dict = {
   target_apply_title: 'Apply target recommendations',
   target_apply_msg: 'The following params will be written to the current session (still editable afterwards):',
   target_no_recs: 'Nothing to change under this target (params already match)',
+  target_rec_fa: 'Speeds up prefill and preconditions KV quantization',
+  target_rec_ctx_full: 'Largest OOM-free context within the VRAM budget',
+  target_rec_ctx_partial: 'Combined VRAM+RAM budget (partial offload trades speed for context)',
+  target_rec_layers: 'Offload {0}/{1} layers under the combined budget (other weights and KV stay in RAM)',
+  target_rec_kv: '{0} KV cache tier (this target\'s VRAM/quality trade-off)',
+  target_rec_mtp: 'Model carries {0} MTP layer(s); speculative decoding speeds up decode',
   fit_full: 'Full offload',
   fit_partial: 'Partial',
   fit_no: 'Downsize',
@@ -417,4 +426,9 @@ export const en: Dict = {
   msg_external_gone: 'External llama-server is gone (port {0} is free again)',
   msg_external_adopted: 'Monitoring external llama-server: {0} (PID {1}) — display only, not managed by this app',
   lbl_external_instance: 'External',
+  rel_just_now: 'just now',
+  rel_minutes_ago: '{0} min ago',
+  rel_hours_ago: '{0} h ago',
+  rel_today: 'Today',
+  rel_yesterday: 'Yesterday',
 };

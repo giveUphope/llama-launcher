@@ -4,6 +4,7 @@ import { useServerStore, LLAMA_SERVER_NAME_RE } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 import { confirm } from '@/composables/useConfirm';
+import { DEFAULT_HOST, DEFAULT_PORT } from '@llama-launcher/shared';
 
 export interface StartCheckResult {
   ok: boolean;
@@ -44,7 +45,7 @@ export function useStartServer() {
     const modelPath = String(params.values.model ?? '');
     if (!modelPath.trim()) return { ok: false, message: i18n.t('msg_no_model'), needModel: true };
     // 端口范围校验（提示走 i18n，复用参数页已有 key）
-    const port = Number(params.values.port ?? 8080);
+    const port = Number(params.values.port ?? DEFAULT_PORT);
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
       return { ok: false, message: i18n.t('err_invalid_port'), needPort: true };
     }
@@ -63,7 +64,7 @@ export function useStartServer() {
     // 此时检查会误报 "Port is already in use" 导致重启永远失败；
     // 重启语义是先杀旧进程再启动，端口被自身占用属于预期情况，须跳过。
     if (!opts?.skipPortCheck) {
-      const port = Number(params.values.port ?? 8080);
+      const port = Number(params.values.port ?? DEFAULT_PORT);
       // 按 llama-server 将绑定的地址探测（--host）：回环默认 127.0.0.1，
       // 0.0.0.0/局域网 IP 时按对应地址探测，避免"占用者绑定在其他网卡 IP"漏报
       const hostVal = String(params.values.host ?? '').trim();
@@ -88,7 +89,7 @@ export function useStartServer() {
     }
     // 端口占用预处理：占用时不只报错，提供「结束占用进程 / 换用空闲端口」可操作处理
     const hostVal = String(params.values.host ?? '').trim() || undefined;
-    const port = Number(params.values.port ?? 8080);
+    const port = Number(params.values.port ?? DEFAULT_PORT);
     const pc = await window.api.system.checkPort(port, hostVal);
     if (pc && pc.inUse) {
       pushError(i18n.t('msg_port_in_use').replace('{0}', String(port)));
@@ -144,7 +145,7 @@ export function useStartServer() {
         pid: owner.pid,
         name: owner.name,
         port,
-        host: hostVal || '127.0.0.1',
+        host: hostVal || DEFAULT_HOST,
       });
       return false;
     }

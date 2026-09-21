@@ -27,8 +27,10 @@ export interface TargetRecommendation {
   key: string;
   /** 建议值 */
   value: string | number | boolean;
-  /** 推导理由（展示用） */
-  reason: string;
+  /** 理由的 i18n 键：core 不产文案，渲染端 `t(reasonKey, reasonArgs)` 翻译，语言切换即时生效 */
+  reasonKey: string;
+  /** 理由模板的 `{0}`/`{1}` 实参，只允许数值或枚举串（不得是已翻译文案） */
+  reasonArgs?: (string | number)[];
 }
 
 /** 单侧硬件资源占用估算（显存侧 = 最大空闲设备；内存侧 = 系统 RAM） */
