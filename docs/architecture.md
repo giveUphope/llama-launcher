@@ -95,14 +95,17 @@ llama_launcher/
 │   ├── copy-preload.cjs               # 复制 preload .cjs 到 dist/
 │   ├── generate-preload.cjs         # 从 ipc.ts 生成 preload IPC 常量
 │   ├── generate-params-doc.cjs      # 从 help 输出再生 docs/params/LLAMA_SERVER_PARAMS.md
+│   ├── dev.cjs                      # dev 模式三进程编排器（node 直起 vite/tsc/dev-watch，零 .cmd 批处理层）
 │   ├── dev-watch.cjs                # 开发热重载：监视主进程 dist / preload 源 / shared 类型，变更重启 Electron
+│   ├── reinstall-electron.cjs       # Electron 二进制缺失时的固定修复路径（pnpm reinstall:electron，带镜像环境变量）
 │   ├── dist-with-fallback.cjs       # 打包输出目录锁定回退
 │   ├── verify-params-sync.cjs       # 参数定义 ↔ 文档 ↔ help 三方对拍 + 文档参数计数声明校验
 │   ├── verify-ipc-sync.cjs          # IPC 常量一致性校验 + 文档通道数声明校验
 │   ├── verify-help-drift.cjs        # 二进制升级后的参数漂移审计
+│   ├── verify-i18n-usage.cjs        # i18n 键使用一致性（六项检查：键集/悬空键/裸中文/手工插值/实参匹配/动态键族）
 │   ├── check-docs-links.cjs         # 文档相对链接与锚点完整性（lint 阶段执行）
-│   ├── style-audit.cjs              # UI 风格规范审计（frontend.md §7.5 十项检查）
-│   ├── verify-server-start.mjs      # Launcher 手动冒烟测试（需 core/dist 先构建）
+│   ├── style-audit.cjs              # UI 风格规范审计（条目与计数以脚本输出为准，勿在文档写死）
+│   ├── verify-server-start.mjs      # Launcher 手动冒烟测试（需 core/dist 先构建；模型由 --model / LLAMA_SMOKE_MODEL / 模型目录解析）
 │   ├── integ_devsession.mjs         # 开发会话集成测试入口
 │   ├── icon-gen/gen-icon.cjs        # 应用图标生成（desktop pnpm gen:icon）
 │   ├── inject-icon.cjs              # 打包后注入 exe 图标

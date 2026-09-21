@@ -28,6 +28,7 @@ IPC 按功能域声明式注册：`ipc/` 目录下 settings/models/presets/serve
  FS。
 
 - 下载完成时调用 `notifyModelsChanged()` 刷新模型列表。
+- **主进程文案的语言同步**：`settings:save` 处理器在写入设置后调用 `setLang(s.language)`（见 `ipc/settings.ts`），使主进程用 `tr()` 生成的即时文案（探测失败原因、托盘菜单）跟随语言切换，无需重启；托盘菜单因在每次右键时现场构建（§6.8）而即时生效。
 - `models:watch` 递归监听 `.gguf` 文件变化，500ms 防抖后通知渲染进程。
 - `system:findLlamaExe` 在指定目录（含一级子目录）查找 `llama-server.exe`，用于内联检测。
 - `system:estimateVram` / `system:estimateModelFit`：显存探测（spawn `llama-server --list-devices`）+ GGUF KV 内存模型，估算显存/内存双侧占用、无 OOM 上下文上限、性能目标联动建议与模型适配判定（委托 core `devices.ts` / `vram-estimate.ts` / `target-recommend.ts`）。**设备探测 30s 共享缓存只缓存成功结果**——失败时把 `at` 归零，用户改回引擎目录后下一次调用立即重探（旧实现连空结果一起缓存，改对目录也要空转半分钟）；探测失败原因（含尝试过的路径）随结果的 `probeError` 带回，参数页「显存占用」tooltip 直接显示，不再只剩一个「—」；该文案由 `tr()` 按当前语言生成（主进程语言在 `IPC.SETTINGS_SAVE` 里经 `setLang` 同步，见 `ipc/settings.ts`），不得写中文字面量——裸中文会被 `verify-i18n-usage.cjs` 判 fail。**探测 exe 由 core `resolveServerExe` 解析**（settings → 同目录 → llama_dir 及一级子目录 → 开发态默认，逐个校验存在），引擎目录改名/搬走时自动回退而非静默失效。结果按 模型|dtype|target|ngl|ctxSize 缓存 60s。

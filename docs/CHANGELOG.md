@@ -4,7 +4,18 @@
 
 ## \[Unreleased]
 
-- **参数页英文标签截断归零 + 几何判定扩到参数页（残留清单第 7、10 条，2026-09-21，STYLE_TODO #80）**：#79 修的是设置页（英文标签压控件），参数页是同一列宽口径的另一半——124px 由 #78 按**中文**最长标签 122.8px 定，英文侧没逐条量。用页面真实字体 canvas 实测 **11/60 条英文标签 > 124**（超 4–45px，被 `overflow: hidden` + 省略号截断；中文态 0/60）。
+- **文档对齐审计（2026-09-21）**：逐条把文档声明与代码/实测对账（先量再改，未凭记忆）。**9 处修正 + 1 处根因修复**：
+  - **两处旧用例数**：`AGENTS.md` 与 `docs/testing.md` 的「core 359 / ui 66」→ 实测 **362 / 69**（本轮新增 6 例：core download-log +3、ui params +3）。
+  - **`architecture.md` 的 monorepo 版本表 desktop 行 0.0.34 → 0.0.39**，并修根因：`scripts/bump-version.cjs` 的文档同步清单缺 `docs/architecture.md`，该行已在 0.0.12 → 0.0.34 → 0.0.39 两轮发版中持续漂移。补进清单后用**只读模拟**验证（不能真跑该脚本——它会写版本、CHANGELOG 并打 tag）：该文档里当前版本串只出现在这一行，历史版本引用不会误改。
+  - **`architecture.md` 脚本树补 3 个漏收脚本**（`dev.cjs` / `reinstall-electron.cjs` / `verify-i18n-usage.cjs`），并把 `style-audit.cjs` 的「十项检查」改为**不写死项数**——实测脚本输出 12 项且编号 7 自首个提交起即空缺；`frontend.md` §7.5 自己就定了「计数勿在文档写死」的口径，architecture 那处正是反例。
+  - **`docs/workflow.md` 的 `pnpm lint` 行**只列了两个脚本，补齐六项组成。
+  - **`docs/params-system.md` §5.5 第 8 步**写着「该脚本目前只打印差异、不阻塞 lint」——上一轮已把 `verify-params-sync` 升级为硬 fail，该句连同新增的三类校验（三方对拍 / 计数声明 / 字典双向相等）一并重写。
+  - **`docs/core-modules.md`** 补 `error-classify.ts` 与 `types.ts` 两行模块表，并在 §4.10 记录「done 记录 `errorType` 恢复时归一化」（本轮新增行为）。
+  - **`docs/desktop-main.md`** 补主进程文案的语言同步机制（`settings:save → setLang`，托盘菜单因右键现场构建而即时生效）。
+  - **`AGENTS.md` 脚本清单**补漏收的 `reinstall-electron.cjs`。
+  - **实测无漂移、未改**（列出来是为了让「查过了」可复核）：`docs/ipc-channels.md` 的 56 个通道**逐值**与 `ipc.ts` 一致（0 缺失 / 0 幽灵）；`docs/testing.md` 的核心测试文件表 25 行 = 实际 25 个文件；README 的「60 参数 / 56 通道 / 13 子分类 / GGUF 60 字段」四项全部与 `definitions.ts`、`ipc.ts`、`SUBCATEGORY_ORDER`、`GgufModelInfo` 实测相符；i18n 键数在 CHANGELOG 之外无任何文档写死；`STYLE_TODO` 无「共 N 项」类计数声明。
+  - 验证：`pnpm lint`（六项门禁 + 157 文档链接与锚点）/ `oxlint` 全绿。**遗留提案**（未做，待定）：测试用例数属「每次加测试都会漂」的数字，目前靠人工同步；若要收口，可在校验脚本里加「文档声明的用例数 == 实际」断言，或在文档里改写成可复现口径（如「以 `pnpm test` 输出为准」）。：#79 修的是设置页（英文标签压控件），参数页是同一列宽口径的另一半——124px 由 #78 按**中文**最长标签 122.8px 定，英文侧没逐条量。用页面真实字体 canvas 实测 **11/60 条英文标签 > 124**（超 4–45px，被 `overflow: hidden` + 省略号截断；中文态 0/60）。
+  - **参数页英文标签截断归零 + 几何判定扩到参数页（残留清单第 7、10 条，2026-09-21，STYLE_TODO #80）**：#79 修的是设置页（英文标签压控件），参数页是同一列宽口径的另一半——124px 由 #78 按**中文**最长标签 122.8px 定，英文侧没逐条量。用页面真实字体 canvas 实测 **11/60 条英文标签 > 124**（超 4–45px，被 `overflow: hidden` + 省略号截断；中文态 0/60）。
   - 两条路线交用户选边：① 列宽 124→176 彻底不截断，但最小轨 418→470，**1600 由 3 列退 2 列、2560 由 5 列退 4 列**，与 #78「不拿列数换对齐」冲突；② 缩短英文文案（零布局代价，完整术语在 `PARAM_HELP` 与 tooltip 里）→ **选 ②**。
   - `labels.ts` 的 `en` 改 11 条（zh 一字未动）：`Continuous Batch` / `Multimodal Proj.` / `Proj. GPU Offload` / `Video TS Interval` / `Jinja Engine` / `Draft KV Type K|V` / `Synth. Accept Len` / `Synth. Accept Rate`（顺带修单复数 bug，zh 为「合成接受率」）/ `Reasoning Budget` / `Budget End Msg`。**每条候选改前都实测 ≤122px** 留余量；键名逐条 grep 对回（我按表推断的 key 有 4 个不准）。
   - **第 10 条**：`e2e/web/app.spec.ts` 的几何用例从设置页三面板扩到参数页 60 行（双语各一条，断言零截断 + 不压控件），并加 `expect(行数).toBe(60)` 防「少渲染也算过」。web e2e 13 → **15 例全绿**；负测试把 `Budget End Msg` 退回长版本 → 英文态参数页用例点名失败，还原后回全绿。今后新增参数若英文标签超长，CI 直接拦下。

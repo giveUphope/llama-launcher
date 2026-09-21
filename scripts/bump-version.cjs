@@ -14,6 +14,7 @@
  *   - docs/packaging.md（所有旧版本号引用）
  *   - README.md（旧版本号引用）
  *   - AGENTS.md（旧版本号引用）
+ *   - docs/architecture.md（monorepo 包版本表中的 desktop 行）
  */
 const fs = require('node:fs');
 const path = require('node:path');

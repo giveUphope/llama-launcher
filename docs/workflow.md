@@ -8,7 +8,7 @@
 | `pnpm dev` | 启动开发模式（`scripts/dev.cjs` 三进程编排，不经 turbo） |
 | `pnpm build` | 构建所有包 |
 | `pnpm test` | 运行测试 |
-| `pnpm lint` | 类型检查 + IPC 同步校验（`verify-ipc-sync.cjs`）+ 文档链接检查（`check-docs-links.cjs`，可单独 `pnpm docs:check`） |
+| `pnpm lint` | 类型检查 + IPC 同步校验（`verify-ipc-sync.cjs`）+ 参数三方对拍与字典/计数校验（`verify-params-sync.cjs`）+ 文档链接检查（`check-docs-links.cjs`，可单独 `pnpm docs:check`）+ i18n 六项检查（`verify-i18n-usage.cjs`）+ oxlint（`pnpm lint:ox`） |
 | `pnpm dist` | 打包 Portable 单文件（根目录一条命令，委托 `@llama-launcher/desktop dist`；electron-builder，输出 `release/*.exe`，自动处理输出目录锁定回退） |
 
 开发模式热重载由 `scripts/dev.cjs` 编排三进程：Vite dev server（UI HMR）+ `tsc -b --watch`（shared/core/desktop 增量重建）+ `scripts/dev-watch.cjs`（监视主进程 dist / preload 源 / shared 类型，变更时自动重新生成 preload 并重启 Electron，通过 `LLAMA_DEV_SKIP_QUIT_KILL=1` 避免热重启连带杀掉 dev 会话树）。改 UI 组件/样式即时热更；改 core/shared/主进程/preload 代码自动重建并重启，无需手动操作。退出语义：任一任务先退出即以它的退出码结束整个会话，其余任务按进程树 `taskkill /T /F` 清理（用户关窗 → dev-watch 退 0 → vite/tsc 一并收走，端口不残留）。

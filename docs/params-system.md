@@ -71,7 +71,7 @@
 5. **更新 `packages/shared/src/params/definitions.ts`**：按审计结果新增/移除参数、同步下拉 `options`（allowed values）、调整默认值（默认值变更需结合实测结论决策，例如 b10429 将 `--load-mode` 默认改为 `auto` 时，应用按 `docs/archive/experiments/plan-kv-split-cli-test.md` 实测结论保留 `none`）。
 6. **重建 shared**：`pnpm --filter @llama-launcher/shared build`（core 测试依赖 `dist`，不重建会测试不一致）。
 7. **重新生成参数文档**：`node scripts/generate-params-doc.cjs`。
-8. **校验一致**：`node scripts/verify-params-sync.cjs`（应输出 `✅ 按参数维度检查完全一致，无出入。`；该脚本目前只打印差异、不阻塞 lint）。
+8. **校验一致**：`pnpm lint` 内含 `verify-params-sync.cjs`（三类校验，**任一有出入即 fail**）：① 参数定义 ↔ 对照表 ↔ help 三方对拍；② 文档里的参数计数声明（总数与分组数）与实测一致；③ `PARAM_LABELS`/`PARAM_HELP` 键集与 `PARAMS` 双向完全相等且 zh/en 非空（表里有字典无 → 界面渲染裸 key；字典有表里无 → 死条目）。单独跑该脚本可看逐项输出。
 9. **IPC 通道如有变更**：同步 `packages/shared/src/types/ipc.ts` 与 preload 生成，跑 `pnpm lint`（含 `verify-ipc-sync.cjs`）。
 10. **回归**：`pnpm lint` + `pnpm test`。
 11. **记录**：`docs/CHANGELOG.md` [Unreleased] 补充条目。

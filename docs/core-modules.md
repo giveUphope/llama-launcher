@@ -142,6 +142,7 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 - `appendDownloadEvent(localPath, event)` 追加一行（写入失败静默，不影响下载正确性）；`replayDownloadLog(localPath)` 以最后合法 `start` 为基线投影重建段进度（段进度越界行跳过，单调取最大值）；`deleteDownloadLog` 完成/取消时清理；`migrateLegacyMeta` 把旧版 `.llama_dl.json`（v1/v2 快照）一次性转换并删除旧文件（`.jsonl` 已存在则不覆盖）。
 
 - 后缀常量：`DOWNLOAD_LOG_SUFFIX='.llama_dl.jsonl'`、`LEGACY_META_SUFFIX='.llama_dl.json'`（trash-cleaner 也按此识别下载残留）。
+- **终态的 `errorType` 在恢复时归一化**：done 记录的 `errorType` 必须落在 `DOWNLOAD_ERROR_TYPES`（`shared` 的运行时成员表，联合类型由它派生）内才采信，脏值一律丢弃；旧日志（该字段加入前写的）只有 `error` 原文，`status==='error'` 时用 `classifyError(errorText)` 补分类——否则渲染端 `errorDisplay` 会退回显示未翻译的英文原文（`DownloadCard` 的 raw 回退分支）。
 
 ### 4.12 进程清理日志 (cleanup-logger.ts)
 
@@ -182,7 +183,9 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | `huggingface-client.ts` | `listHfFiles` / `buildHfDownloadUrl` / `buildHfModelPageUrl` / `setHfTransport` / `setHfMirrorHost` / `getHfMirrorHost` / `isHfMirrorHostname`                  | HF 镜像客户端（§4.6）                        |
 | `download-manager.ts`   | `DownloadManager`（单例 `getDownloadManager`）/ `setDownloadTransport` / `DownloadTransport`                                                                        | 多任务断点续传（§4.6）                         |
 | `download-log.ts`       | `appendDownloadEvent` / `replayDownloadLog` / `deleteDownloadLog` / `migrateLegacyMeta`                                                                         | 续传事件日志（§4.10）                         |
-| `retry.ts`              | `isRetryableError` / `retryDelayMs`                                                                                                                             | 重试判定与退避（§4.9）                        |
+| `retry.ts`              | `isRetryableError` / `retryDelayMs`                                                                                                                             | 重试
+| `error-classify.ts`     | `classifyError(err, httpStatus?)`                                                                                                                              | 把底层错误归类为 `DownloadErrorType`（下载失败诊断 + 旧日志恢复补齐类型）。单独成模块：`download-manager` 依赖 `download-log`，而 `download-log` 恢复时也要分类，反向引用会成环 |
+| `types.ts`              | `LauncherEvent`                                                                                                                                                | 启动器事件名联合（`output` / `status` / `exit` / `error` / `command`） |判定与退避（§4.9）                        |
 | `trash-cleaner.ts`      | `detectTrash` / `detectTrashAsync` / `cleanTrash` / `cleanTrashAsync`（`TrashScanOptions`；IPC 侧一律用异步版）                                              | 应用生成文件清理（§4.13）                       |
 | `cleanup-logger.ts`     | `cleanupLogger`（debug/info/warn/error）/ `setCleanupLogLevel`                                                                                                    | 进程清理日志（§4.12）                         |
 
