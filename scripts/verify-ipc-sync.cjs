@@ -46,3 +46,37 @@ if (missingRef.length) {
   process.exit(1);
 }
 
+/**
+ * 文档里的「N 个通道 / N IPC 通道」裸数字必须等于实测通道数。
+ * 这些数字此前无任何门禁，通道增删后会长期挂着错值（2026-09-21 硬编码审计补）。
+ * 历史陈述不比对：docs/CHANGELOG.md 与 docs/archive/** 记的是当时的事实。
+ */
+const DOC_CHANNEL_RE = /(\d+)\s*个?\s*(?:IPC\s*)?通道/g;
+function docFilesWithChannelClaims() {
+  const docsDir = path.resolve(__dirname, '../docs');
+  const files = ['AGENTS.md', 'README.md'];
+  for (const e of fs.readdirSync(docsDir, { withFileTypes: true })) {
+    if (e.isFile() && e.name.endsWith('.md') && e.name !== 'CHANGELOG.md') files.push(`docs/${e.name}`);
+  }
+  return files;
+}
+
+const claimDrift = [];
+for (const rel of docFilesWithChannelClaims()) {
+  const lines = fs.readFileSync(path.resolve(__dirname, '..', rel), 'utf8').split(/\r?\n/);
+  lines.forEach((line, idx) => {
+    for (const m of line.matchAll(DOC_CHANNEL_RE)) {
+      if (Number(m[1]) !== count) {
+        claimDrift.push(`  - ${rel}:${idx + 1} 声明 ${m[1]}，实际 ${count}：${line.trim().slice(0, 70)}`);
+      }
+    }
+  });
+}
+if (claimDrift.length) {
+  console.error(`[verify-ipc-sync] ❌ 文档通道数与实测(${count})不符：`);
+  for (const e of claimDrift) console.error(e);
+  console.error('修复：改文档数字，或确认通道数本身是否符合预期（改通道须走 shared/src/types/ipc.ts + pnpm generate:ipc）。');
+  process.exit(1);
+}
+console.log(`[verify-ipc-sync] 文档通道数声明与实测一致（${count}）。`);
+

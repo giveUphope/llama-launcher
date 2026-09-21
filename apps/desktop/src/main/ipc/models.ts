@@ -25,7 +25,7 @@ export function registerModelsIpc(ipcMain: IpcMain): void {
       if (err?.code === 'DIR_NOT_FOUND') {
         if (!missingDirWarned.has(dir)) {
           missingDirWarned.add(dir);
-          console.warn(`[models] 模型目录不存在（仅提示一次，渲染进程引导创建）：${dir}`);
+          console.warn(`[models] 模型目录不存在（仅提示一次，渲染进程引导创建）：${dir}`); // i18n-ignore 主进程诊断日志，不进界面
         }
         return { ok: false, code: 'DIR_NOT_FOUND', dir };
       }

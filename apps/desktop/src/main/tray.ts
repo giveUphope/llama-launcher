@@ -61,11 +61,11 @@ function loadTrayIcon() {
   for (const p of candidates) {
     const img = nativeImage.createFromPath(p);
     if (!img.isEmpty()) {
-      console.log('[tray] 图标已加载:', p);
+      console.log('[tray] 图标已加载:', p); // i18n-ignore 主进程诊断日志，不进界面
       return img;
     }
   }
-  console.error('[tray] 托盘图标加载失败（PNG/ICO 均不可用），请检查 apps/desktop/resources/');
+  console.error('[tray] 托盘图标加载失败（PNG/ICO 均不可用），请检查 apps/desktop/resources/'); // i18n-ignore 主进程诊断日志，不进界面
   return nativeImage.createEmpty();
 }
 

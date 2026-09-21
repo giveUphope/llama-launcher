@@ -102,3 +102,50 @@ if (onlyInCode.length) {
 if (!onlyInCode.length && !docParamsNotInCode.length) {
   console.log('✅ 按参数维度检查完全一致，无出入。\n');
 }
+
+// ============================================================
+// 文档里的参数计数声明必须等于 definitions.ts 实测（2026-09-21 硬编码审计补）。
+// 为什么用显式声明表而不是全文扫「N 个参数」：文档里该句式也用于局部语境
+// （如「以下 4 个参数」），泛扫会把无关数字判成全局声明。
+// ============================================================
+const GROUP_COUNTS = { basic: 0, advanced: 0, server: 0 };
+for (const m of defsText.matchAll(/group:\s*'([a-z]+)'/g)) {
+  if (!(m[1] in GROUP_COUNTS)) {
+    console.error(`【definitions.ts 出现未知参数组】${m[1]}（文档计数声明表需同步）`);
+    process.exit(1);
+  }
+  GROUP_COUNTS[m[1]]++;
+}
+const PARAM_TOTAL = GROUP_COUNTS.basic + GROUP_COUNTS.advanced + GROUP_COUNTS.server;
+
+const DOC_PARAM_CLAIMS = [
+  { file: 'AGENTS.md', re: /the (\d+)-param table/, want: [PARAM_TOTAL] },
+  { file: 'README.md', re: /(\d+) 个参数与 llama-server/, want: [PARAM_TOTAL] },
+  { file: 'docs/architecture.md', re: /参数表（(\d+) 组 \/ (\d+) 个参数）/, want: [Object.keys(GROUP_COUNTS).length, PARAM_TOTAL] },
+  { file: 'docs/core-modules.md', re: /`PARAMS`（(\d+)：basic (\d+) \/ advanced (\d+) \/ server (\d+)）/, want: [PARAM_TOTAL, GROUP_COUNTS.basic, GROUP_COUNTS.advanced, GROUP_COUNTS.server] },
+  { file: 'docs/params-system.md', re: /共 (\d+) 个参数/, want: [PARAM_TOTAL] },
+  { file: 'docs/frontend.md', re: /；(\d+) 参数经/, want: [PARAM_TOTAL] },
+  { file: 'docs/testing.md', re: /全部 (\d+) 参数/, want: [PARAM_TOTAL] },
+];
+
+const paramClaimErrors = [];
+for (const { file, re, want } of DOC_PARAM_CLAIMS) {
+  const text = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+  const m = text.match(re);
+  if (!m) {
+    paramClaimErrors.push(`  - ${file}: 声明未匹配（改口径须同步本表与门禁）：${re}`);
+    continue;
+  }
+  want.forEach((expected, i) => {
+    if (Number(m[i + 1]) !== expected) {
+      paramClaimErrors.push(`  - ${file}: 声明 ${m[i + 1]}，实际 ${expected}（${re.source.slice(0, 40)}）`);
+    }
+  });
+}
+if (paramClaimErrors.length) {
+  console.error(`[verify-params-sync] ❌ 文档参数计数与实测(${PARAM_TOTAL}：basic ${GROUP_COUNTS.basic} / advanced ${GROUP_COUNTS.advanced} / server ${GROUP_COUNTS.server})不符：`);
+  for (const e of paramClaimErrors) console.error(e);
+  console.error('修复：改文档数字（参数表唯一事实源仍是 packages/shared/src/params/definitions.ts）。');
+  process.exit(1);
+}
+console.log(`[verify-params-sync] ✅ 文档参数计数声明与实测一致（${PARAM_TOTAL}：basic ${GROUP_COUNTS.basic} / advanced ${GROUP_COUNTS.advanced} / server ${GROUP_COUNTS.server}）。`);
