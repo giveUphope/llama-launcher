@@ -69,15 +69,13 @@ function loadTrayIcon() {
   return nativeImage.createEmpty();
 }
 
-export function createTray(win: BrowserWindow): Tray {
-  const icon = loadTrayIcon();
-  const tray = new Tray(icon);
-  tray.setToolTip('llama Launcher');
-
-  // 菜单文案跟随设置语言（i18n 约定：用户可见字符串走 shared i18n）
-  setLang(loadSettings().language);
-
-  const menuTemplate: MenuItemConstructorOptions[] = [
+/**
+ * 托盘菜单模板：文案走 tr()，因此必须在**每次弹出时**构建——托盘只在启动时创建一次，
+ * 而语言可以在设置页运行时切换（IPC.SETTINGS_SAVE → setLang），启动时缓存一份
+ * 会让菜单文案一直停在旧语言，非重启不更新。
+ */
+function buildTrayMenu(win: BrowserWindow): MenuItemConstructorOptions[] {
+  return [
     {
       label: tr('tray_show'),
       click: () => {
@@ -93,13 +91,23 @@ export function createTray(win: BrowserWindow): Tray {
       },
     },
   ];
-  const menu = Menu.buildFromTemplate(menuTemplate);
+}
+
+export function createTray(win: BrowserWindow): Tray {
+  const icon = loadTrayIcon();
+  const tray = new Tray(icon);
+  tray.setToolTip('llama Launcher');
+
+  // 启动时先按设置语言对齐一次，供后续 tr() 取用
+  setLang(loadSettings().language);
 
   // 右键：菜单显示在托盘图标上方。Windows 原生弹出以 kTopLeft 锚点从给定点向下展开
   // （不会自动向上），故手动定位——菜单底缘对齐图标上缘、右缘对齐图标右缘；
   // 位置按该图标所在显示器的工作区钳制，上方放不下时回退到图标下方。
   tray.on('right-click', (_e, bounds) => {
-    const menuH = estimateMenuHeight(menuTemplate);
+    const template = buildTrayMenu(win);
+    const menu = Menu.buildFromTemplate(template);
+    const menuH = estimateMenuHeight(template);
     const wa = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y }).workArea;
 
     // 优先：菜单底缘贴图标上缘（菜单在图标上方）；上方放不下则贴图标下缘向下展开。

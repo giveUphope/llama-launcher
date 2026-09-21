@@ -69,7 +69,7 @@ IPC 按功能域声明式注册：`ipc/` 目录下 settings/models/presets/serve
 
 窗口隐藏后应用驻留托盘的保活实现（`close_behavior='tray'` 或退出询问选「最小化到托盘」时生效）：
 
-- **`createTray(win)`**：菜单两项（显示主窗口 / 退出——退出走 `requestExit`，服务运行中二次确认）；文案跟随设置语言。
+- **`createTray(win)`**：菜单两项（显示主窗口 / 退出——退出走 `requestExit`，服务运行中二次确认）；模板由 `buildTrayMenu(win)` 提供，**每次 right-click 现场构建**，故语言切换即时生效（托盘只创建一次，若启动时缓存 menu 则菜单会停在旧语言、非重启不更新；语言本身由 `IPC.SETTINGS_SAVE → setLang` 同步）。
 - **图标**：优先 32px PNG（Windows 托盘各 DPI 渲染可靠），失败逐级兜底 16px PNG / icon.ico；dev 与打包（`extraResources`）两套路径。
 - **右键菜单定位**：Windows 原生 `setContextMenu` 从鼠标位置向下展开（不会自动向上），改为 right-click 手动 `popUpContextMenu`——菜单底缘对齐图标上缘、右缘对齐图标右缘，按显示器工作区钳制，上方放不下时回退到图标下方；高度按模板逐项估算（项 33px / 分隔线 7px / 边框 4px）。
 - 单击托盘图标：显示并聚焦主窗口。
