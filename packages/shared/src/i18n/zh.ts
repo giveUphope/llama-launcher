@@ -250,7 +250,7 @@ export const zh = {
   msg_select_model_file: '选择模型文件',
   msg_select_dir: '选择模型目录',
   err_invalid_host: '请输入有效的 IP 或主机名',
-  err_invalid_port: '端口必须是 1-65535 的整数',
+  err_invalid_port: '端口必须是 {0}-{1} 的整数',
 
 
   // ---------------- param groups ----------------

@@ -250,7 +250,7 @@ export const en: Dict = {
   msg_select_model_file: 'Select model file',
   msg_select_dir: 'Select model directory',
   err_invalid_host: 'Please enter a valid IP or hostname',
-  err_invalid_port: 'Port must be an integer between 1 and 65535',
+  err_invalid_port: 'Port must be an integer between {0} and {1}',
 
 
   // ---------------- param groups ----------------

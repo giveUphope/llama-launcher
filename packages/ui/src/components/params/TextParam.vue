@@ -24,10 +24,8 @@ const error = computed<string>(() => {
     const isHostname = /^[a-zA-Z0-9][-a-zA-Z0-9]*$/.test(value);
     if (!isIp && !isHostname) return i18n.t('err_invalid_host');
   }
-  if (props.p.key === 'port') {
-    const port = Number(value);
-    if (value === '' || Number.isNaN(port) || port < 1 || port > 65535) return i18n.t('err_invalid_port');
-  }
+  // 端口不在此校验：它是 int_entry（走 IntEntryParam 的 Arco min/max 钳制），
+  // 启动前由 useStartServer 的 isValidPort 兜底——本组件只服务 type: 'text'
   return '';
 });
 </script>

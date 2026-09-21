@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { useParamsStore, isDependencySatisfied, computeViolatedParams } from './params';
-import { PARAMS, MODEL_KEY } from '@llama-launcher/shared';
+import { PARAMS, MODEL_KEY, DEFAULT_HOST, DEFAULT_PORT, PORT_MIN, PORT_MAX, isValidPort } from '@llama-launcher/shared';
 
 vi.useFakeTimers();
 
@@ -418,5 +418,39 @@ describe('双轨参数逻辑（基线/会话）', () => {
     params.set('ctx_size', 4096);
     await vi.advanceTimersByTimeAsync(1000);
     expect(savePreset).not.toHaveBeenCalled();
+  });
+});
+
+// 网络常量派生自 PARAMS 表（唯一起点见 definitions.ts）：表里改 min/max/default，
+// 这些常量与校验必须跟着变，否则会出现「参数页允许、启动前检查拒绝」的分裂。
+describe('网络常量派生与端口校验', () => {
+  const portDef = PARAMS.find((p) => p.key === 'port')!;
+  const hostDef = PARAMS.find((p) => p.key === 'host')!;
+
+  it('PORT_MIN / PORT_MAX 等于参数表 port 条目的 min / max', () => {
+    expect(PORT_MIN).toBe(portDef.min);
+    expect(PORT_MAX).toBe(portDef.max);
+    expect(Number.isFinite(PORT_MIN)).toBe(true);
+    expect(Number.isFinite(PORT_MAX)).toBe(true);
+  });
+
+  it('默认值自洽：DEFAULT_PORT 落在合法区间，DEFAULT_HOST 非空', () => {
+    expect(isValidPort(DEFAULT_PORT)).toBe(true);
+    expect(DEFAULT_PORT).toBe(portDef.default);
+    expect(DEFAULT_HOST).toBe(hostDef.default);
+    expect(DEFAULT_HOST.length).toBeGreaterThan(0);
+  });
+
+  it('isValidPort 边界：两端合法，越界/小数/NaN/0 全拒', () => {
+    expect(isValidPort(PORT_MIN)).toBe(true);
+    expect(isValidPort(PORT_MAX)).toBe(true);
+    expect(isValidPort(PORT_MIN - 1)).toBe(false);
+    expect(isValidPort(PORT_MAX + 1)).toBe(false);
+    expect(isValidPort(0)).toBe(false);
+    expect(isValidPort(-1)).toBe(false);
+    expect(isValidPort(8080.5)).toBe(false);
+    expect(isValidPort(Number.NaN)).toBe(false);
+    // 空串经 Number() 得 0，同样视为非法（与删除的 TextParam 死分支语义一致）
+    expect(isValidPort(Number(''))).toBe(false);
   });
 });

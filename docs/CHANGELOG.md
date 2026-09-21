@@ -4,6 +4,14 @@
 
 ## \[Unreleased]
 
+- **端口范围收敛到事实源（残留清单第 1 条，2026-09-21）**：`1`/`65535` 实测散落 **代码 5 处 + 文案 2 处**——`definitions.ts` 的 `port` 条目（事实源）、`ipc/system.ts` findFreePort 的扫描上界与起始回退值、`TextParam.vue` 与 `useStartServer.ts` 各一份 `port < 1 || port > 65535`、`msg_free_port_not_found` 的字符串实参 `'65535'`，外加 zh/en 的 `err_invalid_port` 文案里写死「1-65535」。
+  - `definitions.ts` 新增 `PORT_MIN`/`PORT_MAX`/`isValidPort()`，与上一轮的 `DEFAULT_HOST`/`DEFAULT_PORT` 同源于 `port` 条目；派生改走统一的 `paramOf(key)`（缺条目即抛），并加 `paramBound()`——`ParamDef.min/max` 是**可选字段**，缺界会静默变 `NaN` 让校验全线放行，故宁可启动即抛。
+  - 消费点全部替换：`system.ts` 两处、`useStartServer.ts` 校验 + 提示实参；`err_invalid_port` 文案改占位符 `{0}-{1}`，实参由 `PORT_MIN`/`PORT_MAX` 提供（上一轮加的「实参数=占位符数」门禁正好校验这条新写法）。
+  - **顺带清掉一处死代码**：`TextParam.vue` 的 `if (props.p.key === 'port')` 永不成立——`port` 是 `int_entry`，由 `IntEntryParam` 渲染（Arco `a-input-number` 的 `:min/:max` 钳制），而 `ParamRow` 的显式分支已覆盖 `ParamType` 除 `text` 外的全部 8 种取值，TextParam 只服务 `type: 'text'`。数值范围校验归 IntEntryParam（输入钳制）+ `useStartServer`（启动前兜底），不在文本控件里特判他参数。
+  - **补单测**：`isValidPort` 与派生常量此前**零覆盖**（`git grep` 实测无一处测试引用）。新增 3 例到 `params.test.ts`：`PORT_MIN/MAX` 等于表内 `min/max` 且有限、`DEFAULT_PORT` 落在合法区间（默认值自洽）、边界行为（两端合法 / 越界 / 小数 / `NaN` / `Number('')` 全拒）。负测试：把断言改成 `65534` 即报 `expected 65535 to be 65534`，证其读真值。
+  - 验证：`pnpm build` / `lint`（四道 i18n 门禁 + 156 文档链接）/ `test`（core 359 + **ui 69**，+3）全绿。文档同步 core-modules 的 definitions 行。
+
+
 - **英文态设置页标签压控件修复（STYLE_TODO #79，2026-09-21）**：用户批注「修复英文状态下组件重叠问题」并附高级面板截图。Range 探针实测根因是**列宽按单语言拍板 + Arco 自带 16px 右内距**：三面板列宽 110/110/140 实际可用只有 94/94/124，而英文「Max Concurrent Downloads」自然宽 172、「When Closing Window」141，`label-col` 默认 `overflow: visible` + `nowrap` 故既不截断也不省略，文本直接盖进控件 **24px / 23px**（Advanced 文本右缘 437 vs 控件左缘 413）。中文侧全部放得下（最长 127），所以缺陷只在英文态显形。
   - **修复**：三面板统一 `paddingRight: '0'` + `flex: '0 0 <W>px'` + `minWidth: '0'`（与 #78 参数页同口径：列宽 = 可用宽，标签-控件间距回到规范的 8px，此前实际 24px）；W 按**双语最长**取值 General 110 → **145**、Advanced 140 → **176**、Appearance **保持 110**（双语最长 61，本就够，不为凑数改动无缺陷面板）；`SettingsPage.vue` 加一条共用 `:deep(.arco-form-item-label)` 省略号兜底——将来任一语言出现更长标签，宁可截断也不可压控件。
   - **可执行判定（不靠目测）**：`e2e/web/app.spec.ts` 新增「设置页表单标签几何（双语）」，逐面板逐行断言 `控件左缘 − 文本右缘 ≥ 0` 且 `label.scrollWidth − clientWidth ≤ 1`，中/英各一条用例。踩到的坑：切语言前界面仍是中文，入口必须按初始中文标签点（每个 test 全新 context、mock 初始语言恒 zh），否则英文用例在切换前就找不到侧栏项——首跑即因此超时失败。

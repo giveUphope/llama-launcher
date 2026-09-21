@@ -262,16 +262,35 @@ export const PARAMS: ParamDef[] = [
 ];
 
 /**
- * 网络默认值（host/port）的唯一事实源 = 上面 PARAMS 表的 host、port 两个条目。
- * 主进程、core、渲染层的回退值一律引这两个常量，不得重写字面量：
- * 曾散落 7 处 `?? 8080` / `'127.0.0.1'`，改默认端口只要漏一处就会出现
- * 「UI 探测 8080、服务实际起在别端口」的假端口占用告警。
+ * 网络默认值与端口取值范围的唯一事实源 = 上面 PARAMS 表的 host、port 两个条目。
+ * 主进程、core、渲染层的回退值与边界校验一律引此处常量，不得重写数字：
+ * 默认值曾散落 7 处 `?? 8080` / `'127.0.0.1'`（漏一处即出现「UI 探 8080、服务实际起在
+ * 别端口」的假占用告警），端口上界曾散落 5 处 `65535`。
  */
-function paramDefaultOf(key: string): string | number | boolean {
+function paramOf(key: string): ParamDef {
   const def = PARAMS.find((p) => p.key === key);
-  if (!def) throw new Error(`PARAMS entry missing for default derivation: ${key}`);
-  return def.default;
+  if (!def) throw new Error(`PARAMS entry missing for derived network constants: ${key}`);
+  return def;
 }
 
-export const DEFAULT_HOST: string = String(paramDefaultOf('host'));
-export const DEFAULT_PORT: number = Number(paramDefaultOf('port'));
+const HOST_PARAM = paramOf('host');
+const PORT_PARAM = paramOf('port');
+
+/** ParamDef 的 min/max 是可选字段，缺界会静默变 NaN 让校验全线放行——宁可启动即抛 */
+function paramBound(def: ParamDef, which: 'min' | 'max'): number {
+  const v = def[which];
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new Error(`PARAMS entry '${def.key}' is missing numeric bound '${which}'`);
+  }
+  return v;
+}
+
+export const DEFAULT_HOST: string = String(HOST_PARAM.default);
+export const DEFAULT_PORT: number = Number(PORT_PARAM.default);
+export const PORT_MIN: number = paramBound(PORT_PARAM, 'min');
+export const PORT_MAX: number = paramBound(PORT_PARAM, 'max');
+
+/** 端口是否合法：整数且落在 [PORT_MIN, PORT_MAX]（NaN/小数/空串/越界一律 false） */
+export function isValidPort(n: number): boolean {
+  return Number.isInteger(n) && n >= PORT_MIN && n <= PORT_MAX;
+}

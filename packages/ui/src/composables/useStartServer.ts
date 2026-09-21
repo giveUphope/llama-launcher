@@ -4,7 +4,7 @@ import { useServerStore, LLAMA_SERVER_NAME_RE } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 import { confirm } from '@/composables/useConfirm';
-import { DEFAULT_HOST, DEFAULT_PORT } from '@llama-launcher/shared';
+import { DEFAULT_HOST, DEFAULT_PORT, isValidPort, PORT_MIN, PORT_MAX } from '@llama-launcher/shared';
 
 export interface StartCheckResult {
   ok: boolean;
@@ -46,8 +46,8 @@ export function useStartServer() {
     if (!modelPath.trim()) return { ok: false, message: i18n.t('msg_no_model'), needModel: true };
     // 端口范围校验（提示走 i18n，复用参数页已有 key）
     const port = Number(params.values.port ?? DEFAULT_PORT);
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      return { ok: false, message: i18n.t('err_invalid_port'), needPort: true };
+    if (!isValidPort(port)) {
+      return { ok: false, message: i18n.t('err_invalid_port', [PORT_MIN, PORT_MAX]), needPort: true };
     }
     return { ok: true };
   }
@@ -173,7 +173,7 @@ export function useStartServer() {
     if (choice === 'change') {
       const free = await window.api.system.findFreePort(port + 1, hostVal);
       if (free === null) {
-        pushError(i18n.t('msg_free_port_not_found', [String(port + 1), '65535']));
+        pushError(i18n.t('msg_free_port_not_found', [String(port + 1), String(PORT_MAX)]));
         return false;
       }
       params.set('port', free); // 写回参数（会话自动持久化），后续校验与命令预览同步
