@@ -4,6 +4,12 @@
 
 ## \[Unreleased]
 
+- **英文态设置页标签压控件修复（STYLE_TODO #79，2026-09-21）**：用户批注「修复英文状态下组件重叠问题」并附高级面板截图。Range 探针实测根因是**列宽按单语言拍板 + Arco 自带 16px 右内距**：三面板列宽 110/110/140 实际可用只有 94/94/124，而英文「Max Concurrent Downloads」自然宽 172、「When Closing Window」141，`label-col` 默认 `overflow: visible` + `nowrap` 故既不截断也不省略，文本直接盖进控件 **24px / 23px**（Advanced 文本右缘 437 vs 控件左缘 413）。中文侧全部放得下（最长 127），所以缺陷只在英文态显形。
+  - **修复**：三面板统一 `paddingRight: '0'` + `flex: '0 0 <W>px'` + `minWidth: '0'`（与 #78 参数页同口径：列宽 = 可用宽，标签-控件间距回到规范的 8px，此前实际 24px）；W 按**双语最长**取值 General 110 → **145**、Advanced 140 → **176**、Appearance **保持 110**（双语最长 61，本就够，不为凑数改动无缺陷面板）；`SettingsPage.vue` 加一条共用 `:deep(.arco-form-item-label)` 省略号兜底——将来任一语言出现更长标签，宁可截断也不可压控件。
+  - **可执行判定（不靠目测）**：`e2e/web/app.spec.ts` 新增「设置页表单标签几何（双语）」，逐面板逐行断言 `控件左缘 − 文本右缘 ≥ 0` 且 `label.scrollWidth − clientWidth ≤ 1`，中/英各一条用例。踩到的坑：切语言前界面仍是中文，入口必须按初始中文标签点（每个 test 全新 context、mock 初始语言恒 zh），否则英文用例在切换前就找不到侧栏项——首跑即因此超时失败。
+  - **验证**：修复后三面板 × 双语共 7 行 **slack 全部恰为 8px、truncated 全 0**（含 172→176、141→145 两行）；**负测试**把 Advanced 退回 `0 1 140px` 后英文用例即点名失败「Advanced 标签『Max Concurrent Downloads』与控件间隙」，`.bak` 还原后 13 例全绿。`pnpm build` / `lint`（含四道 i18n 门禁 + 155 文档链接）/ `test`（core 359 + ui 66）/ `e2e:web` 全绿。规范落点 §7.5.4「设置面板标签列」。
+
+
 - **第 4 道 i18n 门禁：实参数与占位符数匹配（2026-09-21）**：`t('key', [..])` 的实参个数须等于该键 zh/en 文案里 `{N}` 的槽数——少一个就渲染出裸 `{1}`（`tr` 只替换存在的槽），多一个是白传；两语言槽数不一致也在此暴露。检查 48 处收敛结果时发现**首版计数器有缺陷**：`countArrayArgs` 的字符串分支只跳过不累加 `cur`，导致含字符串实参的调用**计数恒少 1**，误报 4 个调用点（`msg_search_failed` / `msg_files_load_failed` / `msg_free_port_not_found` / `msg_external_detected`）——逐处读源码判为假阳性后修正计数器，再跑全绿。负测试：删掉 `msg_port_in_use` 的一个实参 → 双语各报一处「需要 1 个（槽 0）」，`.bak` 副本还原后恢复全绿（**不用 `git checkout` 还原**，那会连该文件未提交改动一起回退）。
 
 

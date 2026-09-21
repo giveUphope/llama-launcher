@@ -137,6 +137,16 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
     padding-top: 0; // Arco 默认顶部内距 16px（+ summary margin-top 8 = 24px），
                     // 本项目 pane 为空、内容由下方 .tab-content 承载，收敛为 8px
   }
+
+  // 标签列宽按「双语最长标签」定（STYLE_TODO #79），此为兜底：万一将来某语言的新标签更长，
+  // 宁可省略号截断也不可溢出压到控件——Arco 的 label-col/label 默认 overflow: visible +
+  // nowrap，实测英文标签会直接盖进控件左侧 24px。三面板共用本处，不各自复制一份。
+  :deep(.arco-form-item-label) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .status-summary {

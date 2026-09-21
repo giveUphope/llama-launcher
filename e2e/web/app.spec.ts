@@ -45,3 +45,68 @@ test.describe('demo-mock 数据注入', () => {
     await expect(page.getByText('运行中', { exact: true }).first()).toBeVisible();
   });
 });
+
+// ---- 表单标签几何（STYLE_TODO #79）----
+// 英文标签普遍比中文长（实测 Advanced「Max Concurrent Downloads」172px vs 中文 84px），
+// 而 Arco 的 label-col 默认 overflow: visible + nowrap：列宽不足时文本不截断而是溢出，
+// 实测直接压进控件左侧 24px。列宽按双语最长标签定，这里逐行断言「不压控件 + 不截断」，
+// 使两种语言、每个面板都受检（只改一处文案不会漏）。
+const SETTINGS_TABS = [
+  { zh: '常规', en: 'General' },
+  { zh: '外观', en: 'Appearance' },
+  { zh: '高级', en: 'Advanced' },
+];
+
+/**
+ * 通过设置页「外观 → 语言」切换界面语言。
+ * 入口一律按中文标签点：每个 test 都是全新 context，mock 初始语言恒为 zh，
+ * 若用目标语言的标签去找侧栏项，切到英文的那条用例会在切换前就找不到元素。
+ */
+async function setLanguage(page: Page, lang: 'zh' | 'en') {
+  await page.locator('.sidebar .arco-menu-item', { hasText: '应用设置' }).click();
+  await page.locator('.arco-tabs-tab', { hasText: '外观' }).click();
+  await page.locator('.arco-form-item', { hasText: '语言' }).first().locator('.arco-select').click();
+  await page.locator('.arco-select-option', { hasText: lang === 'zh' ? '中文' : 'English' }).first().click();
+  await expect(page.locator('.sidebar .arco-menu-item', { hasText: lang === 'zh' ? '概览' : 'Overview' })).toBeVisible();
+}
+
+/** 返回每个表单行的标签溢出量（>0 表示压到控件）与截断量（>0 表示标签被省略号截断）。 */
+async function measureFormLabels(page: Page) {
+  return page.locator('.arco-form-item').evaluateAll((items) =>
+    items
+      .map((it) => {
+        const col = it.querySelector('.arco-form-item-label-col') as HTMLElement | null;
+        const wrap = it.querySelector('.arco-form-item-wrapper-col') as HTMLElement | null;
+        const label = (col?.querySelector('.arco-form-item-label') ?? col) as HTMLElement | null;
+        if (!col || !wrap || !label) return null;
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        return {
+          text: (label.textContent ?? '').trim(),
+          slack: Math.round(wrap.getBoundingClientRect().left - range.getBoundingClientRect().right),
+          truncated: Math.round(label.scrollWidth - label.clientWidth),
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => !!r && !!r.text),
+  );
+}
+
+test.describe('设置页表单标签几何（双语）', () => {
+  for (const lang of ['zh', 'en'] as const) {
+    test(`${lang === 'zh' ? '中文' : '英文'}态各面板标签既不压控件也不截断`, async ({ page }) => {
+      await page.goto('/');
+      await expect(page.locator('.sidebar')).toBeVisible();
+      await setLanguage(page, lang);
+      for (const tab of SETTINGS_TABS) {
+        await page.locator('.arco-tabs-tab', { hasText: tab[lang] }).click();
+        await expect(page.locator('.arco-form-item').first()).toBeVisible();
+        const rows = await measureFormLabels(page);
+        expect(rows.length, `${tab[lang]} 面板应有表单行`).toBeGreaterThan(0);
+        for (const row of rows) {
+          expect(row.slack, `${tab[lang]} 标签「${row.text}」与控件间隙`).toBeGreaterThanOrEqual(0);
+          expect(row.truncated, `${tab[lang]} 标签「${row.text}」不应被截断`).toBeLessThanOrEqual(1);
+        }
+      }
+    });
+  }
+});

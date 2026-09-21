@@ -30,9 +30,11 @@ const concurrentOptions = DOWNLOAD_CONCURRENCY_OPTIONS;
 
 <template>
   <Card title-key="nav_settings_advanced">
-    <!-- 长标签（'HuggingFace 镜像源'≈122px）超出等列 110px，本面板标签列加宽至 140px 保持等列且不截断 -->
+    <!-- 标签列宽 = 双语最长标签自然宽 + 余量（STYLE_TODO #79）：中文最长「HuggingFace 镜像源」127px，
+         英文最长「Max Concurrent Downloads」172px；Arco label-col 自带 16px 右内距已归零，
+         故列宽 = 可用宽（旧写法 140 实际只有 124 可用，英文标签溢出 48px 压进控件 24px） -->
     <a-form :model="{}" layout="horizontal" label-align="right"
-            :label-col-style="{ flex: '0 1 140px', minWidth: '64px', marginRight: '8px' }"
+            :label-col-style="{ flex: '0 0 176px', minWidth: '0', marginRight: '8px', paddingRight: '0' }"
             :wrapper-col-style="{ flex: '1 1 0', minWidth: '0' }">
       <a-form-item :label="i18n.t('lbl_hf_mirror')">
         <a-input v-model="hfMirrorHost" class="path-input" size="small"

@@ -270,6 +270,17 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复效果验证**（Playwright 无头逐视口 1156/1280/1440/1600/1728/1920/2560，量 60 行）：列数 **1600 由 2 → 3 列、2560 由 4 → 5 列**（1280/1440 仍 2 列、1728/1920 仍 3 列；两列阈值由 `2×450+14=914` 降到 `2×418+14=850`，即视口 ≥~1170 即成两列——内置浏览器 1156 因带 12px 内容滚动条、网格只有 840，仍差 10px 落单列，无头环境无该滚动条则读成 850/两列，**同一视口两种读数，报列数前必须先量当次网格宽**）；轨道 80–222px 全部 ≥80（1280 双列时轨道 142，比 #77 的 110 更宽）；标签列宽 `[124]` 单一值、控件宽每列恰一个值、提示槽 x 与 ✕ 槽 x 每列各一个值、`waste=0`；**0 行标签截断**（判据改用文本承载元素 `.tooltip-host > span` 的 `scrollWidth > clientWidth`——只比 label 自身会因 Arco 的内层包装而漏判，第一版探针就把截断报成 0）、8/8 芯片零裁切、13/13 数字框零溢出、0 刻度节点。`vue-tsc`、`vitest`（core 359 + ui 66）、`style:audit` 13/13、`vite build`、`pnpm lint` 全绿。规范落点：[frontend.md §7.5.4](../frontend.md)「统一控件宽度」（124 + 内距归零 + 真实字体探针口径）、[§7.5.7](../frontend.md)「参数网格」418px 推导 + 复测表 + 列数阈值算式、「GGUF 建议值芯片」7 字档。
 - **可再议旋钮（本轮未动，附实测代价）**：列间距 `gap 14 → 10` 可让 1600 的三列阈值从 422 放宽到 424.7（当前 418 已过）；行内距 `4px 8px → 4px 6px` 再省 4px；`.dep-hint` 预留 18px 会把最小轨推回 436（1156 又变单列）——均无必要，不动。
 
+### 79. 英文态设置页表单标签压进控件（列宽只按中文量 + Arco 16px 内距使可用宽少 16）— 🟢 已修复（2026-09-21）
+
+- **位置**：`components/settings/{GeneralPanel,AppearancePanel,AdvancedPanel}.vue` 的 `:label-col-style`、`pages/SettingsPage.vue`（省略号兜底）、`e2e/web/app.spec.ts`（几何判定）。
+- **描述（用户批注「修复英文状态下组件重叠问题」，附高级面板截图）**：三面板的标签列宽历史上只按中文量（110 / Advanced 140），而 Arco `.arco-form-item-label-col` 自带 `padding: 0 16px 0 0`（#78 已在参数页踩过同一坑），所以**可用宽 = 列宽 − 16**，实际只有 94 / 124。英文标签普遍更长，实测（`14px Inter/PingFang` 真实字体 Range 探针）：
+  - Advanced「Max Concurrent Downloads」自然宽 **172** vs 可用 124 → 溢出 48px，文本右缘 437 越过控件左缘 413，**压住下拉框 24px**；
+  - General「When Closing Window」**141** vs 可用 94 → **压住 23px**；
+  - 其余行（HF Mirror Host 92 / Models Directory 106 / Engine Directory 102 / Theme 42 / Language 61）与中文全部标签（最长 127）不压。
+  根因不是缺省略号而是**列宽按单语言拍板**：`label-col` 默认 `overflow: visible` + `nowrap`，列宽不足时既不截断也不省略，直接盖到控件上。
+- **修复**：① 三面板统一 `paddingRight: '0'` + `flex: '0 0 <W>px'` + `minWidth: '0'`（列宽 = 可用宽，标签与控件间距回到 §7.5.4 规范的 8px——此前实际 24px；`0 1` 可收缩改 `0 0`，与 #78 参数页同一口径）；② **W 按双语最长标签 + 余量**：General 110 → **145**（en 141）、Advanced 140 → **176**（en 172）、Appearance **保持 110**（双语最长 61，本就放得下，不为凑数改动）；③ `SettingsPage.vue` 加一条 `:deep(.arco-form-item-label){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}` 兜底——将来任一语言出现更长标签，宁可省略号也不许再压控件（三面板共用一处，不各抄一份）。
+- **修复效果验证**：新增 `e2e/web/app.spec.ts`「设置页表单标签几何（双语）」——逐面板逐行断言 `控件左缘 − 文本右缘 ≥ 0` 且 `label.scrollWidth − clientWidth ≤ 1`，中/英各一条用例（入口按中文标签点，因每个 test 都是全新 context、mock 初始语言恒 zh）。修复后实测：三面板 × 双语共 7 行，**slack 全部恰为 8px、truncated 全 0**（含 172→176、141→145 两行）。**负测试**：把 Advanced 退回旧值 `0 1 140px` 后重跑，英文用例即点名失败「Advanced 标签『Max Concurrent Downloads』与控件间隙」，还原后 13 例全绿。`pnpm build`/`lint`/`test`（core 359 + ui 66）/`e2e:web` 全绿。规范落点：[frontend.md §7.5.4](../frontend.md)「设置面板标签列」。
+
 
 
 

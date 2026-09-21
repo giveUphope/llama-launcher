@@ -193,7 +193,7 @@ const closeBehavior = computed<CloseBehavior>({
     </template>
 
     <a-form :model="{}" layout="horizontal" label-align="right"
-            :label-col-style="{ flex: '0 1 110px', minWidth: '64px', marginRight: '8px' }"
+            :label-col-style="{ flex: '0 0 145px', minWidth: '0', marginRight: '8px', paddingRight: '0' }"
             :wrapper-col-style="{ flex: '1 1 0', minWidth: '0' }">
       <a-form-item :label="i18n.t('lbl_dir_path')">
         <div class="path-row">

@@ -29,7 +29,7 @@ const language = computed<Language>({
 <template>
   <Card title-key="nav_settings_appearance">
     <a-form :model="{}" layout="horizontal" label-align="right"
-            :label-col-style="{ flex: '0 1 110px', minWidth: '64px', marginRight: '8px' }"
+            :label-col-style="{ flex: '0 0 110px', minWidth: '0', marginRight: '8px', paddingRight: '0' }"
             :wrapper-col-style="{ flex: '1 1 0', minWidth: '0' }">
       <a-form-item :label="i18n.t('lbl_theme_mode')">
         <a-radio-group type="button" size="small" :model-value="themeMode" @change="(v: any) => (themeMode = v)">
