@@ -4,6 +4,13 @@
 
 ## \[Unreleased]
 
+- **参数字典同步门禁（残留清单第 4 条，2026-09-21）**：`paramLabel()` 缺键时回退渲染**裸 key**（`spec_draft_n_max` 直接上界面），而此前**没有任何脚本检查 `labels.ts` 与 `definitions.ts` 是否同步**。实测今天 60/60 参数标签与帮助齐全、zh/en 均非空，但字典里躺着 **6 条孤儿**：`repeat_last_n` / `typical_p` / `mirostat` / `mirostat_lr` / `mirostat_ent`（参数早已删）与 `model`（模型行标签实际走 `t('lbl_model_path')`，不经 `paramLabel`）——逐条查过 9 个 `paramLabel(` / 6 个 `paramHelp(` 调用点，全部传 `props.p.key` 或 `dep.key`，确认不可达后删除（两字典各 6 行，共 12 行）。
+  - **新门禁**（`verify-params-sync.cjs`，已随 lint 运行）：`PARAM_LABELS` / `PARAM_HELP` 的键集与 PARAMS **双向完全相等**，且每条 `zh`/`en` 非空。两个方向都会出事——表里有字典无 → 裸 key 上界面；字典有表里无 → 死条目误导读码者。
+  - 踩到一处解析坑：初版按 `^\s*(\{\s*)?key:` 取参数键，把 `PARAM_GROUPS` 的 `{ key: 'basic', labelKey: … }` 也算了进来（**63 ≠ 60** 报出 3 条假缺失）。改为按 `key: 'x', group: '` 相邻取键，并加自检「解析出的 key 数 ≠ 条目数即 fail」——**结构一变就要求同步解析规则，而不是静默少查几个参数**。
+  - 负测试双向都做且都成立：删掉 `temperature` 标签 → 报「PARAM_LABELS 缺 'temperature'」；注入孤儿 `ghost_param` → 报「有孤儿条目」（第一版注入锚点抄错导致 `INJECT FAILED`，改用文件内真实声明行后成功）。全部经 `.bak` 副本还原。
+  - 验证：`git grep` 确认 docs 无 labels 条目数的计数声明（不受删行影响）；mock 实测参数页 **60 行标签全部渲染、零裸 key**；build / lint / test（core 359 + ui 69）全绿。
+
+
 - **E2E 预览端口收敛（残留清单第 3 条，2026-09-21）**：`4173` 原本在 `e2e/run-web-e2e.mjs:9`（`PREVIEW_PORT`）与 `playwright.config.ts:20`（`baseURL`）各写一份。改为**驱动做唯一所有者**：spawn `playwright test` 时注入 `E2E_PREVIEW_URL`，配置读该变量作 `baseURL`，并在 `test` 调用下缺变量即 `exit 1`。
   - 为什么是快速失败而非「留一个默认值」：2026-09-20 的 CHANGELOG 记过同类事故——`pnpm test:e2e` 曾绕开驱动直接 `playwright test`，`webServer` 移除后没人起 4173，浏览器连到残留占用进程，11 条用例全红且原因难定位。留默认值等于把这个坑重新敞开（静默连到 `127.0.0.1:4173` 上的任何东西）。
   - 验证：`pnpm e2e:web` 13 例全绿；绕开驱动 `pnpm exec playwright test --project=web` 实测**真实退出码 1** 并打印指引（第一次读管道 `$?` 得到的是 `tail` 的退出码，改用 `> /dev/null 2>&1; echo $?` 才拿到真值——管道尾码陷阱本轮第二次踩，记入纪律）。改后 `git grep 4173` 在 e2e/配置里只剩驱动那一处代码字面量，其余全是注释与文档叙述。同步 docs/testing.md 的端口归属说明。

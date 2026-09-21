@@ -50,11 +50,6 @@ export const PARAM_LABELS: Record<string, ParamI18nEntry> = {
   repeat_penalty: { zh: '重复惩罚', en: 'Repeat Penalty' },
   presence_penalty: { zh: '存在惩罚', en: 'Presence Penalty' },
   seed: { zh: '随机种子', en: 'Random Seed' },
-  repeat_last_n: { zh: '重复窗口', en: 'Repeat Window' },
-  typical_p: { zh: 'Typical-P', en: 'Typical-P' },
-  mirostat: { zh: 'Mirostat 模式', en: 'Mirostat Mode' },
-  mirostat_lr: { zh: 'Mirostat 学习率', en: 'Mirostat LR' },
-  mirostat_ent: { zh: 'Mirostat 目标熵', en: 'Mirostat Entropy' },
 
   // ---------------- server ----------------
   alias: { zh: '模型别名', en: 'Model Alias' },
@@ -69,7 +64,6 @@ export const PARAM_LABELS: Record<string, ParamI18nEntry> = {
   context_shift: { zh: '上下文移位', en: 'Context Shift' },
 
   // ---------------- model (special) ----------------
-  model: { zh: '模型文件', en: 'Model File' },
 
   // ---------------- b10734 新增 ----------------
   lazy_mode: { zh: '惰性张量读取', en: 'Lazy Tensor Read' },
@@ -133,11 +127,6 @@ export const PARAM_HELP: Record<string, ParamI18nEntry> = {
   repeat_penalty: { zh: '惩罚重复 token 序列', en: 'Penalize repeated token sequences' },
   presence_penalty: { zh: '存在惩罚 alpha', en: 'Presence penalty alpha' },
   seed: { zh: 'RNG 种子；-1 = 随机', en: 'RNG seed; -1 = random' },
-  repeat_last_n: { zh: '重复惩罚考虑的最近 token 数；0 = 全部, -1 = 上下文长度', en: 'Last n tokens for repeat penalty; 0 = all, -1 = ctx' },
-  typical_p: { zh: '局部典型采样 p；1.0 = 禁用', en: 'Locally typical sampling p; 1.0 = disabled' },
-  mirostat: { zh: 'Mirostat 采样模式；0 = 禁用, 1 = v1.0, 2 = v2.0', en: 'Mirostat mode; 0 = off, 1 = v1.0, 2 = v2.0' },
-  mirostat_lr: { zh: 'Mirostat 学习率 eta', en: 'Mirostat learning rate eta' },
-  mirostat_ent: { zh: 'Mirostat 目标熵 tau', en: 'Mirostat target entropy tau' },
 
   // ---------------- server ----------------
   alias: { zh: 'API 返回的模型名', en: 'Model name returned by API' },
@@ -152,7 +141,6 @@ export const PARAM_HELP: Record<string, ParamI18nEntry> = {
   context_shift: { zh: '无限生成时使用上下文移位', en: 'Use context shift for infinite generation' },
 
   // ---------------- model (special) ----------------
-  model: { zh: 'GGUF 模型文件路径', en: 'GGUF model file path' },
 
   // ---------------- b10734 新增 ----------------
   lazy_mode: { zh: '按需从磁盘读取部分张量（如逐层嵌入）。auto = 仅对大于 4GiB 的张量惰性读取（需 mmap）；off = 始终常驻；on = 行的按需读取', en: 'On-demand reading of tensors (e.g. per-layer embeddings). auto = lazy only for tensors > 4 GiB (needs mmap); off = always resident; on = on-demand row reads' },

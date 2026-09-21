@@ -149,3 +149,64 @@ if (paramClaimErrors.length) {
   process.exit(1);
 }
 console.log(`[verify-params-sync] ✅ 文档参数计数声明与实测一致（${PARAM_TOTAL}：basic ${GROUP_COUNTS.basic} / advanced ${GROUP_COUNTS.advanced} / server ${GROUP_COUNTS.server}）。`);
+
+// ============================================================
+// 参数标签/帮助字典（i18n/labels.ts）与 PARAMS 表必须键集完全相等。
+// 两个方向都会出事：
+//   · 表里有、字典无 → paramLabel() 回退渲染裸 key（`spec_draft_n_max` 直接上界面）；
+//   · 字典有、表里无 → 死条目（参数删了字典没删，读代码的人以为该参数还在）。
+// 2026-09-21 实测：60 个参数标签/帮助齐全，但字典里躺着 6 条孤儿
+// （repeat_last_n / typical_p / mirostat / mirostat_lr / mirostat_ent / model，
+// 前 5 个是已删参数，model 行的标签实际走 t('lbl_model_path') 不经 paramLabel）。
+// ============================================================
+const LABELS_FILE = path.join(__dirname, '..', 'packages', 'shared', 'src', 'i18n', 'labels.ts');
+const labelsText = fs.readFileSync(LABELS_FILE, 'utf8');
+// 参数 key 必须按「key: 'x', group: 'y'」相邻来取：只按 `key:` 会把 PARAM_GROUPS 的
+// { key: 'basic', labelKey: … } 也算进来（实测 63 ≠ 60）
+const paramsBody = defsText.slice(defsText.indexOf('export const PARAMS'));
+const paramKeys = new Set(
+  [...paramsBody.matchAll(/key:\s*'([a-z0-9_]+)'\s*,\s*group:\s*'/g)].map((m) => m[1]),
+);
+if (paramKeys.size !== PARAM_TOTAL) {
+  console.error(`[verify-params-sync] ❌ 参数 key 解析数 ${paramKeys.size} ≠ 条目数 ${PARAM_TOTAL}（definitions.ts 结构变了？解析规则需同步）`);
+  process.exit(1);
+}
+
+function labelKeysOf(mapName) {
+  const start = labelsText.indexOf(`export const ${mapName}`);
+  if (start < 0) {
+    console.error(`【labels.ts 解析失败】找不到 export const ${mapName}`);
+    process.exit(1);
+  }
+  const end = labelsText.indexOf('\n};', start);
+  const body = labelsText.slice(start, end);
+  const out = new Map();
+  for (const m of body.matchAll(/^ {2}([a-z0-9_]+):\s*\{\s*zh:\s*(.+?),\s*en:\s*(.+?),?\s*\},?$/gm)) {
+    out.set(m[1], { zh: m[2], en: m[3] });
+  }
+  return out;
+}
+
+const labelErrors = [];
+for (const mapName of ['PARAM_LABELS', 'PARAM_HELP']) {
+  const entries = labelKeysOf(mapName);
+  for (const key of paramKeys) {
+    const e = entries.get(key);
+    if (!e) { labelErrors.push(`${mapName} 缺 '${key}'（界面会渲染裸 key）`); continue; }
+    for (const lang of ['zh', 'en']) {
+      const v = (e[lang] ?? '').trim().replace(/^['"]|['"]$/g, '');
+      if (!v) labelErrors.push(`${mapName}.'${key}'.${lang} 为空`);
+    }
+  }
+  for (const key of entries.keys()) {
+    if (!paramKeys.has(key)) labelErrors.push(`${mapName} 有孤儿条目 '${key}'（PARAMS 已无此参数）`);
+  }
+  console.log(`[verify-params-sync] ${mapName} 条目 ${entries.size} / PARAMS ${paramKeys.size}`);
+}
+if (labelErrors.length) {
+  console.error(`[verify-params-sync] ❌ 参数字典与参数表不同步（${labelErrors.length} 项）：`);
+  for (const e of labelErrors) console.error('  - ' + e);
+  console.error('修复：在 packages/shared/src/i18n/labels.ts 补齐或删掉对应条目（参数表唯一来源仍是 definitions.ts）。');
+  process.exit(1);
+}
+console.log('[verify-params-sync] ✅ 参数标签/帮助字典与 PARAMS 键集完全相等，zh/en 均非空。');
