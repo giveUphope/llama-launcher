@@ -4,6 +4,11 @@
 
 ## \[Unreleased]
 
+- **对外链接收敛（残留清单第 2 条，2026-09-21）**：先把 `ui`/`desktop`/`core` 三处的全部 `https?://` 字面量捞干净（排除 scheme 前缀判断、注释、SVG 命名空间、由 host 变量拼接的模板串），真实外链只有 **3 条**：`AboutPanel.vue` 的仓库地址与 llama.cpp 发布页、`GeneralPanel.vue:110` 又写了一份**完整相同的**发布页 URL（改地址必漏一处）。
+  - `definitions.ts` 与 `APP_NAME`/`APP_VERSION` 并列新增 `APP_REPO_URL` / `LLAMA_CPP_RELEASES_URL`，AboutPanel 去掉两个本地 `const` 别名直接引用常量（模板可读 script setup 导入），GeneralPanel 的 `openExternal` 改引常量。
+  - 验证：`git grep` 实测 ui/desktop 已无 github/modelscope/hf-mirror 字面量；「关于」面板两个按钮实测仍渲染出完整 URL（`https://github.com/giveUphope/llama-launcher`、`https://github.com/ggml-org/llama.cpp/releases`），版本 v0.0.39；build / lint / test（core 359 + ui 69）全绿。
+
+
 - **端口范围收敛到事实源（残留清单第 1 条，2026-09-21）**：`1`/`65535` 实测散落 **代码 5 处 + 文案 2 处**——`definitions.ts` 的 `port` 条目（事实源）、`ipc/system.ts` findFreePort 的扫描上界与起始回退值、`TextParam.vue` 与 `useStartServer.ts` 各一份 `port < 1 || port > 65535`、`msg_free_port_not_found` 的字符串实参 `'65535'`，外加 zh/en 的 `err_invalid_port` 文案里写死「1-65535」。
   - `definitions.ts` 新增 `PORT_MIN`/`PORT_MAX`/`isValidPort()`，与上一轮的 `DEFAULT_HOST`/`DEFAULT_PORT` 同源于 `port` 条目；派生改走统一的 `paramOf(key)`（缺条目即抛），并加 `paramBound()`——`ParamDef.min/max` 是**可选字段**，缺界会静默变 `NaN` 让校验全线放行，故宁可启动即抛。
   - 消费点全部替换：`system.ts` 两处、`useStartServer.ts` 校验 + 提示实参；`err_invalid_port` 文案改占位符 `{0}-{1}`，实参由 `PORT_MIN`/`PORT_MAX` 提供（上一轮加的「实参数=占位符数」门禁正好校验这条新写法）。

@@ -5,6 +5,13 @@ export const APP_NAME = 'llama Launcher';
 export const APP_VERSION = '0.0.39';
 
 /**
+ * 对外链接（唯一事实源）：「关于」面板展示与「打开发布页」按钮共用。
+ * llama.cpp 发布页曾在 AboutPanel 与 GeneralPanel 各写一份完整 URL，改地址会漏一处。
+ */
+export const APP_REPO_URL = 'https://github.com/giveUphope/llama-launcher';
+export const LLAMA_CPP_RELEASES_URL = 'https://github.com/ggml-org/llama.cpp/releases';
+
+/**
  * 基线推荐值（实测依据，2026-08-15，docs/archive/experiments/plan-kv-split-cli-test.md）——
  * 以下默认值即命令行发射基线（值 ≠ 默认值才发射，见 core 的 buildCommand）：
  * - cache_type_k/v：KV 量化 q8_0。f16 在长上下文下使 27B@262K 显存需求达 ~35GB，是 OOM 根因之一

@@ -9,6 +9,7 @@ import ToolTip from '@/components/common/ToolTip.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useI18nStore } from '@/stores/i18n';
 import { pickDir } from '@/composables/useFilePicker';
+import { LLAMA_CPP_RELEASES_URL } from '@llama-launcher/shared';
 import type { CloseBehavior } from '@llama-launcher/shared';
 
 const settings = useSettingsStore();
@@ -107,7 +108,7 @@ async function onBrowseExeDir() {
 }
 
 async function onOpenLlamaReleases() {
-  try { await window.api.openExternal('https://github.com/ggml-org/llama.cpp/releases'); } catch { /* 静默 */ }
+  try { await window.api.openExternal(LLAMA_CPP_RELEASES_URL); } catch { /* 静默 */ }
 }
 
 // 悬浮帮助面板（引擎获取指引）

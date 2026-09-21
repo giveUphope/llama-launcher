@@ -5,13 +5,10 @@ import { computed } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import AppLogo from '@/components/common/AppLogo.vue';
-import { APP_NAME, APP_VERSION } from '@llama-launcher/shared';
+import { APP_NAME, APP_VERSION, APP_REPO_URL, LLAMA_CPP_RELEASES_URL } from '@llama-launcher/shared';
 import { useI18nStore } from '@/stores/i18n';
 
 const i18n = useI18nStore();
-
-const repoUrl = 'https://github.com/giveUphope/llama-launcher';
-const releasesUrl = 'https://github.com/ggml-org/llama.cpp/releases';
 
 const versionLabel = computed(() => `${APP_VERSION}`);
 
@@ -32,15 +29,15 @@ async function onOpenUrl(url: string) {
     </div>
     <a-descriptions class="about-desc" :column="1" size="small" :align="{ label: 'right' }">
       <a-descriptions-item :label="i18n.t('msg_about_repo')">
-        <a-button type="text" size="small" @click="onOpenUrl(repoUrl)">
+        <a-button type="text" size="small" @click="onOpenUrl(APP_REPO_URL)">
           <template #icon><Icon name="external" :size="12" /></template>
-          <span>{{ repoUrl }}</span>
+          <span>{{ APP_REPO_URL }}</span>
         </a-button>
       </a-descriptions-item>
       <a-descriptions-item :label="i18n.t('msg_about_releases')">
-        <a-button type="text" size="small" @click="onOpenUrl(releasesUrl)">
+        <a-button type="text" size="small" @click="onOpenUrl(LLAMA_CPP_RELEASES_URL)">
           <template #icon><Icon name="external" :size="12" /></template>
-          <span>{{ releasesUrl }}</span>
+          <span>{{ LLAMA_CPP_RELEASES_URL }}</span>
         </a-button>
       </a-descriptions-item>
     </a-descriptions>
