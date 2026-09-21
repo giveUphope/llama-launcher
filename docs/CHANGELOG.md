@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **两项主进程/冒烟验证债结清（2026-09-22，用户真机确认）**：硬编码审计收尾时有两腿 mock 覆盖不到、只能交用户在真机判定，现均已确认正常——① **托盘菜单语言即时生效**（0.0.40 条目，修法为 right-click 现场 `buildTrayMenu`）：`pnpm dev` 里切语言后右键托盘，文案即时跟随、无需重启；② **`verify-server-start.mjs` 的模型三级解析**（同条目，`--model=` → `LLAMA_SMOKE_MODEL` → `models_dir` 最小 `.gguf`）：不再依赖写死的本机绝对路径也能解析到模型并跑通冒烟。至此本轮硬编码审计**没有遗留未验证项**。（①的结论已就地标注在原条目，此处只做汇总以免读者翻到 0.0.40 才看到闭环。）
+
 ## \[0.0.42] - 2026-09-21
 
 
@@ -46,7 +48,7 @@
   - 新增 3 例测试（该文件 11 → 14）：缺 errorType 按消息补分类、非法 errorType 不采信、非 error 终态不凭空补。验证：build / lint / test（**core 362** + ui 69）/ e2e 13 例全绿。
 
 
-- **托盘菜单语言即时生效（残留清单第 9 条，2026-09-21）**：`createTray` 在启动时 `setLang(loadSettings().language)` 后一次性 `Menu.buildFromTemplate(...)` 并缓存进 right-click 闭包——上一轮虽然把 `setLang` 接进了 `IPC.SETTINGS_SAVE`（让探测错误等即时文案跟随语言），但托盘菜单文本是构建时定死的，切语言后仍停在旧语言、非重启不更新。改为抽 `buildTrayMenu(win)` 并在**每次 right-click 现场构建**（三行模板，开销可忽略）。`docs/desktop-main.md` §6.8 原写「文案跟随设置语言」属过度声明，已改为记录真实机制与该缺陷。验证：`pnpm build` 通过（desktop `tsc`）；**该腿属主进程，mock 覆盖不到**，需 `pnpm dev` 里切语言后右键托盘目验。
+- **托盘菜单语言即时生效（残留清单第 9 条，2026-09-21）**：`createTray` 在启动时 `setLang(loadSettings().language)` 后一次性 `Menu.buildFromTemplate(...)` 并缓存进 right-click 闭包——上一轮虽然把 `setLang` 接进了 `IPC.SETTINGS_SAVE`（让探测错误等即时文案跟随语言），但托盘菜单文本是构建时定死的，切语言后仍停在旧语言、非重启不更新。改为抽 `buildTrayMenu(win)` 并在**每次 right-click 现场构建**（三行模板，开销可忽略）。`docs/desktop-main.md` §6.8 原写「文案跟随设置语言」属过度声明，已改为记录真实机制与该缺陷。验证：`pnpm build` 通过（desktop `tsc`）；**该腿属主进程，mock 覆盖不到**，需 `pnpm dev` 里切语言后右键托盘目验。 → **2026-09-22 该目验已由用户完成、结果正常**（切语言后右键托盘文案即时跟随），此项验证债结清。
 
 
 - **参数三方对拍升级为硬门禁（残留清单第 6 条，2026-09-21）**：`verify-params-sync.cjs` 的两类漂移——「代码有 flag 而清单未标已支持」与「清单标已支持而代码无 flag」——此前**只 `console.log` 不 `process.exit`**，等于打印一条没人看的提示；而本脚本上一轮刚接入 `pnpm lint`，只打印意味着门禁名存实亡。今天实测两类皆空（`✅ 按参数维度检查完全一致`），故转 fail 不会立刻炸 CI。
