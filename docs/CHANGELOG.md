@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+- **站点识别后缀归位（第 3 项，2026-09-21）**：`url-parser.ts` 的两处站点判定原写死 `host.includes('huggingface.co') || host.includes('hf-mirror.com')` 与 `host.includes('modelscope.cn')`，与 `hosts.ts` 的建站 URL 常量是两份字面量。做法是**新增「识别后缀」而非复用建站 host**：`MODELSCOPE_HOST` 是 `www.modelscope.cn`（用于拼下载/浏览 URL），若拿它做后缀匹配，裸域 `modelscope.cn/...` 链接会判为无法识别（`url-parser.test.ts` 有该用例）。故 `hosts.ts` 增 `HF_SOURCE_HOST_SUFFIXES`（内部引用 `DEFAULT_HF_MIRROR_HOST`，不再重复字面量）与 `MODELSCOPE_HOST_SUFFIX = 'modelscope.cn'`，url-parser 消费之，语义逐字不变。回归：`url-parser.test.ts` 12 例（含 www/裸域/镜像三种写法）+ 全量 build/lint/test 全绿。已知边界照旧：**用户自定义镜像域名不被识别**为 huggingface 源（本轮不改判定范围，仅去字面量重复）。
+
+
 - **下载并发默认值收敛（第 2 项，2026-09-21）**：`download_max_concurrent` 的默认 `3` 与闭区间 `1..5` 实测散落 **6 处 8 个点**（`settings-store` 默认值 + zod schema、`download-manager` 字段初值 + `setMaxConcurrent` 钳制、`ipc/download` + `ipc/settings` 两处 `?? 3`、`AdvancedPanel` 输入钳制 + 下拉 `[1,2,3,4,5]`）。新增 `shared/src/settings-limits.ts`（`DOWNLOAD_CONCURRENCY_DEFAULT/MIN/MAX/OPTIONS` + `clampDownloadConcurrency`）作唯一来源并全量替换——放 shared 是因为依赖流单向 `ui ↛ core`，若常量放 core 则设置页无法引用，正是「各写一份」的成因。实测风险面：改大 MAX 后只要漏改一处，就会出现「设置里能选 6、下载层悄悄压回 5」。下拉列表改由边界推导（`Array.from`），不再手写 5 个字面量。同步 data-persistence.md 标注来源。build / lint / test 全绿。
 
 

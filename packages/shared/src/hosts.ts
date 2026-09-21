@@ -19,3 +19,11 @@ export function normalizeMirrorHost(raw?: string | null): string {
   const v = (raw ?? '').trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
   return v || DEFAULT_HF_MIRROR_HOST;
 }
+
+/**
+ * 粘贴 URL 的站点识别后缀。**刻意用不含 www 的后缀**（`modelscope.cn` 而非
+ * `MODELSCOPE_HOST` 的 `www.modelscope.cn`），以同时命中 `www.x` / 裸域 / 子域三种写法
+ * ——换成建站 URL 用的常量会让非 www 链接判为无法识别（url-parser 有测试覆盖此点）。
+ */
+export const HF_SOURCE_HOST_SUFFIXES: readonly string[] = ['huggingface.co', DEFAULT_HF_MIRROR_HOST];
+export const MODELSCOPE_HOST_SUFFIX = 'modelscope.cn';
