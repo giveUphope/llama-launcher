@@ -5,19 +5,37 @@ import type { QuantizationInfo } from '../model-relevance.js';
 /** 下载来源平台 */
 export type DownloadSource = 'modelscope' | 'huggingface';
 
-/** 下载失败类型(用于友好诊断提示) */
+/**
+ * 下载失败类型（用于友好诊断提示）。
+ * 成员列表是 `DOWNLOAD_ERROR_TYPES`（运行时可用），联合类型由它派生——
+ * 校验恢复的旧日志、以及门禁断言「每个成员都有 dl_err_* 双语键」都读同一份列表。
+ */
+export const DOWNLOAD_ERROR_TYPES = [
+  'network', // 网络层错误(ECONNRESET/ETIMEDOUT/EPIPE 等)
+  'http_4xx', // HTTP 4xx(403/404/408/429 等)
+  'http_5xx', // HTTP 5xx(500/502/503/504)
+  'range_unsupported', // 服务器不支持 Range
+  'disk_full', // 磁盘空间不足(ENOSPC)
+  'file_locked', // 文件被占用(EBUSY/EPERM/EACCES)
+  'redirect_loop', // 重定向次数过多
+  'segment_overflow', // 段收到超出预期的数据
+  'checksum_mismatch', // 下载文件校验和不匹配
+  'canceled', // 用户取消
+  'unknown', // 未知错误
+] as const satisfies readonly DownloadErrorType[];
+
 export type DownloadErrorType =
-  | 'network' // 网络层错误(ECONNRESET/ETIMEDOUT/EPIPE 等)
-  | 'http_4xx' // HTTP 4xx(403/404/408/429 等)
-  | 'http_5xx' // HTTP 5xx(500/502/503/504)
-  | 'range_unsupported' // 服务器不支持 Range
-  | 'disk_full' // 磁盘空间不足(ENOSPC)
-  | 'file_locked' // 文件被占用(EBUSY/EPERM/EACCES)
-  | 'redirect_loop' // 重定向次数过多
-  | 'segment_overflow' // 段收到超出预期的数据
-  | 'checksum_mismatch' // 下载文件校验和不匹配
-  | 'canceled' // 用户取消
-  | 'unknown'; // 未知错误
+  | 'network'
+  | 'http_4xx'
+  | 'http_5xx'
+  | 'range_unsupported'
+  | 'disk_full'
+  | 'file_locked'
+  | 'redirect_loop'
+  | 'segment_overflow'
+  | 'checksum_mismatch'
+  | 'canceled'
+  | 'unknown';
 
 /** URL 解析结果 */
 export interface ParsedModelUrl {

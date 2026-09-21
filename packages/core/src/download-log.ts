@@ -5,6 +5,8 @@
 
 import { appendFileSync, existsSync, readFileSync, unlinkSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { DOWNLOAD_ERROR_TYPES } from '@llama-launcher/shared';
+import { classifyError } from './error-classify.js';
 import type { DownloadSource, DownloadErrorType } from '@llama-launcher/shared';
 
 /** 事件日志文件后缀（JSONL）。 */
@@ -146,13 +148,21 @@ function parseEvent(line: string): DownloadLogEvent | undefined {
       return undefined;
     }
     const error = o.error;
-    const errorType = o.errorType;
+    const rawType = o.errorType;
+    const errorText = typeof error === 'string' ? error : undefined;
+    // errorType 必须落在 DOWNLOAD_ERROR_TYPES 内；旧日志（该字段加入前写的）只有
+    // error 原文，此时按同一套规则从消息分类补上——否则渲染层 errorDisplay 会退回
+    // 显示未翻译的英文原文（DownloadCard 的 raw 回退分支）。
+    const knownType = (DOWNLOAD_ERROR_TYPES as readonly string[]).includes(rawType as string)
+      ? (rawType as DownloadErrorType)
+      : undefined;
+    const errorType = knownType ?? (status === 'error' && errorText ? classifyError(errorText) : undefined);
     return {
       type: 'done',
       ts: typeof o.ts === 'number' ? o.ts : 0,
       status,
-      error: typeof error === 'string' ? error : undefined,
-      errorType: typeof errorType === 'string' ? (errorType as DownloadErrorType) : undefined,
+      error: errorText,
+      errorType,
     };
   }
   return undefined;

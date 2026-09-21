@@ -79,6 +79,35 @@ describe('download-log (JSONL 事实源)', () => {
     expect(replay!.segments[0].downloaded).toBe(500);
   });
 
+  // 旧日志（errorType 字段加入前写的）只有 error 原文：恢复时按同一套规则补分类，
+  // 否则渲染层 errorDisplay 会退回显示未翻译的英文原文。
+  it('done 事件缺 errorType 时按消息文本补分类（旧日志兼容）', () => {
+    startEvent();
+    fs.appendFileSync(downloadLogPath(localPath),
+      JSON.stringify({ type: 'done', ts: 3, status: 'error', error: 'Server does not support Range' }) + '\n');
+
+    const replay = replayDownloadLog(localPath);
+    expect(replay!.errorType).toBe('range_unsupported');
+  });
+
+  it('done 事件的 errorType 不是合法成员时不采信（避免渲染裸 dl_err_xxx）', () => {
+    startEvent();
+    fs.appendFileSync(downloadLogPath(localPath),
+      JSON.stringify({ type: 'done', ts: 3, status: 'error', error: 'boom', errorType: 'ghost_type' }) + '\n');
+
+    const replay = replayDownloadLog(localPath);
+    expect(replay!.errorType).toBe('unknown');
+  });
+
+  it('非 error 终态且无 errorType 时不凭空补分类', () => {
+    startEvent();
+    appendDownloadEvent(localPath, { type: 'done', ts: 3, status: 'canceled' });
+
+    const replay = replayDownloadLog(localPath);
+    expect(replay!.status).toBe('canceled');
+    expect(replay!.errorType).toBeUndefined();
+  });
+
   it('损坏行与越界段进度跳过，不影响其余重放', () => {
     startEvent();
     fs.appendFileSync(downloadLogPath(localPath), 'not-json\n');

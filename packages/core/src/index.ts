@@ -16,5 +16,6 @@ export * from './huggingface-client.js';
 export * from './download-manager.js';
 export * from './download-log.js';
 export * from './retry.js';
+export * from './error-classify.js';
 export * from './trash-cleaner.js';
 export * from './cleanup-logger.js';

@@ -287,17 +287,23 @@ function main() {
   //    键名改名/新增成员不会有任何报警。改为按枚举成员逐个校验双语键存在，
   //    并反查字典里该前缀下的孤儿键。新增同类前缀只需往表里加一行。
   const DYNAMIC_KEY_FAMILIES = [
-    { prefix: 'dl_err_', typeFile: 'packages/shared/src/types/download.ts', typeName: 'DownloadErrorType' },
+    { prefix: 'dl_err_', typeFile: 'packages/shared/src/types/download.ts', typeName: 'DownloadErrorType', listName: 'DOWNLOAD_ERROR_TYPES' },
   ];
   for (const fam of DYNAMIC_KEY_FAMILIES) {
     const src = fs.readFileSync(path.join(ROOT, fam.typeFile), 'utf8');
-    const decl = src.indexOf(`export type ${fam.typeName}`);
-    if (decl < 0) {
-      errors.push(`动态键族解析失败: ${fam.typeFile} 找不到 export type ${fam.typeName}`);
-      continue;
+    // 优先读运行时数组（唯一列表）；数组写法不存在时回退解析联合类型的成员行
+    let members = [];
+    const decl = fam.listName ? src.indexOf(`export const ${fam.listName}`) : -1;
+    if (decl >= 0) {
+      const body = src.slice(decl, src.indexOf('] as const', decl));
+      members = [...body.matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1]);
     }
-    const block = src.slice(decl, src.indexOf(';', decl));
-    const members = [...block.matchAll(/^[ |\t]*'([a-z0-9_]+)'/gm)].map((m) => m[1]);
+    if (members.length === 0) {
+      const tDecl = src.indexOf(`export type ${fam.typeName}`);
+      if (tDecl < 0) { errors.push(`动态键族解析失败: ${fam.typeFile} 找不到 ${fam.listName ?? fam.typeName}`); continue; }
+      const block = src.slice(tDecl, src.indexOf(';', tDecl));
+      members = [...block.matchAll(/^[ |\t]*'([a-z0-9_]+)'/gm)].map((m) => m[1]);
+    }
     if (members.length === 0) {
       errors.push(`动态键族解析失败: ${fam.typeName} 未解析出任何成员（类型写法变了？规则需同步）`);
       continue;

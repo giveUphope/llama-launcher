@@ -4,6 +4,13 @@
 
 ## \[Unreleased]
 
+- **旧下载日志的错误类型归一化（残留清单第 8 条，2026-09-21，修法经实测修正）**：原报告写的是「保证每条失败路径都有 errorType，删掉 `errorDisplay` 的 raw 回退」。读码实测**前提不成立**：两条置 error 的路径（`download-manager.ts:475` 校验和、`failTask`）都同时写 `errorType`，`classifyError` 还有 `'unknown'` 兜底、永不返回 null——**活路径不存在空 errorType**；唯一可达 raw 回退的是 `download-log.ts` 恢复的**旧日志记录**（该字段加入前写的只有 error 原文）。删回退会让这些行渲染成空串，比现状更糟，故改到加载侧收口。
+  - `download-log` 恢复 done 事件时：`errorType` 必须落在 `DOWNLOAD_ERROR_TYPES` 内才采信（旧代码 `typeof === 'string'` 盲转，脏值会渲染成裸 `dl_err_xxx`）；缺失/非法且 `status==='error'` 时用 `classifyError(errorText)` 补分类。
+  - `classifyError` 从 `download-manager.ts` **移到新模块 `core/src/error-classify.ts`**——`download-manager` 已依赖 `download-log`，反向引用会成环。
+  - 成员列表单一来源：`shared/types/download.ts` 新增 `DOWNLOAD_ERROR_TYPES` 运行时数组，`DownloadErrorType` 联合由它派生（`satisfies` 校验），`download-log` 校验与 `dl_err_*` 门禁读同一份（门禁改为优先解析数组、回退解析联合类型）。
+  - 新增 3 例测试（该文件 11 → 14）：缺 errorType 按消息补分类、非法 errorType 不采信、非 error 终态不凭空补。验证：build / lint / test（**core 362** + ui 69）/ e2e 13 例全绿。
+
+
 - **托盘菜单语言即时生效（残留清单第 9 条，2026-09-21）**：`createTray` 在启动时 `setLang(loadSettings().language)` 后一次性 `Menu.buildFromTemplate(...)` 并缓存进 right-click 闭包——上一轮虽然把 `setLang` 接进了 `IPC.SETTINGS_SAVE`（让探测错误等即时文案跟随语言），但托盘菜单文本是构建时定死的，切语言后仍停在旧语言、非重启不更新。改为抽 `buildTrayMenu(win)` 并在**每次 right-click 现场构建**（三行模板，开销可忽略）。`docs/desktop-main.md` §6.8 原写「文案跟随设置语言」属过度声明，已改为记录真实机制与该缺陷。验证：`pnpm build` 通过（desktop `tsc`）；**该腿属主进程，mock 覆盖不到**，需 `pnpm dev` 里切语言后右键托盘目验。
 
 
