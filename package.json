@@ -11,7 +11,7 @@
     "dev": "node scripts/dev.cjs",
     "dev:console": "node scripts/dev.cjs --console",
     "build": "turbo run build --no-daemon",
-    "lint": "turbo run lint --no-daemon && node scripts/verify-ipc-sync.cjs && node scripts/verify-params-sync.cjs && node scripts/check-docs-links.cjs && node scripts/verify-i18n-usage.cjs && pnpm lint:ox",
+    "lint": "turbo run lint --no-daemon && node scripts/verify-ipc-sync.cjs && node scripts/verify-params-sync.cjs && node scripts/verify-version-sync.cjs && node scripts/check-docs-links.cjs && node scripts/verify-i18n-usage.cjs && pnpm lint:ox",
     "lint:ox": "oxlint .",
     "docs:check": "node scripts/check-docs-links.cjs",
     "style:audit": "node scripts/style-audit.cjs",

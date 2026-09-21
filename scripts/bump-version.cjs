@@ -15,6 +15,9 @@
  *   - README.md（旧版本号引用）
  *   - AGENTS.md（旧版本号引用）
  *   - docs/architecture.md（monorepo 包版本表中的 desktop 行）
+ *
+ * 文档侧按行替换，含 `bump-ignore` 标记的行跳过（历史反例/举例用的版本号不该被改写）。
+ * 一致性由 scripts/verify-version-sync.cjs 在 pnpm lint 侧兜底（清单漏收 ≠ 没人发现）。
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -87,12 +90,24 @@ function run() {
   }
   writeText('docs/CHANGELOG.md', changelog);
 
-  // 5. docs/packaging.md, README.md, AGENTS.md 中所有旧版本号引用
-  for (const rel of ['docs/packaging.md', 'README.md', 'AGENTS.md']) {
+  // 5. 文档中的旧版本号引用统一刷新（清单须与文件头注释一致）
+  //    逐行替换，跳过含 `bump-ignore` 标记的行：文档里有「引用当前版本号作为反例/历史」
+  //    的散文（如 packaging.md 记录「旧文字错误声称 electron-builder 会剥尾零」），
+  //    全文 replace 会让这类反例每轮发版被改写成当时的新版本号，历史断言被静默篡改。
+  //    机制与 i18n 的 `// i18n-ignore` 同构。
+  const BUMP_IGNORE = 'bump-ignore';
+  for (const rel of ['docs/packaging.md', 'README.md', 'AGENTS.md', 'docs/architecture.md']) {
     if (!fs.existsSync(path.join(ROOT, rel))) continue;
-    let text = readText(rel);
-    text = text.replace(new RegExp(currentVersion.replace(/\./g, '\\.'), 'g'), newVersion);
-    writeText(rel, text);
+    const text = readText(rel);
+    const next = text
+      .split('\n')
+      .map((line) =>
+        line.includes(BUMP_IGNORE)
+          ? line
+          : line.replace(new RegExp(currentVersion.replace(/\./g, '\\.'), 'g'), newVersion)
+      )
+      .join('\n');
+    writeText(rel, next);
   }
 
   console.log(`Done. New version: ${newVersion}`);
