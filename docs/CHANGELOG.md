@@ -4,6 +4,12 @@
 
 ## \[Unreleased]
 
+- **动态拼接键族门禁（残留清单第 5 条，2026-09-21）**：`DownloadCard.vue:627` 写的是 `i18n.t('dl_err_' + task.errorType)`——键名由代码拼出来，检查 1「字面量 `t('k')` 悬空」完全看不见，`DownloadErrorType` 成员改名或新增不会有任何报警，界面直接渲染 `dl_err_xxx`。实测今天 11 个成员的双语 `dl_err_*` 齐全。
+  - `verify-i18n-usage.cjs` 新增检查 6：按枚举成员逐个断言 `前缀+成员` 在 zh/en 都存在，并反查该前缀下的**字典孤儿**；规则做成 `DYNAMIC_KEY_FAMILIES` 表，将来同类前缀加一行即可。成员解析按行首 `| 'name'`：该类型每成员一行且行尾带中文注释，按 `|` 切分会把注释吞进成员名（本会话前一次量覆盖度时就这样误报过 10 条「缺键」，只有行尾是 `';` 的 `unknown` 躲过）。
+  - 负测试双向成立：从 en.ts 删 `dl_err_checksum_mismatch` → 报「动态键缺失」；往 zh.ts 注入 `dl_err_ghost_case` → 报「动态键孤儿」。均 `.bak` 还原。
+  - 顺带把脚本头注释从「检查三件事」更正为六件事（前几轮逐条加规则时没同步计数，属文档与实现漂移）。
+
+
 - **参数字典同步门禁（残留清单第 4 条，2026-09-21）**：`paramLabel()` 缺键时回退渲染**裸 key**（`spec_draft_n_max` 直接上界面），而此前**没有任何脚本检查 `labels.ts` 与 `definitions.ts` 是否同步**。实测今天 60/60 参数标签与帮助齐全、zh/en 均非空，但字典里躺着 **6 条孤儿**：`repeat_last_n` / `typical_p` / `mirostat` / `mirostat_lr` / `mirostat_ent`（参数早已删）与 `model`（模型行标签实际走 `t('lbl_model_path')`，不经 `paramLabel`）——逐条查过 9 个 `paramLabel(` / 6 个 `paramHelp(` 调用点，全部传 `props.p.key` 或 `dep.key`，确认不可达后删除（两字典各 6 行，共 12 行）。
   - **新门禁**（`verify-params-sync.cjs`，已随 lint 运行）：`PARAM_LABELS` / `PARAM_HELP` 的键集与 PARAMS **双向完全相等**，且每条 `zh`/`en` 非空。两个方向都会出事——表里有字典无 → 裸 key 上界面；字典有表里无 → 死条目误导读码者。
   - 踩到一处解析坑：初版按 `^\s*(\{\s*)?key:` 取参数键，把 `PARAM_GROUPS` 的 `{ key: 'basic', labelKey: … }` 也算了进来（**63 ≠ 60** 报出 3 条假缺失）。改为按 `key: 'x', group: '` 相邻取键，并加自检「解析出的 key 数 ≠ 条目数即 fail」——**结构一变就要求同步解析规则，而不是静默少查几个参数**。

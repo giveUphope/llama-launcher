@@ -3,9 +3,9 @@
 // （历史事故：b8c1d59 移除 msg_autoscroll_* 后，Arco 迁移拉取又把引用带回，
 // 控制台直接显示 "msg_autoscroll_on"）。
 //
-// 检查三件事：
+// 检查六件事：
 //  1. 悬空引用：源码中字面量 t('key') / i18n.t('key') 的键必须同时存在于
-//     zh.ts 与 en.ts（动态拼接 t('x' + v) 与模板字符串不检查——无法静态判定）。
+//     zh.ts 与 en.ts（动态拼接 t('x' + v) 由检查 6 覆盖；模板字符串不检查——无法静态判定）。
 //  2. 中英键集差异：zh 与 en 的键集合必须完全一致。
 //  3. 裸 CJK 字面量：注释之外出现中文串字面量即视为绕开 i18n（硬编码文案）。
 //     纯开发日志等确不进界面的串，在该行加 `// i18n-ignore` 显式豁免——
@@ -17,6 +17,9 @@
 //  5. 实参匹配：t('key', [..]) 的实参个数须等于该键 zh/en 文案里的占位符槽数
 //     （少一个渲染出裸 {1}，多一个是白传；两语言槽数不一致也会在这里暴露）。
 //     间接引用键（labelKey / reasonKey 等 xxxKey 字段）同样校验双字典存在。
+//  6. 动态拼接键族：`t('dl_err_' + 变量)` 这类键名由代码拼出来，检查 1 看不见。
+//     改为按枚举成员逐个校验双语键存在（缺键与字典孤儿都 fail）；
+//     新增同类前缀往 DYNAMIC_KEY_FAMILIES 表里加一行即可。
 //
 // 用法：node scripts/verify-i18n-usage.cjs（已接入 pnpm lint）
 const fs = require('node:fs');
@@ -276,6 +279,41 @@ function main() {
           const need = Math.max(...slots) + 1;
           if (need !== n) errors.push(`实参不符: ${rel}:${line} t('${m[1]}', [${n} 个]) 而 ${lang} 需要 ${need} 个（槽 ${[...slots].sort().join(',')}）`);
         }
+      }
+    }
+  }
+
+  // 6) 动态拼接键族：源码写成 t('前缀' + 变量)，检查 2 的「字面量 t('k')」看不见，
+  //    键名改名/新增成员不会有任何报警。改为按枚举成员逐个校验双语键存在，
+  //    并反查字典里该前缀下的孤儿键。新增同类前缀只需往表里加一行。
+  const DYNAMIC_KEY_FAMILIES = [
+    { prefix: 'dl_err_', typeFile: 'packages/shared/src/types/download.ts', typeName: 'DownloadErrorType' },
+  ];
+  for (const fam of DYNAMIC_KEY_FAMILIES) {
+    const src = fs.readFileSync(path.join(ROOT, fam.typeFile), 'utf8');
+    const decl = src.indexOf(`export type ${fam.typeName}`);
+    if (decl < 0) {
+      errors.push(`动态键族解析失败: ${fam.typeFile} 找不到 export type ${fam.typeName}`);
+      continue;
+    }
+    const block = src.slice(decl, src.indexOf(';', decl));
+    const members = [...block.matchAll(/^[ |\t]*'([a-z0-9_]+)'/gm)].map((m) => m[1]);
+    if (members.length === 0) {
+      errors.push(`动态键族解析失败: ${fam.typeName} 未解析出任何成员（类型写法变了？规则需同步）`);
+      continue;
+    }
+    for (const m of members) {
+      const key = fam.prefix + m;
+      if (!zh.has(key) || !en.has(key)) errors.push(`动态键缺失: ${key}（${fam.typeName} 成员 '${m}'）`);
+    }
+    for (const k of zh) {
+      if (k.startsWith(fam.prefix) && !members.includes(k.slice(fam.prefix.length))) {
+        errors.push(`动态键孤儿: zh.ts 的 ${k} 无对应 ${fam.typeName} 成员`);
+      }
+    }
+    for (const k of en) {
+      if (k.startsWith(fam.prefix) && !members.includes(k.slice(fam.prefix.length))) {
+        errors.push(`动态键孤儿: en.ts 的 ${k} 无对应 ${fam.typeName} 成员`);
       }
     }
   }
