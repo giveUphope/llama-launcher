@@ -13,7 +13,7 @@ export const PARAM_LABELS: Record<string, ParamI18nEntry> = {
   ubatch_size: { zh: '微批次大小', en: 'Micro Batch' },
   parallel: { zh: '并行槽位', en: 'Parallel Slots' },
   flash_attn: { zh: 'Flash Attention', en: 'Flash Attention' },
-  cont_batching: { zh: '连续批处理', en: 'Continuous Batching' },
+  cont_batching: { zh: '连续批处理', en: 'Continuous Batch' },
 
   // ---------------- advanced ----------------
   cache_type_k: { zh: 'KV 缓存类型 K', en: 'KV Cache Type K' },
@@ -24,23 +24,23 @@ export const PARAM_LABELS: Record<string, ParamI18nEntry> = {
   fit: { zh: '自动适配内存', en: 'Auto Fit Memory' },
   gpu_layers: { zh: 'GPU 层数', en: 'GPU Layers' },
   n_cpu_moe: { zh: 'CPU MoE 层数', en: 'CPU MoE Layers' },
-  mmproj: { zh: '多模态投影器', en: 'Multimodal Projector' },
+  mmproj: { zh: '多模态投影器', en: 'Multimodal Proj.' },
   chat_template: { zh: '聊天模板', en: 'Chat Template' },
-  jinja: { zh: 'Jinja 模板引擎', en: 'Jinja Template Engine' },
+  jinja: { zh: 'Jinja 模板引擎', en: 'Jinja Engine' },
   spec_type: { zh: '投机采样类型', en: 'Speculative Type' },
   spec_draft_model: { zh: '草稿模型路径', en: 'Draft Model Path' },
   spec_draft_ngl: { zh: '草稿模型 GPU 层数', en: 'Draft GPU Layers' },
   spec_draft_n_max: { zh: '最大草稿 Token 数', en: 'Max Draft Tokens' },
   spec_draft_n_min: { zh: '最小草稿 Token 数', en: 'Min Draft Tokens' },
-  spec_cache_type_k: { zh: '草稿 KV 缓存类型 K', en: 'Draft KV Cache Type K' },
-  spec_cache_type_v: { zh: '草稿 KV 缓存类型 V', en: 'Draft KV Cache Type V' },
+  spec_cache_type_k: { zh: '草稿 KV 缓存类型 K', en: 'Draft KV Type K' },
+  spec_cache_type_v: { zh: '草稿 KV 缓存类型 V', en: 'Draft KV Type V' },
 
   // ---------------- thinking ----------------
   reasoning: { zh: '思考模式', en: 'Reasoning Mode' },
   reasoning_effort: { zh: '推理力度', en: 'Reasoning Effort' },
-  reasoning_budget: { zh: '思考 Token 预算', en: 'Reasoning Token Budget' },
+  reasoning_budget: { zh: '思考 Token 预算', en: 'Reasoning Budget' },
   reasoning_format: { zh: '思考输出格式', en: 'Reasoning Format' },
-  reasoning_budget_message: { zh: '预算耗尽提示语', en: 'Budget Exhausted Message' },
+  reasoning_budget_message: { zh: '预算耗尽提示语', en: 'Budget End Msg' },
 
   // ---------------- sampling ----------------
   temperature: { zh: '温度', en: 'Temperature' },
@@ -71,12 +71,12 @@ export const PARAM_LABELS: Record<string, ParamI18nEntry> = {
   kv_unified_per_slot: { zh: '每槽位统一 KV 上限', en: 'Unified KV Per Slot' },
   swa_full: { zh: 'SWA 全量缓存', en: 'SWA Full Cache' },
   mmproj_device: { zh: '投影器设备', en: 'Projector Device' },
-  mmproj_offload: { zh: '投影器 GPU 卸载', en: 'Projector GPU Offload' },
+  mmproj_offload: { zh: '投影器 GPU 卸载', en: 'Proj. GPU Offload' },
   video_fps: { zh: '视频帧率', en: 'Video FPS' },
-  video_timestamp_interval: { zh: '视频时间戳间隔', en: 'Video Timestamp Interval' },
+  video_timestamp_interval: { zh: '视频时间戳间隔', en: 'Video TS Interval' },
   video_ffmpeg_dir: { zh: 'FFmpeg 目录', en: 'FFmpeg Dir' },
-  spec_synth_len: { zh: '合成接受长度', en: 'Synthetic Accept Len' },
-  spec_synth_rates: { zh: '合成接受率', en: 'Synthetic Accept Rates' },
+  spec_synth_len: { zh: '合成接受长度', en: 'Synth. Accept Len' },
+  spec_synth_rates: { zh: '合成接受率', en: 'Synth. Accept Rate' },
 };
 
 export const PARAM_HELP: Record<string, ParamI18nEntry> = {

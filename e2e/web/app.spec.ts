@@ -91,22 +91,42 @@ async function measureFormLabels(page: Page) {
   );
 }
 
-test.describe('设置页表单标签几何（双语）', () => {
+/** 逐行断言：标签既不压控件（slack ≥ 0）也不被省略号截断（scrollWidth ≤ clientWidth）。 */
+async function expectLabelsFit(page: Page, where: string) {
+  const rows = await measureFormLabels(page);
+  expect(rows.length, `${where} 应有表单行`).toBeGreaterThan(0);
+  for (const row of rows) {
+    expect(row.slack, `${where} 标签「${row.text}」与控件间隙`).toBeGreaterThanOrEqual(0);
+    expect(row.truncated, `${where} 标签「${row.text}」不应被截断`).toBeLessThanOrEqual(1);
+  }
+}
+
+test.describe('表单标签几何（双语）', () => {
   for (const lang of ['zh', 'en'] as const) {
-    test(`${lang === 'zh' ? '中文' : '英文'}态各面板标签既不压控件也不截断`, async ({ page }) => {
+    test(`${lang === 'zh' ? '中文' : '英文'}态设置页各面板标签既不压控件也不截断`, async ({ page }) => {
       await page.goto('/');
       await expect(page.locator('.sidebar')).toBeVisible();
       await setLanguage(page, lang);
       for (const tab of SETTINGS_TABS) {
         await page.locator('.arco-tabs-tab', { hasText: tab[lang] }).click();
         await expect(page.locator('.arco-form-item').first()).toBeVisible();
-        const rows = await measureFormLabels(page);
-        expect(rows.length, `${tab[lang]} 面板应有表单行`).toBeGreaterThan(0);
-        for (const row of rows) {
-          expect(row.slack, `${tab[lang]} 标签「${row.text}」与控件间隙`).toBeGreaterThanOrEqual(0);
-          expect(row.truncated, `${tab[lang]} 标签「${row.text}」不应被截断`).toBeLessThanOrEqual(1);
-        }
+        await expectLabelsFit(page, `设置/${tab[lang]}`);
       }
+    });
+
+    // 参数页 60 行同样纳入：该页列宽 124 是 #78 按中文最长标签（122.8px）定的，
+    // 英文曾有 11 条超出被省略号截断（STYLE_TODO #80 改文案后归零）。断言零截断，
+    // 使「新增参数用了长英文标签」这类回归在 CI 就被拦下，而不是靠人工逐视口复测。
+    test(`${lang === 'zh' ? '中文' : '英文'}态参数页 60 行标签不截断不压控件`, async ({ page }) => {
+      await page.goto('/');
+      await expect(page.locator('.sidebar')).toBeVisible();
+      await setLanguage(page, lang);
+      await page.locator('.sidebar .arco-menu-item', { hasText: lang === 'zh' ? '参数设置' : 'Parameters' }).click();
+      await page.locator('.arco-tabs-tab', { hasText: lang === 'zh' ? '自定义参数' : 'Custom Params' }).click();
+      await expect(page.locator('.param-row-wrapper').first()).toBeVisible();
+      await expectLabelsFit(page, '参数页');
+      // 60 行全部在 DOM 内（无虚拟列表），少一行说明渲染或选择器变了
+      expect(await page.locator('.param-row-wrapper').count()).toBe(60);
     });
   }
 });

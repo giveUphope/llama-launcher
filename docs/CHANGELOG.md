@@ -4,6 +4,14 @@
 
 ## \[Unreleased]
 
+- **参数页英文标签截断归零 + 几何判定扩到参数页（残留清单第 7、10 条，2026-09-21，STYLE_TODO #80）**：#79 修的是设置页（英文标签压控件），参数页是同一列宽口径的另一半——124px 由 #78 按**中文**最长标签 122.8px 定，英文侧没逐条量。用页面真实字体 canvas 实测 **11/60 条英文标签 > 124**（超 4–45px，被 `overflow: hidden` + 省略号截断；中文态 0/60）。
+  - 两条路线交用户选边：① 列宽 124→176 彻底不截断，但最小轨 418→470，**1600 由 3 列退 2 列、2560 由 5 列退 4 列**，与 #78「不拿列数换对齐」冲突；② 缩短英文文案（零布局代价，完整术语在 `PARAM_HELP` 与 tooltip 里）→ **选 ②**。
+  - `labels.ts` 的 `en` 改 11 条（zh 一字未动）：`Continuous Batch` / `Multimodal Proj.` / `Proj. GPU Offload` / `Video TS Interval` / `Jinja Engine` / `Draft KV Type K|V` / `Synth. Accept Len` / `Synth. Accept Rate`（顺带修单复数 bug，zh 为「合成接受率」）/ `Reasoning Budget` / `Budget End Msg`。**每条候选改前都实测 ≤122px** 留余量；键名逐条 grep 对回（我按表推断的 key 有 4 个不准）。
+  - **第 10 条**：`e2e/web/app.spec.ts` 的几何用例从设置页三面板扩到参数页 60 行（双语各一条，断言零截断 + 不压控件），并加 `expect(行数).toBe(60)` 防「少渲染也算过」。web e2e 13 → **15 例全绿**；负测试把 `Budget End Msg` 退回长版本 → 英文态参数页用例点名失败，还原后回全绿。今后新增参数若英文标签超长，CI 直接拦下。
+  - 一处口径自我更正：先前报「8/60 截断」用的是「超出到会压控件」的更严判据（>132px），按「自然宽 > 列宽」实为 **11 条**——已在 STYLE_TODO #80 里写清两个数各自含义。
+  - 同步：STYLE_TODO #80 全文登记、frontend.md §7.5.4 新增「标签列宽必须按双语最长核」条。
+
+
 - **旧下载日志的错误类型归一化（残留清单第 8 条，2026-09-21，修法经实测修正）**：原报告写的是「保证每条失败路径都有 errorType，删掉 `errorDisplay` 的 raw 回退」。读码实测**前提不成立**：两条置 error 的路径（`download-manager.ts:475` 校验和、`failTask`）都同时写 `errorType`，`classifyError` 还有 `'unknown'` 兜底、永不返回 null——**活路径不存在空 errorType**；唯一可达 raw 回退的是 `download-log.ts` 恢复的**旧日志记录**（该字段加入前写的只有 error 原文）。删回退会让这些行渲染成空串，比现状更糟，故改到加载侧收口。
   - `download-log` 恢复 done 事件时：`errorType` 必须落在 `DOWNLOAD_ERROR_TYPES` 内才采信（旧代码 `typeof === 'string'` 盲转，脏值会渲染成裸 `dl_err_xxx`）；缺失/非法且 `status==='error'` 时用 `classifyError(errorText)` 补分类。
   - `classifyError` 从 `download-manager.ts` **移到新模块 `core/src/error-classify.ts`**——`download-manager` 已依赖 `download-log`，反向引用会成环。

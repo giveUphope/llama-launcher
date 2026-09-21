@@ -281,6 +281,14 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：① 三面板统一 `paddingRight: '0'` + `flex: '0 0 <W>px'` + `minWidth: '0'`（列宽 = 可用宽，标签与控件间距回到 §7.5.4 规范的 8px——此前实际 24px；`0 1` 可收缩改 `0 0`，与 #78 参数页同一口径）；② **W 按双语最长标签 + 余量**：General 110 → **145**（en 141）、Advanced 140 → **176**（en 172）、Appearance **保持 110**（双语最长 61，本就放得下，不为凑数改动）；③ `SettingsPage.vue` 加一条 `:deep(.arco-form-item-label){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}` 兜底——将来任一语言出现更长标签，宁可省略号也不许再压控件（三面板共用一处，不各抄一份）。
 - **修复效果验证**：新增 `e2e/web/app.spec.ts`「设置页表单标签几何（双语）」——逐面板逐行断言 `控件左缘 − 文本右缘 ≥ 0` 且 `label.scrollWidth − clientWidth ≤ 1`，中/英各一条用例（入口按中文标签点，因每个 test 都是全新 context、mock 初始语言恒 zh）。修复后实测：三面板 × 双语共 7 行，**slack 全部恰为 8px、truncated 全 0**（含 172→176、141→145 两行）。**负测试**：把 Advanced 退回旧值 `0 1 140px` 后重跑，英文用例即点名失败「Advanced 标签『Max Concurrent Downloads』与控件间隙」，还原后 13 例全绿。`pnpm build`/`lint`/`test`（core 359 + ui 66）/`e2e:web` 全绿。规范落点：[frontend.md §7.5.4](../frontend.md)「设置面板标签列」。
 
+### 80. 参数页英文标签 11/60 被省略号截断（列宽 124 只按中文最长标签定）— 🟢 已修复（2026-09-21）
+
+- **位置**：`shared/src/i18n/labels.ts`（`PARAM_LABELS` 的 `en` 字段 11 条）、`e2e/web/app.spec.ts`（几何判定扩到参数页）。
+- **描述（#79 的姊妹问题，同一列宽口径的另一半）**：参数页标签列 124px 是 #78 按**中文**最长标签「每槽位统一 KV 上限」122.8px 定的（判据「这一列不能再降」），英文侧当时没逐条量。用页面真实字体（`14px Inter, "Segoe UI Variable", "PingFang SC"…`）canvas 实测：**11 条英文标签自然宽 > 124**，超出 4–45px，被 `overflow: hidden` + `text-overflow: ellipsis` 截断（最长「Budget Exhausted Message」169px，读作 “Budget Exhausted M…”）；其中 8 条超出 ≥ 8px——即该页若没有兜底截断，就会像 #79 一样压进控件。中文态实测 **0/60** 截断（最长恰为 124）。
+- **两条路线的取舍（用户选边）**：① 列宽 124 → 176 彻底不截断，但最小轨 418 → 470，**1600 视口由 3 列退 2 列、2560 由 5 列退 4 列**，与 #78「不拿列数换对齐」的结论直接冲突 → 排除；② **缩短英文文案**（零布局代价，完整术语仍在 `PARAM_HELP` 帮助与 tooltip 里）→ 采用。
+- **修复**：`labels.ts` 的 `en` 改 11 条（zh 一字未动，diff 即 11 行对换）：`Continuous Batching→Continuous Batch`、`Multimodal Projector→Multimodal Proj.`、`Projector GPU Offload→Proj. GPU Offload`、`Video Timestamp Interval→Video TS Interval`、`Jinja Template Engine→Jinja Engine`、`Draft KV Cache Type K/V→Draft KV Type K/V`、`Synthetic Accept Len→Synth. Accept Len`、`Synthetic Accept Rates→Synth. Accept Rate`（顺带修单复数：zh 为「合成接受率」）、`Reasoning Token Budget→Reasoning Budget`、`Budget Exhausted Message→Budget End Msg`。**改前每条候选都用同一字体实测 ≤122px**（留 2px 余量）；键名逐条 grep 对回 labels.ts 后再改（表上推断的 key 有 4 个不准：`video_timestamp_interval` / `spec_cache_type_k|v` / `spec_synth_rates` / `reasoning_budget_message`）。
+- **修复效果验证**：`e2e/web/app.spec.ts` 的几何用例从「设置页三面板」扩到**参数页 60 行**（双语各一条），断言 `控件左缘 ≥ 文本右缘` 且零截断，并加 `expect(行数).toBe(60)` 防「少渲染也算过」。web e2e 13 → **15 例全绿**。**负测试**：把 `Budget End Msg` 退回 `Budget Exhausted Message` → 英文态参数页用例点名失败「参数页 标签『Budget Exhausted Message』与控件间隙」，还原后回到全绿。今后新增参数若英文标签超长，CI 直接拦下，不再依赖人工逐视口复测。规范落点 [frontend.md §7.5.4](../frontend.md)。
+
 
 
 
