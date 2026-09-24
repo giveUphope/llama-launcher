@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/desktop-main.md)
 > Scope: the Electron main process: entry point, window management, IPC registration, the Launcher bridge, preload.
-> Index: [README.md](../../README.md) · Related: [ipc-channels.md](ipc-channels.md) · [core-modules.md](core-modules.md)
+> Index: [README.en.md](../../README.en.md) · Related: [ipc-channels.md](ipc-channels.md) · [core-modules.md](core-modules.md)
 
 ### 6.1 Entry point (main/index.ts)
 

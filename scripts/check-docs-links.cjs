@@ -11,7 +11,7 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const DOCS = path.join(ROOT, 'docs');
-const EXTRA_FILES = ['AGENTS.md', 'README.md', 'README.zh-CN.md'].map((f) => path.join(ROOT, f)).filter((f) => fs.existsSync(f));
+const EXTRA_FILES = ['AGENTS.md', 'README.md', 'README.en.md'].map((f) => path.join(ROOT, f)).filter((f) => fs.existsSync(f));
 
 /** 递归收集 md 文件 */
 function walk(dir, out = []) {

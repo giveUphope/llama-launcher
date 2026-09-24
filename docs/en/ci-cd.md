@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/ci-cd.md)
 > Scope: GitHub Actions pipeline: PR/push validation, automatic version increment on the main branch and release triggering.
-> Index: [README.md](../../README.md) · Related: [auto-release.md](auto-release.md) · [packaging.md](packaging.md)
+> Index: [README.en.md](../../README.en.md) · Related: [auto-release.md](auto-release.md) · [packaging.md](packaging.md)
 
 The repository uses two workflow files (.github/workflows/), which together make up the complete CI/CD pipeline:
 

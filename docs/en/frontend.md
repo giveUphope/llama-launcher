@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/frontend.md)
 > Scope: frontend architecture: routing, Pinia stores, pages, shared components; §7.5 is the UI style guide (the single authoritative source).
-> Index: [README.md](../../README.md) · Related: [ipc-channels.md](ipc-channels.md) · [params-system.md](params-system.md) · [style/STYLE_TODO.md](style/STYLE_TODO.md)
+> Index: [README.en.md](../../README.en.md) · Related: [ipc-channels.md](ipc-channels.md) · [params-system.md](params-system.md) · [style/STYLE_TODO.md](style/STYLE_TODO.md)
 
 ### 7.1 Routing and feature registry (router/index.ts + features/)
 

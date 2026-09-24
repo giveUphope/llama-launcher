@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/packaging.md)
 > Scope: electron-builder packaging configuration: hook mechanics, output-directory lock fallback, icon injection, common failures, version-consistency checklist.
-> Index: [README.md](../../README.md) · Related: [workflow.md](workflow.md) · [core-modules.md](core-modules.md)
+> Index: [README.en.md](../../README.en.md) · Related: [workflow.md](workflow.md) · [core-modules.md](core-modules.md)
 
 - **appId**: `com.llama-launcher.app`
 - **productName**: `llama Launcher`

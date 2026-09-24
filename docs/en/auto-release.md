@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/auto-release.md)
 > Scope: Remote packaging of the .exe on a Windows runner + automatic creation of the GitHub Release.
-> Index: [README.md](../../README.md) · Related: [ci-cd.md](ci-cd.md) · [packaging.md](packaging.md)
+> Index: [README.en.md](../../README.en.md) · Related: [ci-cd.md](ci-cd.md) · [packaging.md](packaging.md)
 
 release.yml is triggered by the bump job of ci.yml through `gh workflow run release.yml -f version="vX"`, and it can also be dispatched manually on GitHub via workflow_dispatch by entering the version number.
 

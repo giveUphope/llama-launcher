@@ -139,12 +139,10 @@ const PARAM_TOTAL = GROUP_COUNTS.basic + GROUP_COUNTS.advanced + GROUP_COUNTS.se
 
 const DOC_PARAM_CLAIMS = [
   { file: 'AGENTS.md', re: /the (\d+)-param table/, want: [PARAM_TOTAL] },
-  // README 自 2026-09-24 起为英文着陆页（约定见 AGENTS.md 的 README 条目），故按英文句式取数：
-  // 命中的是 Highlights 里的 "**60** `llama-server` parameters grouped into 13 sections"。
-  { file: 'README.md', re: /\*\*(\d+)\*\*\s*`llama-server` parameters/, want: [PARAM_TOTAL] },
-  // 中文着陆页与 README.md 成对，同一条数字必须两树相等（只查英文侧的话，
-  // 中文版漂移不会有人发现）。
-  { file: 'README.zh-CN.md', re: /\*\*(\d+) 个\*\*\s*`llama-server` 参数/, want: [PARAM_TOTAL] },
+  // 两份着陆页成对且必须同数：README.md 是中文（GitHub 进仓库默认展示的那份），
+  // README.en.md 是英文。各写一条句式，缺任一侧或数字不等都 fail。
+  { file: 'README.md', re: /\*\*(\d+) 个\*\*\s*`llama-server` 参数/, want: [PARAM_TOTAL] },
+  { file: 'README.en.md', re: /\*\*(\d+)\*\*\s*`llama-server` parameters/, want: [PARAM_TOTAL] },
   { file: 'docs/zh/architecture.md', re: /参数表（(\d+) 组 \/ (\d+) 个参数）/, want: [Object.keys(GROUP_COUNTS).length, PARAM_TOTAL] },
   { file: 'docs/zh/core-modules.md', re: /`PARAMS`（(\d+)：basic (\d+) \/ advanced (\d+) \/ server (\d+)）/, want: [PARAM_TOTAL, GROUP_COUNTS.basic, GROUP_COUNTS.advanced, GROUP_COUNTS.server] },
   { file: 'docs/zh/params-system.md', re: /共 (\d+) 个参数/, want: [PARAM_TOTAL] },

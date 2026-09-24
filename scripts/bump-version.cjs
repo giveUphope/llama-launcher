@@ -13,7 +13,7 @@
  *   - docs/CHANGELOG.md（[Unreleased] 标题 → 新版本）
  *   - docs/zh/packaging.md 与 docs/en/packaging.md（所有旧版本号引用）
  *   - docs/zh/architecture.md 与 docs/en/architecture.md（monorepo 包版本表中的 desktop 行）
- *   - README.md / README.zh-CN.md（旧版本号引用）
+ *   - README.md（中文，GitHub 默认展示）/ README.en.md（旧版本号引用）
  *   - AGENTS.md（旧版本号引用）
  *
  * 文档侧按行替换，含 `bump-ignore` 标记的行跳过（历史反例/举例用的版本号不该被改写）。
@@ -104,7 +104,7 @@ function run() {
     'docs/zh/architecture.md',
     'docs/en/architecture.md',
     'README.md',
-    'README.zh-CN.md',
+    'README.en.md',
     'AGENTS.md',
   ]) {
     if (!fs.existsSync(path.join(ROOT, rel))) continue;

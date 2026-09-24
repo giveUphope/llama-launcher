@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/data-persistence.md)
 > Scope: Type definitions (shared/src/types) and persistence (settings / presets / trash cleanup).
-> Index: [README.md](../../README.md) · Related: [architecture.md](architecture.md)
+> Index: [README.en.md](../../README.en.md) · Related: [architecture.md](architecture.md)
 
 ## 9. Type definitions
 

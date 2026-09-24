@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/design-decisions.md)
 > Scope: Record of the key design decisions and the trade-offs behind them.
-> Index: [README.md](../../README.md) · Related: [architecture.md](architecture.md)
+> Index: [README.en.md](../../README.en.md) · Related: [architecture.md](architecture.md)
 
 1. **Param emission rule (refactored 2026-08-29, replaces the old `_enabled` enable mechanism)**: a parameter has no separate enabled/disabled state — a flag is emitted only when the value ≠ the default (checkbox: `flag` when ticked, `invert_flag` when unticked (a switch with no always-on flag emits nothing when unticked); empty strings are skipped; dependency gating applies), so the command line contains only the parameters the user actually adjusted. The old scheme, which recorded enabled state explicitly in a `_enabled` JSON encoding, has been removed: a standalone enabled bit created a third source of truth ("value / enabled bit / default") and conflicted with the dual-track model where "preset = a plain value snapshot" (`buildCommand` reads a legacy `_enabled` and simply ignores it).
 2. **GGUF smart suggestions**: streaming reads (64KB blocks) + an LRU cache (cap 32) — memory stays flat and re-parsing is avoided.

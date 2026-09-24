@@ -35,13 +35,13 @@ pnpm install --frozen-lockfile   # 校验 lockfile 与 package.json 同步（CI 
 
 ## 文档编写约定
 
-所有 `docs/` 文档遵循统一编写逻辑与格式（新增/修改文档时请保持一致）。仓库根是**中英成对的两份着陆页**：[README.md](../../README.md)（英文）与 [README.zh-CN.md](../../README.zh-CN.md)（中文），各只保留「是什么 / 亮点 / 快速开始 / 使用流程 / 项目结构 / 技术栈 / 文档地图 / 许可证」八块，深度细节一律下沉到 `docs/`；`docs/` 内部按语言分两树——`docs/zh/`（中文权威版）与 `docs/en/`（英文镜像版），同名同结构一一对应：
+所有 `docs/` 文档遵循统一编写逻辑与格式（新增/修改文档时请保持一致）。仓库根是**中英成对的两份着陆页**：[README.md](../../README.md)（中文，GitHub 进仓库默认展示的就是它）与 [README.en.md](../../README.en.md)（英文，从中文页顶部语言行切换过去），各只保留「是什么 / 亮点 / 快速开始 / 使用流程 / 项目结构 / 技术栈 / 文档地图 / 许可证」八块，深度细节一律下沉到 `docs/`；`docs/` 内部按语言分两树——`docs/zh/`（中文权威版）与 `docs/en/`（英文镜像版），同名同结构一一对应：
 
 1. **标题**：`# 文档名`，一句概括主题。
 2. **说明块**：标题下紧跟三行——第一行**语言行**（中文侧以「语言：中文 · 」开头，后接一个指向同深度 `../en/` 同名文件的 English 链接；英文侧以「Language: English · 」开头，后接一个指向 `../zh/` 同名文件的中文链接；`docs/*/` 子目录内深度多一层，前缀改 `../../`），第二行 `> 范围：<覆盖内容>`，第三行 `> 索引：<README 相对链接> · 相关：<相关文档相对链接>`。语言行是双语配对的可见入口，缺它等于英文读者进不来。**注意：本节刻意不把语言行写成方括号链接语法**——`check-docs-links.cjs` 会连行内代码里的链接示例一并解析，占位目标会被判成断链。
 3. **章节编号**：沿用架构文档原有编号（`N.x`），跨文档引用用「文档名 §N.x」或相对链接，不重编章节号（保证链接锚点稳定）。**中英两树保留同一套编号**，这样「frontend.md §7.5.4」在两种语言里都成立。
 4. **术语统一**：参数/预设/打包等术语与 `AGENTS.md`、`docs/zh/params/LLAMA_SERVER_PARAMS.md` 一致。
-5. **链接**：docs/ 内部一律相对路径（`frontend.md`、`style/STYLE_TODO.md`）；**指向兄弟文档时只指同语言树**（英文文档链 `docs/en/*`，中文文档链 `docs/zh/*`），链到 `docs/CHANGELOG.md`、`docs/archive/**` 这类不译的历史内容则两树共用同一路径；代码路径用反引号（如 `packages/ui/src/styles/`）；README / README.zh-CN.md 与 AGENTS.md 的相对链接与锚点由 `scripts/check-docs-links.cjs` 校验（`pnpm docs:check`）。**英文文档不得沿用中文标题产生的 `#锚点`**（英文标题 slug 不同），去掉锚点只留文件链接。
+5. **链接**：docs/ 内部一律相对路径（`frontend.md`、`style/STYLE_TODO.md`）；**指向兄弟文档时只指同语言树**（英文文档链 `docs/en/*`，中文文档链 `docs/zh/*`），链到 `docs/CHANGELOG.md`、`docs/archive/**` 这类不译的历史内容则两树共用同一路径；代码路径用反引号（如 `packages/ui/src/styles/`）；README.md / README.en.md 与 AGENTS.md 的相对链接与锚点由 `scripts/check-docs-links.cjs` 校验（`pnpm docs:check`）。**英文文档不得沿用中文标题产生的 `#锚点`**（英文标题 slug 不同），去掉锚点只留文件链接。
 6. **双语同步方向**：先改中文，再同步英文镜像，**只改一侧视为未完成**；新增文档必须两树同时建。数字类声明（参数总数、通道数、分组数、实测像素与毫秒）两树必须相等——`verify-ipc-sync.cjs` 与 `verify-params-sync.cjs` 已递归扫两树，英文句式（"56 channels"）与中文句式（「56 个通道」）同样受检，翻译时漏掉一侧会当场 fail。
 7. **不译清单**：`docs/CHANGELOG.md`（版本历史）、`docs/archive/**`（只读归档）、`docs/params/llama-server-help-out.txt`（语言无关的 help 基线）、`docs/badges/` 保持单份，不建 `en/` 镜像；两个门禁也按此跳过它们。
 8. **来源**：拆分自原 CODE\_WIKI.md 的章节保持内容原样（仅调整格式），新增内容标注日期；待修复/已知问题登记到 `style/STYLE_TODO.md`（中英两份）而不是散落在正文。

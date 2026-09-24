@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/core-modules.md)
 > Scope: Core business modules: process management, launch orchestration, command building, model scanning, GGUF metadata, online downloads, path resolution.
-> Index: [README.md](../../README.md) · Related: [params-system.md](params-system.md) · [desktop-main.md](desktop-main.md)
+> Index: [README.en.md](../../README.en.md) · Related: [params-system.md](params-system.md) · [desktop-main.md](desktop-main.md)
 
 ### 4.1 Process management (process.ts)
 

@@ -55,7 +55,7 @@ if (missingRef.length) {
  */
 const DOC_CHANNEL_RE = /(\d+)\s*个?\s*(?:IPC\s*)?(?:通道|channels?\b)/g;
 function docFilesWithChannelClaims() {
-  const files = ['AGENTS.md', 'README.md', 'README.zh-CN.md'];
+  const files = ['AGENTS.md', 'README.md', 'README.en.md'];
   const walk = (dir) => {
     for (const e of fs.readdirSync(path.resolve(__dirname, '..', dir), { withFileTypes: true })) {
       const rel = `${dir}/${e.name}`;

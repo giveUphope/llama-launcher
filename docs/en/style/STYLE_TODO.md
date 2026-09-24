@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../../zh/style/STYLE_TODO.md)
 > Scope: record everything in the current app that deviates from the **UI style spec (../frontend.md §7.5)**, so the app's visual style stays consistent "before and after a design change".
-> Index: [README.md](../../../README.md) · Related: [frontend.md](../frontend.md)
+> Index: [README.en.md](../../../README.en.md) · Related: [frontend.md](../frontend.md)
 >
 > **Logging rule**: when you find a new style inconsistency, append a section here (Location / Description / Suggested fix / Verification) — the description must be reproducible and the verification must be executable. After fixing, move the detailed record into the [fixed archive](../../archive/style-todo-resolved.md) and add a row to the "Fixed index" table (number / title / date). **Never introduce a new style silently.**
 >

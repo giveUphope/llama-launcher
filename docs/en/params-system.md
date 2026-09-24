@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/params-system.md)
 > Scope: the parameter system: parameter definitions (definitions.ts), the dual-track mechanism (session / presets), dependency cascading and speculative-decoding auto-detection, parameter control components.
-> Index: [README.md](../../README.md) · Related: [core-modules.md](core-modules.md) (command building) · [frontend.md](frontend.md) (the Params page)
+> Index: [README.en.md](../../README.en.md) · Related: [core-modules.md](core-modules.md) (command building) · [frontend.md](frontend.md) (the Params page)
 
 ### 5.1 Parameter definitions (shared/params/definitions.ts)
 

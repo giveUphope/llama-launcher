@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/architecture.md)
 > Scope: Project overview, directory structure, monorepo architecture and dependency flow.
-> Index: [README.md](../../README.md) · Related: [core-modules.md](core-modules.md) · [workflow.md](workflow.md)
+> Index: [README.en.md](../../README.en.md) · Related: [core-modules.md](core-modules.md) · [workflow.md](workflow.md)
 
 ## 1. Project overview
 

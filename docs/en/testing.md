@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/testing.md)
 > Scope: test structure and case inventory (Vitest, living in packages/core/tests plus inline tests in packages/ui).
-> Index: [README.md](../../README.md) · Related: [core-modules.md](core-modules.md) · [workflow.md](workflow.md)
+> Index: [README.en.md](../../README.en.md) · Related: [core-modules.md](core-modules.md) · [workflow.md](workflow.md)
 
 - **Framework**: Vitest 4 (`pnpm test` runs both the core and the ui package through turbo)
 
