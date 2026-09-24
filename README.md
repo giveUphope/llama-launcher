@@ -62,10 +62,10 @@ pnpm dev         # 开发模式：Vite + tsc watch + Electron 热重载（Ctrl+C
 pnpm build       # 类型检查 + 构建全部包
 pnpm dist        # 打包 Portable 单文件 → release/*.exe
 pnpm test        # 单元测试（core + ui）
-pnpm lint        # 类型检查 + IPC / 参数三方对拍 / 版本一致性 / 文档链接 / i18n 校验 + oxlint 门禁
+pnpm lint        # 类型检查 + IPC / 参数三方对拍 / 版本一致性 / 文档链接与写死路径 / 中英双树配对 / i18n 校验 + oxlint 门禁
 ```
 
-- **改完跑什么**：`pnpm lint` 一把覆盖（含 `verify-ipc-sync` / `verify-params-sync` / `verify-version-sync` / `check-docs-links` / `verify-i18n-usage`，文档里写死的通道数、参数总数与分组数、版本号漂移会直接 fail）。动过 IPC 通道先 `pnpm generate:ipc`（通道定义在 `packages/shared/src/types/ipc.ts`）；动过参数表还需对照 `docs/params/LLAMA_SERVER_PARAMS.md`。
+- **改完跑什么**：`pnpm lint` 一把覆盖（含 `verify-ipc-sync` / `verify-params-sync` / `verify-version-sync` / `check-docs-links` / `verify-doc-pairs` / `verify-i18n-usage`，文档里写死的通道数、参数总数与分组数、版本号漂移、以及中英双树只改一侧都会直接 fail）。动过 IPC 通道先 `pnpm generate:ipc`（通道定义在 `packages/shared/src/types/ipc.ts`）；动过参数表还需对照 [docs/zh/params/LLAMA_SERVER_PARAMS.md](docs/zh/params/LLAMA_SERVER_PARAMS.md)（该表由脚本一次生成中英两份，勿手改）。
 - **E2E**：`pnpm e2e:web`（渲染层）/ `pnpm e2e:electron`（Electron 冒烟），首次需 `pnpm exec playwright install chromium`，详见 [testing.md](docs/zh/testing.md)。
 - **首次运行提示**：从 GitHub 下载 `.exe` 后 Windows Defender SmartScreen 可能提示「未识别的应用程序」——本应用暂未使用付费签名证书，属正常现象，点「更多信息」→「仍要运行」即可，此后不再提示。
 

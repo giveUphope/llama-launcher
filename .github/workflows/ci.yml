@@ -71,7 +71,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      # build 必须先于 lint：tsc project references 需 shared/core 的 dist 产物（见 docs/ci-cd.md §2.3）
+      # build 必须先于 lint：tsc project references 需 shared/core 的 dist 产物（见 docs/zh/ci-cd.md §2.3）
       - run: pnpm build
       - run: pnpm lint
       - run: pnpm test

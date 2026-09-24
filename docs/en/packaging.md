@@ -68,7 +68,7 @@ The order is fixed: first resedit rewrites the version resource (rebuilding the 
 
 ### 11.7 Version consistency (automated)
 
-Version-number syncing is handled automatically by [`scripts/bump-version.cjs`](../../scripts/bump-version.cjs): `node scripts/bump-version.cjs [patch|minor|major]` updates `package.json` (root + desktop), `APP_VERSION` (`definitions.ts`), the version section of `CHANGELOG.md`, and the output file names and version numbers mentioned in `docs/packaging.md` / `README.md` (the single root README) / `AGENTS.md`, all at once.
+Version-number syncing is handled automatically by [`scripts/bump-version.cjs`](../../scripts/bump-version.cjs): `node scripts/bump-version.cjs [patch|minor|major]` updates `package.json` (root + desktop), `APP_VERSION` (`definitions.ts`), the version section of `docs/CHANGELOG.md`, and the output file names and version numbers mentioned in `docs/{zh,en}/packaging.md` (one copy per language tree), `docs/{zh,en}/architecture.md` (the monorepo version table), `README.md` (the Chinese landing page) and `README.en.md` (the English landing page), and `AGENTS.md`, all at once.
 
 Every `push` to `main` (including PR merge events) is handled by the `bump` job of the GitHub Actions `ci.yml`, which performs the patch increment + creates the tag + triggers `release.yml` to package the `.exe` and create the GitHub Release (see [ci-cd.md](ci-cd.md) / [auto-release.md](auto-release.md)).
 

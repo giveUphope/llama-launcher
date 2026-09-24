@@ -52,7 +52,7 @@ Parameters have **no independent enable/disable state** — the rule for emittin
 
 ### 5.5 Fixed procedure after a binary upgrade (re-pin)
 
-**Background**: the repository pins `docs/params/llama-server-help-out.txt` (the raw `llama-server --help` output) as the baseline of the parameter documentation and as the reference source of the sync checks; `scripts/generate-params-doc.cjs` records the source binary version in the header of `docs/params/LLAMA_SERVER_PARAMS.md`. The app does not ship a bundled binary (the engine directory is chosen by the user), so the pinned help is only a documentation baseline — but after upgrading the engine this procedure must be walked through again, otherwise the parameter table and the docs drift away from the real backend.
+**Background**: the repository pins `docs/params/llama-server-help-out.txt` (the raw `llama-server --help` output) as the baseline of the parameter documentation and as the reference source of the sync checks; `scripts/generate-params-doc.cjs` records the source binary version in the header of `docs/{zh,en}/params/LLAMA_SERVER_PARAMS.md` (both language copies, generated in one run). The app does not ship a bundled binary (the engine directory is chosen by the user), so the pinned help is only a documentation baseline — but after upgrading the engine this procedure must be walked through again, otherwise the parameter table and the docs drift away from the real backend.
 
 **Fixed steps after upgrading the llama.cpp binary**:
 

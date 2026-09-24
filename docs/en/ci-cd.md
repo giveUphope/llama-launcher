@@ -26,7 +26,7 @@ See [auto-release.md](auto-release.md).
   3. `actions/setup-node@v7` (node-version: 24, cache: pnpm)
   4. `pnpm install --frozen-lockfile`
   5. `pnpm build` — **must run before `pnpm lint`** (tsc project references depend on shared/dist / core/dist)
-  6. `pnpm lint` (turbo run lint + `verify-ipc-sync.cjs` + `verify-params-sync.cjs` + `verify-version-sync.cjs` + `check-docs-links.cjs` + `verify-i18n-usage.cjs` + `lint:ox` (oxlint) — seven checks, and the gate does not pass if any one of them is missing)
+  6. `pnpm lint` (turbo run lint + `verify-ipc-sync.cjs` + `verify-params-sync.cjs` + `verify-version-sync.cjs` + `check-docs-links.cjs` + `verify-doc-pairs.cjs` + `verify-i18n-usage.cjs` + `lint:ox` (oxlint) — eight checks, and the gate does not pass if any one of them is missing)
   7. `pnpm test`
 
 Both pull_request and push events go through verify.
@@ -42,7 +42,7 @@ Both pull_request and push events go through verify.
 - **Steps**:
   1. `actions/checkout@v7` (fetch-depth: 0, persist-credentials: true)
   2. `actions/setup-node@v7` (**no `pnpm install`**: `bump-version.cjs` is a plain node script with no npm dependencies, so the install step was dropped starting 2026-09-09)
-  3. `node scripts/bump-version.cjs patch` — the patch increment. The sync scope is defined in **two places** inside the script: the "sync scope" comment at the top of the file + the manifest array in step 5 `['docs/packaging.md','README.md','AGENTS.md','docs/architecture.md']`. Those two used to disagree (the comment claimed `docs/architecture.md` had been collected while the array had not been touched), which let the desktop row of the monorepo version table drift for three rounds in a row `0.0.12 → 0.0.34 → 0.0.40 → 0.0.41`; they are aligned now, and `verify-version-sync.cjs` holds the final invariant on the `pnpm lint` side. **The script itself is not inside the documentation paths**, so changing it still bumps and releases as usual.
+  3. `node scripts/bump-version.cjs patch` — the patch increment. The sync scope is defined in **two places** inside the script: the "sync scope" comment at the top of the file + the manifest array in step 5 `['docs/zh/packaging.md','docs/en/packaging.md','docs/zh/architecture.md','docs/en/architecture.md','README.md','README.en.md','AGENTS.md']`. Those two used to disagree (the comment claimed the architecture document had been collected while the array had not been touched), which let the desktop row of the monorepo version table drift for three rounds in a row `0.0.12 → 0.0.34 → 0.0.40 → 0.0.41`; they are aligned now, and `verify-version-sync.cjs` holds the final invariant on the `pnpm lint` side. **The script itself is not inside the documentation paths**, so changing it still bumps and releases as usual. **The two language trees are the current case for this manifest**: a file under `docs/en/` that carries a version declaration must enter the manifest alongside its `docs/zh/` twin, otherwise a release leaves one side drifting.
   4. Configure git user.name / git user.email as github-actions[bot]
   5. Read the new version: `V=$(node -p "require('./package.json').version")`
   6. `git add -A` → `git commit -m "chore(release): vX"` → `git tag -a vX` → `git push origin HEAD:main` + `git push origin vX`

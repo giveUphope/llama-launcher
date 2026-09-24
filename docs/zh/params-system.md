@@ -52,7 +52,7 @@
 
 ### 5.5 二进制升级后的参数固定流程（re-pin）
 
-**背景**：仓库固定 `docs/params/llama-server-help-out.txt`（`llama-server --help` 原始输出）作为参数文档基线与同步校验的对照源；`scripts/generate-params-doc.cjs` 在 `docs/params/LLAMA_SERVER_PARAMS.md` 头部标注来源二进制版本。应用不随捆绑二进制发布（引擎目录由用户自选），固定 help 只是文档基线，但升级引擎后必须重走本流程，否则参数表/文档与真实后端脱节。
+**背景**：仓库固定 `docs/params/llama-server-help-out.txt`（`llama-server --help` 原始输出）作为参数文档基线与同步校验的对照源；`scripts/generate-params-doc.cjs` 在 `docs/{zh,en}/params/LLAMA_SERVER_PARAMS.md`（中英两份，一次生成）头部标注来源二进制版本。应用不随捆绑二进制发布（引擎目录由用户自选），固定 help 只是文档基线，但升级引擎后必须重走本流程，否则参数表/文档与真实后端脱节。
 
 **升级 llama.cpp 二进制后的固定步骤**：
 

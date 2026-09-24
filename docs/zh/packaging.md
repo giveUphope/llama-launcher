@@ -68,7 +68,7 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 
 ### 11.7 版本一致性（自动化）
 
-版本号同步由 [`scripts/bump-version.cjs`](../../scripts/bump-version.cjs) 自动处理：`node scripts/bump-version.cjs [patch|minor|major]` 会同时更新 `package.json`（root + desktop）、`APP_VERSION`（`definitions.ts`）、`CHANGELOG.md` 版本节，以及 `docs/packaging.md` / `README.md`（仓库根唯一 README）/ `AGENTS.md` 中提到的输出文件名与版本号。
+版本号同步由 [`scripts/bump-version.cjs`](../../scripts/bump-version.cjs) 自动处理：`node scripts/bump-version.cjs [patch|minor|major]` 会同时更新 `package.json`（root + desktop）、`APP_VERSION`（`definitions.ts`）、`docs/CHANGELOG.md` 版本节，以及 `docs/{zh,en}/packaging.md`（中英两树各一份）、`docs/{zh,en}/architecture.md`（monorepo 版本表）、`README.md`（中文着陆页）与 `README.en.md`（英文着陆页）、`AGENTS.md` 中提到的输出文件名与版本号。
 
 每次 `push` 到 `main`（含 PR 合并事件）由 GitHub Actions `ci.yml` 的 `bump` job 自动执行 patch 递增 + 打 tag + 触发 `release.yml` 打包 `.exe` 并创建 GitHub Release（详见 [ci-cd.md](ci-cd.md) / [auto-release.md](auto-release.md)）。
 

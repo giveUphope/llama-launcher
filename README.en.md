@@ -62,10 +62,10 @@ pnpm dev         # dev mode: Vite + tsc watch + Electron hot reload (one Ctrl+C 
 pnpm build       # typecheck + build every package
 pnpm dist        # package a portable single file -> release/*.exe
 pnpm test        # unit tests (core + ui)
-pnpm lint        # typecheck + IPC / docs-link / i18n / param sync checks + oxlint gate
+pnpm lint        # typecheck + IPC / param three-way sync / version / docs links + hard-coded paths / bilingual tree pairing / i18n checks + oxlint gate
 ```
 
-- **After a change**: `pnpm lint` covers most of it. Touched an IPC channel? Run `pnpm generate:ipc` first (channels are declared in `packages/shared/src/types/ipc.ts`). Touched the parameter table? Also run `node scripts/verify-params-sync.cjs`.
+- **After a change**: `pnpm lint` covers most of it (`verify-ipc-sync` / `verify-params-sync` / `verify-version-sync` / `check-docs-links` / `verify-doc-pairs` / `verify-i18n-usage` — a doc-stated channel count, param count or version number that drifts, or a bilingual edit that touches only one language tree, fails the gate). Touched an IPC channel? Run `pnpm generate:ipc` first (channels are declared in `packages/shared/src/types/ipc.ts`). Touched the parameter table? The reference lives at [docs/en/params/LLAMA_SERVER_PARAMS.md](docs/en/params/LLAMA_SERVER_PARAMS.md) and is generated for both languages in one run — never hand-edit either side.
 - **E2E**: `pnpm e2e:web` (renderer) / `pnpm e2e:electron` (Electron smoke); the first run needs `pnpm exec playwright install chromium` — details in [testing.md](docs/en/testing.md).
 - **First launch**: a `.exe` downloaded from GitHub may trigger a Windows Defender SmartScreen "unrecognized app" warning — the project has no paid code-signing certificate, so this is expected. Click "More info" → "Run anyway"; it won't ask again.
 

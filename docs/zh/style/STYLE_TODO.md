@@ -58,7 +58,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 ### 55. 设计 token 文档漂移：theme.scss 已扁平化为「纯 Arco 默认」，§7.5.3/§7.5.6 与 AGENTS.md 仍描述旧胶囊/玻璃体系 — 🟢 已修复（2026-09-07，方向确认：完全迁移至 Arco）
 
-- **位置**：`packages/ui/src/styles/theme.scss:29-48`（注释「迁移兼容层：业务组件替换前，将旧语义映射到 Arco token」）对照 `docs/frontend.md` §7.5.3（圆角体系：pill 999/20/10/8）、§7.5.6（glassmorphism）、AGENTS.md「UI 风格规范」条目。
+- **位置**：`packages/ui/src/styles/theme.scss:29-48`（注释「迁移兼容层：业务组件替换前，将旧语义映射到 Arco token」）对照 `docs/zh/frontend.md` §7.5.3（圆角体系：pill 999/20/10/8）、§7.5.6（glassmorphism）、AGENTS.md「UI 风格规范」条目。
 - **描述**：迁移提交（e07e465 等）将圆角三 token 统一为 4px、`--glass-blur: 0px`、`--ease-jelly/smooth: ease`、字号刻度收敛、字体栈改为 Cascadia Code mono——运行时真实体系已是「Arco 默认 + 业务色」，而规范文档仍按旧胶囊/玻璃体系描述。
 - **修复**：用户确认方向为「完全迁移至 Arco」→ 文档回写：frontend.md §7.5.1/7.5.2/7.5.3/7.5.5/7.5.6/7.5.7/7.5.8 按「Arco 默认 + 业务 token」现状重写；AGENTS.md 风格条目同步。
 - **修复效果验证**：`pnpm docs:check` 通过；`pnpm style:audit` 全绿；抽查组件计算样式与文档描述一致（cat-chip 圆角 4px、InfoStrip 值盒 26px、按钮 Arco 默认态）。
@@ -123,7 +123,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 ### 64. 规范文档漂移：§7.5.3「标签/chip 4px」与 Arco a-tag 默认 2px 不符；徽章承载/列表行/筛选选中态未登记 — 🟢 已修复（2026-09-18）
 
-- **位置**：`docs/frontend.md` §7.5.3 / §7.5.4 ①③ / §7.5.6 / §7.5.7 / §7.5.8。
+- **位置**：`docs/zh/frontend.md` §7.5.3 / §7.5.4 ①③ / §7.5.6 / §7.5.7 / §7.5.8。
 - **描述**：① §7.5.3 称「组件圆角直接走 Arco 组件默认（…标签/chip 4px…）」，实测 Arco 2.58 `--border-radius-small: 2px`（`.arco-tag` 默认圆角 2px），描述与实现不符；② 彩色小徽章的承载方式（`a-tag`）与盒模型（`1px 6px` + `--radius-pill`）未写入规范；③ 独立组标题/卡片内小节标题两档体例、筛选 chip 选中态实现、列表行两种既定变体、布局范式（内容区 flex、grid 仅限 `param-grid`）均未登记，导致下载卡片自成一套。
 - **修复**：§7.5.3 修正为「a-tag 2px；筛选 chip 与彩色小徽章按业务约定显式取 `--radius-pill` 4px」；§7.5.4 ① 补「一律 `a-tag size="small"` 承载、禁自绘 `<span>` 胶囊」；§7.5.4 ③ 补 `.group-title` 与 `.section-title` 两档；§7.5.6 补「非 scoped 块顶层选择器必须含组件私有类」；§7.5.7 补「下载分类徽章 a-tag 承载」「筛选 chip 选中态走 Arco 自带态 + `color` prop」「列表行两种变体（原生行 / 紧凑可选中行）」「内容区一律 flex」；§7.5.8 清单补 3 条（非 scoped 命名空间、禁覆写 Arco 内部态类、徽章与列表行约束）。
 - **修复效果验证**：`pnpm docs:check`（文档链接校验）通过；`pnpm style:audit` 12/12 全绿；文档描述与 DownloadCard 实现一致（a-tag 承载、`--radius-pill`、6px 筛选组间距、flex 任务项）。

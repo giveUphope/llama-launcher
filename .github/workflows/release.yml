@@ -32,7 +32,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       # 版本一致性闸门：tag 名与 package.json/APP_VERSION 不一致时立刻失败——否则会把
-      # 「Release 标题 vA、exe 实际报 vB」的产物发出去（打包侧历史陷阱，见 docs/packaging.md §11.7）
+      # 「Release 标题 vA、exe 实际报 vB」的产物发出去（打包侧历史陷阱，见 docs/zh/packaging.md §11.7）
       - name: 校验 tag 版本与 package.json 一致
         shell: bash
         env:

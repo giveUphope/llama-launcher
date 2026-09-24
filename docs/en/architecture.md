@@ -95,7 +95,7 @@ llama_launcher/
 │   ├── copy-ui.cjs                    # Copy the UI dist into desktop dist/ui/
 │   ├── copy-preload.cjs               # Copy the preload .cjs into dist/
 │   ├── generate-preload.cjs         # Generate the preload IPC constants from ipc.ts
-│   ├── generate-params-doc.cjs      # Regenerate docs/params/LLAMA_SERVER_PARAMS.md from the help output
+│   ├── generate-params-doc.cjs      # Regenerate both language copies, docs/{zh,en}/params/LLAMA_SERVER_PARAMS.md, from the help output
 │   ├── dev.cjs                      # Dev-mode three-process orchestrator (node launches vite/tsc/dev-watch directly, zero .cmd batch layer)
 │   ├── dev-watch.cjs                # Dev hot reload: watches main-process dist / preload sources / shared types, restarts Electron on change
 │   ├── reinstall-electron.cjs       # Fixed repair path for a missing Electron binary (pnpm reinstall:electron, with mirror env vars)
@@ -104,8 +104,8 @@ llama_launcher/
 │   ├── verify-ipc-sync.cjs          # IPC constant consistency check + validation of doc-stated channel counts
 │   ├── verify-help-drift.cjs        # Param drift audit after a binary upgrade
 │   ├── verify-i18n-usage.cjs        # i18n key usage consistency (six checks: key sets / dangling keys / bare Chinese literals / manual interpolation / argument-count match / dynamic key families)
-│   ├── verify-version-sync.cjs      # Version declaration consistency (root/desktop package.json + APP_VERSION + the architecture version table + the CHANGELOG heading — all five must be equal)
-│   ├── check-docs-links.cjs         # Docs relative-link and anchor integrity (executed in the lint stage)
+│   ├── verify-version-sync.cjs      # Version declaration consistency (root/desktop package.json + APP_VERSION + the architecture version table in both language copies + the CHANGELOG heading — all six must be equal)
+│   ├── check-docs-links.cjs         # Docs relative-link and anchor integrity, plus existence of `docs/...` paths hard-coded in prose and code blocks (executed in the lint stage)
 │   ├── style-audit.cjs              # UI style guideline audit (items and counts come from the script output — do not hard-code them in docs)
 │   ├── verify-server-start.mjs      # Manual smoke test of Launcher (needs core/dist built first; the model is resolved from --model / LLAMA_SMOKE_MODEL / the models directory)
 │   ├── integ_devsession.mjs         # Entry point of the dev-session integration test
