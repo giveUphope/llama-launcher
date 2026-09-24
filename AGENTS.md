@@ -68,6 +68,13 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
   - **浏览器通道容错**：先探测 Chrome DevTools MCP 是否可用（`list_pages`）——该 MCP 曾因「关闭支持」失效（`MCP server is not found`），不可用时回退 TRAE-browseruse / agent-browser（浏览器自动化 skill / CLI）；全部通道不可用时不得静默跳过，须明示用户手动打开 `http://127.0.0.1:5173/`。
   - **页面归属校验（防串台）**：打开后必须校验当前标签确实指向本项目 mock 页——URL 以 `127.0.0.1:5173` 开头，且快照含本项目特征（标题 llama Launcher / 7 项侧边导航 / 版本号）。若当前标签停留在**其他项目的页面**，禁止直接复用，须新开标签导航到本项目 URL 后再校验（历史事故：mock 页展示其他项目内容，收尾无人发现）。
 
+## 表述风格（对话回答与 `docs/` 文档一律适用）
+
+- **先说清「出了什么事」，再说技术细节。** 描述问题用大白话：从用户视角讲明「点了哪个按钮 / 看到了什么 / 和期望差在哪」，一句话只说一件事；不要一上来就用内部名词堆句子（如「store 的 activated 钩子未配对导致派生值不刷新」），改成「切回页面时列表不刷新——刷新代码写在了页面销毁时才执行的位置」。
+- **方案讲三件事**：改哪个文件/位置、为什么改这里而不是别处、改完怎么验证。只给函数名、变量名或一段 diff 不算说清楚了。
+- **专业术语能用中文解释时先用中文解释。** 必须保留的英文标识符（文件名、命令、API 名、Arco / IPC / keep-alive 这类约定俗成的组件名）保持原文；首次出现生僻概念时用半句话说明它是什么，或打个比方，不要用术语代替解释。
+- **必要时配图示。** 流程、状态机（如服务 `stopped→starting→running`）、跨进程数据流（渲染层 → preload → 主进程）、界面改版前后布局对比——这类「箭头链路」用文字讲三段不如一张图：文档里写 Mermaid 图，对话里用简短的 `A → B → C` 链条或表格。
+
 ## Conventions & gotchas
 
 - **dev 编排必须保持「零 .cmd 批处理层」**：`pnpm dev` 由 `scripts/dev.cjs` 直接用 `process.execPath` 起 vite / tsc / dev-watch 三个 node 子进程，**不得**改回 `turbo run dev` + `concurrently` + `cross-env` + 子命令里嵌 `pnpm xxx` 的旧链路。原因：Windows 上 `node_modules/.bin/*` 与 `pnpm` 自身都是 `.cmd` 批处理 shim，cmd.exe 在批处理等待子进程时收到 CTRL_C_EVENT 会打印 `Terminate batch job (Y/N)?` 并阻塞等待按键——旧链路有 4 层批处理，于是一次 Ctrl+C 退不掉（表现为「要按两次 Ctrl+C」，且 turbo 还要等满优雅超时后 `Force killed Turborepo tasks`）。新增 dev 任务时：入口用 `binEntry()` 解析依赖 `package.json` 的 `bin` 真实 JS 文件后由 node 执行；退出语义沿用「首个任务退出码决定整体结果 + 其余 `taskkill /T /F` 杀整棵树」（Electron 正常关窗 → dev-watch 退 0 → 会话干净结束）。同理，`findDevSessionRoot()` 的父进程扫描只认 `turbo run dev`，dev 会话的收尾责任在编排器，故 `LLAMA_DEV_SKIP_QUIT_KILL=1` 时主进程信号处理也必须跳过该扫描（PowerShell 进程枚举是秒级的）。
