@@ -34,7 +34,7 @@ const summaryRows = computed<MetaRow[]>(() => {
   ].filter((r) => r.value !== null && r.value !== undefined && r.value !== '');
 });
 
-// 详细信息按实际用途分两类（展示信息 ≠ 参数建议，映射分类见 docs/params-system.md §5.1）：
+// 详细信息按实际用途分两类（展示信息 ≠ 参数建议，映射分类见 docs/zh/params-system.md §5.1）：
 // - B 类「模型事实 → 参数关联」：对应参数页可调整的启动参数，其中确定性事实（MTP 头）
 //   已由 buildSuggestions 映射为建议；上下文长度为训练上限参考（-c 默认 0 = 从模型加载）。
 // - D 类「纯参考信息」：仅辅助了解模型结构，永不映射参数（llama-server 自动读取元数据）。

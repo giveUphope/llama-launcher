@@ -236,7 +236,7 @@ describe('Launcher - listening detection', () => {
     vi.restoreAllMocks();
   });
 
-  // llama-server 不同版本的 listening 输出格式（见 docs/core-modules.md §4.2 通用 listening 检测）
+  // llama-server 不同版本的 listening 输出格式（见 docs/zh/core-modules.md §4.2 通用 listening 检测）
   it.each([
     'llama server is listening',
     'server is listening',

@@ -1,7 +1,8 @@
 # 自动发版工作流
 
+> 语言：中文 · [English](../en/auto-release.md)
 > 范围：Windows runner 远程打包 .exe + 自动创建 GitHub Release。
-> 索引：[README.md](../README.md) · 相关：[ci-cd.md](ci-cd.md) · [packaging.md](packaging.md)
+> 索引：[README.md](../../README.md) · 相关：[ci-cd.md](ci-cd.md) · [packaging.md](packaging.md)
 
 release.yml 由 ci.yml 的 bump job 通过 `gh workflow run release.yml -f version="vX"` 触发，也可在 GitHub 上手动 workflow_dispatch 输入版本号。
 
@@ -38,7 +39,7 @@ release.yml 由 ci.yml 的 bump job 通过 `gh workflow run release.yml -f versi
 
 ## 3. 打包输出
 
-pnpm dist 通过 [scripts/dist-with-fallback.cjs](../scripts/dist-with-fallback.cjs) 调用 electron-builder，自动处理 release/ 目录文件锁定（Defender / 索引器 / 资源管理器占用时回退到 release-tmp-* 临时目录再回迁）。详见 [packaging.md](packaging.md)。
+pnpm dist 通过 [scripts/dist-with-fallback.cjs](../../scripts/dist-with-fallback.cjs) 调用 electron-builder，自动处理 release/ 目录文件锁定（Defender / 索引器 / 资源管理器占用时回退到 release-tmp-* 临时目录再回迁）。详见 [packaging.md](packaging.md)。
 
 electron-builder 产物文件名 = `llama.Launcher.{version}.exe`（productName「llama Launcher」中的空格在文件名中为点号；**版本号完整保留，不做 trailing-zero 剥离**——实证：远端 v0.0.8/v0.0.9/v0.0.10 产物名分别为 `llama.Launcher.0.0.8.exe` / `0.0.9.exe` / `0.0.10.exe`）。
 

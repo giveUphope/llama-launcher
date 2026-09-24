@@ -1,7 +1,8 @@
 # 关键设计决策
 
+> 语言：中文 · [English](../en/design-decisions.md)
 > 范围：关键设计决策与取舍记录。
-> 索引：[README.md](../README.md) · 相关：[architecture.md](architecture.md)
+> 索引：[README.md](../../README.md) · 相关：[architecture.md](architecture.md)
 
 1. **参数发射规则（2026-08-29 重构，取代旧 `_enabled` 启用机制）**：参数无独立启用/禁用状态——值 ≠ 默认值才发射 flag（checkbox 勾选发 `flag`、取消发 `invert_flag`（无常开标志的开关取消时不发射）、空串跳过、依赖门控），命令行只含用户实际调整过的参数。旧版 `_enabled` JSON 编码显式记录启用状态的方案已移除：独立启用态造成"值 / 启用位 / 默认值"三份事实源，且与"预设 = 纯值快照"的双轨模型冲突（`buildCommand` 读到 legacy `_enabled` 直接忽略）。
 2. **GGUF 智能建议**：流式读取（64KB 块）+ LRU 缓存（上限 32），内存恒定且避免重复解析。

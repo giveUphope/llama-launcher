@@ -1,7 +1,7 @@
 // Electron 冒烟测试（独立脚本，不经 Playwright worker —— 该环境 worker teardown 会挂）。
 // 运行：node e2e/electron/run-smoke.mjs（前置：pnpm --filter @llama-launcher/desktop build 产出 dist/）
 // 验证主进程窗口链路：生产模式（loadFile dist/ui/index.html）启动 → 主进程版本 → 窗口 → 侧栏渲染。
-// Windows 本地 headless；Linux CI 用 xvfb-run 包裹（无需 --no-sandbox 冲突，见 docs/testing.md）。
+// Windows 本地 headless；Linux CI 用 xvfb-run 包裹（无需 --no-sandbox 冲突，见 docs/zh/testing.md）。
 import { _electron } from '@playwright/test';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';

@@ -1,7 +1,7 @@
 # STYLE_TODO 已修复明细（归档）
 
-> 范围：[docs/style/STYLE_TODO.md](../style/STYLE_TODO.md)「已修复」各项的完整记录（问题 / 修复 / 验证证据）与已固化进规范的历史设计决策。
-> **归档只读，不随项目演进更新**；其中描述的页面结构（如概览 Q1–Q4、服务页状态卡、Card compact 变体等）可能已被后续重构调整，仅作决策与验证依据留存。当前风格规范一律以 [frontend.md §7.5](../frontend.md) 为准。
+> 范围：[docs/style/STYLE_TODO.md](../../docs/zh/style/STYLE_TODO.md)「已修复」各项的完整记录（问题 / 修复 / 验证证据）与已固化进规范的历史设计决策。
+> **归档只读，不随项目演进更新**；其中描述的页面结构（如概览 Q1–Q4、服务页状态卡、Card compact 变体等）可能已被后续重构调整，仅作决策与验证依据留存。当前风格规范一律以 [frontend.md §7.5](../../docs/zh/frontend.md) 为准。
 > 索引：[README.md](../../README.md) · [归档总表](INDEX.md)
 
 ***

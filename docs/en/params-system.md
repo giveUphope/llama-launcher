@@ -1,0 +1,86 @@
+# Parameter system
+
+> Language: English · [中文](../zh/params-system.md)
+> Scope: the parameter system: parameter definitions (definitions.ts), the dual-track mechanism (session / presets), dependency cascading and speculative-decoding auto-detection, parameter control components.
+> Index: [README.md](../../README.md) · Related: [core-modules.md](core-modules.md) (command building) · [frontend.md](frontend.md) (the Params page)
+
+### 5.1 Parameter definitions (shared/params/definitions.ts)
+
+- **`PARAM_GROUPS`**: 3 groups — `basic` / `advanced` / `server`.
+- **`PARAMS`**: 60 parameters in total, distributed as follows:
+  - basic: 22 (15 core + 7 sampling)
+  - advanced: 28 (5 thinking control + 9 speculative decoding (of which **4** carry `dependsOn.values` depending on an external draft type draft-simple/eagle3/dflash/dspark, while the other 2, `spec_draft_n_max`/`spec_draft_n_min`, use `notValues: ['', 'none']`, i.e. any non-empty type satisfies them) + 6 multimodal + 6 KV extensions + 2 template)
+  - server: 10
+- Each parameter definition carries fields such as `key, group, type, flag, default, subcategory, dependsOn, ggufField, invert_flag`.
+- **8 control types**: `text` / `int_slider` / `int_entry` / `float_slider` / `dropdown` / `checkbox` / `file` / `dir`.
+- **ggufField mapping**: a parameter may declare a `ggufField` mapping onto a field of `GgufModelInfo`, so the model's built-in value is shown inline on the parameter row; `buildSuggestions` derives suggested parameters from the metadata and one click applies them. The mappings are classified by actual purpose (reviewed 2026-09): only **deterministic factual mappings** (`nextn_predict_layers → spec_type` sampling recommendations, etc.) and **heuristic rules** (quantized weights → KV q8_0, etc.) produce suggestions; **pure reference information** (`context_length` training limit, `rope.freq_base`, etc.) is displayed inline / on the information card only and produces no suggestion (`-c` default 0 = loaded from the model, so per-item suggestions are a source of confusion); `cache_type_k/v`/`jinja`/`alias` had their semantically wrong ggufField entries removed.
+- **VRAM occupancy estimate and performance targets**: core `devices.ts` (VRAM probing via `--list-devices`) + `vram-estimate.ts` (the KV memory model with two-sided VRAM/memory occupancy `estimateOccupancy`, plus the largest OOM-free context solver `solveMaxContext`) + `target-recommend.ts` (cascade suggestions for the four performance target tiers), exposed through `system:estimateVram`; the "VRAM usage (est.)" stat and the target picker on the Params page status bar are the only UI entry points (see frontend §7.3 / the module table in core-modules §4).
+
+### 5.2 Dual-track parameter mechanism (session / presets)
+
+Parameters have **no independent enable/disable state** — the rule for emitting a command-line flag is "emit only when value ≠ default" (a checked checkbox emits `flag`, an unchecked one emits `invert_flag`, a default-false switch without an `invert_flag` emits nothing when unchecked; empty strings are skipped; unmet dependencies are skipped — see [core-modules.md](core-modules.md) §4.3); the legacy `_enabled` JSON enablement mechanism was removed together with the old logic and replaced by the dual-track one (`buildCommand` ignores a legacy `_enabled` it happens to read).
+
+- **Session track (temporary)**: every parameter edit is persisted automatically into `session_values` + `session_baseline` in `~/.llama_launcher/settings.json` (the `autoSave` watch with an 800ms throttle, **writes settings only, never preset files**); at app start `restoreSession` restores the last session (parameter values plus the baseline together).
+- **Preset track**: `<models_dir>/presets/*.json` is written only when the user explicitly saves a preset; applying a preset (`applyPreset`) establishes a new session baseline as "preset name + parameter snapshot" (`markBaseline`).
+- **Baseline**: `SessionBaseline { preset_name, values }` — `hasChanges` (changed rows get a `--warn` orange outline / an orange dot in the sidebar) compares key by key against the baseline snapshot when one exists, and against the factory defaults when none does. The baseline is no longer shown as a badge (removed 2026-09, duplicating the "Adjusted" statistic); the "Restore Baseline" (`restoreBaseline`, writing the baseline snapshot back after resetAll) and "Clear Session Params" (`clearSession`, with a confirmation; the model selection is kept) entry points remain on the Params page status bar.
+- **Discard protection**: before switching models (`applyModel`) and before applying GGUF suggested parameters (`applyModelWithSuggestions`), `hasChanges` is checked and, when there are unsaved modifications, `confirmDiscardDirty` asks the user to confirm; after confirmation the change is applied and the temporary baseline rebuilt. Re-attaching the previous model at startup goes through `reattachModelRuntime` (direct assignment, no confirmation, baseline not rebuilt, alias not re-derived).
+- **`MODEL_KEY` (`model`)** is always carried in the command as `-m`; `set(MODEL_KEY)` derives `alias` automatically (`modelBaseName`, the file name without the `.gguf` extension).
+
+### 5.3 Parameter control components (ui/components/params/)
+
+| Component | Control type |
+|------|----------|
+| `SliderParam` | int_slider / float_slider |
+| `IntEntryParam` | int_entry |
+| `TextParam` | text |
+| `FileParam` | file / dir |
+| `DropdownParam` | dropdown (custom dropdown panel, Teleport to body, styled identically to the TopBar model dropdown) |
+| `CheckboxParam` | checkbox |
+| `ParamRow` | Unified row-layout container (two-column grid, card-like separation, GGUF inline hints, dependency warnings) |
+
+### 5.4 Dependency cascading and speculative-decoding auto-detection (ui/stores/params.ts)
+
+- **Generic dependency cascade cleanup** `syncDependencies()`: it walks every parameter declaring `dependsOn`, and when a dependency is unmet resets the value to its default and presents it as `dep-unmet` (orange outline + background tint + warning icon, see ParamRow; **the control is not actually disabled** — the user can still change the value, and after a change the verdict is recomputed from the current dependency state) — the verdict matches `ParamRow.dependencyMet`: the dependency parameter must be "active" + the value must satisfy values/notValues. **The meaning of "active" is unified with the command builder's `isDependencyMet`**: checkbox dependency sources are judged as booleans (checked means active, so `cache_prompt`, whose default is true, is judged correctly instead of being misread as unmet because "value = default"), all other types are judged by "value ≠ default" (default value = not enabled); **exception**: `file` / `dir` types keep the path the user selected and are not reset (so a long path entry is not wiped by mistake). It is triggered only when the modified key is a dependency source (`DEP_SOURCE_KEYS`), so that "fill the downstream value first, pick the dependency source afterwards" is not wiped by mistake.
+- **Dependency groups**:
+  - `spec_draft_model` / `spec_draft_ngl` / `spec_cache_type_k/v` → depend on `spec_type` being an external draft type (`draft-simple`/`draft-eagle3`/`draft-dflash`/`draft-dspark`)
+  - `spec_draft_n_max` / `n_min` → depend on `spec_type` being non-empty and not `none` (applies to MTP/ngram as well)
+  - `reasoning_effort` / `reasoning_budget` / `reasoning_format` / `reasoning_budget_message` → depend on `reasoning` not being `off`
+  - `cache_reuse` → depends on `cache_prompt` being `true`
+- **Speculative-decoding draft-count cascade** `set('spec_type', ...)`: choosing a speculative-sampling type automatically applies that type's recommended maximum draft count (`spec_draft_n_max`, mapping `SPEC_DRAFT_N_MAX_BY_TYPE`: draft-simple/eagle3/dspark=8, draft-dflash=15, draft-mtp=5, ngram-*=5) and enables it — picking the type without configuring the draft count cannot reach that method's best efficiency; at the same time `n_min ≤ n_max` is preserved (clamping `n_min` when the type changes or when `n_max` is lowered manually). When turned off (none/empty), `syncDependencies` **resets the draft counts to their default values** (`spec_draft_n_max` default **3**, not cleared to 0/empty — `resetDep` assigns `p.default`, see stores/params.ts:337).
+- **DFlash / draft-model auto-detection** `detectDraftModel()`: on a model switch it looks for dflash/draft files in the same directory — a dflash file is configured automatically as `spec_type=draft-dflash` + `flash_attn=on` + `spec_draft_n_max=15` (Muse-Glimmer DFlash predicts 16 positions per block: 1 conditioning position + 15 draft tokens); an ordinary draft file sets `draft-simple`; a type already chosen by the user is respected and not overwritten.
+- **Automatic re-detection when switching back to an external draft type**: `set('spec_type', ...)` detects that the new value is an external draft type and that `spec_draft_model` is empty, and then calls `detectDraftModel` again to fill the path; when the path already has a value, detection is not repeated. Note: when the dependency is unmet, `file` types **keep the path and are not reset** (see the exception above, only `buildCommand` skips emitting them), so "switch to draft-mtp/ngram and back" normally still has the path and does not trigger re-detection — re-detection happens where the path is empty (after clearing the session / `resetAll`).
+
+### 5.5 Fixed procedure after a binary upgrade (re-pin)
+
+**Background**: the repository pins `docs/params/llama-server-help-out.txt` (the raw `llama-server --help` output) as the baseline of the parameter documentation and as the reference source of the sync checks; `scripts/generate-params-doc.cjs` records the source binary version in the header of `docs/params/LLAMA_SERVER_PARAMS.md`. The app does not ship a bundled binary (the engine directory is chosen by the user), so the pinned help is only a documentation baseline — but after upgrading the engine this procedure must be walked through again, otherwise the parameter table and the docs drift away from the real backend.
+
+**Fixed steps after upgrading the llama.cpp binary**:
+
+1. **Export the new help to a temporary file** (audit first, replace afterwards — if you overwrite the baseline first, the step-3 audit ends up "comparing the new help against the new help", flag additions/removals are always empty and every drift is missed):
+   ```
+   node -e "const{execFileSync}=require('child_process');const fs=require('fs');const out=execFileSync('.\\llama-bXXX-bin-win-vulkan-x64\\llama-server.exe',['--help'],{encoding:'utf8',maxBuffer:1024*1024*64});fs.writeFileSync('docs/params/llama-server-help-new.txt',out)"
+   ```
+   ⚠ Do not use PowerShell's `>` redirection: PS5.1 / some environments write **UTF-16** (with BOM / null bytes),
+   and the documentation generator reads UTF-8, so it silently parses nothing (hit during the b10734 upgrade; changed to Node spawn + file write on 2026-09-01).
+2. **Drift audit** (new help vs pinned baseline: flag additions/removals / default-value changes / app parameters missing):
+   ```
+   node scripts/verify-help-drift.cjs docs/params/llama-server-help-new.txt
+   ```
+   Flag-level drift or a missing app flag exits non-zero (CI can block it); default-value changes are only reported and do not fail — whether to follow them is a human decision.
+3. **Replace the baseline once the audit passes**: `llama-server-help-new.txt` overwrites `llama-server-help-out.txt`.
+4. **Update the version annotation**: change the hard-coded source version string in `scripts/generate-params-doc.cjs` (e.g. `b10734`) to the new version number (the "Source" line of the documentation header).
+5. **Update `packages/shared/src/params/definitions.ts`**: add/remove parameters per the audit result, sync the dropdown `options` (allowed values), adjust default values (a default-value change must be decided together with measured conclusions — e.g. when b10429 changed the `--load-mode` default to `auto`, the app kept `none` based on the measurement in `docs/archive/experiments/plan-kv-split-cli-test.md`).
+6. **Rebuild shared**: `pnpm --filter @llama-launcher/shared build` (the core tests depend on `dist`, and skipping the rebuild makes tests inconsistent).
+7. **Regenerate the parameter documentation**: `node scripts/generate-params-doc.cjs`.
+8. **Verify consistency**: `pnpm lint` includes `verify-params-sync.cjs` (three classes of checks, **any discrepancy fails**): ① a three-way cross-check between the parameter definitions ↔ the reference table ↔ the help output; ② the parameter count claims in the documentation (total and per-group) versus measurement; ③ the `PARAM_LABELS`/`PARAM_HELP` key sets must be exactly equal to `PARAMS` in both directions and non-empty for zh/en (in the table but not in the dictionary → the UI renders a bare key; in the dictionary but not in the table → a dead entry). Running the script on its own shows the per-item output.
+9. **If IPC channels changed**: sync `packages/shared/src/types/ipc.ts` and the generated preload, then run `pnpm lint` (which includes `verify-ipc-sync.cjs`).
+10. **Regression**: `pnpm lint` + `pnpm test`.
+11. **Record it**: add entries to the [Unreleased] section of `docs/CHANGELOG.md`.
+
+**Measured reference (2026-08-15, b10429→b10502)**: the flag set of 415 was exactly the same (all 55 flags used by the app exist in the new help), and the only semantic change was `--load-mode`'s default `mmap`→`auto` (b10502 added the auto mode) → the app's dropdown gained the `auto` option while the default kept the measurement-backed `none`. This procedure is a full replay of that audit.
+
+**Measured reference (2026-09-01, b10502→b10734)**: the flag-level drift audit found **0 removals and 0 missing app flags** (everything at the safety ceiling); writing `--help` to disk moved to Node spawn (fixing the PowerShell UTF-16 redirection trap, see step 1); 9 new parameters entered the table (parameter table 49 → **58**, including `--lazy-mode`, `-ncffn`, `--kv-unified-per-slot`, `-mmdev`, `--video-fps` and others). See [CHANGELOG.md](../CHANGELOG.md) [Unreleased], "parameter baseline upgraded to llama.cpp b10734".
+
+**Measured reference (2026-09-04, b10734 baseline)**: `verify-params-sync` 67 code flags / consistent with the reference table; `verify-help-drift` found the baseline help's 428 flags all matching (nothing added, nothing removed).
+
+**Current measurement (2026-09-19, b11053 baseline, version 0.4.1-dev / commit 1af554f8f)**: flag-level drift = **2 additions** (`--log-jsonl` / `--no-log-jsonl`), **7 removals** (`--mlock`, `--mmap`/`--no-mmap`, `-dio`/`--direct-io`/`-ndio`/`--no-direct-io` — all of them standalone aliases already marked `DEPRECATED in favor of --load-mode` back in b10734, and the app had long since migrated to the `--load-mode` dropdown, so **zero impact**); among the 69 flags used by the app **0 are missing**. Default-value changes contained exactly one real semantic change: `--reasoning-preserve` went from `template default` → `enabled` (that flag is not in the parameter table, so no follow-up action). The enum allow-lists were checked item by item with **no drift**: `--load-mode` still includes `dio`, `--spec-type` has all 11 values identical, and the built-in `--chat-template` list is **byte-for-byte identical** to b10734 (our 24 entries are a subset of it). `--log-jsonl` was **deliberately not adopted**: it turns stdout into one JSON object per line, which directly breaks `launcher.ts`'s listening detection (line-based matching of `listening` + `http|server`) and the console's per-line colouring — the same class as `--log-file`. Also fixed one false positive in the `verify-help-drift` parser: a description continuation `… default: follows --device)` does not start with `(`, and the stripping character set does not include parentheses, so `--device)` was treated as a new flag (the very first run of this pass reported a bogus "added --device)"); after the fix the flag counts of both sides dropped in step — **the b10734 baseline went 428 → 421, and the current b11053 baseline measures 416** (self-comparison outputs `baseline flags: 416 | new flags: 416`; whenever quoting these numbers always state "which baseline + which parser version").

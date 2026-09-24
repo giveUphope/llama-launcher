@@ -1,7 +1,8 @@
 # Electron 主进程
 
+> 语言：中文 · [English](../en/desktop-main.md)
 > 范围：Electron 主进程：入口、窗口管理、IPC 注册、Launcher 桥接、Preload。
-> 索引：[README.md](../README.md) · 相关：[ipc-channels.md](ipc-channels.md) · [core-modules.md](core-modules.md)
+> 索引：[README.md](../../README.md) · 相关：[ipc-channels.md](ipc-channels.md) · [core-modules.md](core-modules.md)
 
 ### 6.1 入口 (main/index.ts)
 

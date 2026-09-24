@@ -11,10 +11,10 @@
  *   - apps/desktop/package.json
  *   - packages/shared/src/params/definitions.ts（APP_VERSION）
  *   - docs/CHANGELOG.md（[Unreleased] 标题 → 新版本）
- *   - docs/packaging.md（所有旧版本号引用）
- *   - README.md（旧版本号引用）
+ *   - docs/zh/packaging.md 与 docs/en/packaging.md（所有旧版本号引用）
+ *   - docs/zh/architecture.md 与 docs/en/architecture.md（monorepo 包版本表中的 desktop 行）
+ *   - README.md / README.zh-CN.md（旧版本号引用）
  *   - AGENTS.md（旧版本号引用）
- *   - docs/architecture.md（monorepo 包版本表中的 desktop 行）
  *
  * 文档侧按行替换，含 `bump-ignore` 标记的行跳过（历史反例/举例用的版本号不该被改写）。
  * 一致性由 scripts/verify-version-sync.cjs 在 pnpm lint 侧兜底（清单漏收 ≠ 没人发现）。
@@ -96,7 +96,17 @@ function run() {
   //    全文 replace 会让这类反例每轮发版被改写成当时的新版本号，历史断言被静默篡改。
   //    机制与 i18n 的 `// i18n-ignore` 同构。
   const BUMP_IGNORE = 'bump-ignore';
-  for (const rel of ['docs/packaging.md', 'README.md', 'AGENTS.md', 'docs/architecture.md']) {
+  // 双语两树都要在清单里（docs/zh/* 与 docs/en/* 各一份版本声明），漏一侧就是发版后单边漂移；
+  // 是否真的对得上由 scripts/verify-version-sync.cjs 兜底，不要只信这张表。
+  for (const rel of [
+    'docs/zh/packaging.md',
+    'docs/en/packaging.md',
+    'docs/zh/architecture.md',
+    'docs/en/architecture.md',
+    'README.md',
+    'README.zh-CN.md',
+    'AGENTS.md',
+  ]) {
     if (!fs.existsSync(path.join(ROOT, rel))) continue;
     const text = readText(rel);
     const next = text

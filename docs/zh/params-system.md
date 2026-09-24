@@ -1,7 +1,8 @@
 # 参数系统
 
+> 语言：中文 · [English](../en/params-system.md)
 > 范围：参数系统：参数定义（definitions.ts）、双轨机制（临时会话/预设）、依赖联动与推测解码自动检测、参数控件组件。
-> 索引：[README.md](../README.md) · 相关：[core-modules.md](core-modules.md)（命令构建）· [frontend.md](frontend.md)（参数页）
+> 索引：[README.md](../../README.md) · 相关：[core-modules.md](core-modules.md)（命令构建）· [frontend.md](frontend.md)（参数页）
 
 ### 5.1 参数定义 (shared/params/definitions.ts)
 
@@ -78,7 +79,7 @@
 
 **实测参考（2026-08-15，b10429→b10502）**：flag 集合 415 个完全一致（应用 55 个 flag 全部存在于新 help），唯一语义变化为 `--load-mode` 默认 `mmap`→`auto`（b10502 新增 auto 模式）→ 应用下拉补入 `auto` 选项，默认保持实测推荐的 `none`。此流程即本次审计的完整回放。
 
-**实测参考（2026-09-01，b10502→b10734）**：flag 级漂移审计**移除 0、应用 flag 缺失 0**（全部顶格安全）；`--help` 落盘改用 Node spawn（修 PowerShell UTF-16 重定向坑，见步骤 1）；新增 9 参数入表（参数表 49 → **58**，含 `--lazy-mode`、`-ncffn`、`--kv-unified-per-slot`、`-mmdev`、`--video-fps` 等）。详见 [CHANGELOG.md](CHANGELOG.md) [Unreleased]「参数基线升级至 llama.cpp b10734」。
+**实测参考（2026-09-01，b10502→b10734）**：flag 级漂移审计**移除 0、应用 flag 缺失 0**（全部顶格安全）；`--help` 落盘改用 Node spawn（修 PowerShell UTF-16 重定向坑，见步骤 1）；新增 9 参数入表（参数表 49 → **58**，含 `--lazy-mode`、`-ncffn`、`--kv-unified-per-slot`、`-mmdev`、`--video-fps` 等）。详见 [CHANGELOG.md](../CHANGELOG.md) [Unreleased]「参数基线升级至 llama.cpp b10734」。
 
 **实测参考（2026-09-04，b10734 基线）**：`verify-params-sync` 代码 flag 67 / 对照表一致；`verify-help-drift` 基线 help 428 flag 全一致（无新增无移除）。
 

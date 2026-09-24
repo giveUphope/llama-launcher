@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// E2E 配置：根级独立于 turbo 的任务链（见 docs/testing.md）。
+// E2E 配置：根级独立于 turbo 的任务链（见 docs/zh/testing.md）。
 // - project `web`：跑真实构建产物（vite preview 服务 packages/ui/dist）＋ demo-mock 数据，纯浏览器渲染层验证；
 // - Electron 冒烟不在此配置中 —— 由 e2e/electron/run-smoke.mjs 独立脚本承担（Playwright worker
 //   teardown 在代理环境下会挂起 30s，独立脚本可给到干净的退出码）。

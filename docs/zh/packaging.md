@@ -1,7 +1,8 @@
 # 打包配置 (electron-builder.config.cjs)
 
+> 语言：中文 · [English](../en/packaging.md)
 > 范围：electron-builder 打包配置：钩子机制、输出目录锁定回退、图标注入、常见故障、版本一致性检查清单。
-> 索引：[README.md](../README.md) · 相关：[workflow.md](workflow.md) · [core-modules.md](core-modules.md)
+> 索引：[README.md](../../README.md) · 相关：[workflow.md](workflow.md) · [core-modules.md](core-modules.md)
 
 - **appId**：`com.llama-launcher.app`
 - **productName**：`llama Launcher`
@@ -14,7 +15,7 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 
 此外，当使用 `shamefully-hoist=true` 或打包失败后未正确恢复时，`apps/desktop/node_modules/@llama-launcher/{core,shared}` 可能出现**损坏/循环符号链接**（`fs.existsSync` 返回 `false`，`realpath` 抛 `ELOOP`）。beforePack 同样需要检测并移除这类链接。
 
-修复方案在 [`scripts/before-pack.cjs`](../scripts/before-pack.cjs) 与 [`scripts/after-pack.cjs`](../scripts/after-pack.cjs)：
+修复方案在 [`scripts/before-pack.cjs`](../../scripts/before-pack.cjs) 与 [`scripts/after-pack.cjs`](../../scripts/after-pack.cjs)：
 
 1. **检测链接与损坏链接**：`fs.lstat().isSymbolicLink()` 在 Windows 上对 junction 返回 `false`，因此结合 `fs.realpathSync(pkgPath)`（结果不同则判定为有效链接）与 `fs.lstatSync` + `fs.existsSync`（存在 symlink 但 `existsSync` 为 false 则判定为损坏/循环链接）。
 2. **确定来源**：若 `apps/desktop/node_modules` 中的包无效，回退到 `node_modules/@llama-launcher/<pkg>`（root），再回退到 `packages/<pkg>`，确保始终能拿到最新的 `dist/` 与 `package.json`。
@@ -24,20 +25,20 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 
 ### 11.2 打包前清理
 
-[`scripts/clean-before-pack.cjs`](../scripts/clean-before-pack.cjs) 负责：
+[`scripts/clean-before-pack.cjs`](../../scripts/clean-before-pack.cjs) 负责：
 
 - 关闭指向 `release/` 的文件资源管理器窗口（通过 COM `Shell.Application` 检测并 `Quit()`），防止 Explorer 将目录作为工作目录持有句柄。
 - 尝试删除 `release/` 目录。当目录被 Defender/索引器的文件系统过滤驱动锁定时，程序化重试无法突破，脚本采用 **2 次重试 × 3 秒间隔**（不浪费用户时间），并在 `fs.rmSync` 失败时通过 **重命名 + `cmd rd /s /q`** 绕过 `mmap` 句柄。
 - **终极容错**：若删除失败则尝试将 `release/` 重命名为 `release_stuck_<timestamp>` 并新建空目录。若重命名也失败（系统进程锁定），不报错而是以 info 日志提示将走 fallback，交由 `dist-with-fallback.cjs` 的临时目录机制处理。
 - 清理历史遗留的临时输出目录（`release2`、`release3`、`release-fixed`、`release-1.3.0-backup`）以及 `dist-with-fallback.cjs` 产生的 `release-tmp-*`。
 
-`pnpm dist` 通过 [`scripts/dist-with-fallback.cjs`](../scripts/dist-with-fallback.cjs) 在打包前自动调用本脚本，无需手动执行。
+`pnpm dist` 通过 [`scripts/dist-with-fallback.cjs`](../../scripts/dist-with-fallback.cjs) 在打包前自动调用本脚本，无需手动执行。
 
 ### 11.3 输出目录锁定回退 (dist-with-fallback.cjs)
 
 即使经过 `clean-before-pack`，在 electron-builder 实际写入时 `release/` 仍可能被 Defender、IDE、文件资源管理器或残留句柄锁定，导致 `The process cannot access the file because it is being used by another process` 错误。
 
-[`scripts/dist-with-fallback.cjs`](../scripts/dist-with-fallback.cjs) 包装 electron-builder，提供自动回退：
+[`scripts/dist-with-fallback.cjs`](../../scripts/dist-with-fallback.cjs) 包装 electron-builder，提供自动回退：
 
 1. **预清理**：调用 `clean-before-pack.cjs` 处理进程终止、Explorer 窗口关闭与目录清理。
 2. **锁定检测**：在启动 electron-builder 前通过尝试**重命名 `release/` 目录**探测是否被锁（目录内可写不代表整体可替换，例如 `app.asar` 被占用时仍可创建 probe 子目录）；重命名成功后再恢复原名，不会破坏 `clean-before-pack` 已准备好的空目录。若重命名失败，说明目录整体被锁（通常是 Defender/索引器的文件系统过滤驱动），自动生成 `release-tmp-<timestamp>` 作为替代输出目录。
@@ -51,7 +52,7 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 `signAndEditExecutable: false` 跳过 electron-builder 自带的签名/资源编辑，避免本机 app-builder 工具链解包符号链接失败。但这也导致主程序 exe 的 **VS_VERSION_INFO 版本资源保持 Electron 默认值**（ProductName/FileDescription=Electron、OriginalFilename=electron.exe、版本号为 Electron 版本），任务管理器"应用名称"列与 exe 属性会显示 Electron。`scripts/after-pack.cjs` 在 afterPack 阶段补齐：
 
 1. **版本资源（resedit）**：用 `resedit`（纯 JS，root devDependency）重写 `VS_VERSION_INFO`——`FileVersion`/`ProductVersion` 写入应用版本（取自打包 appInfo，即 package.json 版本，与 `APP_VERSION` 同步），`FileDescription`/`ProductName`/`OriginalFilename` 写入应用名与主程序名。
-2. **图标**：调用 [`scripts/inject-icon.cjs`](../scripts/inject-icon.cjs)，以**同字节长度原地覆写**方式把 `apps/desktop/resources/icon.ico` 注入主程序 exe 的 `RT_ICON` 资源。
+2. **图标**：调用 [`scripts/inject-icon.cjs`](../../scripts/inject-icon.cjs)，以**同字节长度原地覆写**方式把 `apps/desktop/resources/icon.ico` 注入主程序 exe 的 `RT_ICON` 资源。
 
 顺序固定：先 resedit 重写版本资源（重建 PE），再 inject-icon 原地覆写图标（字节级解析，对 resedit 产出的标准 PE 同样适用）。
 
@@ -67,7 +68,7 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 
 ### 11.7 版本一致性（自动化）
 
-版本号同步由 [`scripts/bump-version.cjs`](../scripts/bump-version.cjs) 自动处理：`node scripts/bump-version.cjs [patch|minor|major]` 会同时更新 `package.json`（root + desktop）、`APP_VERSION`（`definitions.ts`）、`CHANGELOG.md` 版本节，以及 `docs/packaging.md` / `README.md`（仓库根唯一 README）/ `AGENTS.md` 中提到的输出文件名与版本号。
+版本号同步由 [`scripts/bump-version.cjs`](../../scripts/bump-version.cjs) 自动处理：`node scripts/bump-version.cjs [patch|minor|major]` 会同时更新 `package.json`（root + desktop）、`APP_VERSION`（`definitions.ts`）、`CHANGELOG.md` 版本节，以及 `docs/packaging.md` / `README.md`（仓库根唯一 README）/ `AGENTS.md` 中提到的输出文件名与版本号。
 
 每次 `push` 到 `main`（含 PR 合并事件）由 GitHub Actions `ci.yml` 的 `bump` job 自动执行 patch 递增 + 打 tag + 触发 `release.yml` 打包 `.exe` 并创建 GitHub Release（详见 [ci-cd.md](ci-cd.md) / [auto-release.md](auto-release.md)）。
 

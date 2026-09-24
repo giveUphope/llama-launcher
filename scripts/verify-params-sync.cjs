@@ -2,11 +2,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const DEFS_FILE = path.join(__dirname, '..', 'packages', 'shared', 'src', 'params', 'definitions.ts');
-const DOC_FILE = path.join(__dirname, '..', 'docs', 'params', 'LLAMA_SERVER_PARAMS.md');
 const HELP_FILE = path.join(__dirname, '..', 'docs', 'params', 'llama-server-help-out.txt');
 
 const defsText = fs.readFileSync(DEFS_FILE, 'utf8');
-const docText = fs.readFileSync(DOC_FILE, 'utf8');
 const helpText = fs.readFileSync(HELP_FILE, 'utf8');
 
 // Extract supported flags from definitions.ts (including invert_flag aliases)
@@ -53,15 +51,22 @@ for (const line of mergedLines) {
   helpParams.push({ flags, description: paramMatch[2].trim() });
 }
 
-// Parse supported params from the doc
-const docSupportedParams = [];
-const docLines = docText.split(/\r?\n/);
-for (const line of docLines) {
-  if (!line.includes('✅ 已支持')) continue;
-  const cellMatch = line.match(/^\|\s*([^|]+)\|/);
-  if (!cellMatch) continue;
-  const flags = [...cellMatch[1].matchAll(/`([^`]+)`/g)].map(m => m[1].trim()).filter(Boolean);
-  if (flags.length) docSupportedParams.push(flags);
+// Parse supported params from the doc — 中英两份对照表都要对拍（成对生成，缺一或单边漂移即 fail）
+const DOC_PARAM_TABLES = [
+  { file: 'docs/zh/params/LLAMA_SERVER_PARAMS.md', mark: '✅ 已支持' },
+  { file: 'docs/en/params/LLAMA_SERVER_PARAMS.md', mark: '✅ supported' },
+];
+
+function parseSupportedFlagsFromDoc(docText, mark) {
+  const rows = [];
+  for (const line of docText.split(/\r?\n/)) {
+    if (!line.includes(mark)) continue;
+    const cellMatch = line.match(/^\|\s*([^|]+)\|/);
+    if (!cellMatch) continue;
+    const flags = [...cellMatch[1].matchAll(/`([^`]+)`/g)].map((m) => m[1].trim()).filter(Boolean);
+    if (flags.length) rows.push(flags);
+  }
+  return rows;
 }
 
 // Compare by parameter (not by individual flag)
@@ -72,45 +77,50 @@ for (const p of helpParams) {
   }
 }
 
-const docSupportedSet = new Set();
-for (const flags of docSupportedParams) {
-  for (const f of flags) docSupportedSet.add(f);
-}
-
-const onlyInCode = [...codeFlags].filter(f => !docSupportedSet.has(f));
-const both = [...codeFlags].filter(f => docSupportedSet.has(f));
-
-console.log('=== 参数清单一致性检查（按参数维度） ===\n');
+console.log('=== 参数清单一致性检查（按参数维度，中英双表） ===\n');
 console.log(`代码中参数 flag 数: ${codeFlags.size}`);
-console.log(`清单中已支持参数所含 flag 数: ${docSupportedSet.size}`);
-console.log(`两边一致的 flag 数: ${both.length}\n`);
-
-// Also report truly unsupported-by-function params in doc
-const docParamsNotInCode = docSupportedParams.filter(flags => !flags.some(f => codeFlags.has(f)));
 
 // 两类漂移从「只打印」升级为硬门禁（2026-09-21 硬编码审计收尾）：本脚本已接入
 // pnpm lint，只打印等于没有——漂移会一直躺着没人管（历史上 flag 数与文档就是靠
 // 人工对表订正过一轮）。今天实测两类皆空，故转 fail 不会立刻炸 CI。
 const syncDrift = [];
-if (docParamsNotInCode.length) {
-  syncDrift.push('清单标为已支持，但代码中没有任何对应 flag 的参数：');
-  for (const flags of docParamsNotInCode) syncDrift.push('  ' + flags.join(', '));
+for (const { file, mark } of DOC_PARAM_TABLES) {
+  const docText = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+  const docSupportedParams = parseSupportedFlagsFromDoc(docText, mark);
+  const docSupportedSet = new Set();
+  for (const flags of docSupportedParams) for (const f of flags) docSupportedSet.add(f);
+
+  const onlyInCode = [...codeFlags].filter((f) => !docSupportedSet.has(f));
+  const both = [...codeFlags].filter((f) => docSupportedSet.has(f));
+  console.log(`${file} 已支持 flag 数: ${docSupportedSet.size}，一致 ${both.length}`);
+
+  if (!docSupportedParams.length) {
+    syncDrift.push(`${file}: 没解析到任何「${mark}」行——状态标记文案被改动却没同步本表`);
+    continue;
+  }
+  const docParamsNotInCode = docSupportedParams.filter((flags) => !flags.some((f) => codeFlags.has(f)));
+  if (docParamsNotInCode.length) {
+    syncDrift.push(`${file}: 清单标为已支持，但代码中没有任何对应 flag 的参数：`);
+    for (const flags of docParamsNotInCode) syncDrift.push('  ' + flags.join(', '));
+  }
+  if (onlyInCode.length) {
+    syncDrift.push(`${file}: 代码中有 flag，但清单未把这些参数标为已支持：`);
+    for (const f of onlyInCode.sort()) syncDrift.push('  ' + f);
+  }
 }
-if (onlyInCode.length) {
-  syncDrift.push('代码中有 flag，但清单未把这些参数标为已支持：');
-  for (const f of onlyInCode.sort()) syncDrift.push('  ' + f);
-}
+console.log('');
+
 if (syncDrift.length) {
   console.error('[verify-params-sync] ❌ 参数定义 ↔ 文档清单 ↔ help 三方对拍有出入：');
   for (const line of syncDrift) console.error('  ' + line);
   console.error(
     '修复二选一：① 代码侧补/改 flag（packages/shared/src/params/definitions.ts）；' +
-      '② 文档侧改标注或重新生成对照表（node scripts/generate-params-doc.cjs）。' +
-      '二进制升级导致的漂移见 scripts/verify-help-drift.cjs 与 docs/params-system.md §5.5。',
+      '② 文档侧改标注或重新生成对照表（node scripts/generate-params-doc.cjs，一次产出中英两份）。' +
+      '二进制升级导致的漂移见 scripts/verify-help-drift.cjs 与 docs/zh/params-system.md §5.5。',
   );
   process.exit(1);
 }
-console.log('✅ 按参数维度检查完全一致，无出入。\n');
+console.log('✅ 中英两份对照表与代码 flag 完全一致，无出入。\n');
 
 // ============================================================
 // 文档里的参数计数声明必须等于 definitions.ts 实测（2026-09-21 硬编码审计补）。
@@ -132,11 +142,20 @@ const DOC_PARAM_CLAIMS = [
   // README 自 2026-09-24 起为英文着陆页（约定见 AGENTS.md 的 README 条目），故按英文句式取数：
   // 命中的是 Highlights 里的 "**60** `llama-server` parameters grouped into 13 sections"。
   { file: 'README.md', re: /\*\*(\d+)\*\*\s*`llama-server` parameters/, want: [PARAM_TOTAL] },
-  { file: 'docs/architecture.md', re: /参数表（(\d+) 组 \/ (\d+) 个参数）/, want: [Object.keys(GROUP_COUNTS).length, PARAM_TOTAL] },
-  { file: 'docs/core-modules.md', re: /`PARAMS`（(\d+)：basic (\d+) \/ advanced (\d+) \/ server (\d+)）/, want: [PARAM_TOTAL, GROUP_COUNTS.basic, GROUP_COUNTS.advanced, GROUP_COUNTS.server] },
-  { file: 'docs/params-system.md', re: /共 (\d+) 个参数/, want: [PARAM_TOTAL] },
-  { file: 'docs/frontend.md', re: /；(\d+) 参数经/, want: [PARAM_TOTAL] },
-  { file: 'docs/testing.md', re: /全部 (\d+) 参数/, want: [PARAM_TOTAL] },
+  // 中文着陆页与 README.md 成对，同一条数字必须两树相等（只查英文侧的话，
+  // 中文版漂移不会有人发现）。
+  { file: 'README.zh-CN.md', re: /\*\*(\d+) 个\*\*\s*`llama-server` 参数/, want: [PARAM_TOTAL] },
+  { file: 'docs/zh/architecture.md', re: /参数表（(\d+) 组 \/ (\d+) 个参数）/, want: [Object.keys(GROUP_COUNTS).length, PARAM_TOTAL] },
+  { file: 'docs/zh/core-modules.md', re: /`PARAMS`（(\d+)：basic (\d+) \/ advanced (\d+) \/ server (\d+)）/, want: [PARAM_TOTAL, GROUP_COUNTS.basic, GROUP_COUNTS.advanced, GROUP_COUNTS.server] },
+  { file: 'docs/zh/params-system.md', re: /共 (\d+) 个参数/, want: [PARAM_TOTAL] },
+  { file: 'docs/zh/frontend.md', re: /；(\d+) 参数经/, want: [PARAM_TOTAL] },
+  { file: 'docs/zh/testing.md', re: /全部 (\d+) 参数/, want: [PARAM_TOTAL] },
+  // 英文镜像树同数：docs/en/** 与 docs/zh/** 必须报同一个总数与分组数
+  { file: 'docs/en/architecture.md', re: /Param table \((\d+) groups \/ (\d+) params\)/, want: [Object.keys(GROUP_COUNTS).length, PARAM_TOTAL] },
+  { file: 'docs/en/core-modules.md', re: /`PARAMS` \((\d+): basic (\d+) \/ advanced (\d+) \/ server (\d+)\)/, want: [PARAM_TOTAL, GROUP_COUNTS.basic, GROUP_COUNTS.advanced, GROUP_COUNTS.server] },
+  { file: 'docs/en/params-system.md', re: /(\d+) parameters in total/, want: [PARAM_TOTAL] },
+  { file: 'docs/en/frontend.md', re: /;?\s*(\d+) parameters are rendered/, want: [PARAM_TOTAL] },
+  { file: 'docs/en/testing.md', re: /all (\d+) parameters/, want: [PARAM_TOTAL] },
 ];
 
 const paramClaimErrors = [];

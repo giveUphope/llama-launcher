@@ -1,7 +1,8 @@
 # 测试
 
+> 语言：中文 · [English](../en/testing.md)
 > 范围：测试结构与用例说明（Vitest，位于 packages/core/tests 与 packages/ui 内联测试）。
-> 索引：[README.md](../README.md) · 相关：[core-modules.md](core-modules.md) · [workflow.md](workflow.md)
+> 索引：[README.md](../../README.md) · 相关：[core-modules.md](core-modules.md) · [workflow.md](workflow.md)
 
 - **框架**：Vitest 4（`pnpm test` 经 turbo 一并运行 core 与 ui 两包）
 
@@ -54,6 +55,7 @@
 | 脚本 | 前置条件 | 验证内容 |
 | ---- | ---- | ---- |
 | `scripts/verify-server-start.mjs` | 先构建 `core/dist`（`pnpm --filter @llama-launcher/core build`），目录下有 llama-server 二进制 | `Launcher` 启动编排冒烟：状态机 / listening 检测 / 停止清理，逐阶段断言并打印结果 |
+| `scripts/integ_devsession.mjs` | 先 `pnpm build`（需 `packages/core/dist/process.js` 产物） | 集成验证 dev 会话收尾：模拟 `turbo run dev` 进程树，由 probe 子进程（扮演 electron）调用 `findDevSessionRoot` + `killProcessTree`，断言整棵 dev 树被杀死 |
 
 两者均为手动执行（不接入 `pnpm test`），用于真实二进制/引擎环境下的链路验证。
 

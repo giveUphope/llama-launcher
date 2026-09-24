@@ -2,7 +2,7 @@
 /**
  * 版本号一致性门禁：断言所有「应用版本」声明处与 root package.json 完全相等。
  *
- * 为什么需要它（2026-09-21）：docs/architecture.md 的 monorepo 包版本表 desktop 行
+ * 为什么需要它（2026-09-21）：docs/zh/architecture.md 的 monorepo 包版本表 desktop 行
  * 已在 0.0.12 → 0.0.34 → 0.0.40 → 0.0.41 三轮发版中持续漂移。根因是
  * scripts/bump-version.cjs 的文档同步清单漏收该文件；补清单时又出现「只改了文件头
  * 注释、代码数组没动」的二次漂移——注释声称同步，实测没同步，等于没修。
@@ -35,12 +35,18 @@ collect(
   (read('packages/shared/src/params/definitions.ts').match(/APP_VERSION\s*=\s*'([^']+)'/) || [])[1]
 );
 
-// 4. docs/architecture.md 的 monorepo 包版本表 desktop 行（只此一行跟随应用版本，
-//    core/shared/ui 各自固定 1.0.0，不参与断言）
+// 4. docs/zh/architecture.md 与 docs/en/architecture.md 的 monorepo 包版本表 desktop 行
+//    （只此一行跟随应用版本，core/shared/ui 各自固定 1.0.0，不参与断言；
+//     双语两树都要收，否则英文表漂了没人管）
 collect(
-  'docs/architecture.md',
+  'docs/zh/architecture.md',
   'monorepo 表 desktop 行',
-  (read('docs/architecture.md').match(/@llama-launcher\/desktop`?\s*\|\s*([0-9]+\.[0-9]+\.[0-9]+)/) || [])[1]
+  (read('docs/zh/architecture.md').match(/@llama-launcher\/desktop`?\s*\|\s*([0-9]+\.[0-9]+\.[0-9]+)/) || [])[1]
+);
+collect(
+  'docs/en/architecture.md',
+  'monorepo 表 desktop 行（英文镜像）',
+  (read('docs/en/architecture.md').match(/@llama-launcher\/desktop`?\s*\|\s*([0-9]+\.[0-9]+\.[0-9]+)/) || [])[1]
 );
 
 // 5. docs/CHANGELOG.md 最新的已发布版本标题（跳过 [Unreleased]）

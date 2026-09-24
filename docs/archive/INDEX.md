@@ -6,9 +6,9 @@
 | 目录/文件                                   | 内容                                                                                                                                                            | 归档      |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
 | `refactor/`                             | UI 重构阶段交接记录：`phase1-audit.md`（UI 基线审计）、`phase1–4-handoff.md`（分阶段交接）、`phase3-capability-matrix.md`（后端能力矩阵）+ 三断点（1024×680 / 1280×800 / 1440×900）页面截图 ×18        | 2026-08 |
-| `experiments/plan-kv-split-cli-test.md` | 显存/内存分层（KV 分层）CLI 验证计划（状态：验证完成，2026-08-15）。结论仍被 [params-system.md](../params-system.md) §5.5 与 [design-decisions.md](../design-decisions.md) §18 引用为内存参数默认值依据 | 2026-08 |
-| `style-todo-resolved.md`                | [STYLE_TODO.md](../style/STYLE_TODO.md)「已修复」#1–#47 + 历史修复的完整记录（问题 / 修复 / 验证证据）与已固化进 §7.5 的历史设计决策；活动清单仅保留索引表                                                                                          | 2026-09 |
-| `ARCO_MIGRATION_TODO.md`                | Arco Design Vue 全站迁移分批清单（`31273e4` 基础接入后启动，77 项已勾选；余 2 项为需人工目验的 Electron 交互与安装包验收，已在条目内注明）。迁移已完成，规范落 [frontend.md §7.5](../frontend.md)，本清单仅作交接留档（STYLE_TODO 引用处同步指向本路径）                                             | 2026-09 |
+| `experiments/plan-kv-split-cli-test.md` | 显存/内存分层（KV 分层）CLI 验证计划（状态：验证完成，2026-08-15）。结论仍被 [params-system.md](../../docs/zh/params-system.md) §5.5 与 [design-decisions.md](../../docs/zh/design-decisions.md) §18 引用为内存参数默认值依据 | 2026-08 |
+| `style-todo-resolved.md`                | [STYLE_TODO.md](../../docs/zh/style/STYLE_TODO.md)「已修复」#1–#47 + 历史修复的完整记录（问题 / 修复 / 验证证据）与已固化进 §7.5 的历史设计决策；活动清单仅保留索引表                                                                                          | 2026-09 |
+| `ARCO_MIGRATION_TODO.md`                | Arco Design Vue 全站迁移分批清单（`31273e4` 基础接入后启动，77 项已勾选；余 2 项为需人工目验的 Electron 交互与安装包验收，已在条目内注明）。迁移已完成，规范落 [frontend.md §7.5](../../docs/zh/frontend.md)，本清单仅作交接留档（STYLE_TODO 引用处同步指向本路径）                                             | 2026-09 |
 
 > 维护约定：归档文档不随项目演进同步更新；需要引用其中结论时，在引用处指向 `docs/archive/...`。新增归档 = 将文档移入 `docs/archive/` 并在上表登记一行。
 

@@ -1,7 +1,8 @@
 # 架构与项目结构
 
+> 语言：中文 · [English](../en/architecture.md)
 > 范围：项目概述、目录结构、Monorepo 架构与依赖流。
-> 索引：[README.md](../README.md) · 相关：[core-modules.md](core-modules.md) · [workflow.md](workflow.md)
+> 索引：[README.md](../../README.md) · 相关：[core-modules.md](core-modules.md) · [workflow.md](workflow.md)
 
 ## 1. 项目概述
 

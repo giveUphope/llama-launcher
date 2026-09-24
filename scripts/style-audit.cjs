@@ -2,12 +2,12 @@
 /**
  * style-audit.cjs — UI 风格一致性审计脚本（一键复跑）
  *
- * 固化 docs/style/STYLE_TODO.md「审计方法」的 10 条检查，输出 ✅/❌ 清单；
+ * 固化 docs/zh/style/STYLE_TODO.md「审计方法」的 10 条检查，输出 ✅/❌ 清单；
  * 有任何不一致项时以非零码退出（便于接入 CI / pre-commit）。
  *
  * 用法：node scripts/style-audit.cjs   （或 pnpm style:audit）
  *
- * 规范依据：docs/frontend.md §7.5（设计 token / 行高 / 字重 / 间距刻度 / 动效）
+ * 规范依据：docs/zh/frontend.md §7.5（设计 token / 行高 / 字重 / 间距刻度 / 动效）
  * 与规范不一致处 → 登记 STYLE_TODO「🔴 修复项」后修复。
  */
 'use strict';
@@ -268,7 +268,7 @@ const out = [
   render('11. 非 scoped 样式块选择器含组件私有类（防 Arco 全局类名外泄）', a11.items),
   render('12. 不覆写 Arco 内部态类（.arco-*-checked/active/selected/disabled）', a12.items),
   render('13. a-progress :percent 传 0–1 比值（禁 ×100 / Pct 命名）', a13.items),
-  `\n扫描 ${files.length} 个文件 · 规范依据 docs/frontend.md §7.5`,
+  `\n扫描 ${files.length} 个文件 · 规范依据 docs/zh/frontend.md §7.5`,
 ];
 
 console.log(out.join('\n'));

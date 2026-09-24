@@ -1,7 +1,8 @@
 # 前端架构
 
+> 语言：中文 · [English](../en/frontend.md)
 > 范围：前端架构：路由、Pinia stores、页面、通用组件；§7.5 为 UI 风格规范（唯一权威来源）。
-> 索引：[README.md](../README.md) · 相关：[ipc-channels.md](ipc-channels.md) · [params-system.md](params-system.md) · [style/STYLE_TODO.md](style/STYLE_TODO.md)
+> 索引：[README.md](../../README.md) · 相关：[ipc-channels.md](ipc-channels.md) · [params-system.md](params-system.md) · [style/STYLE_TODO.md](style/STYLE_TODO.md)
 
 ### 7.1 路由与功能注册表 (router/index.ts + features/)
 

@@ -3,7 +3,7 @@ const path = require('node:path');
 
 const HELP_FILE = path.join(__dirname, '..', 'docs', 'params', 'llama-server-help-out.txt');
 const DEFS_FILE = path.join(__dirname, '..', 'packages', 'shared', 'src', 'params', 'definitions.ts');
-const OUT_FILE = path.join(__dirname, '..', 'docs', 'params', 'LLAMA_SERVER_PARAMS.md');
+// 输出路径见文件末尾 LANGS 表（中英成对产出）
 
 const helpText = fs.readFileSync(HELP_FILE, 'utf8');
 const defsText = fs.readFileSync(DEFS_FILE, 'utf8');
@@ -83,35 +83,68 @@ for (const line of mergedLines) {
   }
 }
 
-// Build markdown
-let md = `# llama-server 启动参数对照文档
+// Build markdown — 一次运行同时产出中英两份（成对生成，避免只刷一种语言造成漂移）
+const DEFS_LINK = '../../../packages/shared/src/params/definitions.ts';
+const LANGS = {
+  zh: {
+    out: path.join(__dirname, '..', 'docs', 'zh', 'params', 'LLAMA_SERVER_PARAMS.md'),
+    head: `# llama-server 启动参数对照文档
 
+> 语言：中文 · [English](../../en/params/LLAMA_SERVER_PARAMS.md)
+> 索引：[README.md](../../../README.md) · 相关：[params-system.md](../params-system.md)
 > 来源：捆绑二进制 ".\\llama-b11053-bin-win-vulkan-x64\\llama-server.exe --help"
 > 用途：对照当前启动器已支持参数，识别可新增/调整项
 
 ## 当前启动器已支持参数
 
-当前参数定义位于 [packages/shared/src/params/definitions.ts](../../packages/shared/src/params/definitions.ts)。
+当前参数定义位于 [packages/shared/src/params/definitions.ts](${DEFS_LINK})。
+`,
+    tableHead: '| 参数 | 说明 | 状态 |',
+    tableSep: '|------|------|------|',
+    yes: '✅ 已支持',
+    no: '⬜ 未支持',
+    summary: (t, s) => `## 汇总\n\n- 官方参数总数：${t}\n- 已支持：${s}\n- 未支持：${t - s}\n`,
+  },
+  en: {
+    out: path.join(__dirname, '..', 'docs', 'en', 'params', 'LLAMA_SERVER_PARAMS.md'),
+    head: `# llama-server Startup Parameter Reference
 
-`;
+> Language: English · [中文](../../zh/params/LLAMA_SERVER_PARAMS.md)
+> Index: [README.md](../../../README.md) · Related: [params-system.md](../params-system.md)
+> Source: bundled binary ".\\llama-b11053-bin-win-vulkan-x64\\llama-server.exe --help"
+> Purpose: cross-check the parameters this launcher already supports and spot gaps
 
-for (const section of sections) {
-  md += `## ${section.title}\n\n`;
-  md += '| 参数 | 说明 | 状态 |\n';
-  md += '|------|------|------|\n';
-  for (const p of section.params) {
-    const status = p.supported ? '✅ 已支持' : '⬜ 未支持';
-    const flagCell = '`' + p.flags.join('`, `') + '`';
-    md += `| ${flagCell} | ${p.description.replace(/\|/g, '\\|')} | ${status} |\n`;
+## Parameters supported today
+
+Parameter definitions live in [packages/shared/src/params/definitions.ts](${DEFS_LINK}).
+`,
+    tableHead: '| Parameter | Description | Status |',
+    tableSep: '|------|------|------|',
+    yes: '✅ supported',
+    no: '⬜ not supported',
+    summary: (t, s) => `## Summary\n\n- Flags in official help: ${t}\n- Supported: ${s}\n- Not supported: ${t - s}\n`,
+  },
+};
+
+for (const lang of Object.keys(LANGS)) {
+  const cfg = LANGS[lang];
+  let md = cfg.head + '\n';
+  for (const section of sections) {
+    md += `## ${section.title}\n\n`;
+    md += cfg.tableHead + '\n';
+    md += cfg.tableSep + '\n';
+    for (const p of section.params) {
+      const status = p.supported ? cfg.yes : cfg.no;
+      const flagCell = '`' + p.flags.join('`, `') + '`';
+      md += `| ${flagCell} | ${p.description.replace(/\|/g, '\\|')} | ${status} |\n`;
+    }
+    md += '\n';
   }
-  md += '\n';
+  const totalParams = sections.reduce((sum, s) => sum + s.params.length, 0);
+  const supportedParams = sections.reduce((sum, s) => sum + s.params.filter((p) => p.supported).length, 0);
+  md += cfg.summary(totalParams, supportedParams);
+  fs.mkdirSync(path.dirname(cfg.out), { recursive: true });
+  fs.writeFileSync(cfg.out, md, 'utf8');
+  console.log(`Generated [${lang}] ${path.relative(path.join(__dirname, '..'), cfg.out)}`);
 }
-
-// Summary
-const totalParams = sections.reduce((sum, s) => sum + s.params.length, 0);
-const supportedParams = sections.reduce((sum, s) => sum + s.params.filter(p => p.supported).length, 0);
-md += `## 汇总\n\n- 官方参数总数：${totalParams}\n- 已支持：${supportedParams}\n- 未支持：${totalParams - supportedParams}\n`;
-
-fs.writeFileSync(OUT_FILE, md, 'utf8');
-console.log(`Generated ${OUT_FILE}`);
-console.log(`Total: ${totalParams}, Supported: ${supportedParams}, Missing: ${totalParams - supportedParams}`);
+console.log(`Total: ${sections.reduce((s, x) => s + x.params.length, 0)}, Supported: ${sections.reduce((s, x) => s + x.params.filter((p) => p.supported).length, 0)}`);

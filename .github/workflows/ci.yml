@@ -49,7 +49,7 @@ jobs:
           while IFS= read -r f; do
             [ -z "$f" ] && continue
             case "$f" in
-              docs/*|README.md|AGENTS.md) ;;
+              docs/*|README.md|README.zh-CN.md|AGENTS.md) ;;
               *) NON_DOC="true"; break ;;
             esac
           done < <(git diff --name-only "$BASE" HEAD)

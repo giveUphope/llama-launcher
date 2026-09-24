@@ -2,6 +2,8 @@
 
 > A desktop launcher for llama.cpp's `llama-server` — pick a model, tune the parameters, start the server, read the logs.
 
+> Language: English · [简体中文](README.zh-CN.md)
+
 [![stack](docs/badges/stack.svg)](#tech-stack)
 [![license](docs/badges/license.svg)](#license)
 
@@ -64,7 +66,7 @@ pnpm lint        # typecheck + IPC / docs-link / i18n / param sync checks + oxli
 ```
 
 - **After a change**: `pnpm lint` covers most of it. Touched an IPC channel? Run `pnpm generate:ipc` first (channels are declared in `packages/shared/src/types/ipc.ts`). Touched the parameter table? Also run `node scripts/verify-params-sync.cjs`.
-- **E2E**: `pnpm e2e:web` (renderer) / `pnpm e2e:electron` (Electron smoke); the first run needs `pnpm exec playwright install chromium` — details in [testing.md](docs/testing.md).
+- **E2E**: `pnpm e2e:web` (renderer) / `pnpm e2e:electron` (Electron smoke); the first run needs `pnpm exec playwright install chromium` — details in [testing.md](docs/en/testing.md).
 - **First launch**: a `.exe` downloaded from GitHub may trigger a Windows Defender SmartScreen "unrecognized app" warning — the project has no paid code-signing certificate, so this is expected. Click "More info" → "Run anyway"; it won't ask again.
 
 ***
@@ -92,7 +94,7 @@ scripts/           # build & verification scripts (IPC generation, param/docs sy
 docs/              # project wiki (see the documentation map below)
 ```
 
-Dependencies run one way: `desktop → core + shared`, `core → shared`, `ui → shared`; `shared` depends on nothing above it. The full tree and dependency flow are in [architecture.md](docs/architecture.md) §2–3, and contributor rules and build pitfalls in [AGENTS.md](AGENTS.md).
+Dependencies run one way: `desktop → core + shared`, `core → shared`, `ui → shared`; `shared` depends on nothing above it. The full tree and dependency flow are in [architecture.md](docs/en/architecture.md) §2–3, and contributor rules and build pitfalls in [AGENTS.md](AGENTS.md).
 
 ***
 
@@ -104,28 +106,28 @@ Electron 44 · Vue 3.5 + Pinia 4 + Vue Router 5 · TypeScript 6 · Vite 8 + vue-
 
 ## Documentation map
 
-Everything lives in `docs/`, and this file is the repository's **only README**. Pick the page that matches what you want to understand:
+Everything lives in `docs/en/` (Chinese originals in [`docs/zh/`](docs/zh/architecture.md) — every page carries a language line back and forth). Pick the page that matches what you want to understand:
 
 | To understand…                                              | Read                                                                     |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------ |
-| All 60 parameters mapped against `--help`                    | [params/LLAMA\_SERVER\_PARAMS.md](docs/params/LLAMA_SERVER_PARAMS.md)     |
-| Overall structure, directory tree, Monorepo dependency flow | [architecture.md](docs/architecture.md)                                  |
-| Core modules (process, command builder, GGUF, downloads)    | [core-modules.md](docs/core-modules.md)                                  |
-| Parameter system, session vs preset, controls               | [params-system.md](docs/params-system.md)                                |
-| Electron main process (window, IPC registry, tray, preload) | [desktop-main.md](docs/desktop-main.md)                                  |
-| All 56 IPC channels — read before touching IPC              | [ipc-channels.md](docs/ipc-channels.md)                                  |
-| Frontend architecture + **UI style guide §7.5**             | [frontend.md](docs/frontend.md)                                          |
-| Types and persistence (`settings.json` fields, presets)     | [data-persistence.md](docs/data-persistence.md)                          |
-| Packaging config and known failure modes                    | [packaging.md](docs/packaging.md)                                        |
-| CI/CD and the release pipeline                              | [ci-cd.md](docs/ci-cd.md) · [auto-release.md](docs/auto-release.md)     |
-| Test layout and E2E                                         | [testing.md](docs/testing.md)                                            |
-| Day-to-day commands, commit rules, **doc writing style**     | [workflow.md](docs/workflow.md)                                          |
-| Key design decisions                                        | [design-decisions.md](docs/design-decisions.md)                          |
-| Outstanding UI style inconsistencies                        | [style/STYLE\_TODO.md](docs/style/STYLE_TODO.md)                         |
+| All 60 parameters mapped against `--help`                    | [params/LLAMA\_SERVER\_PARAMS.md](docs/en/params/LLAMA_SERVER_PARAMS.md)     |
+| Overall structure, directory tree, Monorepo dependency flow | [architecture.md](docs/en/architecture.md)                                  |
+| Core modules (process, command builder, GGUF, downloads)    | [core-modules.md](docs/en/core-modules.md)                                  |
+| Parameter system, session vs preset, controls               | [params-system.md](docs/en/params-system.md)                                |
+| Electron main process (window, IPC registry, tray, preload) | [desktop-main.md](docs/en/desktop-main.md)                                  |
+| All 56 IPC channels — read before touching IPC              | [ipc-channels.md](docs/en/ipc-channels.md)                                  |
+| Frontend architecture + **UI style guide §7.5**             | [frontend.md](docs/en/frontend.md)                                          |
+| Types and persistence (`settings.json` fields, presets)     | [data-persistence.md](docs/en/data-persistence.md)                          |
+| Packaging config and known failure modes                    | [packaging.md](docs/en/packaging.md)                                        |
+| CI/CD and the release pipeline                              | [ci-cd.md](docs/en/ci-cd.md) · [auto-release.md](docs/en/auto-release.md)     |
+| Test layout and E2E                                         | [testing.md](docs/en/testing.md)                                            |
+| Day-to-day commands, commit rules, **doc writing style**     | [workflow.md](docs/en/workflow.md)                                          |
+| Key design decisions                                        | [design-decisions.md](docs/en/design-decisions.md)                          |
+| Outstanding UI style inconsistencies                        | [style/STYLE\_TODO.md](docs/en/style/STYLE_TODO.md)                         |
 | Release history                                             | [CHANGELOG.md](docs/CHANGELOG.md)                                        |
 | Ended plans / experiments / refactor handoffs (archived)    | [archive/INDEX.md](docs/archive/INDEX.md)                                |
 
-New to the codebase? Read [architecture.md](docs/architecture.md) → [core-modules.md](docs/core-modules.md) → [frontend.md](docs/frontend.md) in that order.
+New to the codebase? Read [architecture.md](docs/en/architecture.md) → [core-modules.md](docs/en/core-modules.md) → [frontend.md](docs/en/frontend.md) in that order.
 
 ***
 

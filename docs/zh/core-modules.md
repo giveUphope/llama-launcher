@@ -1,7 +1,8 @@
 # 核心模块详解
 
+> 语言：中文 · [English](../en/core-modules.md)
 > 范围：核心业务模块：进程管理、启动编排、命令构建、模型扫描、GGUF 元数据、在线下载、路径解析。
-> 索引：[README.md](../README.md) · 相关：[params-system.md](params-system.md) · [desktop-main.md](desktop-main.md)
+> 索引：[README.md](../../README.md) · 相关：[params-system.md](params-system.md) · [desktop-main.md](desktop-main.md)
 
 ### 4.1 进程管理 (process.ts)
 
@@ -183,9 +184,9 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | `huggingface-client.ts` | `listHfFiles` / `buildHfDownloadUrl` / `buildHfModelPageUrl` / `setHfTransport` / `setHfMirrorHost` / `getHfMirrorHost` / `isHfMirrorHostname`                  | HF 镜像客户端（§4.6）                        |
 | `download-manager.ts`   | `DownloadManager`（单例 `getDownloadManager`）/ `setDownloadTransport` / `DownloadTransport`                                                                        | 多任务断点续传（§4.6）                         |
 | `download-log.ts`       | `appendDownloadEvent` / `replayDownloadLog` / `deleteDownloadLog` / `migrateLegacyMeta`                                                                         | 续传事件日志（§4.10）                         |
-| `retry.ts`              | `isRetryableError` / `retryDelayMs`                                                                                                                             | 重试
+| `retry.ts`              | `isRetryableError` / `retryDelayMs`                                                                                                                             | 重试判定与退避（§4.9）                        |
 | `error-classify.ts`     | `classifyError(err, httpStatus?)`                                                                                                                              | 把底层错误归类为 `DownloadErrorType`（下载失败诊断 + 旧日志恢复补齐类型）。单独成模块：`download-manager` 依赖 `download-log`，而 `download-log` 恢复时也要分类，反向引用会成环 |
-| `types.ts`              | `LauncherEvent`                                                                                                                                                | 启动器事件名联合（`output` / `status` / `exit` / `error` / `command`） |判定与退避（§4.9）                        |
+| `types.ts`              | `LauncherEvent`                                                                                                                                                | 启动器事件名联合（`output` / `status` / `exit` / `error` / `command`） |
 | `trash-cleaner.ts`      | `detectTrash` / `detectTrashAsync` / `cleanTrash` / `cleanTrashAsync`（`TrashScanOptions`；IPC 侧一律用异步版）                                              | 应用生成文件清理（§4.13）                       |
 | `cleanup-logger.ts`     | `cleanupLogger`（debug/info/warn/error）/ `setCleanupLogLevel`                                                                                                    | 进程清理日志（§4.12）                         |
 
