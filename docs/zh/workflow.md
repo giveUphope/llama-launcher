@@ -9,7 +9,7 @@
 | `pnpm dev` | 启动开发模式（`scripts/dev.cjs` 三进程编排，不经 turbo） |
 | `pnpm build` | 构建所有包 |
 | `pnpm test` | 运行测试 |
-| `pnpm lint` | 类型检查 + IPC 同步校验（`verify-ipc-sync.cjs`）+ 参数三方对拍与字典/计数校验（`verify-params-sync.cjs`）+ 版本声明一致性（`verify-version-sync.cjs`）+ 文档链接检查（`check-docs-links.cjs`，可单独 `pnpm docs:check`）+ i18n 六项检查（`verify-i18n-usage.cjs`）+ oxlint（`pnpm lint:ox`） |
+| `pnpm lint` | 类型检查 + IPC 同步校验（`verify-ipc-sync.cjs`）+ 参数三方对拍与字典/计数校验（`verify-params-sync.cjs`）+ 版本声明一致性（`verify-version-sync.cjs`）+ 文档链接检查（`check-docs-links.cjs`，可单独 `pnpm docs:check`）+ 中英双树配对检查（`verify-doc-pairs.cjs`：成对存在 / 语言行 / 结构与版本串一致）+ i18n 六项检查（`verify-i18n-usage.cjs`）+ oxlint（`pnpm lint:ox`） |
 | `pnpm dist` | 打包 Portable 单文件（根目录一条命令，委托 `@llama-launcher/desktop dist`；electron-builder，输出 `release/*.exe`，自动处理输出目录锁定回退） |
 
 开发模式热重载由 `scripts/dev.cjs` 编排三进程：Vite dev server（UI HMR）+ `tsc -b --watch`（shared/core/desktop 增量重建）+ `scripts/dev-watch.cjs`（监视主进程 dist / preload 源 / shared 类型，变更时自动重新生成 preload 并重启 Electron，通过 `LLAMA_DEV_SKIP_QUIT_KILL=1` 避免热重启连带杀掉 dev 会话树）。改 UI 组件/样式即时热更；改 core/shared/主进程/preload 代码自动重建并重启，无需手动操作。退出语义：任一任务先退出即以它的退出码结束整个会话，其余任务按进程树 `taskkill /T /F` 清理（用户关窗 → dev-watch 退 0 → vite/tsc 一并收走，端口不残留）。
@@ -42,7 +42,7 @@ pnpm install --frozen-lockfile   # 校验 lockfile 与 package.json 同步（CI 
 3. **章节编号**：沿用架构文档原有编号（`N.x`），跨文档引用用「文档名 §N.x」或相对链接，不重编章节号（保证链接锚点稳定）。**中英两树保留同一套编号**，这样「frontend.md §7.5.4」在两种语言里都成立。
 4. **术语统一**：参数/预设/打包等术语与 `AGENTS.md`、`docs/zh/params/LLAMA_SERVER_PARAMS.md` 一致。
 5. **链接**：docs/ 内部一律相对路径（`frontend.md`、`style/STYLE_TODO.md`）；**指向兄弟文档时只指同语言树**（英文文档链 `docs/en/*`，中文文档链 `docs/zh/*`），链到 `docs/CHANGELOG.md`、`docs/archive/**` 这类不译的历史内容则两树共用同一路径；代码路径用反引号（如 `packages/ui/src/styles/`）；README.md / README.en.md 与 AGENTS.md 的相对链接与锚点由 `scripts/check-docs-links.cjs` 校验（`pnpm docs:check`）。**英文文档不得沿用中文标题产生的 `#锚点`**（英文标题 slug 不同），去掉锚点只留文件链接。
-6. **双语同步方向**：先改中文，再同步英文镜像，**只改一侧视为未完成**；新增文档必须两树同时建。数字类声明（参数总数、通道数、分组数、实测像素与毫秒）两树必须相等——`verify-ipc-sync.cjs` 与 `verify-params-sync.cjs` 已递归扫两树，英文句式（"56 channels"）与中文句式（「56 个通道」）同样受检，翻译时漏掉一侧会当场 fail。
+6. **双语同步方向**：先改中文，再同步英文镜像，**只改一侧视为未完成**；新增文档必须两树同时建。数字类声明（参数总数、通道数、分组数、实测像素与毫秒）两树必须相等——`verify-ipc-sync.cjs` 与 `verify-params-sync.cjs` 已递归扫两树，英文句式（"56 channels"）与中文句式（「56 个通道」）同样受检，翻译时漏掉一侧会当场 fail。**结构配对由 `verify-doc-pairs.cjs` 硬拦**（已接入 `pnpm lint`）：两树同名文件必须都在、语言行必须指向真实对侧、标题数与 `N.x` 编号序列 / 表格行数 / 代码围栏数 / 列表项数必须相等、`x.y.z` 版本串集合必须一致。它**有意不比对整篇数字多重集**——中文「收尾二批」对应英文 "batch 2"、「退出码非 0」对应 "exits non-zero" 属语言差异而非内容漂移，硬判只会逼人把门禁调松。仍然兜不住的是**同一结构下少译一段说明**，那部分靠人工核对；历史条目里的数字（如某次实测时静态审计为 12 条）按中文原样保留，不要顺手改成今天的值。
 7. **不译清单**：`docs/CHANGELOG.md`（版本历史）、`docs/archive/**`（只读归档）、`docs/params/llama-server-help-out.txt`（语言无关的 help 基线）、`docs/badges/` 保持单份，不建 `en/` 镜像；两个门禁也按此跳过它们。
 8. **来源**：拆分自原 CODE\_WIKI.md 的章节保持内容原样（仅调整格式），新增内容标注日期；待修复/已知问题登记到 `style/STYLE_TODO.md`（中英两份）而不是散落在正文。
 9. **例外（保持自身格式）**：`docs/CHANGELOG.md`（历史版本记录，按版本分组）、`docs/{zh,en}/params/LLAMA_SERVER_PARAMS.md`（由 `scripts/generate-params-doc.cjs` **一次产出中英两份**，勿手改任何一侧）。
