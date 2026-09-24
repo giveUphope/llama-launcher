@@ -129,7 +129,9 @@ const PARAM_TOTAL = GROUP_COUNTS.basic + GROUP_COUNTS.advanced + GROUP_COUNTS.se
 
 const DOC_PARAM_CLAIMS = [
   { file: 'AGENTS.md', re: /the (\d+)-param table/, want: [PARAM_TOTAL] },
-  { file: 'README.md', re: /(\d+) 个参数与 llama-server/, want: [PARAM_TOTAL] },
+  // README 自 2026-09-24 起为英文着陆页（约定见 AGENTS.md 的 README 条目），故按英文句式取数：
+  // 命中的是 Highlights 里的 "**60** `llama-server` parameters grouped into 13 sections"。
+  { file: 'README.md', re: /\*\*(\d+)\*\*\s*`llama-server` parameters/, want: [PARAM_TOTAL] },
   { file: 'docs/architecture.md', re: /参数表（(\d+) 组 \/ (\d+) 个参数）/, want: [Object.keys(GROUP_COUNTS).length, PARAM_TOTAL] },
   { file: 'docs/core-modules.md', re: /`PARAMS`（(\d+)：basic (\d+) \/ advanced (\d+) \/ server (\d+)）/, want: [PARAM_TOTAL, GROUP_COUNTS.basic, GROUP_COUNTS.advanced, GROUP_COUNTS.server] },
   { file: 'docs/params-system.md', re: /共 (\d+) 个参数/, want: [PARAM_TOTAL] },

@@ -49,9 +49,11 @@ if (missingRef.length) {
 /**
  * 文档里的「N 个通道 / N IPC 通道」裸数字必须等于实测通道数。
  * 这些数字此前无任何门禁，通道增删后会长期挂着错值（2026-09-21 硬编码审计补）。
+ * 2026-09-24 起 README 为英文着陆页，故一并匹配英文句式（"56 IPC channels" /
+ * "56 channel constants"），否则译文里的通道数就落在门禁之外。
  * 历史陈述不比对：docs/CHANGELOG.md 与 docs/archive/** 记的是当时的事实。
  */
-const DOC_CHANNEL_RE = /(\d+)\s*个?\s*(?:IPC\s*)?通道/g;
+const DOC_CHANNEL_RE = /(\d+)\s*个?\s*(?:IPC\s*)?(?:通道|channels?\b)/g;
 function docFilesWithChannelClaims() {
   const docsDir = path.resolve(__dirname, '../docs');
   const files = ['AGENTS.md', 'README.md'];
