@@ -34,7 +34,7 @@ pnpm install --frozen-lockfile   # 校验 lockfile 与 package.json 同步（CI 
 
 ## 文档编写约定
 
-所有 `docs/` 文档遵循统一编写逻辑与格式（新增/修改文档时请保持一致），根 [README.md](../README.md) 只保留「功能一览 + 快速开始 + 使用流程 + 文档地图」四层内容，深度细节一律下沉到本目录：
+所有 `docs/` 文档遵循统一编写逻辑与格式（新增/修改文档时请保持一致）。根 [README.md](../README.md) 是**英文**着陆页，只保留「What it takes off your plate / Highlights / Quick start / How you use it / Project layout / Tech stack / Documentation map」七块，深度细节一律下沉到本目录（`docs/` 目前为中文）：
 
 1. **标题**：`# 文档名`，一句概括主题。
 2. **范围说明**：标题下紧跟两行说明块——第一行 `> 范围：<覆盖内容>`，第二行 `> 索引：<README 相对链接> · 相关：<相关文档相对链接>`；说明本文覆盖范围、指回文档地图、列出相关文档（docs/ 内一律相对路径）。

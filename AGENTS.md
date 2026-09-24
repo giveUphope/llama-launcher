@@ -133,5 +133,5 @@ Dependency flow (one-directional): `desktop → core+shared`, `core → shared`,
 
 - `docs/CHANGELOG.md` — 版本历史与变更。
 
-- `README.md` — 仓库根唯一 README：功能总览、文档地图、快速开始与使用说明（分类文档入口）。
+- `README.md` — 仓库根唯一 README，**英文撰写**（面向 GitHub 访客：是什么 / 亮点 / 快速开始 / 使用流程 / 文档地图）；`docs/` 分类文档仍为中文，勿把 README 改回中文或在 docs 内混译，改动后跑 `pnpm docs:check` 校验锚点（徽章依赖 `#tech-stack` / `#license`）。
 
