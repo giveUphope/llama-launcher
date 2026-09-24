@@ -25,7 +25,31 @@
 ## 10. 持久化
 
 - **配置目录**：`~/.llama_launcher/`
-- **`settings.json`**：字段 — `settings_version`（schema 版本，当前 1，未来字段变更走 `migrateSettings` 迁移）、`server_exe`、`llama_dir`、`models_dir`、`selected_model`、`last_preset`、`window_geometry`、`window_maximized`、`theme_mode`、`close_behavior`、`sidebar_collapsed`、`language`、`last_tab`、`download_max_concurrent`（1–5，默认 3：边界与默认值唯一来源是 `shared/src/settings-limits.ts` 的 `DOWNLOAD_CONCURRENCY_*` + `clampDownloadConcurrency`，core 的 schema/下载器钳制与设置页下拉同源）、`hf_mirror_host`（HuggingFace 镜像源，空 = 默认 hf-mirror.com，默认站名唯一来源 `shared/src/hosts.ts`）、`custom_args`（**扩展参数**：用户自定义命令行参数原文，命令预览独立文本框编辑，`buildCommand` 按 shell 词法切分后追加到实际启动命令末尾，与内置参数命令完全分离、持久化于 settings.json）、`session_values`（**参数会话**（临时轨道）：当前生效参数快照，随变化节流 800ms 写入，重启恢复会话；**永不写入预设文件**）、`session_baseline`（**参数会话基线**：`{ preset_name, values }` = 会话加载的预设及应用时刻快照，null = 无预设基线）。两者形状非法时归一化 null（启动走 `selected_model` + `last_preset` 预设应用链）。写入为原子替换（`.tmp` + rename）+ **CAS 合并守卫**（写入前读取磁盘值作为基线，其他窗口/实例的更新不丢，本次传入值覆盖同名，写入失败重试）；加载时逐字段归一化（枚举/布尔/数值钳制），损坏文件自动备份为 `settings.json.bak` 后回退默认。
+
+### `settings.json` 字段全清单
+
+| 字段                        | 类型                            | 说明                                                               |
+| ------------------------- | ----------------------------- | ---------------------------------------------------------------- |
+| `settings_version`        | number                        | settings schema 版本（当前 1，字段变更走 `migrateSettings` 迁移）              |
+| `server_exe`              | string                        | llama-server 可执行文件路径（由 `llama_dir` 内联检测自动填充，见末两条）                |
+| `llama_dir`               | string                        | llama.cpp 引擎目录（用户选择的包含 llama-server 的目录）                         |
+| `models_dir`              | string                        | 模型存储目录                                                           |
+| `selected_model`          | string                        | 当前选中的模型路径                                                        |
+| `last_preset`             | string                        | 上次加载的预设名                                                         |
+| `window_geometry`         | string                        | 窗口位置和大小（`x,y,width,height`）                                      |
+| `window_maximized`        | boolean                       | 窗口最大化状态记录（应用启动固定最大化；字段仍保存以兼容旧数据 / 未来可恢复「记住还原」）                    |
+| `theme_mode`              | 'dark' \| 'light' \| 'system' | 主题模式（`system` 跟随系统 `prefers-color-scheme`）                       |
+| `close_behavior`          | 'ask' \| 'exit' \| 'tray'     | 关闭窗口时：询问 / 直接退出 / 最小化到托盘                                             |
+| `sidebar_collapsed`       | boolean                       | 侧边栏是否折叠                                                          |
+| `language`                | 'zh' \| 'en'                  | 界面语言                                                             |
+| `last_tab`                | string                        | 上次访问的页面                                                          |
+| `download_max_concurrent` | number                        | 最大并发下载数（1–5，默认 3；边界与默认值唯一来源是 `shared/src/settings-limits.ts` 的 `DOWNLOAD_CONCURRENCY_*` + `clampDownloadConcurrency`，core 的 schema/下载器钳制与设置页下拉同源） |
+| `hf_mirror_host`          | string                        | HuggingFace 镜像源（空 = 默认 hf-mirror.com，默认站名唯一来源 `shared/src/hosts.ts`），保存时同步 `setHfMirrorHost` 驱动镜像链路 |
+| `custom_args`             | string                        | **扩展参数**：用户自定义命令行参数原文，命令预览独立文本框编辑，`buildCommand` 按 shell 词法切分后追加到实际启动命令末尾；与内置参数命令完全分离，「还原」参数不影响它 |
+| `session_values`          | object \| null                | **参数会话**（临时轨道）：当前生效参数快照，随变化节流 800ms 写入，重启恢复会话；**永不写入预设文件**；形状非法时归一化 null |
+| `session_baseline`        | object \| null                | **参数会话基线**：`{ preset_name, values }` = 会话加载的预设及应用时刻快照，null = 无预设基线；启动时与 `selected_model` + `last_preset` 共同决定还原路径 |
+
+- **写入与加载**：写入为原子替换（`.tmp` + rename）+ **CAS 合并守卫**（写入前读取磁盘值作为基线，其他窗口/实例的更新不丢，本次传入值覆盖同名，写入失败重试）；加载时逐字段归一化（`theme_mode`/`language` 枚举校验、布尔/数值钳制、`download_max_concurrent` 钳到 1–5），损坏或结构非法的文件自动备份为 `settings.json.bak` 后回退默认（不静默吞掉用户配置）。
 - **双轨参数逻辑**（2026-08-29）：**临时轨道** = `session_values`（任何参数变化自动写入，跨重启恢复，不碰预设文件）；**预设轨道** = 预设文件，只由 PresetsPanel 显式保存/覆盖写入（保存点同时刷新 `session_baseline` 并归零脏标记）。`hasChanges` = 相对基线的偏离（无基线时相对出厂默认）。
 - **预设文件**：存储在用户设置的模型目录下 `presets/` 子目录，由 `resolvePresetsDir(modelsDir)` 动态解析。每个预设一个 JSON 文件，v2 结构：`preset_version`（当前 2）、`name`、`created_at`（首次创建时间，覆盖保存保留）、`saved_at`（最近保存）、`app_version`（写入方应用版本，参数漂移审计用）、`model`（顶层元数据：关联模型文件路径，null = 纯参数集）、`values`（纯参数值——不含 model 与 legacy `_enabled` 残留，按 `PARAMS` 定义顺序稳定序列化，重复保存无 diff 噪音）。加载统一迁移到 v2 内存形状（v1 的 `values.model` 提升为顶层 `model`，无版本字段按 v1 处理，`created_at` 缺失以 `saved_at` 回填；文件在下次显式保存时才改写落盘）；形状校验（`values` 非对象回退空对象）。写入为原子替换（`.tmp` + rename）。
 - **应用生成文件全清单（清理检测覆盖范围，`trash-cleaner.ts` 双根扫描）**：

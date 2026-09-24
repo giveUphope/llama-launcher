@@ -61,7 +61,7 @@
 | `Icon` | Arco 图标适配器，维持业务图标名称映射 |
 | `ToolTip` | Arco `Tooltip` 适配器 |
 | `StatusTag` | 状态标签（状态点 + 文字，ok/warn/error/idle/loading 变体） |
-| `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签 / 当前模型 / API 地址（boxed 值盒 `a-descriptions` + 复制按钮）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ 快捷操作（打开 Web UI·管理模型） |
+| `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签 / 当前模型 / API 地址（boxed 值盒 `a-descriptions` + 复制按钮）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ **OOM 归因与缓解动作**（`status === 'error'` 且 server store 入队时标记到 `oomDetected`（扫最近 300 行）才出现，两个动作钮：「上下文减半」`onOomHalveCtx` 取当前 `-c`（为 0 时按模型训练上限折算）的一半、按 1024 粒度、下限 4096；「KV 量化」`onOomKvQuant` 同时置 `-fa on` + `cache_type_k/v = q8_0`（量化 KV 依赖 Flash Attention）；估算模型答「能开多大」，此处答「失败了怎么救」）/ 快捷操作（打开 Web UI·管理模型） |
 | `AppLogo` | 应用 Logo 统一组件（见 §7.5.7） |
 | `ModelMetaCard` | 模型元数据展示（A 类识别摘要 + B/D 类详情**常驻完整展示**，dashed 次级分隔；无收起/展开开关） |
 | `DownloadCard` | 下载功能卡片（`mode: 'library' \| 'tasks'` 双模式：URL 解析/搜索/文件选择/任务列表；推荐文件只作徽标/高亮/排序提示、**不自动勾选**，下载由用户主动勾选触发；提交下载走 `enqueueFiles`：Store 去重 + 本地同名检测 + 后端 ID 回填；URL 会话历史存 `useUrlHistory` 模块级单例，跨子标签 `v-if` 重建保留） |

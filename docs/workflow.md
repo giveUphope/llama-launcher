@@ -1,6 +1,6 @@
 # 开发工作流
 
-> 范围：开发工作流：构建、类型检查、测试、打包、文档维护。
+> 范围：开发工作流：构建、类型检查、测试、打包、文档维护与文档编写约定。
 > 索引：[README.md](../README.md) · 相关：[architecture.md](architecture.md) · [packaging.md](packaging.md)
 
 | 命令 | 说明 |
@@ -29,3 +29,18 @@ pnpm install --frozen-lockfile   # 校验 lockfile 与 package.json 同步（CI 
 **升级流程**：改 `package.json` 版本声明 → `pnpm install --no-frozen-lockfile`（刷新 lockfile）→ `pnpm lint` + `pnpm test` + `pnpm build` 全绿 → 再 `pnpm install --frozen-lockfile` 复验 → 更新 `docs/CHANGELOG.md [Unreleased]`。
 
 **当前边界（2026-09-01）**：TypeScript 钉在 `^6.0.3`——TS 7.0（Go 原生）无稳定程序化 API（7.1 提供）且 `vue-tsc` 最新版仍崩溃（`./lib/tsc` 不再导出，上游修复 vuejs/language-tools#6123 未发布）。升级到 `^7` 的触发条件：① npm 发布包含 #6123 的 `vue-tsc`，或 ② TypeScript 7.1 稳定 API 落地且 vue-tsc 适配；届时一并评估 `--no-daemon` 去留（turbo 3.0 尚未发布，该 flag 的处理以发布后官方说明为准）。
+
+---
+
+## 文档编写约定
+
+所有 `docs/` 文档遵循统一编写逻辑与格式（新增/修改文档时请保持一致），根 [README.md](../README.md) 只保留「功能一览 + 快速开始 + 使用流程 + 文档地图」四层内容，深度细节一律下沉到本目录：
+
+1. **标题**：`# 文档名`，一句概括主题。
+2. **范围说明**：标题下紧跟两行说明块——第一行 `> 范围：<覆盖内容>`，第二行 `> 索引：<README 相对链接> · 相关：<相关文档相对链接>`；说明本文覆盖范围、指回文档地图、列出相关文档（docs/ 内一律相对路径）。
+3. **章节编号**：沿用架构文档原有编号（`N.x`），跨文档引用用「文档名 §N.x」或相对链接，不重编章节号（保证链接锚点稳定）。
+4. **术语统一**：参数/预设/打包等术语与 `AGENTS.md`、`docs/params/LLAMA_SERVER_PARAMS.md` 一致。
+5. **链接**：docs/ 内部一律相对路径（`frontend.md`、`style/STYLE_TODO.md`）；代码路径用反引号（如 `packages/ui/src/styles/`）；README 与 AGENTS.md 的相对链接与锚点由 `scripts/check-docs-links.cjs` 校验（`pnpm docs:check`）。
+6. **来源**：拆分自原 CODE\_WIKI.md 的章节保持内容原样（仅调整格式），新增内容标注日期；待修复/已知问题登记到 `style/STYLE_TODO.md` 而不是散落在正文。
+7. **例外（保持自身格式）**：`docs/CHANGELOG.md`（历史版本记录，按版本分组）、`docs/params/LLAMA_SERVER_PARAMS.md`（由 `scripts/generate-params-doc.cjs` 生成，勿手改）。
+8. **表述风格**：见 [AGENTS.md](../AGENTS.md)「表述风格」一节——先说清现象再上技术细节，方案讲明「改哪里 / 为什么这里 / 怎么验证」，流程与状态机优先用 Mermaid 图示而非文字描述箭头链路。
