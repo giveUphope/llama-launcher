@@ -2,7 +2,7 @@ import type { ParamDef, ParamGroup } from '../types/index.js';
 
 export const MODEL_KEY = 'model';
 export const APP_NAME = 'llama Launcher';
-export const APP_VERSION = '0.0.42';
+export const APP_VERSION = '0.0.43';
 
 /**
  * 对外链接（唯一事实源）：「关于」面板展示与「打开发布页」按钮共用。
