@@ -74,7 +74,13 @@ vi.mock('../src/process.js', () => {
 });
 
 import { Launcher } from '../src/launcher.js';
-import type { AppSettings, ServerInfo } from '@llama-launcher/shared';
+import type { PropsFetcher } from '../src/server-props.js';
+
+/** 单测桩：绝不发真网络请求——本机 8080 上可能正跑着用户的 llama-server，
+ *  而 Launcher 就绪后默认会去 GET /props 做回读对账。 */
+const noProps: PropsFetcher = async () => ({ ok: false, json: null });
+
+import type { AppSettings, ServerInfo, ServerStatusEvent } from '@llama-launcher/shared';
 
 const baseSettings: AppSettings = {
   server_exe: process.execPath,
@@ -92,7 +98,7 @@ describe('Launcher', () => {
   let launcher: Launcher;
 
   beforeEach(() => {
-    launcher = new Launcher();
+    launcher = new Launcher({ propsFetcher: noProps });
   });
 
   afterEach(() => {
@@ -296,7 +302,7 @@ describe('Launcher - listening detection', () => {
   let launcher: Launcher;
 
   beforeEach(() => {
-    launcher = new Launcher();
+    launcher = new Launcher({ propsFetcher: noProps });
   });
 
   afterEach(() => {
@@ -351,7 +357,7 @@ describe('Launcher - exit and restart', () => {
   let launcher: Launcher;
 
   beforeEach(() => {
-    launcher = new Launcher();
+    launcher = new Launcher({ propsFetcher: noProps });
   });
 
   afterEach(() => {
@@ -438,7 +444,7 @@ describe('Launcher - 多地址 host 与引擎侧环境变量', () => {
   });
 
   async function startedWith(values: Record<string, string | number | boolean>): Promise<ServerInfo> {
-    const inst = new Launcher();
+    const inst = new Launcher({ propsFetcher: noProps });
     instances.push(inst);
     const p = new Promise<void>((r) => inst.once('command', () => r()));
     inst.start({ values: { model: 'm.gguf', ...values }, settings: baseSettings });
@@ -464,5 +470,69 @@ describe('Launcher - 多地址 host 与引擎侧环境变量', () => {
     process.env.LLAMA_ARG_TEMPERATURE = '0.5';
     const after = await startedWith({});
     expect(after.envOverrides).toContain('LLAMA_ARG_TEMPERATURE');
+  });
+});
+
+// 回读校验的接线：结果晚于 running 事件到达，靠「补发一次同状态事件」带下去。
+// 这条链路是界面唯一「已证实引擎收到了什么」的来源，值得钉死。
+describe('Launcher - 就绪后 /props 回读对账', () => {
+  const propsFixture = {
+    build_info: 'b11178-f9af9be21',
+    ui: true,
+    endpoint_slots: true,
+    endpoint_metrics: false,
+    total_slots: 4,
+    model_path: 'D:\\m.gguf',
+    model_alias: 'm',
+    default_generation_settings: { params: { seed: 4294967295, temperature: 0.8, top_k: 20, top_p: 0.95, min_p: 0.05, repeat_penalty: 1, presence_penalty: 0 } },
+  };
+
+  it('回读完成后补发同状态事件并带上不一致项', async () => {
+    const l = new Launcher({ propsFetcher: async () => ({ ok: true, json: propsFixture }) });
+    const events: ServerStatusEvent[] = [];
+    l.on('status', (e: ServerStatusEvent) => events.push(e));
+
+    l.start({ values: { model: 'D:/m.gguf', alias: 'm', temperature: 0.8, top_k: 40 }, settings: baseSettings });
+    (l['proc'] as any)._triggerOutput('llama_server: listening on http://127.0.0.1:8080');
+
+    // 首个 running 事件不带结果：回读是异步的，不阻塞状态迁移
+    expect(events.map((e) => e.status)).toEqual(['starting', 'running']);
+    expect(events[1].propsCheck).toBeNull();
+
+    await vi.waitFor(() => expect(events.length).toBe(3));
+    const last = events[2];
+    expect(last.status).toBe('running'); // 同状态补发，不是新状态
+    expect(last.propsCheck?.buildInfo).toBe('b11178-f9af9be21');
+    // 我们以为 top_k=40（等于引擎缺省基线所以没发射），引擎实际按 20 跑 → 必须现形
+    expect(last.propsCheck?.mismatched.map((m) => m.param)).toEqual(['top_k']);
+    expect(last.propsCheck?.checked).toContain('temperature');
+    expect(l.getStatus().propsCheck?.mismatched.length).toBe(1);
+    l.stop();
+  });
+
+  it('取不到 /props 只标 unreachable，不产生任何不一致', async () => {
+    const l = new Launcher({ propsFetcher: async () => ({ ok: false, json: null }) });
+    const events: ServerStatusEvent[] = [];
+    l.on('status', (e: ServerStatusEvent) => events.push(e));
+    l.start({ values: { model: 'D:/m.gguf' }, settings: baseSettings });
+    (l['proc'] as any)._triggerOutput('llama server is listening');
+    await vi.waitFor(() => expect(events.length).toBe(3));
+    const check = events[2].propsCheck;
+    expect(check?.error).toBe('unreachable');
+    expect(check?.mismatched).toEqual([]);
+    l.stop();
+  });
+
+  it('纯 UNIX socket 配置不发回读请求（没有 TCP URL 可请求）', async () => {
+    let calls = 0;
+    const l = new Launcher({
+      propsFetcher: async () => { calls++; return { ok: true, json: propsFixture }; },
+    });
+    l.start({ values: { model: 'D:/m.gguf', host: '/tmp/llama.sock' }, settings: baseSettings });
+    (l['proc'] as any)._triggerOutput('llama server is listening');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toBe(0);
+    expect(l.getStatus().status).toBe('running');
+    l.stop();
   });
 });
