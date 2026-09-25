@@ -14,8 +14,9 @@ import type {
 
 const ENGINE_DIR = 'D:/Models/llama-bins';
 const MODELS_DIR = 'D:/Models';
-/** 体检演示作业的轮询计数（path → 已轮询次数，≥2 转 done） */
-const mockBenchCalls: Record<string, number> = {};
+/** 体检作业演示状态表与推送订阅者（与真实侧同一契约：完成走推送，不走被轮询） */
+const benchJobStates = new Map<string, unknown>();
+const benchStatusCbs: Array<(job: unknown) => void> = [];
 
 // ---- 模型目录（模型页「本地模型」列表） ----
 const DEMO_MODELS: ModelInfo[] = [
@@ -458,24 +459,35 @@ export function createDemoApi() {
         }
         return Promise.resolve(out);
       },
-      // llama-bench 体检演示：首次轮询 running，第二次 done（模拟 2.5s 后出结果）
+      // llama-bench 体检演示：与真实侧同一契约——run 只回 running，
+      // 完成由**推送**送达（真实侧在主进程 Promise 回调里 send，这里用定时器模拟那次推送）。
+      // 此前靠"被第二次轮询时才变 done"演出进度，改成推送后若不同步改这里，徽章会永远停在体检中。
       benchLlamaRun: (modelPath: string) => {
-        mockBenchCalls[modelPath] = 0;
+        benchJobStates.set(modelPath, { modelPath, state: 'running' } as never);
+        setTimeout(() => {
+          const done = {
+            modelPath,
+            state: 'done',
+            summary: {
+              modelPath, ppTokS: 867.99, tgTokS: 167.66, ngl: 99,
+              backend: 'Vulkan', modelType: 'qwen3 32B.A3B Q4_K_M（演示数据）',
+              testedAt: new Date().toISOString(),
+            },
+          } as never;
+          benchJobStates.set(modelPath, done);
+          for (const cb of benchStatusCbs) { try { cb(done); } catch { /* 忽略 */ } }
+        }, 1400);
         return Promise.resolve({ ok: true, data: { modelPath, state: 'running' } as never });
       },
-      benchLlamaStatus: (modelPath: string) => {
-        const calls = (mockBenchCalls[modelPath] ?? 0) + 1;
-        mockBenchCalls[modelPath] = calls;
-        if (calls < 2) return Promise.resolve({ modelPath, state: 'running' } as never);
-        return Promise.resolve({
-          modelPath,
-          state: 'done',
-          summary: {
-            modelPath, ppTokS: 867.99, tgTokS: 167.66, ngl: 99,
-            backend: 'Vulkan', modelType: 'qwen3 32B.A3B Q4_K_M（演示数据）',
-            testedAt: new Date().toISOString(),
-          },
-        } as never);
+      // 页签激活时的补状态用（真实侧同名通道保留此职责）：直接回当前态
+      benchLlamaStatus: (modelPath: string) =>
+        Promise.resolve(benchJobStates.get(modelPath) ?? null),
+      onBenchStatus: (cb: (job: unknown) => void) => {
+        benchStatusCbs.push(cb);
+        return () => {
+          const i = benchStatusCbs.indexOf(cb);
+          if (i >= 0) benchStatusCbs.splice(i, 1);
+        };
       },
     },
     download: {

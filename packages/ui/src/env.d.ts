@@ -81,6 +81,7 @@ export interface ElectronAPI {
     estimateVram: (modelPath: string, dtype?: string, target?: string, occ?: Partial<OccupancyConfig>) => Promise<VramEstimateResult>;
     benchLlamaRun: (modelPath: string) => Promise<IpcResponse<LlamaBenchJobState>>;
     benchLlamaStatus: (modelPath: string) => Promise<LlamaBenchJobState | null>;
+    onBenchStatus: (cb: (job: LlamaBenchJobState) => void) => () => void;
     estimateModelFit: (paths: string[], dtype?: string) => Promise<Record<string, ModelFitResult>>;
   };
   download: {

@@ -1,5 +1,5 @@
 // IPC 域：系统（端口/文件/引擎检测、回收站、文件系统只读列举、剪贴板、外链/打开目录）。
-import { clipboard, shell, type IpcMain } from 'electron';
+import { BrowserWindow, clipboard, shell, type IpcMain } from 'electron';
 import { existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { readdir as fsReaddir, stat as fsStat } from 'node:fs/promises';
 import { createServer } from 'node:net';
@@ -386,16 +386,25 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
 
     const job: LlamaBenchJobState = { modelPath, state: 'running' };
     benchJobs.set(modelPath, job);
+    // 状态迁移即推送（渲染层不再 2.5s 轮询 status）：作业完成发生在主进程的
+    // Promise 回调里，这里推一次，比让界面反复来问同一个已知事实更准也更省。
+    const publish = () => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send(IPC.SYSTEM_BENCH_ON_STATUS, job);
+      }
+    };
     runLlamaBench({ exePath: join(exeDir, exeName), modelPath })
       .then((summary) => {
         job.state = 'done';
         job.summary = summary;
         benchResults.set(modelPath, job);
+        publish();
       })
       .catch((err: Error) => {
         job.state = 'error';
         job.error = err.message;
         benchResults.set(modelPath, job);
+        publish();
       });
     // 显式重跑：返回新作业（running），完成后覆盖旧结果
     return { ok: true as const, data: job };

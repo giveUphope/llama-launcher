@@ -202,18 +202,19 @@ function unsubscribeModelsChanged() {
 
 onActivated(() => {
   subscribeModelsChanged();
-  // 有在跑的体检作业才恢复轮询（离开页面期间作业仍在主进程继续，回来即补状态）
-  if (polling.size && !pollTimer) pollTimer = setInterval(pollBench, 2500);
+  subscribeBench();
+  // 失活期间的迁移不会补发，回来时对在跑的作业补一次状态
+  void resyncBench();
 });
 
 onDeactivated(() => {
   unsubscribeModelsChanged();
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  unsubscribeBench();
 });
 
 onUnmounted(() => {
   unsubscribeModelsChanged();
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  unsubscribeBench();
 });
 
 async function onRefresh() {
@@ -323,31 +324,41 @@ function fitTitle(m: ModelInfo): string {
   return '';
 }
 
-// ---- llama-bench 离线体检：单模型单作业，run 启动 + 2.5s 轮询状态，结果徽章展示 ----
+// ---- llama-bench 离线体检：单模型单作业，run 启动 + 主进程推送状态，结果徽章展示 ----
 const benchJobs = ref<Record<string, LlamaBenchJobState>>({});
-const polling = new Set<string>();
-let pollTimer: ReturnType<typeof setInterval> | null = null;
+/** 仍在跑的作业：页签失活期间收不到推送，回来时按这张表补一次状态 */
+const benchInFlight = new Set<string>();
+let unsubBench: (() => void) | null = null;
 
-function startPolling(path: string) {
-  polling.add(path);
-  if (!pollTimer) pollTimer = setInterval(pollBench, 2500);
+/** 就地写单个 key：整体替换 benchJobs 会让每一行的 benchBadge 依赖全部失效，表格被整表重渲染 */
+function applyBenchState(st: LlamaBenchJobState | null) {
+  if (!st) return;
+  benchJobs.value[st.modelPath] = st;
+  if (st.state !== 'running') benchInFlight.delete(st.modelPath);
 }
 
-async function pollBench() {
-  for (const p of polling) {
-    try {
-      const st = await window.api.system.benchLlamaStatus(p);
-      // 就地写单个 key：整体替换 benchJobs 会让每一行的 benchBadge 依赖全部失效，
-      // 表格（数百行 × 每行多枚徽章）在轮询期间被整表重渲染
-      if (st) benchJobs.value[p] = st;
-      if (st && st.state !== 'running') polling.delete(p);
-    } catch {
-      polling.delete(p);
-    }
+function subscribeBench() {
+  if (unsubBench) return;
+  try {
+    unsubBench = window.api.system.onBenchStatus(applyBenchState);
+  } catch {
+    // 浏览器预览环境无 preload：没有推送，也没有真作业在跑
   }
-  if (polling.size === 0 && pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
+}
+function unsubscribeBench() {
+  if (unsubBench) { unsubBench(); unsubBench = null; }
+}
+
+/** 失活期间的状态迁移不会补发，回来时对在跑的作业补一次；之后完全靠推送驱动 */
+async function resyncBench() {
+  // 先取快照再遍历：applyBenchState 会在回调里从 benchInFlight 删除元素，
+  // 边遍历边删会漏掉后续项（oxlint 的 no-useless-spread 只看形状，这里不是多余转换）
+  for (const p of Array.from(benchInFlight)) {
+    try {
+      applyBenchState(await window.api.system.benchLlamaStatus(p));
+    } catch {
+      benchInFlight.delete(p);
+    }
   }
 }
 
@@ -362,7 +373,7 @@ async function onBench(m: ModelInfo) {
     const res = await window.api.system.benchLlamaRun(m.path);
     if (res.ok) {
       benchJobs.value = { ...benchJobs.value, [m.path]: res.data };
-      if (res.data.state === 'running') startPolling(m.path);
+      if (res.data.state === 'running') benchInFlight.add(m.path);
     } else {
       server.pushOutput({ kind: 'error', data: `[Bench] ${res.error}\n`, ts: Date.now() });
     }

@@ -45,9 +45,12 @@ export const IPC = {
   SYSTEM_FIND_FREE_PORT: 'system:findFreePort',
   // 显存探测 + 上下文容量估算：主进程 spawn `llama-server --list-devices` + GGUF 元数据 KV 内存模型
   SYSTEM_ESTIMATE_VRAM: 'system:estimateVram',
-  // llama-bench 离线体检：对未启动服务的模型文件测 pp512/tg128（run 启动作业，status 轮询状态）
+  // llama-bench 离线体检：对未启动服务的模型文件测 pp512/tg128（run 启动作业，status 取状态）
   SYSTEM_BENCH_LLAMA_RUN: 'system:benchLlamaRun',
   SYSTEM_BENCH_LLAMA_STATUS: 'system:benchLlamaStatus',
+  // 作业状态迁移由主进程**推送**（取代渲染层每 2.5s 轮询 status）：状态本来就变更在
+  // 主进程的 Promise 回调里，渲染层去问只是把已知事件变成定时提问
+  SYSTEM_BENCH_ON_STATUS: 'system:benchOnStatus',
   // 模型列表批量显存适配判定（fit/partial/no 徽章）
   SYSTEM_ESTIMATE_MODEL_FIT: 'system:estimateModelFit',
   FS_LIST_DIR: 'fs:listDir',

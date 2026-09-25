@@ -13,6 +13,7 @@ let downloadProgressListeners = [];
 let downloadCompleteListeners = [];
 let downloadErrorListeners = [];
 let appLogListeners = [];
+let benchStatusListeners = [];
 
 ipcRenderer.on(IPC.SERVER_OUTPUT_BATCH, (_e, entries) => {
   outputListeners.forEach(cb => { try { cb(entries); } catch {} });
@@ -36,6 +37,11 @@ ipcRenderer.on(IPC.DOWNLOAD_ERROR, (_e, payload) => {
 // 应用日志推送（日志页：应用生命周期/操作记录）
 ipcRenderer.on(IPC.LOGS_ONLOG, (_e, entry) => {
   appLogListeners.forEach(cb => { try { cb(entry); } catch {} });
+});
+
+// llama-bench 作业状态迁移推送（模型页体检徽章：取代渲染层 2.5s 轮询）
+ipcRenderer.on(IPC.SYSTEM_BENCH_ON_STATUS, (_e, job) => {
+  benchStatusListeners.forEach(cb => { try { cb(job); } catch {} });
 });
 
 let windowMaximizedListeners = [];
@@ -144,6 +150,12 @@ const api = {
     estimateVram: (modelPath, dtype, target, occ) => invoke(IPC.SYSTEM_ESTIMATE_VRAM, modelPath, dtype, target, occ),
     benchLlamaRun: (modelPath) => invoke(IPC.SYSTEM_BENCH_LLAMA_RUN, modelPath),
     benchLlamaStatus: (modelPath) => invoke(IPC.SYSTEM_BENCH_LLAMA_STATUS, modelPath),
+    onBenchStatus: (cb) => {
+      benchStatusListeners.push(cb);
+      return () => {
+        benchStatusListeners = benchStatusListeners.filter(l => l !== cb);
+      };
+    },
     estimateModelFit: (paths, dtype) => invoke(IPC.SYSTEM_ESTIMATE_MODEL_FIT, paths, dtype),
     fileExists: (path) => invoke(IPC.SYSTEM_FILE_EXISTS, path),
     findLlamaExe: (dir) => invoke(IPC.SYSTEM_FIND_LLAMA_EXE, dir),

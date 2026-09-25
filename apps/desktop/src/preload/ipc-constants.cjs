@@ -46,6 +46,7 @@ const IPC = {
   SYSTEM_ESTIMATE_VRAM: 'system:estimateVram',
   SYSTEM_BENCH_LLAMA_RUN: 'system:benchLlamaRun',
   SYSTEM_BENCH_LLAMA_STATUS: 'system:benchLlamaStatus',
+  SYSTEM_BENCH_ON_STATUS: 'system:benchOnStatus',
   SYSTEM_ESTIMATE_MODEL_FIT: 'system:estimateModelFit',
   FS_LIST_DIR: 'fs:listDir',
   FS_MKDIR: 'fs:mkdir',
