@@ -149,6 +149,17 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 - 后缀常量：`DOWNLOAD_LOG_SUFFIX='.llama_dl.jsonl'`、`LEGACY_META_SUFFIX='.llama_dl.json'`（trash-cleaner 也按此识别下载残留）。
 - **终态的 `errorType` 在恢复时归一化**：done 记录的 `errorType` 必须落在 `DOWNLOAD_ERROR_TYPES`（`shared` 的运行时成员表，联合类型由它派生）内才采信，脏值一律丢弃；旧日志（该字段加入前写的）只有 `error` 原文，`status==='error'` 时用 `classifyError(errorText)` 补分类——否则渲染端 `errorDisplay` 会退回显示未翻译的英文原文（`DownloadCard` 的 raw 回退分支）。
 
+### 4.11 引擎回读对账 (server-props.ts)
+
+- **作用**：服务进入 `running` 后向 `http://<displayHost>:<port>/props` 发一次 GET，把引擎**实际生效值**与启动器发出的值逐项对账；结果 `PropsCheck` 由 `Launcher.runPropsCheck` 以**补发一次同状态事件**的方式下发（回读是异步的，不阻塞状态迁移）。
+- **映射表与比对规则都在 shared**（`params/props-mapping.ts` 的 `PROPS_FIELD_MAP` 与纯函数 `checkEngineProps`）：渲染层只拿数据出文案，符合「数据层不产文案」。
+- **覆盖面**：映射 13 项（model / alias / temperature / top_k / top_p / min_p / repeat_penalty / presence_penalty / seed / ui / slots_endpoint / metrics / parallel），真机 b11178 实测一次启动 **12 项校验 + 1 项跳过 + 0 项不一致**。**其余约 47 项引擎根本不回读**，所以界面只在真的不一致时出声，绝不暗示"全部核对过"。
+- **三处归一不做就天天假报**（都是真机抓到的形状）：float32 噪声（发 `0.95` 回读 `0.949999988079071`，容差 `PROPS_NUM_TOL = 1e-4`）；seed 的 uint32 环绕（发 `-1` 回读 `4294967295`）；Windows 路径分隔符与大小写（回读带双反斜杠，走 `normPath`）。
+- **`onlyWhenSent` 项**（model / alias / parallel）：我们没发值时引擎会自行派生（别名取文件名、`-np -1` 自算槽数），此时比对必假报，一律计为 skip。
+- **取数失败不等于不一致**：`error='unreachable' | 'bad_payload'` 且 `mismatched` 保持空——一次偶发网络失败不该让界面谎报"参数没生效"，那正是本项目一直在消灭的那类问题。
+- **不需要为此开 `--props`**：该 flag 只控制 POST /props 改全局属性，`GET /props` 默认可读（实测 `endpoint_props=false` 时仍返回完整 JSON）。
+- **单测必须注入 `propsFetcher`**：默认实现走全局 fetch，不注入就会真去请求本机 8080 上用户正在跑的实例（`launcher.test.ts` 四处已全部换成桩）。
+
 ### 4.12 进程清理日志 (cleanup-logger.ts)
 
 进程清理专用日志器：统一 `[cleanup:level]` 前缀 + 时间戳，四级（debug/info/warn/error），供 process-registry 的窗口关闭清理链路记录每一步 terminate / sweep 结果；`setCleanupLogLevel` 可调最低输出级别（开发可设 debug）。不引入外部依赖，仅封装 console。注意与 **`apps/desktop/src/main/app-log.ts`** 的区别：后者是**应用日志缓冲**（环形 2000 条 + `logs:*` IPC 推送到「日志」页），记录应用生命周期事件，不是进程清理调试日志。
@@ -176,6 +187,7 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | `presets-store.ts`      | `listPresets`/`loadPreset`/`savePreset`/`deletePreset`/`deletePresetsForModel`                                                                                  | 预设 CRUD（v2，§4.8）                      |
 | `models-scanner.ts`     | `scanModels` / `detectMmproj` / `detectDraftModel` / `removeModelFile` / `invalidateScanCache` / `ensureDir`                                                    | .gguf 递归扫描 + 伴随检测 + 移除（§4.4）          |
 | `command-builder.ts`    | `buildCommand` / `previewCommand`（argv 本体在 `shared/params/command.ts`）                                                                                                              | 启动命令构建的执行侧包装（§4.3）              |
+| `server-props.ts`       | `verifyEngineProps` / `defaultPropsFetcher` / `PropsFetcher`                                                                                                                              | 就绪后 `GET /props` 回读，与发出的值对账（§4.11）  |
 | `process.ts`            | `LlamaServerProcess` / `killProcessTree` / `SimpleProcessInfo` / `findDevSessionRoot` / `pickTurboDevRoot`                                                      | 子进程封装 + 两阶段终止（§4.1）                   |
 | `launcher.ts`           | `Launcher`（`start`/`stop`/`restart`/`getStatus`）                                                                                                                | 启动编排状态机（§4.2）                         |
 | `gguf-meta.ts`          | `readGgufMetadata` / `estimateModelParams` / `estimateQuantFromSize` / `nameContainsLabel` / `clearGgufCache`                                                   | GGUF 流式读取 + 建议推导（§4.5）                |

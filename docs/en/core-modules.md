@@ -149,6 +149,17 @@ The **JSONL source of truth** for download resume (the counterpart of DSH's appe
 - Suffix constants: `DOWNLOAD_LOG_SUFFIX='.llama_dl.jsonl'`, `LEGACY_META_SUFFIX='.llama_dl.json'` (trash-cleaner identifies download leftovers by these same constants).
 - **The terminal `errorType` is normalized on recovery**: a done record's `errorType` is only trusted when it falls inside `DOWNLOAD_ERROR_TYPES` (the runtime membership table in `shared`, from which the union type is derived); dirty values are discarded outright. Old logs (written before the field existed) only carry the raw `error` text, so when `status==='error'` the classification is backfilled with `classifyError(errorText)` — otherwise the renderer's `errorDisplay` would fall back to showing untranslated English text (the raw fallback branch in `DownloadCard`).
 
+### 4.11 Engine read-back reconciliation (server-props.ts)
+
+- **What it does**: once the service reaches `running`, one GET goes to `http://<displayHost>:<port>/props` and every readable engine value is reconciled against what the launcher sent; `Launcher.runPropsCheck` delivers the `PropsCheck` result by **re-emitting the same status event** (the read-back is async and never blocks the state transition).
+- **The map and the comparison live in shared** (`PROPS_FIELD_MAP` and the pure `checkEngineProps` in `params/props-mapping.ts`): the renderer only turns data into wording, per "the data layer produces no copy".
+- **Coverage**: 13 mapped parameters (model / alias / temperature / top_k / top_p / min_p / repeat_penalty / presence_penalty / seed / ui / slots_endpoint / metrics / parallel); one real launch on b11178 measured **12 checked + 1 skipped + 0 mismatched**. The other ~47 parameters are simply not reported by the engine, so the UI only speaks up on a real mismatch and never implies everything was verified.
+- **Three normalizations, or it cries wolf every time** (all shapes captured from a live engine): float32 noise (we send `0.95`, read back `0.949999988079071`, tolerance `PROPS_NUM_TOL = 1e-4`); the uint32 wrap of seed (we send `-1`, read back `4294967295`); Windows path separators and case (the reply contains double backslashes, handled by `normPath`).
+- **`onlyWhenSent` entries** (model / alias / parallel): when we send nothing the engine derives its own values (alias from the file name, `-np -1` resolves the slot count), so comparing then would always false-report — they are counted as skipped.
+- **A failed read-back is not a mismatch**: `error='unreachable' | 'bad_payload'` with `mismatched` left empty — a transient network failure must never let the UI claim "your parameter did not take effect", which is exactly the class of bug this project keeps eradicating.
+- **No need to enable `--props` for this**: that flag only governs POST /props global-property mutation; `GET /props` is readable by default (measured: full JSON while `endpoint_props=false`).
+- **Unit tests must inject `propsFetcher`**: the default implementation uses the global fetch, so without a stub the tests would really request the user's own llama-server on local port 8080 (all four sites in `launcher.test.ts` now inject one).
+
 ### 4.12 Process cleanup logger (cleanup-logger.ts)
 
 A logger dedicated to process cleanup: a uniform `[cleanup:level]` prefix + timestamp, four levels (debug/info/warn/error), used to record the outcome of every terminate / sweep step along the window-close cleanup chain of process-registry; `setCleanupLogLevel` adjusts the minimum output level (debug is fine during development). No external dependency, it only wraps console. Note the difference from **`apps/desktop/src/main/app-log.ts`**: the latter is the **application log buffer** (ring buffer of 2000 entries + `logs:*` IPC pushing to the "Logs" page), recording application lifecycle events, not process-cleanup debug logs.
@@ -176,6 +187,7 @@ A quick-reference table of the main exports across packages (details live in eac
 | `presets-store.ts`      | `listPresets`/`loadPreset`/`savePreset`/`deletePreset`/`deletePresetsForModel` | Preset CRUD (v2, §4.8) |
 | `models-scanner.ts`     | `scanModels` / `detectMmproj` / `detectDraftModel` / `removeModelFile` / `invalidateScanCache` / `ensureDir` | Recursive .gguf scanning + companion detection + removal (§4.4) |
 | `command-builder.ts`    | `buildCommand` / `previewCommand` (the argv body lives in `shared/params/command.ts`) | Executor-side wrapper for launch command building (§4.3) |
+| `server-props.ts`       | `verifyEngineProps` / `defaultPropsFetcher` / `PropsFetcher` | Post-readiness `GET /props` read-back reconciled against what we sent (§4.11) |
 | `process.ts`            | `LlamaServerProcess` / `killProcessTree` / `SimpleProcessInfo` / `findDevSessionRoot` / `pickTurboDevRoot` | Child-process wrapper + two-phase termination (§4.1) |
 | `launcher.ts`           | `Launcher` (`start`/`stop`/`restart`/`getStatus`) | Launch orchestration state machine (§4.2) |
 | `gguf-meta.ts`          | `readGgufMetadata` / `estimateModelParams` / `estimateQuantFromSize` / `nameContainsLabel` / `clearGgufCache` | GGUF streaming read + suggestion derivation (§4.5) |

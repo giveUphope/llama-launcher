@@ -54,6 +54,7 @@ llama_launcher/
 │   │       ├── presets-store.ts       # 预设读写（动态目录参数，v2 结构）
 │   │       ├── models-scanner.ts      # .gguf 递归扫描 + mmproj/draft 检测 + 移除
 │   │       ├── command-builder.ts     # 启动命令构建的执行侧包装（exe 存在性校验；发射规则在 shared/params/command.ts）
+│   │       ├── server-props.ts        # 就绪后 GET /props 回读，与发出的参数对账（取数实现可注入，单测不碰真网络）
 │   │       ├── process.ts             # 子进程封装（LlamaServerProcess，两阶段终止）
 │   │       ├── launcher.ts            # 启动编排状态机（stopped→starting→running）
 │   │       ├── gguf-meta.ts           # GGUF 元数据流式读取（64KB 块 + LRU）
@@ -76,6 +77,7 @@ llama_launcher/
 │   │       ├── params/definitions.ts # 参数表（3 组 / 60 个参数）
 │   │       ├── params/engine-baseline.ts # 引擎缺省基线（engineDefault / sentinel / note，对拍 help）
 │   │       ├── params/command.ts    # 参数表 → argv 的唯一发射实现（buildArgv，展示方与执行方共用）
+│   │       ├── params/props-mapping.ts # /props 回读对账：参数 ↔ 引擎字段映射与比对规则（纯函数）
 │   │       ├── i18n/              # 中英文案（zh/en/labels）
 │   │       ├── model-name.ts      # 模型显示名/别名派生（modelBaseName）
 │   │       ├── model-relevance.ts # 文件分类 + 量化标签解析（categorizeFile/parseQuantization）

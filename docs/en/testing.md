@@ -6,7 +6,7 @@
 
 - **Framework**: Vitest 4 (`pnpm test` runs both the core and the ui package through turbo)
 
-- **Scale**: core 26 test files / **381** cases + ui **8** test files / **79** cases (`pnpm test` runs both packages through turbo)
+- **Scale**: core 27 test files / **394** cases + ui **8** test files / **79** cases (`pnpm test` runs both packages through turbo)
 
 - **Covered modules**:
 
@@ -38,6 +38,7 @@
 | `retry.test.ts`                       | Unified retryability decision and backoff                                           |
 | `format.test.ts`                      | All boundaries of shared `formatBytes`/`formatDuration` (0/NaN/Infinity, the 1023/1024 switch point, tiers, whole-unit folding) |
 | `host-env.test.ts`                    | shared `hostList`/`tcpHosts`/`displayHost` (multiple addresses and `.sock`) + `detectLlamaEnvOverrides` (`LLAMA_ARG_*` detection) |
+| `props-check.test.ts`                 | `/props` read-back reconciliation: zero false alarms on a real b11178 snapshot, the float32 / uint32-seed / path normalizations, `onlyWhenSent` skips, and a failed read-back reported as unreachable rather than a mismatch |
 
 ### ui package (inline tests under `src/`)
 

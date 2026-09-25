@@ -54,6 +54,7 @@ llama_launcher/
 │   │       ├── presets-store.ts       # Presets read/write (dynamic directory argument, v2 structure)
 │   │       ├── models-scanner.ts      # Recursive .gguf scan + mmproj/draft detection + removal
 │   │       ├── command-builder.ts     # Executor-side wrapper for the startup command (exe existence check; the emission rule lives in shared/params/command.ts)
+│   │       ├── server-props.ts        # Post-readiness GET /props read-back, reconciled against what we sent (injectable transport so tests never touch the network)
 │   │       ├── process.ts             # Child-process wrapper (LlamaServerProcess, two-phase termination)
 │   │       ├── launcher.ts            # Startup orchestration state machine (stopped→starting→running)
 │   │       ├── gguf-meta.ts           # Streaming GGUF metadata reader (64KB blocks + LRU)
@@ -76,6 +77,7 @@ llama_launcher/
 │   │       ├── params/definitions.ts # Param table (3 groups / 60 params)
 │   │       ├── params/engine-baseline.ts # Engine-default baseline (engineDefault / sentinel / note, cross-checked against help)
 │   │       ├── params/command.ts    # The one param-table → argv emitter (buildArgv, shared by presenter and executor)
+│   │       ├── params/props-mapping.ts # /props read-back reconciliation: param ↔ engine-field map and comparison rules (pure)
 │   │       ├── i18n/              # Chinese/English copy (zh/en/labels)
 │   │       ├── model-name.ts      # Model display name / alias derivation (modelBaseName)
 │   │       ├── model-relevance.ts # File categorization + quantization label parsing (categorizeFile/parseQuantization)
