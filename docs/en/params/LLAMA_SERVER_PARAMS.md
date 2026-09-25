@@ -226,10 +226,10 @@ Parameter definitions live in [packages/shared/src/params/definitions.ts](../../
 | `--port` | port to listen (default: 8080) (env: LLAMA_ARG_PORT) | ✅ supported |
 | `--reuse-port` | allow multiple sockets to bind to the same port (default: disabled) (env: LLAMA_ARG_REUSE_PORT) | ⬜ not supported |
 | `--path` | path to serve static files from (default: ) (env: LLAMA_ARG_STATIC_PATH) | ⬜ not supported |
-| `--cors-origins` | comma-separated list of allowed origins for CORS (default: *) if set to special value 'localhost', reflect the Origin header only if it is localhost (env: LLAMA_ARG_CORS_ORIGINS) | ⬜ not supported |
-| `--cors-methods` | comma-separated list of allowed methods for CORS (default: GET, POST, DELETE, OPTIONS) (env: LLAMA_ARG_CORS_METHODS) | ⬜ not supported |
-| `--cors-headers` | comma-separated list of allowed headers for CORS (default: *) (env: LLAMA_ARG_CORS_HEADERS) | ⬜ not supported |
-| `--cors-credentials`, `--no-cors-credentials` | whether to allow credentials for CORS (default: enabled) note: if this is enabled and --cors-origins is set to * (default), the Origin header will be echoed back, and credentials will always be allowed (env: LLAMA_ARG_CORS_CREDENTIALS) | ⬜ not supported |
+| `--cors-origins` | comma-separated list of allowed origins for CORS (default: *) if set to special value 'localhost', reflect the Origin header only if it is localhost (env: LLAMA_ARG_CORS_ORIGINS) | ✅ supported |
+| `--cors-methods` | comma-separated list of allowed methods for CORS (default: GET, POST, DELETE, OPTIONS) (env: LLAMA_ARG_CORS_METHODS) | ✅ supported |
+| `--cors-headers` | comma-separated list of allowed headers for CORS (default: *) (env: LLAMA_ARG_CORS_HEADERS) | ✅ supported |
+| `--cors-credentials`, `--no-cors-credentials` | whether to allow credentials for CORS (default: enabled) note: if this is enabled and --cors-origins is set to * (default), the Origin header will be echoed back, and credentials will always be allowed (env: LLAMA_ARG_CORS_CREDENTIALS) | ✅ supported |
 | `--api-prefix` | prefix path the server serves from, without the trailing slash (default: ) (env: LLAMA_ARG_API_PREFIX) | ⬜ not supported |
 | `--ui-config`, `--webui-config` | JSON that provides default UI settings (overrides UI defaults) (env: LLAMA_ARG_UI_CONFIG) | ⬜ not supported |
 | `--ui-config-file`, `--webui-config-file` | JSON file that provides default UI settings (overrides UI defaults) (env: LLAMA_ARG_UI_CONFIG_FILE) | ⬜ not supported |
@@ -291,5 +291,5 @@ Parameter definitions live in [packages/shared/src/params/definitions.ts](../../
 ## Summary
 
 - Flags in official help: 259
-- Supported: 60
-- Not supported: 199
+- Supported: 64
+- Not supported: 195

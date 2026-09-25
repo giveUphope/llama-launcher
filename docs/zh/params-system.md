@@ -7,10 +7,10 @@
 ### 5.1 参数定义 (shared/params/definitions.ts)
 
 - **`PARAM_GROUPS`**：3 组 — `basic`（基础）/ `advanced`（高级）/ `server`（服务）。
-- **`PARAMS`**：共 60 个参数，分布如下：
+- **`PARAMS`**：共 64 个参数，分布如下：
   - basic：22 个（15 核心 + 7 采样）
   - advanced：28 个（5 思考控制 + 9 推测解码（其中 **4 个** `dependsOn.values` 依赖外部草稿类型 draft-simple/eagle3/dflash/dspark，另 2 个 `spec_draft_n_max`/`spec_draft_n_min` 用 `notValues: ['', 'none']` 即任何非空类型都生效）+ 6 多模态 + 6 KV 扩展 + 2 模板）
-  - server：10 个
+  - server：14 个（2 服务标识与鉴权 + 4 端点 + 4 CORS + 4 运行行为）
 - 每个参数定义包含：`key, group, type, flag, default, subcategory, dependsOn, ggufField, invert_flag` 等字段。
 - **两套「默认值」必须分开**（`params/engine-baseline.ts`，2026-09-25 拆）：`ParamDef.default` 是**界面初值**（里面装着启动器的基线推荐，如 `-ctk q8_0`、`--load-mode none`、`--fit off`）；发射判定的基准是另一个概念 **`engineDefault` = `llama-server` 没收到该 flag 时的行为**，逐条取自 help 基线。二者混用的后果是推荐值刚好等于 `default` 就永远不进命令行——引擎按自己的缺省跑，界面却显示着推荐档位。表内另有 `sentinel`（显式声明「此值 = 不指定，永不发射」，如 `chat_template` 的 `none`）与 `note`（`default ≠ engineDefault` 时必填，说明为什么覆盖引擎缺省）。**键集与 `PARAMS` 双向相等、`engineDefault` 与 help 对拍均由 `verify-params-sync.cjs` 硬拦。**
 - **8 种控件类型**：`text` / `int_slider` / `int_entry` / `float_slider` / `dropdown` / `checkbox` / `file` / `dir`。
@@ -21,7 +21,7 @@
 
 参数**没有独立启用/禁用状态**——命令行发射规则是「**值 ≠ 引擎缺省（`engineDefault`）才发射**，且不属于该参数的 `sentinel` 哨兵值」（checkbox 勾选发 `flag`、取消发 `invert_flag`，无 `invert_flag` 且 default false 的开关取消时不发射；空串跳过；依赖不满足跳过——详见 [core-modules.md](core-modules.md) §4.3）；旧版 `_enabled` JSON 启用机制已随双轨逻辑移除（`buildCommand` 读到 legacy `_enabled` 直接忽略）。
 
-- **回读校验（2026-09-26 起）**：「值等于引擎缺省就不发射」有两个界面看不见的前提——引擎默认值可能与我们登记的基线不符（跨版本漂移），以及用户环境里可能有 `LLAMA_ARG_*` 改写缺省值。因此服务就绪后 core 会 `GET /props` 把引擎**实际生效值**读回来逐项对账（映射与比对规则在 `shared/params/props-mapping.ts`，详见 [core-modules.md](core-modules.md) §4.11）：真机实测覆盖 13 项、其余约 47 项引擎不回读，故命令预览卡**只在真的不一致时出声**，不暗示"全部核对过"。
+- **回读校验（2026-09-26 起）**：「值等于引擎缺省就不发射」有两个界面看不见的前提——引擎默认值可能与我们登记的基线不符（跨版本漂移），以及用户环境里可能有 `LLAMA_ARG_*` 改写缺省值。因此服务就绪后 core 会 `GET /props` 把引擎**实际生效值**读回来逐项对账，并**每 60s 复检**（`POST /props` 能运行期改属性，只查一次会陈旧；结果变化才补发事件）；映射与比对规则在 `shared/params/props-mapping.ts`，详见 [core-modules.md](core-modules.md) §4.11：真机实测覆盖 **14 项映射 / 13 项校验 / 0 假报**，其余约 50 项引擎不回读，故命令预览卡**只在真的不一致时出声**。同一链路还捎带比对 `build_info` 与常量 `ENGINE_BASELINE_BUILD`（基线所钉引擎构建），不一致即提示"参数基线可能已过期"。
 - **临时轨道（会话）**：所有参数编辑自动持久化到 `~/.llama_launcher/settings.json` 的 `session_values` + `session_baseline`（`autoSave` watch 800ms 节流，**只写 settings、永不写预设文件**）；应用启动时经 `restoreSession` 恢复上次会话（参数值 + 基线一并还原）。
 - **预设轨道**：`<models_dir>/presets/*.json` 仅在用户显式「保存预设」时写入；应用预设（`applyPreset`）以「预设名 + 参数快照」建立新会话基线（`markBaseline`）。
 - **基线**：`SessionBaseline { preset_name, values }`——`hasChanges`（改动行 `--warn` 橙描边 / 侧栏橙点）有基线时相对基线快照逐键对比，无基线时对比出厂默认。基线不再以徽章展示（2026-09 移除，与「已调整」统计重复）；「恢复基线」（`restoreBaseline`，resetAll 后回写基线快照）与「清除会话」（`clearSession`，带确认；保留模型选择）入口保留在参数页状态条。

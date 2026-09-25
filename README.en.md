@@ -29,7 +29,7 @@ llama.cpp ships a command-line-only server: to get it running you hand-assemble 
 
 **Parameters**
 
-- **60** `llama-server` parameters grouped into 13 sections (networking / context / KV cache / sampling / speculative decoding…), baseline aligned to llama.cpp **b11178**.
+- **64** `llama-server` parameters grouped into 14 sections (incl. Security & CORS) (networking / context / KV cache / sampling / speculative decoding…), baseline aligned to llama.cpp **b11178**.
 - Sliders, dropdowns, switches and file pickers; hover a label for help text. A parameter only reaches the command line when its value differs from the default.
 - Edits are auto-saved as *session* parameters, so a restart returns to where you left off; save a *preset* only when you want it long-term.
 - Parameters declare dependencies on each other (`dependsOn`): when a prerequisite is unmet the dependent value resets and the row says why.

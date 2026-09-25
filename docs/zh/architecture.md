@@ -74,7 +74,7 @@ llama_launcher/
 │   ├── shared/                    # 共享层（类型/参数表/i18n 唯一来源）
 │   │   └── src/
 │   │       ├── types/             # 类型定义（settings/param/preset/server/gguf/download/trash/vram/ipc）
-│   │       ├── params/definitions.ts # 参数表（3 组 / 60 个参数）
+│   │       ├── params/definitions.ts # 参数表（3 组 / 64 个参数）
 │   │       ├── params/engine-baseline.ts # 引擎缺省基线（engineDefault / sentinel / note，对拍 help）
 │   │       ├── params/command.ts    # 参数表 → argv 的唯一发射实现（buildArgv，展示方与执行方共用）
 │   │       ├── params/props-mapping.ts # /props 回读对账：参数 ↔ 引擎字段映射与比对规则（纯函数）

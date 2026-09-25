@@ -226,10 +226,10 @@
 | `--port` | port to listen (default: 8080) (env: LLAMA_ARG_PORT) | ✅ 已支持 |
 | `--reuse-port` | allow multiple sockets to bind to the same port (default: disabled) (env: LLAMA_ARG_REUSE_PORT) | ⬜ 未支持 |
 | `--path` | path to serve static files from (default: ) (env: LLAMA_ARG_STATIC_PATH) | ⬜ 未支持 |
-| `--cors-origins` | comma-separated list of allowed origins for CORS (default: *) if set to special value 'localhost', reflect the Origin header only if it is localhost (env: LLAMA_ARG_CORS_ORIGINS) | ⬜ 未支持 |
-| `--cors-methods` | comma-separated list of allowed methods for CORS (default: GET, POST, DELETE, OPTIONS) (env: LLAMA_ARG_CORS_METHODS) | ⬜ 未支持 |
-| `--cors-headers` | comma-separated list of allowed headers for CORS (default: *) (env: LLAMA_ARG_CORS_HEADERS) | ⬜ 未支持 |
-| `--cors-credentials`, `--no-cors-credentials` | whether to allow credentials for CORS (default: enabled) note: if this is enabled and --cors-origins is set to * (default), the Origin header will be echoed back, and credentials will always be allowed (env: LLAMA_ARG_CORS_CREDENTIALS) | ⬜ 未支持 |
+| `--cors-origins` | comma-separated list of allowed origins for CORS (default: *) if set to special value 'localhost', reflect the Origin header only if it is localhost (env: LLAMA_ARG_CORS_ORIGINS) | ✅ 已支持 |
+| `--cors-methods` | comma-separated list of allowed methods for CORS (default: GET, POST, DELETE, OPTIONS) (env: LLAMA_ARG_CORS_METHODS) | ✅ 已支持 |
+| `--cors-headers` | comma-separated list of allowed headers for CORS (default: *) (env: LLAMA_ARG_CORS_HEADERS) | ✅ 已支持 |
+| `--cors-credentials`, `--no-cors-credentials` | whether to allow credentials for CORS (default: enabled) note: if this is enabled and --cors-origins is set to * (default), the Origin header will be echoed back, and credentials will always be allowed (env: LLAMA_ARG_CORS_CREDENTIALS) | ✅ 已支持 |
 | `--api-prefix` | prefix path the server serves from, without the trailing slash (default: ) (env: LLAMA_ARG_API_PREFIX) | ⬜ 未支持 |
 | `--ui-config`, `--webui-config` | JSON that provides default UI settings (overrides UI defaults) (env: LLAMA_ARG_UI_CONFIG) | ⬜ 未支持 |
 | `--ui-config-file`, `--webui-config-file` | JSON file that provides default UI settings (overrides UI defaults) (env: LLAMA_ARG_UI_CONFIG_FILE) | ⬜ 未支持 |
@@ -291,5 +291,5 @@
 ## 汇总
 
 - 官方参数总数：259
-- 已支持：60
-- 未支持：199
+- 已支持：64
+- 未支持：195

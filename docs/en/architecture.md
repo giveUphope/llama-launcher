@@ -74,7 +74,7 @@ llama_launcher/
 │   ├── shared/                    # Shared layer (the single source for types / the param table / i18n)
 │   │   └── src/
 │   │       ├── types/             # Type definitions (settings/param/preset/server/gguf/download/trash/vram/ipc)
-│   │       ├── params/definitions.ts # Param table (3 groups / 60 params)
+│   │       ├── params/definitions.ts # Param table (3 groups / 64 params)
 │   │       ├── params/engine-baseline.ts # Engine-default baseline (engineDefault / sentinel / note, cross-checked against help)
 │   │       ├── params/command.ts    # The one param-table → argv emitter (buildArgv, shared by presenter and executor)
 │   │       ├── params/props-mapping.ts # /props read-back reconciliation: param ↔ engine-field map and comparison rules (pure)

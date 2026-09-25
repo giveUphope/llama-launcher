@@ -6,7 +6,7 @@
 
 - **Framework**: Vitest 4 (`pnpm test` runs both the core and the ui package through turbo)
 
-- **Scale**: core 27 test files / **394** cases + ui **8** test files / **79** cases (`pnpm test` runs both packages through turbo)
+- **Scale**: core 27 test files / **399** cases + ui **8** test files / **79** cases (`pnpm test` runs both packages through turbo)
 
 - **Covered modules**:
 
@@ -16,7 +16,7 @@
 | `presets-store.test.ts`               | Preset read/write                                                                   |
 | `models-scanner.test.ts`              | Model scanning                                                                      |
 | `command-builder.test.ts`             | Command building (incl. ignoring the legacy `_enabled`)                             |
-| `command-builder-definitions.test.ts` | Command building (table-driven: generates the structural-constraint and emission cases for all 60 parameters from `definitions.ts`) |
+| `command-builder-definitions.test.ts` | Command building (table-driven: generates the structural-constraint and emission cases for all 64 parameters from `definitions.ts`) |
 | `launcher.test.ts`                    | Launch orchestration                                                                |
 | `gguf-meta.test.ts`                   | GGUF metadata reading (incl. suggested-parameter generation, attached-model guards, rope field extraction) |
 | `devices.test.ts`                     | Parsing of `--list-devices` output (per-line fault tolerance, Vulkan/CUDA line anchoring) |
