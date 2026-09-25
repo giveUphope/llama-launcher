@@ -2,7 +2,7 @@
 
 > 语言：中文 · [English](../../en/params/LLAMA_SERVER_PARAMS.md)
 > 索引：[README.md](../../../README.md) · 相关：[params-system.md](../params-system.md)
-> 来源：捆绑二进制 ".\llama-b11053-bin-win-vulkan-x64\llama-server.exe --help"
+> 来源：捆绑二进制 ".\llama-b11178-bin-win-vulkan-x64\llama-server.exe --help"
 > 用途：对照当前启动器已支持参数，识别可新增/调整项
 
 ## 当前启动器已支持参数
@@ -107,18 +107,18 @@
 | `--sampler-seq`, `--sampling-seq` | simplified sequence for samplers that will be used (default: edskypmxt) | ⬜ 未支持 |
 | `--ignore-eos` | ignore end of stream token and continue generating (implies | ⬜ 未支持 |
 | `--logit-bias` | EOS-inf) | ⬜ 未支持 |
-| `--temp`, `--temperature` | temperature (default: 0.80) | ✅ 已支持 |
+| `--temp`, `--temperature` | temperature (default: 0.80) (env: LLAMA_ARG_TEMPERATURE) | ✅ 已支持 |
 | `--top-k` | top-k sampling (default: 40, 0 = disabled) (env: LLAMA_ARG_TOP_K) | ✅ 已支持 |
-| `--top-p` | top-p sampling (default: 0.95, 1.0 = disabled) | ✅ 已支持 |
-| `--min-p` | min-p sampling (default: 0.05, 0.0 = disabled) | ✅ 已支持 |
+| `--top-p` | top-p sampling (default: 0.95, 1.0 = disabled) (env: LLAMA_ARG_TOP_P) | ✅ 已支持 |
+| `--min-p` | min-p sampling (default: 0.05, 0.0 = disabled) (env: LLAMA_ARG_MIN_P) | ✅ 已支持 |
 | `--top-nsigma`, `--top-n-sigma` | top-n-sigma sampling (default: -1.00, -1.0 = disabled) | ⬜ 未支持 |
 | `--xtc-probability` | xtc probability (default: 0.00, 0.0 = disabled) | ⬜ 未支持 |
 | `--xtc-threshold` | xtc threshold (default: 0.10, 1.0 = disabled) | ⬜ 未支持 |
 | `--typical`, `--typical-p` | locally typical sampling, parameter p (default: 1.00, 1.0 = disabled) | ⬜ 未支持 |
 | `--repeat-last-n` | last n tokens to consider for penalize (default: 64, 0 = disabled) | ⬜ 未支持 |
-| `--repeat-penalty` | penalize repeat sequence of tokens (default: 1.00, 1.0 = disabled) | ✅ 已支持 |
-| `--presence-penalty` | repeat alpha presence penalty (default: 0.00, 0.0 = disabled) | ✅ 已支持 |
-| `--frequency-penalty` | repeat alpha frequency penalty (default: 0.00, 0.0 = disabled) | ⬜ 未支持 |
+| `--repeat-penalty` | penalize repeat sequence of tokens (default: 1.00, 1.0 = disabled) (env: LLAMA_ARG_REPEAT_PENALTY) | ✅ 已支持 |
+| `--presence-penalty` | repeat alpha presence penalty (default: 0.00, 0.0 = disabled) (env: LLAMA_ARG_PRESENCE_PENALTY) | ✅ 已支持 |
+| `--frequency-penalty` | repeat alpha frequency penalty (default: 0.00, 0.0 = disabled) (env: LLAMA_ARG_FREQUENCY_PENALTY) | ⬜ 未支持 |
 | `--dry-multiplier` | set DRY sampling multiplier (default: 0.00, 0.0 = disabled) | ⬜ 未支持 |
 | `--dry-base` | set DRY sampling base value (default: 1.75) | ⬜ 未支持 |
 | `--dry-allowed-length` | set allowed length for DRY sampling (default: 2) | ⬜ 未支持 |
@@ -222,7 +222,7 @@
 | `-a`, `--alias` | set model name aliases, comma-separated (to be used by API) (env: LLAMA_ARG_ALIAS) | ✅ 已支持 |
 | `--tags` | set model tags, comma-separated (informational, not used for routing) (env: LLAMA_ARG_TAGS) | ⬜ 未支持 |
 | `--embd-normalize` | normalisation for embeddings (default: 2) (-1=none, 0=max absolute int16, 1=taxicab, 2=euclidean, >2=p-norm) | ⬜ 未支持 |
-| `--host` | ip address to listen, or bind to an UNIX socket if the address ends with .sock (default: 127.0.0.1) (env: LLAMA_ARG_HOST) | ✅ 已支持 |
+| `--host` | IP addresses to listen on, comma-separated, or UNIX socket paths ending in .sock; with multiple TCP addresses, :: binds IPv6 only; overlapping addresses result in undefined behavior (default: 127.0.0.1) (env: LLAMA_ARG_HOST) | ✅ 已支持 |
 | `--port` | port to listen (default: 8080) (env: LLAMA_ARG_PORT) | ✅ 已支持 |
 | `--reuse-port` | allow multiple sockets to bind to the same port (default: disabled) (env: LLAMA_ARG_REUSE_PORT) | ⬜ 未支持 |
 | `--path` | path to serve static files from (default: ) (env: LLAMA_ARG_STATIC_PATH) | ⬜ 未支持 |

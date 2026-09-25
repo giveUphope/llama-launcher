@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../../zh/params/LLAMA_SERVER_PARAMS.md)
 > Index: [README.en.md](../../../README.en.md) · Related: [params-system.md](../params-system.md)
-> Source: bundled binary ".\llama-b11053-bin-win-vulkan-x64\llama-server.exe --help"
+> Source: bundled binary ".\llama-b11178-bin-win-vulkan-x64\llama-server.exe --help"
 > Purpose: cross-check the parameters this launcher already supports and spot gaps
 
 ## Parameters supported today
@@ -107,18 +107,18 @@ Parameter definitions live in [packages/shared/src/params/definitions.ts](../../
 | `--sampler-seq`, `--sampling-seq` | simplified sequence for samplers that will be used (default: edskypmxt) | ⬜ not supported |
 | `--ignore-eos` | ignore end of stream token and continue generating (implies | ⬜ not supported |
 | `--logit-bias` | EOS-inf) | ⬜ not supported |
-| `--temp`, `--temperature` | temperature (default: 0.80) | ✅ supported |
+| `--temp`, `--temperature` | temperature (default: 0.80) (env: LLAMA_ARG_TEMPERATURE) | ✅ supported |
 | `--top-k` | top-k sampling (default: 40, 0 = disabled) (env: LLAMA_ARG_TOP_K) | ✅ supported |
-| `--top-p` | top-p sampling (default: 0.95, 1.0 = disabled) | ✅ supported |
-| `--min-p` | min-p sampling (default: 0.05, 0.0 = disabled) | ✅ supported |
+| `--top-p` | top-p sampling (default: 0.95, 1.0 = disabled) (env: LLAMA_ARG_TOP_P) | ✅ supported |
+| `--min-p` | min-p sampling (default: 0.05, 0.0 = disabled) (env: LLAMA_ARG_MIN_P) | ✅ supported |
 | `--top-nsigma`, `--top-n-sigma` | top-n-sigma sampling (default: -1.00, -1.0 = disabled) | ⬜ not supported |
 | `--xtc-probability` | xtc probability (default: 0.00, 0.0 = disabled) | ⬜ not supported |
 | `--xtc-threshold` | xtc threshold (default: 0.10, 1.0 = disabled) | ⬜ not supported |
 | `--typical`, `--typical-p` | locally typical sampling, parameter p (default: 1.00, 1.0 = disabled) | ⬜ not supported |
 | `--repeat-last-n` | last n tokens to consider for penalize (default: 64, 0 = disabled) | ⬜ not supported |
-| `--repeat-penalty` | penalize repeat sequence of tokens (default: 1.00, 1.0 = disabled) | ✅ supported |
-| `--presence-penalty` | repeat alpha presence penalty (default: 0.00, 0.0 = disabled) | ✅ supported |
-| `--frequency-penalty` | repeat alpha frequency penalty (default: 0.00, 0.0 = disabled) | ⬜ not supported |
+| `--repeat-penalty` | penalize repeat sequence of tokens (default: 1.00, 1.0 = disabled) (env: LLAMA_ARG_REPEAT_PENALTY) | ✅ supported |
+| `--presence-penalty` | repeat alpha presence penalty (default: 0.00, 0.0 = disabled) (env: LLAMA_ARG_PRESENCE_PENALTY) | ✅ supported |
+| `--frequency-penalty` | repeat alpha frequency penalty (default: 0.00, 0.0 = disabled) (env: LLAMA_ARG_FREQUENCY_PENALTY) | ⬜ not supported |
 | `--dry-multiplier` | set DRY sampling multiplier (default: 0.00, 0.0 = disabled) | ⬜ not supported |
 | `--dry-base` | set DRY sampling base value (default: 1.75) | ⬜ not supported |
 | `--dry-allowed-length` | set allowed length for DRY sampling (default: 2) | ⬜ not supported |
@@ -222,7 +222,7 @@ Parameter definitions live in [packages/shared/src/params/definitions.ts](../../
 | `-a`, `--alias` | set model name aliases, comma-separated (to be used by API) (env: LLAMA_ARG_ALIAS) | ✅ supported |
 | `--tags` | set model tags, comma-separated (informational, not used for routing) (env: LLAMA_ARG_TAGS) | ⬜ not supported |
 | `--embd-normalize` | normalisation for embeddings (default: 2) (-1=none, 0=max absolute int16, 1=taxicab, 2=euclidean, >2=p-norm) | ⬜ not supported |
-| `--host` | ip address to listen, or bind to an UNIX socket if the address ends with .sock (default: 127.0.0.1) (env: LLAMA_ARG_HOST) | ✅ supported |
+| `--host` | IP addresses to listen on, comma-separated, or UNIX socket paths ending in .sock; with multiple TCP addresses, :: binds IPv6 only; overlapping addresses result in undefined behavior (default: 127.0.0.1) (env: LLAMA_ARG_HOST) | ✅ supported |
 | `--port` | port to listen (default: 8080) (env: LLAMA_ARG_PORT) | ✅ supported |
 | `--reuse-port` | allow multiple sockets to bind to the same port (default: disabled) (env: LLAMA_ARG_REUSE_PORT) | ⬜ not supported |
 | `--path` | path to serve static files from (default: ) (env: LLAMA_ARG_STATIC_PATH) | ⬜ not supported |

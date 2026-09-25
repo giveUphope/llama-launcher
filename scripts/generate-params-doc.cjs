@@ -92,7 +92,7 @@ const LANGS = {
 
 > 语言：中文 · [English](../../en/params/LLAMA_SERVER_PARAMS.md)
 > 索引：[README.md](../../../README.md) · 相关：[params-system.md](../params-system.md)
-> 来源：捆绑二进制 ".\\llama-b11053-bin-win-vulkan-x64\\llama-server.exe --help"
+> 来源：捆绑二进制 ".\\llama-b11178-bin-win-vulkan-x64\\llama-server.exe --help"
 > 用途：对照当前启动器已支持参数，识别可新增/调整项
 
 ## 当前启动器已支持参数
@@ -111,7 +111,7 @@ const LANGS = {
 
 > Language: English · [中文](../../zh/params/LLAMA_SERVER_PARAMS.md)
 > Index: [README.en.md](../../../README.en.md) · Related: [params-system.md](../params-system.md)
-> Source: bundled binary ".\\llama-b11053-bin-win-vulkan-x64\\llama-server.exe --help"
+> Source: bundled binary ".\\llama-b11178-bin-win-vulkan-x64\\llama-server.exe --help"
 > Purpose: cross-check the parameters this launcher already supports and spot gaps
 
 ## Parameters supported today
