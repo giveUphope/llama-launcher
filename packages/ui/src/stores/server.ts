@@ -218,8 +218,14 @@ export const useServerStore = defineStore('server', () => {
     }
   }
 
-  async function refreshStatus() {
-    const info = await api.server.getStatus();
+  /**
+   * 拉取主进程状态。`refresh: true` 顺带触发一次 /props 回读——用于「页签可见 /
+   * 窗口重新聚焦 / 用户点校验」这些真的需要新鲜结论的时刻，
+   * 取代此前核心侧每分钟一次的盲轮询（引擎参数只可能被外部改动，定时敲端口既抓不到
+   * 规律也无事可报）。
+   */
+  async function refreshStatus(refresh = false) {
+    const info = await api.server.getStatus(refresh);
     // 防御性检查：浏览器预览/mock 环境下 getStatus 可能返回 null
     if (!info) return;
     status.value = info.status;

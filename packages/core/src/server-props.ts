@@ -26,13 +26,15 @@ export async function verifyEngineProps(opts: {
 }): Promise<PropsCheck> {
   const fetcher = opts.fetcher ?? defaultPropsFetcher;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  if (!opts.baseUrl) return propsCheckUnavailable('unreachable');
+  // 时刻取"发起请求时"而非"拿到响应时"：界面标注的是"我们什么时候去看的"
+  const checkedAt = Date.now();
+  if (!opts.baseUrl) return propsCheckUnavailable('unreachable', checkedAt);
   try {
     const res = await fetcher(`${opts.baseUrl.replace(/\/$/, '')}/props`, timeoutMs);
-    if (!res.ok || res.json === null || typeof res.json !== 'object') return propsCheckUnavailable('unreachable');
-    return checkEngineProps(res.json, opts.values);
+    if (!res.ok || res.json === null || typeof res.json !== 'object') return propsCheckUnavailable('unreachable', checkedAt);
+    return checkEngineProps(res.json, opts.values, checkedAt);
   } catch {
     // 服务已停/网络异常/JSON 解析失败都不该被读成"参数没生效"
-    return propsCheckUnavailable('unreachable');
+    return propsCheckUnavailable('unreachable', checkedAt);
   }
 }

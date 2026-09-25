@@ -536,33 +536,39 @@ describe('Launcher - 就绪后 /props 回读对账', () => {
     l.stop();
   });
 
-  it('周期复检：结果没变就不补发事件，变了才补发一次', async () => {
-    vi.useFakeTimers();
-    try {
-      let topK = 20;
-      const l = new Launcher({
-        propsFetcher: async () => ({ ok: true, json: { ...propsFixture, default_generation_settings: { n_ctx: 262144, params: { top_k: topK } } } }),
-      });
-      const events: ServerStatusEvent[] = [];
-      l.on('status', (e: ServerStatusEvent) => events.push(e));
-      l.start({ values: { model: 'D:/m.gguf', top_k: 20 }, settings: baseSettings });
-      (l['proc'] as any)._triggerOutput('llama server is listening');
-      await vi.advanceTimersByTimeAsync(1);
-      expect(events.length).toBe(3); // starting, running, 首次回读补发
+  it('按需复检：结果没变就不补发事件，变了才补发一次', async () => {
+    let topK = 20;
+    const l = new Launcher({
+      propsFetcher: async () => ({ ok: true, json: { ...propsFixture, default_generation_settings: { n_ctx: 262144, params: { top_k: topK } } } }),
+    });
+    const events: ServerStatusEvent[] = [];
+    l.on('status', (e: ServerStatusEvent) => events.push(e));
+    l.start({ values: { model: 'D:/m.gguf', top_k: 20 }, settings: baseSettings });
+    (l['proc'] as any)._triggerOutput('llama server is listening');
+    await vi.waitFor(() => expect(events.length).toBe(3)); // starting, running, 首次回读补发
+    expect(events[2].propsCheck?.mismatched).toEqual([]);
 
-      // 引擎值没变：再跑一轮只应多一次 HTTP，不应多一个事件
-      await vi.advanceTimersByTimeAsync(61_000);
-      expect(events.length).toBe(3);
+    // 复检但引擎没变：不产生新事件（否则每次页签可见都推一遍同值状态）
+    l.recheckProps();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(events.length).toBe(3);
 
-      // 引擎值被运行期改动（POST /props）：必须现形并补发
-      topK = 40;
-      await vi.advanceTimersByTimeAsync(61_000);
-      expect(events.length).toBe(4);
-      expect(events[3].status).toBe('running');
-      expect(events[3].propsCheck?.mismatched.map((m) => m.param)).toEqual(['top_k']);
-      l.stop();
-    } finally {
-      vi.useRealTimers();
-    }
+    // 引擎值被运行期改动（POST /props）：必须现形并补发
+    topK = 40;
+    l.recheckProps();
+    await vi.waitFor(() => expect(events.length).toBe(4));
+    expect(events[3].status).toBe('running');
+    expect(events[3].propsCheck?.mismatched.map((m) => m.param)).toEqual(['top_k']);
+    l.stop();
+  });
+
+  it('非 running 时 recheckProps 不发请求（没有可敲的端口）', async () => {
+    let calls = 0;
+    const l = new Launcher({
+      propsFetcher: async () => { calls++; return { ok: true, json: propsFixture }; },
+    });
+    l.recheckProps();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toBe(0);
   });
 });

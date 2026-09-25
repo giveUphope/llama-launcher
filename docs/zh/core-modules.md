@@ -155,7 +155,7 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 - **映射表与比对规则都在 shared**（`params/props-mapping.ts` 的 `PROPS_FIELD_MAP` 与纯函数 `checkEngineProps`）：渲染层只拿数据出文案，符合「数据层不产文案」。
 - **覆盖面**：映射 **14 项**（model / alias / ctx_size / temperature / top_k / top_p / min_p / repeat_penalty / presence_penalty / seed / ui / slots_endpoint / metrics / parallel），真机 b11178 实测一次启动 **13 项校验 + 1 项跳过 + 0 项不一致**（`ctx_size 262144` 与引擎 `n_ctx 262144` 相等）。**其余约 50 项引擎根本不回读**，所以界面只在真的不一致时出声，绝不暗示"全部核对过"。
 - **`skipWhen` 是数据不是分支**：`ctx_size` ↔ `n_ctx` 在 `--fit` 为 `on`/`auto` 时不参与比对——引擎会按显存重算上下文长度，比了必假报。这类"引擎会自行改写的项"用表内声明表达，加参数不必再改判定代码。
-- **复检周期 60s**：`POST /props` 允许运行期改全局生成属性，只查一次会让"已证实"结论悄悄陈旧；`startPropsWatch` 首查 + 每 60s 复检，**结果有序列化差异才补发事件**（无变化不产生跨桥噪声），进程 exit 时清定时器。
+- **复检是按需触发，不是定时器**：`Launcher.recheckProps()` 由 `server:status(refresh:true)` 调用——触发点是「页签重新可见」（状态卡 onActivated）与用户手动点预览卡的「重新校验」钮，就绪时自动查一次。之所以不轮询：引擎参数只可能被外部 `POST /props` 改动，每分钟盲敲端口既抓不到规律也无事可报；而「有人在看的时候才要新鲜结论」正是可事件化的信号。**结果有序列化差异才补发同状态事件**（无变化不产生跨桥噪声），`PropsCheck.checkedAt` 随结果下发供界面标注新鲜度。
 - **基线版本漂移也走这条链路**：`PropsCheck.baselineDrift` 比对 `/props` 的 `build_info` 与 `ENGINE_BASELINE_BUILD`，不一致时预览卡提示"参数基线可能已过期"——这张表是某版本 help 的快照，引擎一升级，那约 50 项不可回读参数的判定基准就不再可信，而这是**唯一**能在运行期发现此事的途径（开发期由 `verify-params-sync` ⑥ 守声明处一致）。
 - **三处归一不做就天天假报**（都是真机抓到的形状）：float32 噪声（发 `0.95` 回读 `0.949999988079071`，容差 `PROPS_NUM_TOL = 1e-4`）；seed 的 uint32 环绕（发 `-1` 回读 `4294967295`）；Windows 路径分隔符与大小写（回读带双反斜杠，走 `normPath`）。
 - **`onlyWhenSent` 项**（model / alias / parallel）：我们没发值时引擎会自行派生（别名取文件名、`-np -1` 自算槽数），此时比对必假报，一律计为 skip。

@@ -117,9 +117,8 @@ function stopDurationTimer() {
 onActivated(() => {
   pageActive = true;
   if (isRunning.value) {
-    if (startTimeMs.value == null) {
-      void server.refreshStatus();
-    }
+    // 页签重新可见 = 有人真的在看 → 顺带触发一次 /props 复检（核心侧不再有定时轮询）
+    void server.refreshStatus(true);
     startDurationTimer();
   }
   // 外部实例探测：激活立即探一次 + 定时轮询（失活/卸载即停）

@@ -41,7 +41,7 @@
 | `server:start`   | 启动服务                                            |
 | `server:stop`    | 停止服务                                            |
 | `server:restart` | 重启服务                                            |
-| `server:status`  | 查询服务状态（返回 `ServerInfo`：状态 + pid + host/port/url + `values` 快照 + `stop` 停止事实 + `envOverrides` 检出的 `LLAMA_ARG_*` 变量名 + `propsCheck` 回读对账结果）；同一通道也由主进程**反向推送** `ServerStatusEvent { status, stop, propsCheck }`，`stop`（`ServerStopInfo`）是界面区分「已停止 / 启动失败 / 异常退出」的唯一依据；`propsCheck` 在服务就绪后**再补发一次同状态事件**带下（回读异步、不阻塞状态迁移，渲染层按 status 幂等处理） |
+| `server:status`  | 查询服务状态（入参 `refresh?: boolean`：带 true 时顺带触发一次 /props 按需复检，不阻塞本次返回；返回 `ServerInfo`：状态 + pid + host/port/url + `values` 快照 + `stop` 停止事实 + `envOverrides` 检出的 `LLAMA_ARG_*` 变量名 + `propsCheck` 回读对账结果）；同一通道也由主进程**反向推送** `ServerStatusEvent { status, stop, propsCheck }`，`stop`（`ServerStopInfo`）是界面区分「已停止 / 启动失败 / 异常退出」的唯一依据；`propsCheck` 在服务就绪后**再补发一次同状态事件**带下（回读异步、不阻塞状态迁移，渲染层按 status 幂等处理） |
 | `server:preview` | 预览启动命令                                          |
 | `server:output-batch` | 输出推送（主进程 → 渲染进程），**载荷为 `OutputEntry[]` 数组**：16ms 窗口内的行合并成一条消息 |
 

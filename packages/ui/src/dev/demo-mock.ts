@@ -1,7 +1,7 @@
 // 开发预览演示数据（仅浏览器 mock 环境注入，Electron 真实 api 不受影响）。
 // main.ts 在无 Electron preload 时调用 createDemoApi()，让预览环境呈现完整业务状态，
 // 便于目测 UI 布局与交互。数据为静态仿真 + 周期性模拟服务日志/下载进度。
-import { APP_VERSION, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, checkEngineProps, formatCommand } from '@llama-launcher/shared';
+import { APP_VERSION, PARAMS, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, checkEngineProps, formatCommand } from '@llama-launcher/shared';
 import type {
   AppSettings, ModelInfo, Preset, GgufReadResult,
   ParsedModelUrl, OutputEntry, AppLogEntry,
@@ -148,7 +148,8 @@ export function createDemoApi() {
 
   /**
    * 演示开关：`?demo=props-mismatch` 造一条引擎回读不一致（并带上 env 变量以演示归因合并），
-   * `?demo=props-drift` 造一条「引擎版本 ≠ 参数基线版本」。默认两者都不出——
+   * `?demo=props-drift` 造一条「引擎版本 ≠ 参数基线版本」，`?demo=props-ok` 造一条
+   * 「已核对且全部一致」的正面结论。默认三者都不出——
    * 提示行平时是安静的，若 mock 总是亮着，就无法用它来证明"真实场景下不误报"。
    * 规则本身复用 shared 的 checkEngineProps，mock 不另写一套判定（同 demo 命令预览的教训）。
    */
@@ -160,32 +161,43 @@ export function createDemoApi() {
     }
   })();
 
+  /** 演示用的兜底"在跑的值"：预览卡首次回传之前也要能确定性出那几行，不能靠时序运气 */
+  const demoBaselineValues: PresetValues = {
+    model: DEMO_MODELS[0].path,
+    ...Object.fromEntries(PARAMS.map((p) => [p.key, p.default])),
+  };
+
   function demoPropsCheck(values: PresetValues | null): PropsCheck | null {
-    if (!values || (demoMode !== 'props-mismatch' && demoMode !== 'props-drift')) return null;
+    if (demoMode !== 'props-mismatch' && demoMode !== 'props-drift' && demoMode !== 'props-ok') return null;
+    // 用预览卡刚传来的当前值（与真实界面一致）；没拿到过时退回默认值基线。
+    // 注意不写回 runningValuesSnapshot——那会让普通加载多出「运行中 ≠ 当前参数」假行。
+    const v = values ?? demoBaselineValues;
     const perturbTopK = demoMode === 'props-mismatch';
     return checkEngineProps(
       {
-        build_info: demoMode === 'props-drift' ? 'b99999-demo' : 'b11178-demo',
-        ui: values.ui !== false,
+        build_info: demoMode === 'props-drift' ? 'b99999-demo' : 'b11178-demo', // props-ok：全部对上，用于目测正面结论
+        ui: v.ui !== false,
         endpoint_slots: true,
         endpoint_metrics: false,
-        model_path: String(values.model ?? ''),
-        model_alias: String(values.alias ?? ''),
+        model_path: String(v.model ?? ''),
+        model_alias: String(v.alias ?? ''),
         default_generation_settings: {
-          n_ctx: Number(values.ctx_size) || 4096,
+          n_ctx: Number(v.ctx_size) || 4096,
           params: {
             seed: -1,
-            temperature: Number(values.temperature ?? 0.8),
+            temperature: Number(v.temperature ?? 0.8),
             // 故意差 1：模拟"界面写着 40、引擎按别的值在跑"
-            top_k: Number(values.top_k ?? 40) + (perturbTopK ? 1 : 0),
-            top_p: Number(values.top_p ?? 0.95),
-            min_p: Number(values.min_p ?? 0.05),
-            repeat_penalty: Number(values.repeat_penalty ?? 1),
-            presence_penalty: Number(values.presence_penalty ?? 0),
+            top_k: Number(v.top_k ?? 40) + (perturbTopK ? 1 : 0),
+            top_p: Number(v.top_p ?? 0.95),
+            min_p: Number(v.min_p ?? 0.05),
+            repeat_penalty: Number(v.repeat_penalty ?? 1),
+            presence_penalty: Number(v.presence_penalty ?? 0),
           },
         },
       },
-      values,
+      v,
+      // 演示也走 shared 的同一实现；时刻必须给真值，否则界面会显示 1970 年
+      Date.now(),
     );
   }
 

@@ -97,7 +97,7 @@ const api = {
     start: (values, settings) => invoke(IPC.SERVER_START, values, settings),
     stop: () => invoke(IPC.SERVER_STOP),
     restart: (values, settings) => invoke(IPC.SERVER_RESTART, values, settings),
-    getStatus: () => invoke(IPC.SERVER_STATUS),
+    getStatus: (refresh) => invoke(IPC.SERVER_STATUS, refresh === true),
     previewCommand: (values, settings) => invoke(IPC.SERVER_PREVIEW, values, settings),
     onOutputBatch: (cb) => {
       outputListeners.push(cb);

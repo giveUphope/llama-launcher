@@ -13,7 +13,7 @@
 | `settings.ts` | `AppSettings`、`ThemeMode`、`CloseBehavior`、`Language`、`SessionBaseline`（参数会话基线 `{ preset_name, values }`） |
 | `param.ts` | `ParamDef`、`ParamGroup`、`ParamType` |
 | `preset.ts` | `PresetValues`、`Preset` |
-| `server.ts` | `ServerInfo`（含 `values` 启动快照、`stop` 停止事实、`envOverrides` 检出的 `LLAMA_ARG_*` 变量名、`propsCheck` 回读对账结果；`url` 由 `displayHost()` 从可能是逗号分隔多地址的 `host` 中取回环/首个 TCP 地址，纯 `.sock` 配置为空串）、`PropsCheck`/`PropsMismatch`（`/props` 对账结果形状，定义在 `params/props-mapping.ts`）、`ServerStatus`、`OutputEntry`、`AppLogEntry`/`AppLogKind`（应用日志）、`ModelInfo`（模型扫描条目，含 `tags`）、`LlamaBenchSummary`/`LlamaBenchJobState`（llama-bench 离线体检） |
+| `server.ts` | `ServerInfo`（含 `values` 启动快照、`stop` 停止事实、`envOverrides` 检出的 `LLAMA_ARG_*` 变量名、`propsCheck` 回读对账结果（其 `checkedAt` 时刻供界面标注新鲜度——复检按需求触发，没有周期可推断；`url` 由 `displayHost()` 从可能是逗号分隔多地址的 `host` 中取回环/首个 TCP 地址，纯 `.sock` 配置为空串）、`PropsCheck`/`PropsMismatch`（`/props` 对账结果形状，定义在 `params/props-mapping.ts`）、`ServerStatus`、`OutputEntry`、`AppLogEntry`/`AppLogKind`（应用日志）、`ModelInfo`（模型扫描条目，含 `tags`）、`LlamaBenchSummary`/`LlamaBenchJobState`（llama-bench 离线体检） |
 | `gguf.ts` | `GgufModelInfo`（60 字段，含 `rope_freq_base`）、建议参数类型 |
 | `vram.ts` | `DeviceMemInfo`、`PerfTarget`/`TargetRecommendation`（性能目标四档）、`OccupancySide`/`HardwareOccupancy`/`VramEstimateResult`/`OccupancyConfig`（显存/内存占用估算）、`ModelFitVerdict`/`ModelFitResult`（模型适配判定） |
 | `download.ts` | `StartDownloadRequest`、下载任务/进度类型 |

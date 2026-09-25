@@ -37,7 +37,13 @@ export function registerServerIpc(ipcMain: IpcMain): void {
       return { ok: false, error: err?.message ?? String(err) };
     }
   });
-  ipcMain.handle(IPC.SERVER_STATUS, () => launcherBridge.getStatus());
+  // refresh:true 时顺带触发一次 /props 回读（不阻塞本次返回——状态数据本地即得，
+  // 回读结果变化时由 server:status 反向推送补发）。渲染层在页签可见/窗口聚焦/
+  // 用户点「重新校验」时带上该标志，取代此前的 60s 盲轮询。
+  ipcMain.handle(IPC.SERVER_STATUS, (_e, refresh?: boolean) => {
+    if (refresh) launcherBridge.recheckProps();
+    return launcherBridge.getStatus();
+  });
   ipcMain.handle(IPC.SERVER_PREVIEW, (_e, values: PresetValues, settings: AppSettings) => {
     try {
       // 内置参数命令预览：不含扩展参数（扩展参数在 UI 独立文本框，复制时合并）

@@ -105,6 +105,11 @@ class LauncherBridge {
     return this.launcher.getStatus();
   }
 
+  /** 触发一次 /props 回读（异步，不阻塞调用方；结果变化时经 server:status 推送） */
+  recheckProps() {
+    this.launcher.recheckProps();
+  }
+
   isRunning(): boolean {
     return this.launcher.getStatus().status === 'running' || this.launcher.getStatus().status === 'starting';
   }

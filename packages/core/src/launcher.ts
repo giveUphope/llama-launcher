@@ -10,9 +10,6 @@ export interface StartOptions {
   settings: AppSettings;
 }
 
-/** /props 复检周期：够 catches 运行期 POST /props 的改动，又不至于每分钟敲一次本地端口还制造事件噪声 */
-const PROPS_POLL_MS = 60_000;
-
 export interface LauncherDeps {
   /**
    * /props 取数实现。默认走全局 fetch（主进程有网络），
@@ -32,8 +29,6 @@ export class Launcher extends EventEmitter {
   private port = DEFAULT_PORT;
   /** 本次启动时检出的 `LLAMA_ARG_*` 环境变量名（见 ServerInfo.envOverrides） */
   private envOverrides: string[] = [];
-  /** /props 复检定时器；进程退出即清，不留悬空轮询 */
-  private propsTimer: ReturnType<typeof setInterval> | null = null;
   /** 就绪后 /props 回读对账结果；每次 start 清空，未回读回来时为 null */
   private lastPropsCheck: PropsCheck | null = null;
   private readonly propsFetcher: PropsFetcher;
@@ -105,8 +100,8 @@ export class Launcher extends EventEmitter {
       if (lower.includes('listening') && (lower.includes('http') || lower.includes('server'))) {
         this.hadBeenReady = true;
         this.setStatus('running');
-        // 就绪即回读，不阻塞状态迁移（服务可用不必等 HTTP 往返）
-        this.startPropsWatch();
+        // 就绪即回读一次，不阻塞状态迁移（服务可用不必等 HTTP 往返）
+        this.runPropsCheck();
       }
     });
     this.proc.on('exit', (code: number, signal: NodeJS.Signals | null) => {
@@ -122,8 +117,6 @@ export class Launcher extends EventEmitter {
         at: Date.now(),
       };
       this.setStatus('stopped');
-      // 进程没了就别再每分钟去敲它的端口
-      this.stopPropsWatch();
       this.proc = null;
     });
     try {
@@ -218,39 +211,36 @@ export class Launcher extends EventEmitter {
   }
 
   /**
-   * 就绪后回读 /props 对账「引擎实际收到的」与「我们以为发出的」。
-   * 结果晚于 running 事件到达，故完成后再发一次**同状态**事件把它带下去——
-   * 渲染层按 status 幂等处理，多一次 running 不改变任何状态机迁移。
-   * 取不到 /props（服务已停、网络异常）只标 error='unreachable'，不判成不一致，
-   * 否则一次偶发失败就会在界面上谎报参数没生效——那正是我们一直在消灭的那类问题。
+   * 回读 /props 并对账；结果有序列化差异时才补发一次同状态事件
+   * （渲染层按 status 幂等，重复 running 不改状态机）。
+   * 取不到 /props 只标 error='unreachable'，不判成不一致——偶发网络失败
+   * 不该让界面谎报「参数没生效」，那正是本项目一直在消灭的那类问题。
+   *
+   * 触发时机是事件而非定时器：就绪时一次；此后仅在「有人真的在看」
+   * （状态卡/预览卡所在页签激活、窗口重新聚焦）或用户手动点「重新校验」时，
+   * 由 `recheckProps()` 触发。引擎的参数只可能被外部 `POST /props` 改动，
+   * 盲目每 60s 敲一次端口既抓不到规律，也无事可报。
    */
   private runPropsCheck(): void {
     const viewHost = displayHost(this.host);
     if (!viewHost) return;
     const values = { ...this.currentValues };
-    void verifyEngineProps({ baseUrl: `http://${viewHost}:${this.port}`, values, fetcher: this.propsFetcher }).then((check) => {
+    void verifyEngineProps({
+      baseUrl: `http://${viewHost}:${this.port}`,
+      values,
+      fetcher: this.propsFetcher,
+    }).then((check) => {
       if (this.status !== 'running') return;
-      // 周期复检下结果通常没变：只有真的变了才补发事件，避免每分钟一次无意义跨桥推送
-      const changed = JSON.stringify(check) !== JSON.stringify(this.lastPropsCheck);
+      const changed = JSON.stringify(check.mismatched) !== JSON.stringify(this.lastPropsCheck?.mismatched)
+        || check.error !== this.lastPropsCheck?.error
+        || JSON.stringify(check.baselineDrift) !== JSON.stringify(this.lastPropsCheck?.baselineDrift);
       this.lastPropsCheck = check;
       if (changed) this.setStatus('running');
     });
   }
 
-  /**
-   * 首查 + 每 60s 复检。之所以不能只查一次：`POST /props` 允许运行期改全局生成属性，
-   * 只查一次的话界面会一直显示早已陈旧的「已证实」结论。
-   */
-  private startPropsWatch(): void {
-    this.stopPropsWatch();
-    this.runPropsCheck();
-    this.propsTimer = setInterval(() => this.runPropsCheck(), PROPS_POLL_MS);
-  }
-
-  private stopPropsWatch(): void {
-    if (this.propsTimer) {
-      clearInterval(this.propsTimer);
-      this.propsTimer = null;
-    }
+  /** 供主进程在 `server:status(refresh)` 或手动校验时调用；不阻塞调用方 */
+  recheckProps(): void {
+    if (this.status === 'running') this.runPropsCheck();
   }
 }

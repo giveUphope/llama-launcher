@@ -3,7 +3,7 @@
 // 用真实回读形状，而不是我想象中的形状：float32 噪声、seed 的 uint32 环绕、
 // model_path 的双反斜杠这三处只要猜一次就永远对不上真引擎。
 import { describe, it, expect } from 'vitest';
-import { ENGINE_BASELINE_BUILD, MODEL_KEY, PARAMS, checkEngineProps, PROPS_FIELD_MAP, propsCheckUnavailable } from '@llama-launcher/shared';
+import { ENGINE_BASELINE_BUILD, MODEL_KEY, PARAMS, checkEngineProps, PROPS_FIELD_MAP } from '@llama-launcher/shared';
 import { verifyEngineProps } from '../src/server-props.js';
 import type { PresetValues } from '@llama-launcher/shared';
 
@@ -173,11 +173,18 @@ describe('verifyEngineProps（取数失败不得判成不一致）', () => {
 
   it('无 baseUrl（纯 .sock 配置）直接判不可校验，不发起请求', async () => {
     let called = 0;
+    const before = Date.now();
     const r = await verifyEngineProps({
       baseUrl: '', values: sentValues,
       fetcher: async () => { called++; return { ok: true, json: REAL_PROPS }; },
     });
-    expect(r).toEqual(propsCheckUnavailable('unreachable'));
     expect(called).toBe(0);
+    expect(r.error).toBe('unreachable');
+    expect(r.checked).toEqual([]);
+    expect(r.mismatched).toEqual([]);
+    expect(r.skipped).toBe(PROPS_FIELD_MAP.length);
+    // checkedAt 是契约的一部分：界面靠它标注新鲜度（复检改为按需触发后，没有周期可推断）
+    expect(r.checkedAt).toBeGreaterThanOrEqual(before);
+    expect(checkEngineProps(REAL_PROPS, sentValues).checkedAt).toBe(0); // 纯对账不自造时刻
   });
 });

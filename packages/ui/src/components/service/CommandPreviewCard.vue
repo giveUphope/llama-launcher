@@ -9,6 +9,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
@@ -81,6 +82,14 @@ const baselineDrift = computed(() => server.propsCheck?.baselineDrift ?? null);
 // 界面列出的 env 变量与不一致项同时出现时，才把两者说成有因果——只有 env 变量不构成归因，
 // 只有不一致也不该甩锅给环境（还可能是引擎版本漂移或我们基线填错）。
 const envBlame = computed(() => server.envOverrides.length > 0 && propsMismatch.value.length > 0);
+// 「一致」是个正面结论，判据必须写全：核对过、无不一致、无基线漂移、取数成功。
+const propsAllClear = computed(() => {
+  const c = server.propsCheck;
+  return !!c && !c.error && !c.baselineDrift && c.mismatched.length === 0 && c.checked.length > 0;
+});
+const checkedAtLabel = computed(() =>
+  server.propsCheck ? new Date(server.propsCheck.checkedAt).toLocaleTimeString() : '',
+);
 
 async function onCopyCmd() {
   if (!fullCommand.value) return;
@@ -96,6 +105,14 @@ onUnmounted(() => {
   <Card title-key="card_cmd">
     <!-- 复制命令上移至卡片头（与标题同行，§7.5.4 卡片头操作区） -->
     <template #actions>
+      <!-- 手动复检：不带 loading 态——结果何时落地取决于主进程那次 HTTP，做成转圈就得
+           配一个"等多久没回就自清"的兜底定时器，等于把轮询换个地方塞回来。
+           点了就请求，行内结论自行更新（server:status 推送）。 -->
+      <ToolTip :text="i18n.t('act_recheck')">
+        <a-button size="small" :disabled="server.status !== 'running'" @click="server.refreshStatus(true)">
+          <template #icon><Icon name="refresh" :size="12" /></template>
+        </a-button>
+      </ToolTip>
       <a-button size="small" :disabled="!fullCommand" @click="onCopyCmd">
         <template #icon><Icon name="copy" :size="12" /></template>
         {{ i18n.t('copy_cmd') }}
@@ -133,11 +150,18 @@ onUnmounted(() => {
           <Icon name="alert" :size="11" />
           <span>{{ i18n.t('cmd_props_mismatch_env', [String(propsMismatch.length), mismatchList, server.envOverrides.join(', ')]) }}</span>
         </div>
-        <!-- 参数基线是某个引擎版本 help 的快照：版本一变，47 个不可回读参数的判定基准就可能过期，
+        <!-- 参数基线是某个引擎版本 help 的快照：版本一变，那批不可回读参数的判定基准就可能过期，
              而这件事只有引擎自报的 build_info 能告诉我们 -->
         <div v-if="baselineDrift" class="cmd-hint cmd-hint--warn">
           <Icon name="alert" :size="11" />
           <span>{{ i18n.t('cmd_baseline_drift', [baselineDrift.engineBuild, baselineDrift.baselineBuild]) }}</span>
+        </div>
+        <!-- 核过且一致也要说一句：只报坏消息会让「没提示」被读成「没核对过」。
+             判据必须独立写全（一致 = 无不一致 且 无漂移 且 取数成功）——这里原先挂在
+             上一行的 v-else-if 上，导致"有不一致"时正面结论照样并列显示，自相矛盾。 -->
+        <div v-if="propsAllClear" class="cmd-hint">
+          <Icon name="info" :size="11" />
+          <span>{{ i18n.t('cmd_props_ok', [String(server.propsCheck?.checked.length ?? 0), checkedAtLabel]) }}</span>
         </div>
       </div>
 

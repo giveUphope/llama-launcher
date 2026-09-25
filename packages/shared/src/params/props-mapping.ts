@@ -80,6 +80,12 @@ export interface PropsCheck {
   /** /props 的 build_info（b11178-f9af9be21 这类串），供界面注明校验依据的引擎构建 */
   buildInfo: string;
   /**
+   * 本次回读发生的时刻（`Date.now()`）。校验是**按需**触发的（就绪 / 页签可见 / 手动），
+   * 不是周期轮询，所以界面要能让用户判断这条结论有多新——新鲜度必须显式，
+   * 否则"上次校验通过"会被读成"现在也一致"。
+   */
+  checkedAt: number;
+  /**
    * 引擎构建 ≠ 参数基线构建时非空：这张表是某个版本 help 的快照，一旦引擎升级，
    * 47 个不可回读参数的判定基准就可能已经过期——不比对就会重演「拿旧尺子量新引擎」。
    */
@@ -141,12 +147,12 @@ function describe(v: unknown): string | number | boolean {
  * 判不一致的前提是「这一项我们真的能表达」：值等于引擎缺省基线而不发射的项仍要参与比对——
  * 它正是检验「不发射时引擎做的是不是那个缺省值」的地方，env 覆写也在这里现形。
  */
-export function checkEngineProps(props: unknown, values: PresetValues): PropsCheck {
+export function checkEngineProps(props: unknown, values: PresetValues, checkedAt = 0): PropsCheck {
   const checked: string[] = [];
   const mismatched: PropsMismatch[] = [];
   let skipped = 0;
   if (props === null || typeof props !== 'object') {
-    return { checked, mismatched, skipped: PROPS_FIELD_MAP.length, buildInfo: '', baselineDrift: null, error: 'bad_payload' };
+    return { checked, mismatched, skipped: PROPS_FIELD_MAP.length, buildInfo: '', checkedAt, baselineDrift: null, error: 'bad_payload' };
   }
   const p = props as Record<string, unknown>;
   const buildInfo = typeof p.build_info === 'string' ? p.build_info : '';
@@ -213,10 +219,10 @@ export function checkEngineProps(props: unknown, values: PresetValues): PropsChe
       mismatched.push({ param: m.param, flag, sent: describe(sent), actual: describe(actual) });
     }
   }
-  return { checked, mismatched, skipped, buildInfo, baselineDrift: driftOf(buildInfo), error: null };
+  return { checked, mismatched, skipped, buildInfo, checkedAt, baselineDrift: driftOf(buildInfo), error: null };
 }
 
 /** 取不到 /props 时的结果形状（与 checkEngineProps 同构，渲染层只认一种结构） */
-export function propsCheckUnavailable(error: PropsCheck['error']): PropsCheck {
-  return { checked: [], mismatched: [], skipped: PROPS_FIELD_MAP.length, buildInfo: '', baselineDrift: null, error };
+export function propsCheckUnavailable(error: PropsCheck['error'], checkedAt = 0): PropsCheck {
+  return { checked: [], mismatched: [], skipped: PROPS_FIELD_MAP.length, buildInfo: '', checkedAt, baselineDrift: null, error };
 }
