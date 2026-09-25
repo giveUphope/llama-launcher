@@ -78,7 +78,7 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 - `docs/params/` 下的基线文件与参数对照表（二进制升级后按 §5.5 流程重走）
 - 本地手动 bump 时确认版本号符合 SemVer 语义
 
-**electron-builder 输出文件名（2026-09-20 按真实产物核对订正）**：本项目 portable 产物名为 **`llama.Launcher.<version>.exe`**，版本号**完整保留**（实测 v0.0.46 的 Release 资产即 `llama.Launcher.0.0.46.exe`，见 `gh release view v0.0.46`），与 Release tag `v0.0.46` 一一对应。若将来 electron-builder 真的改名，请以 `release/` 目录与 Release 资产列表为准同步本段与 `files` 通配符。
+**electron-builder 输出文件名（2026-09-20 按真实产物核对订正）**：本项目 portable 产物名为 **`llama.Launcher.<version>.exe`**，版本号**完整保留**（实测 v0.0.47 的 Release 资产即 `llama.Launcher.0.0.47.exe`，见 `gh release view v0.0.47`），与 Release tag `v0.0.47` 一一对应。若将来 electron-builder 真的改名，请以 `release/` 目录与 Release 资产列表为准同步本段与 `files` 通配符。
 
 旧版本文字曾称「electron-builder 会剥离 SemVer trailing zeros（如 `x.y.34` → `x.y.5`）、文件名与 tag 不严格对应」——该说法与实测矛盾（`34 → 5` 也无算术依据），且与 [auto-release.md](auto-release.md) §3「版本号完整保留」自相矛盾，已按实际产物行为改正。 <!-- bump-ignore：本段以「剥尾零」反例记录历史错误，举例必须固定、不参与 bump 替换（全文 replace 曾连续三轮把它改写成当时的新版本号，见 bump-version.cjs 第 5 步） -->
 
