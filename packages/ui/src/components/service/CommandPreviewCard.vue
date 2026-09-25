@@ -108,6 +108,12 @@ onUnmounted(() => {
           <Icon name="alert" :size="11" />
           <span>{{ i18n.t('cmd_stale_running', [String(staleCount)]) }}</span>
         </div>
+        <!-- 引擎侧参数覆写通道：本框只反映命令行里写得下的东西，LLAMA_ARG_* 改写的部分不出现，
+             因此"没发射＝按引擎缺省"这一读法在存在这些变量时不成立，必须就地说明 -->
+        <div v-if="server.envOverrides.length" class="cmd-hint cmd-hint--warn">
+          <Icon name="info" :size="11" />
+          <span>{{ i18n.t('cmd_env_overrides', [server.envOverrides.join(', ')]) }}</span>
+        </div>
       </div>
 
       <!-- 扩展参数：唯一可编辑区，持久化，追加到实际启动命令末尾 -->

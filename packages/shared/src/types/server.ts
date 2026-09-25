@@ -48,6 +48,13 @@ export interface ServerInfo {
   values?: Record<string, string | number | boolean>;
   /** 与 `IPC.SERVER_STATUS` 事件同源，保证 `refreshStatus()` 不会拿到比事件旧的停止事实 */
   stop?: ServerStopInfo | null;
+  /**
+   * 启动时检出的人设 `LLAMA_ARG_*` 环境变量名（llama.cpp 的引擎侧参数通道）。
+   * 发射规则是「值等于引擎缺省就不写进命令行」，其前提是没有别的东西改写过缺省值；
+   * 这些变量正具备该能力（b11178 起 help 里 57/60 个应用参数带 env 通道），
+   * 因此界面必须能说明「这里显示的值不一定是引擎实际用的」。
+   */
+  envOverrides?: string[];
 }
 
 export type OutputKind =

@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import { join, dirname } from 'node:path';
 import { totalmem, freemem } from 'node:os';
 import { detectTrashAsync, cleanTrashAsync, getDownloadManager, loadSettings, listDevices, resolveServerExe, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench, detectMmproj, DEFAULT_SERVER_EXE } from '@llama-launcher/core';
-import { IPC, DEFAULT_HOST, PORT_MIN, PORT_MAX, tr } from '@llama-launcher/shared';
+import { IPC, tcpHosts, PORT_MIN, PORT_MAX, tr } from '@llama-launcher/shared';
 import type { TrashItem, VramEstimateResult, LlamaBenchJobState, PerfTarget, DeviceMemInfo, ModelFitResult, OccupancyConfig } from '@llama-launcher/shared';
 
 /** 占用端口进程信息（尽力而为：无法识别时为空） */
@@ -190,9 +190,11 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
   //     探对应地址可命中——按 host 探测覆盖"占用者绑定在其他网卡 IP"的场景；
   //     注意 Windows 上通配与回环可共存（SO_REUSEADDR 语义），探测结果为尽力而为）
   ipcMain.handle(IPC.SYSTEM_CHECK_PORT, async (_e, port: number, host?: string) => {
-    const bindHost = host && host.trim() ? host.trim() : DEFAULT_HOST;
-    const free = await probePort(port, bindHost);
-    if (free) return { inUse: false };
+    // host 可能是 b11178 起的逗号分隔多地址（也可能含 .sock 项）：逐个 TCP 地址探测，
+    // 任一地址绑不上即判占用——只探首个地址会漏报「服务绑在其他地址上」的场景。
+    const bindHosts = tcpHosts(host);
+    const results = await Promise.all(bindHosts.map((h) => probePort(port, h)));
+    if (results.every(Boolean)) return { inUse: false };
     return { inUse: true, ...(await getPortOwner(port)) };
   });
 
@@ -215,7 +217,7 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
 
   // 从指定端口开始向后扫描，返回首个空闲端口（host 语义同 checkPort；失败/越界返回 null）。
   ipcMain.handle(IPC.SYSTEM_FIND_FREE_PORT, async (_e, port: number, host?: string, tries = 100) => {
-    const bindHost = host && host.trim() ? host.trim() : DEFAULT_HOST;
+    const bindHosts = tcpHosts(host);
     const first = Number.isInteger(port) ? port : PORT_MIN;
     // 分块并行探测（串行 100 次绑定往返在端口被大量占用时可累积数百毫秒）；
     // 块内取最小空闲口，与"自起始端口向上首个空闲"语义一致
@@ -228,8 +230,11 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
         candidates.push(candidate);
       }
       if (candidates.length === 0) break;
-      const results = await Promise.all(candidates.map((c) => probePort(c, bindHost)));
-      const idx = results.indexOf(true);
+      // 一个候选端口只有在**全部**绑定地址上都可绑时才算空闲（多地址下部分可绑会导致启动失败）
+      const grids = await Promise.all(
+        candidates.map((c) => Promise.all(bindHosts.map((h) => probePort(c, h)))),
+      );
+      const idx = grids.findIndex((row) => row.every(Boolean));
       if (idx >= 0) return candidates[idx];
     }
     return null;

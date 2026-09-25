@@ -301,3 +301,45 @@ export const PORT_MAX: number = paramBound(PORT_PARAM, 'max');
 export function isValidPort(n: number): boolean {
   return Number.isInteger(n) && n >= PORT_MIN && n <= PORT_MAX;
 }
+
+/**
+ * `--host` 的地址列表解析（唯一实现）。llama.cpp b11178 起该参数接受**逗号分隔的多地址**
+ * （如 `0.0.0.0,::1`），并允许以 `.sock` 结尾表示 UNIX socket。
+ *
+ * 为什么必须拆开而不是整串当单个地址用：拼访问 URL 会得到 `http://0.0.0.0,::1:8080/`
+ * 这种打不开的串，端口探测也会拿一个无法绑定的字符串探测，从而把「已被占用」误报成空闲。
+ */
+export function hostList(raw?: string | null): string[] {
+  return String(raw ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** `.sock` 结尾 = UNIX socket 路径：既不能作 TCP 探测目标，也没有 http URL */
+export function isUnixSocketHost(h: string): boolean {
+  return h.endsWith('.sock');
+}
+
+const LOOPBACK_HOST_RE = /^(127(\.\d+){0,3}|::1|localhost)$/i;
+
+/** 供 UI 打开页面 / 健康探测用的代表地址：优先回环，其次首个 TCP 地址；未填回落默认地址，纯 socket 返回空串 */
+export function displayHost(raw?: string | null): string {
+  const list = hostList(raw);
+  if (!list.length) return DEFAULT_HOST;
+  const tcp = list.filter((h) => !isUnixSocketHost(h));
+  if (!tcp.length) return '';
+  return tcp.find((h) => LOOPBACK_HOST_RE.test(h)) ?? tcp[0];
+}
+
+/**
+ * 需要逐个探测的 TCP 地址集（剔除 UNIX socket）。两种"空"语义不同，不能合并回落：
+ * 未填 host → 按默认回环地址探测；填了但全是 `.sock` → 没有 TCP 端口可探，返回空列表
+ * （若也回落成 127.0.0.1，就会把"该配置根本不占 TCP 端口"探成"端口空闲"，白探一次还是小事，
+ *  探到别人占用时更会误报冲突）。
+ */
+export function tcpHosts(raw?: string | null): string[] {
+  const list = hostList(raw);
+  if (!list.length) return [DEFAULT_HOST];
+  return list.filter((h) => !isUnixSocketHost(h));
+}

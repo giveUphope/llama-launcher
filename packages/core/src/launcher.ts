@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { LlamaServerProcess } from './process.js';
 import { buildCommand } from './command-builder.js';
-import { DEFAULT_HOST, DEFAULT_PORT } from '@llama-launcher/shared';
+import { DEFAULT_HOST, DEFAULT_PORT, detectLlamaEnvOverrides, displayHost } from '@llama-launcher/shared';
 import type { AppSettings, ServerStatus, ServerStopInfo, ServerInfo, OutputEntry } from '@llama-launcher/shared';
 
 export interface StartOptions {
@@ -18,6 +18,8 @@ export class Launcher extends EventEmitter {
   private currentValues: Record<string, string | number | boolean> = {};
   private host = DEFAULT_HOST;
   private port = DEFAULT_PORT;
+  /** 本次启动时检出的 `LLAMA_ARG_*` 环境变量名（见 ServerInfo.envOverrides） */
+  private envOverrides: string[] = [];
   // 本轮运行是否曾到达 running：退出时据此区分「运行中崩了」与「启动阶段就失败」
   private hadBeenReady = false;
   // 本轮结束是否由本应用主动停（stop/restart/forceStop/应用退出）——必须显式记，
@@ -43,6 +45,7 @@ export class Launcher extends EventEmitter {
     const portVal = opts.values.port;
     this.host = hostVal != null && String(hostVal) !== '' ? String(hostVal) : DEFAULT_HOST;
     this.port = portVal != null && !Number.isNaN(Number(portVal)) ? Number(portVal) : DEFAULT_PORT;
+    this.envOverrides = detectLlamaEnvOverrides(process.env);
 
     let cmd: string[];
     try {
@@ -140,16 +143,22 @@ export class Launcher extends EventEmitter {
   }
 
   getStatus(): ServerInfo {
+    // host 可为 b11178 起的逗号分隔多地址：访问 URL 取其中的回环/首个 TCP 地址，
+    // 纯 UNIX socket（.sock）配置没有 http URL → 给空串，避免 UI 渲染出打不开的链接。
+    // `host` 字段本身保留用户原样填写的串（状态卡展示的是"服务绑在哪"，不是"从哪访问"）。
+    const viewHost = displayHost(this.host);
     return {
       status: this.status,
       pid: this.proc?.pid ?? null,
       host: this.host,
       port: this.port,
-      url: `http://${this.host}:${this.port}/`,
+      url: viewHost ? `http://${viewHost}:${this.port}/` : '',
       // 最近一次启动的参数快照（纯值映射，无 `_enabled`），供渲染进程判断当前服务是否与某组参数一致
       values: { ...this.currentValues },
       // 与 status 事件同源，避免 refreshStatus() 拿到比事件旧的停止事实
       stop: this.lastStop,
+      // 启动那一刻检出的引擎侧环境变量（改名/清掉后要重启才会刷新，与 host/port 同语义）
+      envOverrides: [...this.envOverrides],
     };
   }
 

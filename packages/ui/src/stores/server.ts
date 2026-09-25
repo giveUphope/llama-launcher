@@ -86,6 +86,10 @@ export const useServerStore = defineStore('server', () => {
   // 新一轮 starting 时主进程会把它清成 null，故跨轮残留天然不成立。
   const stopInfo = ref<ServerStopInfo | null>(null);
 
+  // 引擎侧环境变量覆写项（LLAMA_ARG_*）：由主进程在启动那一刻检出并随 ServerInfo 下发。
+  // 界面「未发射＝引擎按缺省值」这一前提只有在没有这些变量时才成立，故必须可见（见命令预览卡提示）。
+  const envOverrides = ref<string[]>([]);
+
   // ---- 外部 llama-server 实例检测（非本应用拉起）----
   // 来源有二：① 概览页定时探测配置端口（refreshExternal）；② 启动端口冲突时用户选择
   // 「接管监控」（adoptExternal）。仅做展示与监控，不受本应用进程管理（stop/restart 不作用其上）；
@@ -219,6 +223,7 @@ export const useServerStore = defineStore('server', () => {
     port.value = info.port;
     url.value = info.url;
     runningValues.value = info.values ?? null;
+    envOverrides.value = info.envOverrides ?? [];
     // 与 onStatus 订阅同一语义：自家进程 running 后外部实例标记失效
     if (info.status === 'running' || info.status === 'starting') external.value = null;
   }
@@ -303,7 +308,7 @@ export const useServerStore = defineStore('server', () => {
   });
 
   return {
-    status, pid, host, port, url, apiUrl, outputs, runningValues, stopInfo,
+    status, pid, host, port, url, apiUrl, outputs, runningValues, stopInfo, envOverrides,
     effectiveStatus, oomDetected,
     external,
     refreshExternal, adoptExternal, clearExternal,

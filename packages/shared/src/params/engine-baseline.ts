@@ -13,7 +13,7 @@ import type { ParamDef } from '../types/index.js';
  * 发射规则因此改为：**值 ∈ `sentinel` ⇒ 不发射；值 == `engineDefault` ⇒ 不发射；否则发射。**
  * 一致性由 `scripts/verify-params-sync.cjs` 对拍 help 基线守住。
  *
- * 值来源：逐条读 `docs/params/llama-server-help-out.txt`（当前固定 b11053）；
+ * 值来源：逐条读 `docs/params/llama-server-help-out.txt`（当前固定 b11178）；
  * 换引擎版本后须按 `docs/zh/params-system.md` §5.5 重新对拍。
  */
 export interface EngineBaseline {
@@ -177,4 +177,22 @@ export function isSentinelValue(p: ParamDef, v: string | number | boolean): bool
 /** 空字符串 = 不指定：所有类型统一不发射（与旧行为一致）。 */
 export function isUnsetValue(v: string | number | boolean): boolean {
   return v === '';
+}
+
+/**
+ * llama.cpp 的引擎侧环境变量前缀（help 条目尾的 `(env: LLAMA_ARG_*)`）。
+ * b11178 基线实测：60 个应用参数里 57 个带该通道，其中采样族 6 条（temperature / top_p /
+ * min_p / repeat_penalty / presence_penalty / frequency_penalty）是 b11053 → b11178 之间新增的。
+ */
+export const LLAMA_ENV_PREFIX = 'LLAMA_ARG_';
+
+/**
+ * 检出环境变量里的引擎参数覆写项（纯函数，入参给 `process.env` 形状便于单测）。
+ * 空串按「未设」处理：Windows 上删变量常留下空值，而引擎对空值的行为按参数类型分叉，
+ * 与其猜，不如只在真的有值时提示。
+ */
+export function detectLlamaEnvOverrides(env: Record<string, string | undefined>): string[] {
+  return Object.keys(env)
+    .filter((k) => k.startsWith(LLAMA_ENV_PREFIX) && env[k] !== undefined && env[k] !== '')
+    .sort();
 }
