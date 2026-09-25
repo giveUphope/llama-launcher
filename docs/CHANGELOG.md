@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.46] - 2026-09-25
+
+
 - **修复服务运行中界面误报「异常退出」，并把进程判定权收归核心状态机**：用户报告「模型正常在服务，服务日志出现报错时状态机短暂误报异常退出，稍后又自动恢复为运行中」。根因是判「崩了」用的不是进程状态而是日志文字——`stores/server.ts` 的 `effectiveStatus` 看最近 80 行里有没有 `error|failed|unable` 字样，而 llama-server 拒绝单个越界请求时必然打 `E srv  send_error: task id = N, error: request (481560 tokens) exceeds the available context size (95744 tokens)`（用户实测日志原文，上下文 95744、请求 48 万 token），进程活着就被判死；因为是 80 行滑动窗口，日志再滚过 80 行它自己就"恢复"了，误报时长完全取决于出日志快慢。改法是把判定权交回唯一知道真相的地方：① `shared` 新增 `ServerStopInfo { reason: exited|spawn_failed|stopped_by_user, code, signal, hadBeenReady, at }` 与 `ServerStatusEvent { status, stop }`，`ServerInfo` 加 `stop` 与事件同源，`refreshStatus()` 拿不到比事件旧的停止事实；② `core/launcher.ts` 在 exit 时记事实（曾就绪 + 非 0 或有信号 = 崩，未就绪 = 启动失败），`stop/stopSync/forceStop` 先置 `stopRequested`——**Windows 下 `taskkill /F` 的退出码不是 0，只靠退出码分不出「用户停的」与「自己崩的」**，另把 `process.ts` 用来归一「被信号杀死」的 `-1` 还原成 `null`，`start()` 清空上一轮事实（跨轮污染由事实清空替代原先的 `runStart` 下标边界）；③ 渲染层 `effectiveStatus` 只按事实派生，删掉 `FAIL_RE`/`tailHasFail`/`runStart`/`OutputLine.fail` 整条文字猜测（控制台着色 tone、OOM 警示、端口占用提示不动，它们不参与状态）；④ `demo-mock` 改发同形状事件。验证：core **369** + ui **75** 用例全绿（新增 8 条覆盖越界行不翻转/崩溃/主动停/启动失败/干净自退/-1 归一/跨轮不污染）、`pnpm e2e:web` 15 通过、`pnpm lint` 全绿。**负测试**：把旧文字判定临时塞回 `effectiveStatus`，恰好两条回归用例变红（`expected 'crashed' to be 'running'`、`expected 'failed' to be 'starting'`），证明确实咬得住。文档同步 `docs/{zh,en}/core-modules.md`（§4.2 加停止事实一条 + 修正 `forceStop` 与 `before-quit` 的行号引用）、`ipc-channels.md`（`server:status` 兼反向推送载荷）、`frontend.md`（server store 行加 `stopInfo`）、`AGENTS.md`（新增「进程死活只由核心状态机判定，渲染层不得猜」约定）。
 
 ## \[0.0.45] - 2026-09-24
