@@ -6,7 +6,7 @@
 
 - **框架**：Vitest 4（`pnpm test` 经 turbo 一并运行 core 与 ui 两包）
 
-- **规模**：core 25 个测试文件 / **373** 个用例 + ui **7** 个测试文件 / **75** 个用例（`pnpm test` 经 turbo 一并运行两包）
+- **规模**：core 25 个测试文件 / **373** 个用例 + ui **8** 个测试文件 / **79** 个用例（`pnpm test` 经 turbo 一并运行两包）
 
 - **覆盖模块**：
 
@@ -47,6 +47,7 @@
 | `src/composables/useModelPreset.test.ts` | 智能预设静默匹配与应用（别名/文件名候选、脏态不二次确认）                                         |
 | `src/composables/useAutoPresetName.test.ts` | 预设名候选生成（去扩展名/目录名变体）                                                     |
 | `src/composables/useUrlHistory.test.ts` | URL 历史记录                                                                  |
+| `src/dev/demo-mock.test.ts`         | 浏览器 mock 的命令预览：初值态发出 4 个基线推荐值、哨兵不发射、扩展参数不进内置框、与 `shared` 发射实现逐字相等        |
 | `src/testing/arco-theme.test.ts`       | 主题 token 对齐（HTML `data-theme` / body `arco-theme`）                            |
 | `src/testing/status-tag.test.ts`       | `StatusTag` 状态标签变体渲染                                                         |
 

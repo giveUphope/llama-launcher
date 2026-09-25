@@ -38,7 +38,9 @@
 
 ### 4.3 命令构建 (command-builder.ts)
 
-- **`buildCommand(opts)`**：校验 `exePath` 存在性，生成 `[exePath, '-m', modelPath, ...flags]` 数组。
+- **文件分工**：argv 拼装本身在 **`packages/shared/src/params/command.ts`**（`buildArgv` / `argvFromPreviewOptions` / `formatCommand` / `tokenizeArgs` / `quoteArg`），本文件只剩 `buildCommand`（叠一层 `exePath` 存在性校验）与 `previewCommand`。规则放 shared 是因为命令有两个消费方——执行方（core spawn 子进程）与展示方（服务页预览、浏览器 mock，后者没有 node 文件系统）；规则一旦对展示方不可达，那边就只能各抄一份简化版并静默失真（2026-09-26 mock 预览失准即此因）。`scripts/verify-params-sync.cjs` 第 ⑤ 项把「第二处拼装 flag 的代码」判为 fail。
+
+- **`buildCommand(opts)`**：校验 `exePath` 存在性后委托 `buildArgv`，生成 `[exePath, '-m', modelPath, ...flags]` 数组。
 
 - **发射规则**（无独立启用机制；`values._enabled` 为 legacy 字段，读取时直接忽略）：值**不等于引擎缺省 `engineDefault`** 才发射 flag（基准来自 `shared/params/engine-baseline.ts`，不是界面初值 `default`；`sentinel` 列出的值表示「不指定」，恒不发射）；checkbox 勾选发 `flag`、取消发 `invert_flag`（无 `invert_flag` 且 default false 的常开开关取消时不发射，如 `--metrics`）；空串跳过；`dependsOn` 依赖不满足跳过；`model` 恒附 `-m`（空模型不附）。
 
@@ -173,7 +175,7 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | `settings-store.ts`     | `loadSettings` / `saveSettings` / `getDefaultSettings`                                                                                                          | 设置读写（CAS + 原子替换，§4.8）                 |
 | `presets-store.ts`      | `listPresets`/`loadPreset`/`savePreset`/`deletePreset`/`deletePresetsForModel`                                                                                  | 预设 CRUD（v2，§4.8）                      |
 | `models-scanner.ts`     | `scanModels` / `detectMmproj` / `detectDraftModel` / `removeModelFile` / `invalidateScanCache` / `ensureDir`                                                    | .gguf 递归扫描 + 伴随检测 + 移除（§4.4）          |
-| `command-builder.ts`    | `buildCommand` / `previewCommand` / `formatCommand` / `tokenizeArgs` / `quoteArg`                                                                               | 启动命令构建（§4.3）                          |
+| `command-builder.ts`    | `buildCommand` / `previewCommand`（argv 本体在 `shared/params/command.ts`）                                                                                                              | 启动命令构建的执行侧包装（§4.3）              |
 | `process.ts`            | `LlamaServerProcess` / `killProcessTree` / `SimpleProcessInfo` / `findDevSessionRoot` / `pickTurboDevRoot`                                                      | 子进程封装 + 两阶段终止（§4.1）                   |
 | `launcher.ts`           | `Launcher`（`start`/`stop`/`restart`/`getStatus`）                                                                                                                | 启动编排状态机（§4.2）                         |
 | `gguf-meta.ts`          | `readGgufMetadata` / `estimateModelParams` / `estimateQuantFromSize` / `nameContainsLabel` / `clearGgufCache`                                                   | GGUF 流式读取 + 建议推导（§4.5）                |

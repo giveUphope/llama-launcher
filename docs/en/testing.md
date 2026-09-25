@@ -6,7 +6,7 @@
 
 - **Framework**: Vitest 4 (`pnpm test` runs both the core and the ui package through turbo)
 
-- **Scale**: core 25 test files / **373** cases + ui **7** test files / **75** cases (`pnpm test` runs both packages through turbo)
+- **Scale**: core 25 test files / **373** cases + ui **8** test files / **79** cases (`pnpm test` runs both packages through turbo)
 
 - **Covered modules**:
 
@@ -47,6 +47,7 @@
 | `src/composables/useModelPreset.test.ts` | Silent matching and application of smart presets (alias/filename candidates, no second confirmation in a dirty state) |
 | `src/composables/useAutoPresetName.test.ts` | Preset-name candidate generation (extension-stripped / directory-name variants) |
 | `src/composables/useUrlHistory.test.ts` | URL history records                                                       |
+| `src/dev/demo-mock.test.ts`         | Browser-mock command preview: default state emits the 4 baseline recommendations, sentinels stay out, custom args stay out of the built-in box, and the result is byte-equal to the `shared` emitter |
 | `src/testing/arco-theme.test.ts`       | Theme token alignment (HTML `data-theme` / body `arco-theme`)             |
 | `src/testing/status-tag.test.ts`       | Variant rendering of the `StatusTag` status label                         |
 

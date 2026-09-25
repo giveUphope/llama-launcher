@@ -38,7 +38,9 @@ The `Launcher` class (extends `EventEmitter`), implementing a state machine:
 
 ### 4.3 Command building (command-builder.ts)
 
-- **`buildCommand(opts)`**: validates that `exePath` exists and produces the `[exePath, '-m', modelPath, ...flags]` array.
+- **File split**: the argv assembly itself now lives in **`packages/shared/src/params/command.ts`** (`buildArgv` / `argvFromPreviewOptions` / `formatCommand` / `tokenizeArgs` / `quoteArg`), leaving only `buildCommand` here (which adds the `exePath` existence check on top) and `previewCommand`. The rule sits in shared because the command has two consumers — the executor (core spawning the process) and the presenters (the service-page preview and the browser mock, the latter having no node filesystem); whenever the rule is unreachable from the presentation side, that side has to keep its own simplified copy and silently drifts (the 2026-09-26 mock preview inaccuracy was exactly that). Item ⑤ of `scripts/verify-params-sync.cjs` fails the build if a second place assembles flags.
+
+- **`buildCommand(opts)`**: validates that `exePath` exists, then delegates to `buildArgv` to produce the `[exePath, '-m', modelPath, ...flags]` array.
 
 - **Emission rules** (there is no separate enable mechanism; `values._enabled` is a legacy field, ignored outright when read): a flag is emitted only when the value **differs from the engine default `engineDefault`** (the basis comes from `shared/params/engine-baseline.ts`, not from the UI initial value `default`; values listed under `sentinel` mean "unspecified" and are never emitted); a checkbox emits `flag` when checked and `invert_flag` when unchecked (an always-on switch with no `invert_flag` and a default of false emits nothing when unchecked, e.g. `--metrics`); empty strings are skipped; params whose `dependsOn` dependency is unmet are skipped; `model` always gets `-m` appended (nothing is appended when the model is empty).
 
@@ -173,7 +175,7 @@ A quick-reference table of the main exports across packages (details live in eac
 | `settings-store.ts`     | `loadSettings` / `saveSettings` / `getDefaultSettings` | Settings read/write (CAS + atomic replacement, §4.8) |
 | `presets-store.ts`      | `listPresets`/`loadPreset`/`savePreset`/`deletePreset`/`deletePresetsForModel` | Preset CRUD (v2, §4.8) |
 | `models-scanner.ts`     | `scanModels` / `detectMmproj` / `detectDraftModel` / `removeModelFile` / `invalidateScanCache` / `ensureDir` | Recursive .gguf scanning + companion detection + removal (§4.4) |
-| `command-builder.ts`    | `buildCommand` / `previewCommand` / `formatCommand` / `tokenizeArgs` / `quoteArg` | Launch command building (§4.3) |
+| `command-builder.ts`    | `buildCommand` / `previewCommand` (the argv body lives in `shared/params/command.ts`) | Executor-side wrapper for launch command building (§4.3) |
 | `process.ts`            | `LlamaServerProcess` / `killProcessTree` / `SimpleProcessInfo` / `findDevSessionRoot` / `pickTurboDevRoot` | Child-process wrapper + two-phase termination (§4.1) |
 | `launcher.ts`           | `Launcher` (`start`/`stop`/`restart`/`getStatus`) | Launch orchestration state machine (§4.2) |
 | `gguf-meta.ts`          | `readGgufMetadata` / `estimateModelParams` / `estimateQuantFromSize` / `nameContainsLabel` / `clearGgufCache` | GGUF streaming read + suggestion derivation (§4.5) |

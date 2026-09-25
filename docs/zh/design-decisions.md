@@ -4,7 +4,7 @@
 > 范围：关键设计决策与取舍记录。
 > 索引：[README.md](../../README.md) · 相关：[architecture.md](architecture.md)
 
-1. **参数发射规则（2026-08-29 重构，取代旧 `_enabled` 启用机制；2026-09-25 改基准）**：参数无独立启用/禁用状态——值 ≠ **引擎缺省 `engineDefault`** 才发射 flag（checkbox 勾选发 `flag`、取消发 `invert_flag`（无常开标志的开关取消时不发射）、空串跳过、`sentinel` 声明的「不指定」值跳过、依赖门控），命令行只含与引擎缺省不同的参数。基准从「界面初值 `default`」换成 `engineDefault` 是因为 `default` 里装着启动器的基线推荐（见第 18 条），拿它当发射基准会让推荐值永远不进命令行。旧版 `_enabled` JSON 编码显式记录启用状态的方案已移除：独立启用态造成"值 / 启用位 / 默认值"三份事实源，且与"预设 = 纯值快照"的双轨模型冲突（`buildCommand` 读到 legacy `_enabled` 直接忽略）。
+1. **参数发射规则（2026-08-29 重构，取代旧 `_enabled` 启用机制；2026-09-25 改基准）**：参数无独立启用/禁用状态——值 ≠ **引擎缺省 `engineDefault`** 才发射 flag（checkbox 勾选发 `flag`、取消发 `invert_flag`（无常开标志的开关取消时不发射）、空串跳过、`sentinel` 声明的「不指定」值跳过、依赖门控），命令行只含与引擎缺省不同的参数。基准从「界面初值 `default`」换成 `engineDefault` 是因为 `default` 里装着启动器的基线推荐（见第 18 条），拿它当发射基准会让推荐值永远不进命令行。旧版 `_enabled` JSON 编码显式记录启用状态的方案已移除：独立启用态造成"值 / 启用位 / 默认值"三份事实源，且与"预设 = 纯值快照"的双轨模型冲突（`buildCommand` 读到 legacy `_enabled` 直接忽略）。**实现只有一份**：argv 拼装位于 `packages/shared/src/params/command.ts` 的 `buildArgv`，core 的 `buildCommand` 在其上只叠一层 exe 存在性校验，浏览器 mock 直接调 shared。2026-09-26 删掉了 mock 里那份按旧基准简化的副本（预览因此少发第 18 条的推荐值），并由 `verify-params-sync.cjs` 第 ⑤ 项把「第二处拼装 flag 的代码」判为 fail——展示方与执行方分持两套规则，正是这类静默失灵的成因。
 2. **GGUF 智能建议**：流式读取（64KB 块）+ LRU 缓存（上限 32），内存恒定且避免重复解析。
 3. **安全 IPC**：`contextBridge` + `contextIsolation` + `clonePlain` 序列化，渲染进程无 Node 访问。
 4. **跨版本兼容**：通用 listening 检测（匹配 "listening" + "http"/"server"）+ 用户选择目录内联检测 llama-server。
