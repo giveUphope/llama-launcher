@@ -46,9 +46,12 @@ function collectFiles(dir) {
   return out;
 }
 
-/** 该文件是否属于「中文即内容」的白名单：i18n 字典本体 + 浏览器预览演示数据。 */
+/** 该文件是否属于「中文即内容」的白名单：i18n 字典本体 + 浏览器预览演示数据 + 引擎缺省基线表。 */
 function skippedForLiteralScan(absFile) {
   const rel = path.relative(ROOT, absFile).replace(/\\/g, '/');
+  // engine-baseline.ts 的 note 字段是给开发者读的「为什么这个参数的界面初值故意不等于引擎默认」
+  // 说明（与 definitions.ts 的中文注释同性质），永不进界面；改成英文反而与全仓中文注释放逐相悖。
+  if (rel === 'packages/shared/src/params/engine-baseline.ts') return true;
   return rel.startsWith('packages/shared/src/i18n/') || rel.endsWith('packages/ui/src/dev/demo-mock.ts');
 }
 

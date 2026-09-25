@@ -238,3 +238,133 @@ if (labelErrors.length) {
   process.exit(1);
 }
 console.log('[verify-params-sync] ✅ 参数标签/帮助字典与 PARAMS 键集完全相等，zh/en 均非空。');
+
+// ============================================================
+// 引擎缺省基线（params/engine-baseline.ts）对拍。
+//
+// 背景（2026-09-25）：发射规则原为「值 == ParamDef.default ⇒ 不写进命令行」，
+// 而 default 同时是界面初值，里面装着启动器的**基线推荐**（-ctk/-ctv q8_0、
+// --load-mode none、--fit off）。于是这些推荐值永远不进命令行，引擎按自己的缺省跑
+// （f16 / auto / on），界面却显示 q8_0 / none / off —— 用户以为那是后端或模型的默认行为。
+// 规则改成按 engineDefault 判定后，本段就是防止 engineDefault 再漂或再被随手填成 UI 值：
+//   ① 键集与 PARAMS 双向相等（漏登记、留孤儿都 fail；解析不出条目也 fail，杜绝空转）；
+//   ② help 里能解析出简单标量默认的，engineDefault 必须等于它；
+//   ③ help 默认是条件式/描述式的（如 kv_unified「slots auto 时启用」），必须写 note 说明取舍；
+//   ④ default ≠ engineDefault 且不在 sentinel 里的（= 有意覆盖引擎缺省），note 必填。
+// ============================================================
+const BASELINE_FILE = path.join(__dirname, '..', 'packages', 'shared', 'src', 'params', 'engine-baseline.ts');
+const baselineText = fs.readFileSync(BASELINE_FILE, 'utf8');
+
+/** 从 PARAMS 源码按「key + group 相邻」切出每个参数块（避开 dependsOn 里嵌套的 key:） */
+const paramAnchors = [...paramsBody.matchAll(/key:\s*'([a-z0-9_]+)'\s*,\s*group:/g)];
+const paramEntries = paramAnchors.map((m, i) => {
+  const start = m.index;
+  const end = i + 1 < paramAnchors.length ? paramAnchors[i + 1].index : paramsBody.length;
+  const chunk = paramsBody.slice(start, end);
+  const flag = (chunk.match(/flag:\s*'([^']+)'/) || [])[1];
+  const invert = (chunk.match(/invert_flag:\s*'([^']+)'/) || [])[1];
+  const dm = chunk.match(/default:\s*('[^']*'|-?[\d.]+|true|false)/);
+  return { key: m[1], flag, invert_flag: invert, rawDefault: dm ? dm[1].replace(/^'|'$/g, '') : undefined };
+});
+
+/** 逐行扫描 engine-baseline.ts，按括号深度切出每个参数条目 */
+const baselineEntries = new Map();
+{
+  const lines = baselineText.split(/\r?\n/);
+  let cur = null;
+  let depth = 0;
+  for (const ln of lines) {
+    if (!cur) {
+      const m = ln.match(/^ {2}([a-z0-9_]+): \{/);
+      if (!m) continue;
+      cur = { key: m[1], body: ln };
+      depth = (ln.match(/[{[]/g) || []).length - (ln.match(/[}\]]/g) || []).length;
+      // 单行条目（`host: { engineDefault: '127.0.0.1' },`）在同一行就闭合，直接提交
+      if (depth <= 0) { baselineEntries.set(cur.key, cur.body); cur = null; }
+      continue;
+    }
+    cur.body += '\n' + ln;
+    depth += (ln.match(/[{[]/g) || []).length - (ln.match(/[}\]]/g) || []).length;
+    if (depth <= 0) { baselineEntries.set(cur.key, cur.body); cur = null; }
+  }
+}
+
+const baselineErrors = [];
+if (baselineEntries.size !== PARAM_TOTAL) {
+  console.error(`[verify-params-sync] ❌ engine-baseline.ts 解析到 ${baselineEntries.size} 条，PARAMS 有 ${PARAM_TOTAL} 条（结构变了？解析规则需同步）`);
+  process.exit(1);
+}
+
+/** help 里的 (default: X) → 取首段并归一；非简单标量返回 { complex } 以强制 note */
+function helpDefault(flagName) {
+  const hp = helpParams.find((h) => h.flags.includes(flagName));
+  if (!hp) return { missing: true };
+  const m = hp.description.match(/default:\s*([^)]*)/i);
+  if (!m) return { missingDefault: true };
+  const first = m[1].trim().replace(/[.)\s]+$/, '').split(/[,;]/)[0].trim().replace(/^'|'$/g, '');
+  if (!/^[A-Za-z0-9_.-]+$/.test(first)) return { complex: m[1].trim() };
+  const low = first.toLowerCase();
+  if (low === 'enabled' || low === 'true') return { value: 'true' };
+  if (low === 'disabled' || low === 'false') return { value: 'false' };
+  const n = Number(first);
+  return { value: Number.isNaN(n) ? low : String(n) };
+}
+function canon(v) {
+  if (typeof v === 'boolean') return String(v);
+  const s = String(v).trim().replace(/^'|'$/g, '').toLowerCase();
+  const n = Number(s);
+  return Number.isNaN(n) ? s : String(n);
+}
+
+// ① 键集双向相等
+for (const p of paramEntries) {
+  if (!baselineEntries.has(p.key)) baselineErrors.push(`${p.key}: engine-baseline.ts 未登记（发射判定无基准可用）`);
+}
+for (const key of baselineEntries.keys()) {
+  if (!paramKeys.has(key)) baselineErrors.push(`engine-baseline.ts 有孤儿条目 '${key}'（PARAMS 已无此参数）`);
+}
+
+let checked = 0;
+let complexTagged = 0;
+let overrides = [];
+for (const p of paramEntries) {
+  const body = baselineEntries.get(p.key);
+  if (body === undefined) continue;
+  const em = body.match(/engineDefault:\s*('[^']*'|-?[\d.]+|true|false)/);
+  if (!em) { baselineErrors.push(`${p.key}: 缺 engineDefault`); continue; }
+  const engineDefault = em[1].replace(/^'|'$/g, '');
+  const sentinelRaw = (body.match(/sentinel:\s*\[([^\]]*)\]/) || [])[1] || '';
+  const sentinel = sentinelRaw.split(',').map((s) => canon(s.trim().replace(/^'|'$/g, ''))).filter((s) => s !== '');
+  const hasNote = /\bnote:\s*'/.test(body);
+
+  // ② / ③ 对拍 help（优先用 flag 找条目，找不到再试 invert_flag）
+  const byFlag = (f) => (f ? helpDefault(f) : { missing: true });
+  const hd0 = byFlag(p.flag);
+  const hd = hd0.missing ? byFlag(p.invert_flag) : hd0;
+  if (!hd.missing) {
+    if (hd.value !== undefined) {
+      checked++;
+      if (canon(engineDefault) !== hd.value) {
+        baselineErrors.push(`${p.key} (${p.flag}): engineDefault=${JSON.stringify(engineDefault)} 与 help 默认 ${JSON.stringify(hd.value)} 不符`);
+      }
+    } else if (hd.complex) {
+      complexTagged++;
+      if (!hasNote) baselineErrors.push(`${p.key} (${p.flag}): help 默认是条件式「${hd.complex.slice(0, 48)}」，engine-baseline 必须写 note 说明取舍`);
+    }
+  }
+
+  // ④ 有意覆盖引擎缺省必须留痕
+  if (p.rawDefault !== undefined && canon(p.rawDefault) !== canon(engineDefault) && !sentinel.includes(canon(p.rawDefault))) {
+    overrides.push(p.key);
+    if (!hasNote) baselineErrors.push(`${p.key}: UI 默认 ${JSON.stringify(p.rawDefault)} ≠ 引擎默认 ${JSON.stringify(engineDefault)}，必须写 note 说明为什么覆盖`);
+  }
+}
+
+if (baselineErrors.length) {
+  console.error(`[verify-params-sync] ❌ 引擎缺省基线对拍不通过（${baselineErrors.length} 项）：`);
+  for (const e of baselineErrors) console.error('  - ' + e);
+  console.error('修复：engine-baseline.ts 的 engineDefault 一律以 docs/params/llama-server-help-out.txt 为准；');
+  console.error('      换引擎版本先跑 node scripts/verify-help-drift.cjs <新help> 再同步本表（见 docs/zh/params-system.md §5.5）。');
+  process.exit(1);
+}
+console.log(`[verify-params-sync] ✅ 引擎缺省基线 ${baselineEntries.size} 条与 PARAMS 键集相等；help 可对拍的 ${checked} 项 engineDefault 全等，条件式默认 ${complexTagged} 项均已注明，启动器有意覆盖引擎默认 ${overrides.length} 项均有 note：${overrides.join(', ')}`);

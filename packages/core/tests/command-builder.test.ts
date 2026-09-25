@@ -89,19 +89,12 @@ describe('buildCommand', () => {
   });
 
   it('does not map spec_type "none" or "draft-mtp" (regression guard)', () => {
-    const cmd1 = buildCommand({
-      exePath: EXE_PATH,
-      modelPath: '',
-      values: { spec_type: 'none' },
-    });
-    expect(cmd1).toEqual([EXE_PATH, '--spec-type', 'none']);
-
-    const cmd2 = buildCommand({
-      exePath: EXE_PATH,
-      modelPath: '',
-      values: { spec_type: 'draft-mtp' },
-    });
-    expect(cmd2).toEqual([EXE_PATH, '--spec-type', 'draft-mtp']);
+    // 'none' 是引擎缺省（help: default: none），因此**不发射**——但绝不能被改写成 draft-simple
+    const cmdNone = buildCommand({ exePath: EXE_PATH, modelPath: '', values: { spec_type: 'none' } });
+    expect(cmdNone).not.toContain('draft-simple');
+    expect(cmdNone).toEqual([EXE_PATH]);
+    const cmdMtp = buildCommand({ exePath: EXE_PATH, modelPath: '', values: { spec_type: 'draft-mtp' } });
+    expect(cmdMtp).toEqual([EXE_PATH, '--spec-type', 'draft-mtp']);
   });
 
   it('skips gpu_layers when value equals default ("auto")', () => {

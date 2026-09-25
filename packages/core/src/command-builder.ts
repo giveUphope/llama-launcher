@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { PARAMS, type ParamDef, type ParamDependsOn } from '@llama-launcher/shared';
+import { PARAMS, engineDefaultOf, isSentinelValue, isUnsetValue, sameParamValue, type ParamDef, type ParamDependsOn } from '@llama-launcher/shared';
 import type { AppSettings } from '@llama-launcher/shared';
 
 export interface BuildOptions {
@@ -66,12 +66,20 @@ export function buildCommand(opts: BuildOptions): string[] {
 
 function shouldSkip(p: ParamDef, v: string | number | boolean, values: Record<string, string | number | boolean>): boolean {
   if (p.type === 'checkbox') return false; // checkbox 始终发射 flag / invert_flag
-  if (v === '') return true; // 空字符串不发射
+  if (isUnsetValue(v)) return true; // 空字符串不发射
   // 依赖不满足时跳过发射（如 draft-mtp 下的 --spec-draft-model、mirostat=0 下的 --mirostat-lr）
   if (p.dependsOn && !isDependencyMet(p.dependsOn, values)) return true;
-  return v === p.default;
+  // 显式哨兵：UI 值本身就表示「不指定，交给引擎」（如 chat_template 的 'none'）
+  if (isSentinelValue(p, v)) return true;
+  // 发射判定基准是**引擎缺省值**，不是界面初值：后者的本意常常是启动器的基线推荐
+  // （q8_0 / --load-mode none / --fit off），拿它当基准会让推荐值永远不进命令行。
+  return sameParamValue(v, engineDefaultOf(p));
 }
 
+/**
+ * 依赖是否成立。注意这里刻意用 `depDef.default`（界面初值）而不是 `engineDefault`：
+ * 依赖判定的语义是「用户有没有动过依赖源」，与「引擎自己会怎么做」无关。
+ */
 function isDependencyMet(dep: ParamDependsOn, values: Record<string, string | number | boolean>): boolean {
   const depDef = PARAMS.find((p) => p.key === dep.key);
   if (!depDef) return false;
