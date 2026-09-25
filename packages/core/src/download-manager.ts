@@ -182,9 +182,11 @@ const MAX_RETRY_DELAY_MS = 30000;
 /** 段内重定向上限:防止重定向环导致无限递归(浏览器普遍取 20,此处收紧为 5 足够正常 CDN 链路) */
 const MAX_SEGMENT_REDIRECTS = 5;
 /**
- * 进度推送间隔：120ms 让进度条按真实到字节连续推进（原 500ms 在 100MB/s 级
- * 下载下会 20% 一跳，观感上像"卡住后跳一大截"）。载荷只有一个 5 字段小对象，
- * 8.3 次/秒/任务的成本可忽略。
+ * 进度采样间隔：120ms 让进度条按真实到字节连续推进（原 500ms 在 100MB/s 级
+ * 下载下会 20% 一跳，观感上像"卡住后跳一大截"）。
+ * 注意这是**采样心跳**不是推送频率：载荷虽然只有 5 个字段，但 8.3 次/秒/任务的
+ * 同值跨桥 + 渲染层响应式更新在停摆时纯属浪费，故 `speedTick` 只在
+ * (已下载字节, 速度, 总大小) 真的变化时才 emit——条宽跟着真实字节走，静默期不重画。
  */
 const PROGRESS_INTERVAL_MS = 120;
 /**
@@ -192,6 +194,8 @@ const PROGRESS_INTERVAL_MS = 120;
  * 直接同频会让速度/ETA 剧烈跳动 —— 故速率与推送解耦，各自取自己的节奏。
  */
 const SPEED_SAMPLE_MS = 500;
+/** EMA 平滑系数:0.5 让新样本占 50%、历史占 50%（速率窗口与推送节奏解耦时用） */
+const EMA_ALPHA = 0.5;
 /**
  * 写入流缓冲上限:2MB(曾是 16MB)。单任务最多 8 段 × 最多 5 个并发任务,16MB 意味着
  * 数百 MB 的在途缓冲;速率曲线的平滑本就由 EMA 采样器负责(见 startSpeedTracker),
@@ -269,6 +273,8 @@ export class DownloadManager extends EventEmitter {
       interval: NodeJS.Timeout;
       /** EMA 平滑速度:消除单次采样的 burst/idle 跳动,显示更稳定 */
       smoothedSpeed: number;
+      /** 上一次真的发出去的三元组；null = 还没发过（首发必发） */
+      lastEmit: null | { size: number; speed: number; total: number };
     }
   >();
   private taskSegments = new Map<string, Segment[]>();
@@ -1334,46 +1340,58 @@ export class DownloadManager extends EventEmitter {
     const task = this.tasks.get(id);
     if (!task) return;
 
-    // EMA 平滑系数:0.5 让新样本占 50%、历史占 50%。
-    // 0.3 过低导致段切换间隙(数百 ms)的降速需 1.5-2s 才能追上,呈现"有规律降速"假象;
-    // 0.5 在平滑性与响应性间更平衡,2 个样本(1s)即可追上真实变化
-    const EMA_ALPHA = 0.5;
-    const sampleSec = SPEED_SAMPLE_MS / 1000;
     const tracker = {
       lastBytes: task.downloadedSize,
       lastTime: Date.now(),
       smoothedSpeed: 0,
-      interval: setInterval(() => {
-        const t = this.tasks.get(id);
-        if (!t || t.status !== 'downloading') return;
-        // 事件节流:周期性从所有段汇总 downloadedSize(而非 per-chunk 更新)
-        this.recomputeDownloadedSize(id);
-        const now = Date.now();
-        const elapsed = (now - tracker.lastTime) / 1000;
-        // 速率只在采样窗口到期时更新（t.speed 在两次采样间保持上一个值），
-        // 进度事件则每 tick 都发——条宽要跟着真实字节走，速度/ETA 不要
-        if (elapsed >= sampleSec) {
-          const instantSpeed = (t.downloadedSize - tracker.lastBytes) / elapsed;
-          // EMA:首次样本直接采用(避免从 0 缓慢爬升);后续按系数加权
-          tracker.smoothedSpeed =
-            tracker.smoothedSpeed === 0
-              ? instantSpeed
-              : EMA_ALPHA * instantSpeed + (1 - EMA_ALPHA) * tracker.smoothedSpeed;
-          tracker.lastBytes = t.downloadedSize;
-          tracker.lastTime = now;
-          t.speed = Math.round(tracker.smoothedSpeed);
-        }
-
-        this.emit('progress', {
-          id,
-          downloadedSize: t.downloadedSize,
-          totalSize: t.totalSize,
-          speed: t.speed,
-          status: 'downloading',
-        } satisfies DownloadProgressPayload);
-      }, PROGRESS_INTERVAL_MS),
+      /** 上一次真正发出去的三元组；null = 还没发过（首发必发，让 UI 立刻有数） */
+      lastEmit: null as null | { size: number; speed: number; total: number },
+      interval: setInterval(() => this.speedTick(id), PROGRESS_INTERVAL_MS),
     };
     this.speedTrackers.set(id, tracker);
+  }
+
+  /**
+   * 进度采样的一次心跳（独立成方法是为了能被直接调用断言——120ms 的间隔配假时钟
+   * 测节流，测的是时钟而不是逻辑）。
+   */
+  private speedTick(id: string): void {
+    const tracker = this.speedTrackers.get(id);
+    const t = this.tasks.get(id);
+    if (!tracker || !t || t.status !== 'downloading') return;
+    // 事件节流:周期性从所有段汇总 downloadedSize(而非 per-chunk 更新)
+    this.recomputeDownloadedSize(id);
+    const now = Date.now();
+    const elapsed = (now - tracker.lastTime) / 1000;
+    // 速率只在采样窗口到期时更新（t.speed 在两次采样间保持上一个值），
+    // 进度事件则跟着真实字节走——但字节与速率都没变时不必再推一份一模一样的
+    if (elapsed >= SPEED_SAMPLE_MS / 1000) {
+      const instantSpeed = (t.downloadedSize - tracker.lastBytes) / elapsed;
+      // EMA:首次样本直接采用(避免从 0 缓慢爬升);后续按系数加权
+      tracker.smoothedSpeed =
+        tracker.smoothedSpeed === 0
+          ? instantSpeed
+          : EMA_ALPHA * instantSpeed + (1 - EMA_ALPHA) * tracker.smoothedSpeed;
+      tracker.lastBytes = t.downloadedSize;
+      tracker.lastTime = now;
+      t.speed = Math.round(tracker.smoothedSpeed);
+    }
+
+    // 只在真的变了才发：网络停摆/段重试期间字节与速率都不动，此前每 120ms 仍推一份
+    // 同值载荷跨桥 + 触发渲染层响应式更新（下载页反复重画一模一样的数）。
+    // 首次必发，保证 UI 立刻有数。
+    const next = { size: t.downloadedSize, speed: t.speed, total: t.totalSize };
+    const prev = tracker.lastEmit;
+    if (prev && prev.size === next.size && prev.speed === next.speed && prev.total === next.total) return;
+    tracker.lastEmit = next;
+
+    this.emit('progress', {
+      id,
+      downloadedSize: t.downloadedSize,
+      totalSize: t.totalSize,
+      speed: t.speed,
+      status: 'downloading',
+    } satisfies DownloadProgressPayload);
   }
 
   /** 停止速度统计 */

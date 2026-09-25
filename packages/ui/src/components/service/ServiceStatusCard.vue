@@ -34,16 +34,45 @@ const openEndpoint = computed(() => {
 });
 
 // ---- 外部 llama-server 实例（非本应用拉起）----
-// 探测节奏：卡片激活时立即探测 + 15s 轮询（仅概览页挂载期间运行，离开即停），
-// 会话参数的 host/port 为探测目标；本应用自身 starting/running 时 store 会自行清空外部标记。
-const EXTERNAL_POLL_MS = 15_000;
-let externalTimer: ReturnType<typeof setInterval> | null = null;
+// 探测只在「可能真的变了」的时候做，不做无脑定时轮询：
+// ① 自家服务 starting/running 期间**完全不探**——store 的 refreshExternal 第一行就返回 null
+//    （端口归自家进程所有，不存在"外部实例"语义），此前定时器仍每 15s 调一次空函数并写一遍响应式值；
+// ② 自家服务停止的那一刻立即探一次（外部接管端口的时机就在这前后）；
+// ③ host/port 参数改动时立即探一次；
+// ④ 其余时间用退避兜底（15s → 30s → 60s 封顶）：外部进程启停我们收不到事件，
+//    完全去掉轮询就会漏，但结论连续不变时没必要一直用快档。
+const EXTERNAL_POLL_BASE_MS = 15_000;
+const EXTERNAL_POLL_MAX_MS = 60_000;
+// 页面是否可见（keep-alive 下 onUnmounted 不触发，必须靠激活/失活开关）
+let pageActive = false;
+let externalTimer: ReturnType<typeof setTimeout> | null = null;
+let externalIdleSteps = 0;
+// 上次观测到的外部实例标识（存在与否 + pid），用于判断"这轮有没有变"
+let externalSeen = '';
+
+function externalKey(): string {
+  const e = server.external;
+  return e ? `${e.host}:${e.port}:${e.pid ?? '?'}` : '';
+}
 
 function probeExternal() {
   void server.refreshExternal(
     Number(params.values.port ?? DEFAULT_PORT),
     String(params.values.host ?? '') || undefined,
-  );
+  ).then(scheduleExternalProbe);
+}
+
+/** 只有"停在停服状态、需要盯外部实例"时才续探；结论变了就把退避档位收回快档 */
+function scheduleExternalProbe() {
+  if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
+  if (!pageActive || server.status === 'running' || server.status === 'starting') return;
+  const now = externalKey();
+  externalIdleSteps = now === externalSeen
+    ? Math.min(externalIdleSteps + 1, 4)
+    : 0;
+  externalSeen = now;
+  const delay = Math.min(EXTERNAL_POLL_BASE_MS * 2 ** externalIdleSteps, EXTERNAL_POLL_MAX_MS);
+  externalTimer = setTimeout(probeExternal, delay);
 }
 
 const externalUrl = computed(() =>
@@ -104,7 +133,6 @@ function updateDuration() {
 
 // 1s 心跳只在真的运行时开：原实现在概览页激活时无条件开表，服务停止后仍每秒写 now.value
 // （durationSec 虽短路为 0，但每秒的唤醒 + 响应式写入照旧发生）
-let pageActive = false;
 function startDurationTimer() {
   if (timer || !pageActive) return;
   updateDuration();
@@ -121,22 +149,21 @@ onActivated(() => {
     void server.refreshStatus(true);
     startDurationTimer();
   }
-  // 外部实例探测：激活立即探一次 + 定时轮询（失活/卸载即停）
+  // 外部实例探测：激活立即探一次，之后按退避续探（失活/卸载即停）
+  externalIdleSteps = 0;
   probeExternal();
-  if (externalTimer) clearInterval(externalTimer);
-  externalTimer = setInterval(probeExternal, EXTERNAL_POLL_MS);
 });
 
 onDeactivated(() => {
   pageActive = false;
   stopDurationTimer();
-  if (externalTimer) { clearInterval(externalTimer); externalTimer = null; }
+  if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
 });
 
 onUnmounted(() => {
   pageActive = false;
   stopDurationTimer();
-  if (externalTimer) { clearInterval(externalTimer); externalTimer = null; }
+  if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
 });
 
 const durationSec = computed(() => {
@@ -152,10 +179,24 @@ watch(() => server.status, (s) => {
       startTimeMs.value = Date.now();
     }
     startDurationTimer();
+    // 端口归自家进程所有，外部探测在此期间无意义：清掉已排定的续探
+    if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
   } else if (s === 'stopped') {
     startTimeMs.value = null;
     stopDurationTimer();
+    // 自家进程刚停 = 端口可能马上被外部实例接手的时刻，立刻探一次并把退避收回快档
+    if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
+    externalIdleSteps = 0;
+    probeExternal();
   }
+});
+
+// 探测目标（会话参数里的 host/port）被改动时立刻重探一次——比等下一个退避周期准
+watch(() => [params.values.host, params.values.port], () => {
+  if (!pageActive || server.status === 'running' || server.status === 'starting') return;
+  if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
+  externalIdleSteps = 0;
+  probeExternal();
 });
 
 // ---- 复制（a-typography copyable 图标触发；Arco 自带复制，这里再走 Electron 剪贴板兜底）----

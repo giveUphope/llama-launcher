@@ -829,4 +829,34 @@ describe('DownloadManager', () => {
 
     manager.dispose();
   });
+
+  it('进度心跳：字节与速度都没变时不再推同值载荷，变了才推', () => {
+    const manager = new DownloadManager();
+    const id = 'stalled-task';
+    // 直接放一个最小任务进内部表：这里要测的是心跳的发送判据，不是网络链路
+    (manager as any).tasks.set(id, {
+      id, modelId: 'm', filePath: 'f', fileName: 'f.gguf',
+      totalSize: 1000, downloadedSize: 400, speed: 0, status: 'downloading',
+    });
+    (manager as any).startSpeedTracker(id);
+
+    const seen: Array<{ size: number; speed: number }> = [];
+    manager.on('progress', (p: { downloadedSize: number; speed: number }) => {
+      seen.push({ size: p.downloadedSize, speed: p.speed });
+    });
+
+    // 停摆：连打 5 次心跳，只应有首发那一次
+    for (let i = 0; i < 5; i++) (manager as any).speedTick(id);
+    expect(seen.length).toBe(1);
+
+    // 真的前进了：必须立刻再推，且下一次相同值心跳继续静默
+    (manager as any).tasks.get(id).downloadedSize = 600;
+    (manager as any).speedTick(id);
+    expect(seen.length).toBe(2);
+    (manager as any).speedTick(id);
+    expect(seen.length).toBe(2);
+
+    (manager as any).stopSpeedTracker(id);
+    manager.dispose();
+  });
 });
