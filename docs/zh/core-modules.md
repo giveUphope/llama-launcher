@@ -40,7 +40,7 @@
 
 - **`buildCommand(opts)`**：校验 `exePath` 存在性，生成 `[exePath, '-m', modelPath, ...flags]` 数组。
 
-- **发射规则**（无独立启用机制；`values._enabled` 为 legacy 字段，读取时直接忽略）：值**不等于默认值**才发射 flag；checkbox 勾选发 `flag`、取消发 `invert_flag`（无 `invert_flag` 且 default false 的常开开关取消时不发射，如 `--metrics`）；空串跳过；`dependsOn` 依赖不满足跳过；`model` 恒附 `-m`（空模型不附）。
+- **发射规则**（无独立启用机制；`values._enabled` 为 legacy 字段，读取时直接忽略）：值**不等于引擎缺省 `engineDefault`** 才发射 flag（基准来自 `shared/params/engine-baseline.ts`，不是界面初值 `default`；`sentinel` 列出的值表示「不指定」，恒不发射）；checkbox 勾选发 `flag`、取消发 `invert_flag`（无 `invert_flag` 且 default false 的常开开关取消时不发射，如 `--metrics`）；空串跳过；`dependsOn` 依赖不满足跳过；`model` 恒附 `-m`（空模型不附）。
 
 - **checkbox**：有 `invert_flag` 时 true 发 `flag`、false 发 `invert_flag`（如 `--jinja` / `--no-jinja`）；无 `invert_flag` 的常开开关（default false）仅 true 时发射。
 

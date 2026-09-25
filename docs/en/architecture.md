@@ -53,7 +53,7 @@ llama_launcher/
 │   │       ├── settings-store.ts      # Settings read/write (CAS merge guard + atomic replace)
 │   │       ├── presets-store.ts       # Presets read/write (dynamic directory argument, v2 structure)
 │   │       ├── models-scanner.ts      # Recursive .gguf scan + mmproj/draft detection + removal
-│   │       ├── command-builder.ts     # Startup command builder (a flag is emitted only when value ≠ default)
+│   │       ├── command-builder.ts     # Startup command builder (a flag is emitted only when value ≠ the engine default)
 │   │       ├── process.ts             # Child-process wrapper (LlamaServerProcess, two-phase termination)
 │   │       ├── launcher.ts            # Startup orchestration state machine (stopped→starting→running)
 │   │       ├── gguf-meta.ts           # Streaming GGUF metadata reader (64KB blocks + LRU)
@@ -74,6 +74,7 @@ llama_launcher/
 │   │   └── src/
 │   │       ├── types/             # Type definitions (settings/param/preset/server/gguf/download/trash/vram/ipc)
 │   │       ├── params/definitions.ts # Param table (3 groups / 60 params)
+│   │       ├── params/engine-baseline.ts # Engine-default baseline (engineDefault / sentinel / note, cross-checked against help)
 │   │       ├── i18n/              # Chinese/English copy (zh/en/labels)
 │   │       ├── model-name.ts      # Model display name / alias derivation (modelBaseName)
 │   │       ├── model-relevance.ts # File categorization + quantization label parsing (categorizeFile/parseQuantization)
@@ -100,7 +101,7 @@ llama_launcher/
 │   ├── dev-watch.cjs                # Dev hot reload: watches main-process dist / preload sources / shared types, restarts Electron on change
 │   ├── reinstall-electron.cjs       # Fixed repair path for a missing Electron binary (pnpm reinstall:electron, with mirror env vars)
 │   ├── dist-with-fallback.cjs       # Fallback when the packaging output directory is locked
-│   ├── verify-params-sync.cjs       # Three-way cross-check of param definitions ↔ docs ↔ help + validation of doc-stated param counts
+│   ├── verify-params-sync.cjs       # Three-way cross-check of param definitions ↔ docs ↔ help + validation of doc-stated param counts + engine-default baseline cross-check
 │   ├── verify-ipc-sync.cjs          # IPC constant consistency check + validation of doc-stated channel counts
 │   ├── verify-help-drift.cjs        # Param drift audit after a binary upgrade
 │   ├── verify-i18n-usage.cjs        # i18n key usage consistency (six checks: key sets / dangling keys / bare Chinese literals / manual interpolation / argument-count match / dynamic key families)

@@ -40,7 +40,7 @@ The `Launcher` class (extends `EventEmitter`), implementing a state machine:
 
 - **`buildCommand(opts)`**: validates that `exePath` exists and produces the `[exePath, '-m', modelPath, ...flags]` array.
 
-- **Emission rules** (there is no separate enable mechanism; `values._enabled` is a legacy field, ignored outright when read): a flag is emitted only when the value **differs from its default**; a checkbox emits `flag` when checked and `invert_flag` when unchecked (an always-on switch with no `invert_flag` and a default of false emits nothing when unchecked, e.g. `--metrics`); empty strings are skipped; params whose `dependsOn` dependency is unmet are skipped; `model` always gets `-m` appended (nothing is appended when the model is empty).
+- **Emission rules** (there is no separate enable mechanism; `values._enabled` is a legacy field, ignored outright when read): a flag is emitted only when the value **differs from the engine default `engineDefault`** (the basis comes from `shared/params/engine-baseline.ts`, not from the UI initial value `default`; values listed under `sentinel` mean "unspecified" and are never emitted); a checkbox emits `flag` when checked and `invert_flag` when unchecked (an always-on switch with no `invert_flag` and a default of false emits nothing when unchecked, e.g. `--metrics`); empty strings are skipped; params whose `dependsOn` dependency is unmet are skipped; `model` always gets `-m` appended (nothing is appended when the model is empty).
 
 - **checkbox**: when `invert_flag` exists, true emits `flag` and false emits `invert_flag` (e.g. `--jinja` / `--no-jinja`); always-on switches without `invert_flag` (default false) emit only when true.
 

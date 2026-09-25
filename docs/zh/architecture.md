@@ -53,7 +53,7 @@ llama_launcher/
 │   │       ├── settings-store.ts      # 设置读写（CAS 合并守卫 + 原子替换）
 │   │       ├── presets-store.ts       # 预设读写（动态目录参数，v2 结构）
 │   │       ├── models-scanner.ts      # .gguf 递归扫描 + mmproj/draft 检测 + 移除
-│   │       ├── command-builder.ts     # 启动命令构建（值≠默认才发射）
+│   │       ├── command-builder.ts     # 启动命令构建（值≠引擎缺省 engineDefault 才发射）
 │   │       ├── process.ts             # 子进程封装（LlamaServerProcess，两阶段终止）
 │   │       ├── launcher.ts            # 启动编排状态机（stopped→starting→running）
 │   │       ├── gguf-meta.ts           # GGUF 元数据流式读取（64KB 块 + LRU）
@@ -74,6 +74,7 @@ llama_launcher/
 │   │   └── src/
 │   │       ├── types/             # 类型定义（settings/param/preset/server/gguf/download/trash/vram/ipc）
 │   │       ├── params/definitions.ts # 参数表（3 组 / 60 个参数）
+│   │       ├── params/engine-baseline.ts # 引擎缺省基线（engineDefault / sentinel / note，对拍 help）
 │   │       ├── i18n/              # 中英文案（zh/en/labels）
 │   │       ├── model-name.ts      # 模型显示名/别名派生（modelBaseName）
 │   │       ├── model-relevance.ts # 文件分类 + 量化标签解析（categorizeFile/parseQuantization）
@@ -100,7 +101,7 @@ llama_launcher/
 │   ├── dev-watch.cjs                # 开发热重载：监视主进程 dist / preload 源 / shared 类型，变更重启 Electron
 │   ├── reinstall-electron.cjs       # Electron 二进制缺失时的固定修复路径（pnpm reinstall:electron，带镜像环境变量）
 │   ├── dist-with-fallback.cjs       # 打包输出目录锁定回退
-│   ├── verify-params-sync.cjs       # 参数定义 ↔ 文档 ↔ help 三方对拍 + 文档参数计数声明校验
+│   ├── verify-params-sync.cjs       # 参数定义 ↔ 文档 ↔ help 三方对拍 + 文档参数计数声明校验 + 引擎缺省基线对拍
 │   ├── verify-ipc-sync.cjs          # IPC 常量一致性校验 + 文档通道数声明校验
 │   ├── verify-help-drift.cjs        # 二进制升级后的参数漂移审计
 │   ├── verify-i18n-usage.cjs        # i18n 键使用一致性（六项检查：键集/悬空键/裸中文/手工插值/实参匹配/动态键族）
