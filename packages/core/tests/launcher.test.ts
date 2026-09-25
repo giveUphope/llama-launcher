@@ -156,7 +156,7 @@ describe('Launcher', () => {
 
   it('emits status events and transitions', async () => {
     const statuses: string[] = [];
-    launcher.on('status', (s: string) => statuses.push(s));
+    launcher.on('status', (e: { status: string }) => statuses.push(e.status));
 
     launcher.start({ values: {}, settings: baseSettings });
     expect(statuses).toContain('starting');
@@ -167,6 +167,76 @@ describe('Launcher', () => {
     launcher.stop();
     // kill 触发 exit → setStatus('stopped')
     expect(statuses).toContain('stopped');
+  });
+
+  describe('停止事实（ServerStopInfo）随状态事件下发，供渲染层区分 stopped/failed/crashed', () => {
+    /** 走到 running：喂一行 listening 输出（真实 llama-server 的就绪信号） */
+    function reachRunning(l: Launcher) {
+      l.start({ values: {}, settings: baseSettings });
+      const proc = l['proc'] as any;
+      proc._triggerOutput('llama_server: listening on http://127.0.0.1:8080');
+      expect(l.getStatus().status).toBe('running');
+      return proc;
+    }
+
+    it('running 后自行退出（非 0 退出码）→ exited + hadBeenReady', () => {
+      const proc = reachRunning(launcher);
+      const events: any[] = [];
+      launcher.on('status', (e: any) => events.push(e));
+
+      proc._triggerExit(139);
+
+      const last = events.at(-1);
+      expect(last.status).toBe('stopped');
+      expect(last.stop).toMatchObject({ reason: 'exited', code: 139, hadBeenReady: true });
+      expect(launcher.getStatus().stop).toMatchObject({ reason: 'exited', code: 139 });
+    });
+
+    it('启动阶段就退出（从未就绪）→ exited + hadBeenReady=false', () => {
+      launcher.start({ values: {}, settings: baseSettings });
+      const proc = launcher['proc'] as any;
+      proc._triggerExit(1);
+      expect(launcher.getStatus().stop).toMatchObject({ reason: 'exited', code: 1, hadBeenReady: false });
+    });
+
+    it('用户主动 stop → stopped_by_user（即便 Windows taskkill 给出非 0 退出码）', () => {
+      const proc = reachRunning(launcher);
+      // 真实链路里 taskkill /F 的退出码不是 0，这里直接喂 exit 事件模拟
+      launcher.stop();
+      proc._triggerExit(1);
+      expect(launcher.getStatus().stop).toMatchObject({ reason: 'stopped_by_user', hadBeenReady: true });
+    });
+
+    it('命令构建/spawn 失败（进程压根没起来）→ spawn_failed', () => {
+      const settings: AppSettings = { ...baseSettings, server_exe: '/nonexistent/path/llama-server.exe' };
+      // 该路径会 emit('error')：EventEmitter 上没有 error 监听时 emit 会抛出，故先挂一个
+      launcher.once('error', () => {});
+      launcher.start({ values: {}, settings });
+      expect(launcher.getStatus().status).toBe('stopped');
+      expect(launcher.getStatus().stop).toMatchObject({ reason: 'spawn_failed', code: null, hadBeenReady: false });
+    });
+
+    it('干净自退（code 0）也如实上报，交给渲染层判成 stopped 而非 crashed', () => {
+      const proc = reachRunning(launcher);
+      proc._triggerExit(0);
+      expect(launcher.getStatus().stop).toMatchObject({ reason: 'exited', code: 0, signal: null, hadBeenReady: true });
+    });
+
+    it('process.ts 用 -1 归一「被信号杀死」，上报时还原为 null（别让上层把 -1 当真实退出码）', () => {
+      const proc = reachRunning(launcher);
+      proc._triggerExit(-1);
+      expect(launcher.getStatus().stop).toMatchObject({ reason: 'exited', code: null });
+    });
+
+    it('新一轮 start() 清空上一轮的停止事实（旧崩溃不得显示成当前状态）', () => {
+      const proc = reachRunning(launcher);
+      proc._triggerExit(139);
+      expect(launcher.getStatus().stop).not.toBeNull();
+
+      launcher.start({ values: {}, settings: baseSettings });
+      expect(launcher.getStatus().stop).toBeNull();
+      launcher.stop();
+    });
   });
 
   it('emits output events forwarded from subprocess', async () => {
@@ -265,7 +335,7 @@ describe('Launcher - listening detection', () => {
 
   it('emits running status when listening detected', () => {
     const statuses: string[] = [];
-    launcher.on('status', (s: string) => statuses.push(s));
+    launcher.on('status', (e: { status: string }) => statuses.push(e.status));
 
     launcher.start({ values: {}, settings: baseSettings });
     const proc = launcher['proc'] as any;
@@ -343,7 +413,7 @@ describe('Launcher - exit and restart', () => {
 
   it('restart while running emits two status transitions (stopped then starting)', () => {
     const statuses: string[] = [];
-    launcher.on('status', (s: string) => statuses.push(s));
+    launcher.on('status', (e: { status: string }) => statuses.push(e.status));
 
     launcher.start({ values: {}, settings: baseSettings });
     launcher.restart({ values: {}, settings: baseSettings });

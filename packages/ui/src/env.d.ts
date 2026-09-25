@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import type {
   AppSettings, ModelInfo, OutputEntry, Preset, PresetValues,
-  ServerInfo, ServerStatus, GgufReadResult,
+  ServerInfo, ServerStatusEvent, GgufReadResult,
   ParsedModelUrl, ModelScopeSearchResult, ModelScopeFileListResult,
   StartDownloadRequest, DownloadProgressPayload, DownloadCompletePayload, DownloadErrorPayload,
   DownloadSource,
@@ -51,7 +51,7 @@ export interface ElectronAPI {
     getStatus: () => Promise<ServerInfo>;
     previewCommand: (values: PresetValues, settings: AppSettings) => Promise<IpcResponse<string>>;
     onOutputBatch: (cb: (entries: OutputEntry[]) => void) => () => void;
-    onStatus: (cb: (s: ServerStatus) => void) => () => void;
+    onStatus: (cb: (e: ServerStatusEvent) => void) => () => void;
   };
   clipboard: {
     write: (text: string) => Promise<void>;

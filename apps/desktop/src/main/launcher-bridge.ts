@@ -2,7 +2,7 @@ import { Launcher, basenameSafe } from '@llama-launcher/core';
 import { BrowserWindow } from 'electron';
 import { IPC } from '@llama-launcher/shared';
 import { processRegistry } from './process-registry.js';
-import type { AppSettings, PresetValues, OutputEntry, ServerStatus } from '@llama-launcher/shared';
+import type { AppSettings, PresetValues, OutputEntry, ServerStatusEvent } from '@llama-launcher/shared';
 
 class LauncherBridge {
   private launcher = new Launcher();
@@ -24,9 +24,10 @@ class LauncherBridge {
     this.launcher.on('output', (entry: OutputEntry) => {
       this.pushOutput(entry);
     });
-    this.launcher.on('status', (s: ServerStatus) => {
+    this.launcher.on('status', (e: ServerStatusEvent) => {
       if (this.win && !this.win.isDestroyed()) {
-        this.win.webContents.send(IPC.SERVER_STATUS, s);
+        // 状态与停止事实一起下发：渲染层不再从日志文字推断 failed/crashed
+        this.win.webContents.send(IPC.SERVER_STATUS, e);
       }
     });
     // Launcher 的同步失败（已运行中、命令构建失败、spawn 失败）原先只 emit 'error'，

@@ -1,18 +1,21 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { DEFAULT_HOST, DEFAULT_PORT } from '@llama-launcher/shared';
-import type { ServerStatus, OutputEntry } from '@llama-launcher/shared';
+import type { ServerStatus, ServerStatusEvent, ServerStopInfo, OutputEntry } from '@llama-launcher/shared';
 import { useIPC, invokeOk, toPlain } from '@/composables/useIPC';
 import { useI18nStore } from '@/stores/i18n';
 import type { AppSettings, PresetValues } from '@llama-launcher/shared';
 
 /** 有效状态：在 ServerStatus（stopped/starting/running/stopping）基础上叠加
- *  failed（启动失败/残留失败）与 crashed（运行中崩溃）两个增强态。 */
+ *  failed（启动失败）与 crashed（运行中崩溃）两个增强态。
+ *  两者一律由主进程随状态事件下发的停止事实（`ServerStopInfo`）推导，**不看日志文字**——
+ *  llama-server 在正常运行期也会为拒绝一个越界请求打
+ *  `E srv  send_error: task id = N, error: request ... exceeds the available context size`
+ *  这样的行，旧的「最近 80 行里有没有 error 字样」判定会把活着的进程显示成「异常退出」，
+ *  再滚过 80 行又自己变回「运行中」（2026-09-25 移除该判定）。 */
 export type EffectiveStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'failed' | 'crashed';
 
-// 失败/崩溃关键词（服务页状态卡原实现下沉至此，三处状态显示共用单一判定）
-const FAIL_RE = /\b(error|failed|fatal|exception|cannot|unable|abort|crash|segfault|exit code|killed|killed by signal)\b/i;
-// 显存/内存耗尽（状态卡 OOM 警示行）——与着色正则一样在入队时一次性匹配
+// 显存/内存耗尽（状态卡 OOM 警示行）——在入队时一次性匹配
 const OOM_RE = /\b(out of memory|VK_ERROR_OUT_OF_DEVICE_MEMORY|cudaErrorOutOfMemory|out_of_memory|failed to allocate|unable to allocate|not enough memory|std::bad_alloc)\b/i;
 // 控制台着色关键词：kind 为 error/success/info 时直接定色，其余按关键词判定
 const CONSOLE_ERROR_RE = /\b(error|failed|fatal|exception|cannot|unable|abort|crash|segfault)\b/i;
@@ -24,15 +27,14 @@ export type ConsoleTone = 'error' | 'warn' | 'success' | 'info' | 'plain';
 
 /**
  * 渲染层消费的输出行：IPC 原始条目 + 入队时一次算好的派生标记。
- * 关键词匹配（着色 / 失败判定 / OOM）原先都在渲染期按行重算——控制台最多渲染 1000 行、
- * 每条新日志触发一次整表重渲染，即每行 3 条正则；effectiveStatus 亦每行 join 80 行文本
- * 再跑一次正则。改为入队时 O(1) 判定后，这些热路径退化为布尔读。
+ * 关键词匹配（着色 / OOM）原先都在渲染期按行重算——控制台最多渲染 1000 行、
+ * 每条新日志触发一次整表重渲染，即每行 2~3 条正则。改为入队时 O(1) 判定后，
+ * 这些热路径退化为布尔读。
  */
 export interface OutputLine extends OutputEntry {
   /** 单调递增行号：v-for 的稳定 key（数组按 MAX_LINES 裁剪时索引会整体前移） */
   id: number;
   tone: ConsoleTone;
-  fail: boolean;
   oom: boolean;
 }
 
@@ -55,7 +57,6 @@ export const PORT_BUSY_RE = /address already in use|bind\(\) failed|EADDRINUSE|e
 // Windows tasklist 为 "llama-server.exe"，POSIX lsof/ss 可能截断到 9 字符（"llama-ser"），
 // 故匹配到 "llama-ser" 前缀即可，不依赖扩展名
 export const LLAMA_SERVER_NAME_RE = /llama[-_]?ser/i;
-const TAIL_LINES = 80;
 
 /** 外部 llama-server 实例（非本应用拉起，端口探测识别） */
 export interface ExternalServerInstance {
@@ -79,11 +80,11 @@ export const useServerStore = defineStore('server', () => {
   // 输出行号源（单调递增，跨 clearOutputs 不复用，供 v-for 稳定 key）
   let outputSeq = 0;
   const MAX_LINES = 5000;
-  // 当前这一轮运行的失败判定只看本轮输出：每次进入 starting（start/restart 拉起新进程）时
-  // 重置为本次运行的起始下标。若不加区分，上一轮端口冲突等失败残留行会留在输出缓冲尾部，
-  // 把本轮 starting/running 误判为 failed/crashed——正是“端口冲突处理后重新启动、状态无变化
-  // 但服务其实已启动”的根因。
-  const runStart = ref(0);
+  // 主进程随状态事件下发的「最近一次结束事实」（见 shared/types/server.ts 的 ServerStopInfo）。
+  // failed / crashed 两个增强态只由它推导：核心状态机知道进程是否起过、是否曾就绪、怎么退的，
+  // 日志文本一概不参与——用关键词猜曾把运行中的服务误判成异常退出（详见 effectiveStatus 注释）。
+  // 新一轮 starting 时主进程会把它清成 null，故跨轮残留天然不成立。
+  const stopInfo = ref<ServerStopInfo | null>(null);
 
   // ---- 外部 llama-server 实例检测（非本应用拉起）----
   // 来源有二：① 概览页定时探测配置端口（refreshExternal）；② 启动端口冲突时用户选择
@@ -149,7 +150,6 @@ export const useServerStore = defineStore('server', () => {
       ...entry,
       id: ++outputSeq,
       tone: toneOf(entry),
-      fail: FAIL_RE.test(text),
       oom: OOM_RE.test(text),
     };
   }
@@ -159,10 +159,7 @@ export const useServerStore = defineStore('server', () => {
     if (!batch || batch.length === 0) return;
     for (const entry of batch) outputs.value.push(decorate(entry));
     if (outputs.value.length > MAX_LINES) {
-      const removed = outputs.value.length - MAX_LINES;
-      outputs.value.splice(0, removed);
-      if (runStart.value > removed) runStart.value -= removed;
-      else runStart.value = 0;
+      outputs.value.splice(0, outputs.value.length - MAX_LINES);
     }
   }
 
@@ -200,12 +197,11 @@ export const useServerStore = defineStore('server', () => {
         pushOutputBatch(entries);
         for (const e of entries) portBusyHint(e);
       });
-      api.server.onStatus((s) => {
-        // 进入 starting 即意味着拉起了一个新进程：失败/崩溃判定边界重置到本轮输出起点。
-        if (s === 'starting') runStart.value = outputs.value.length;
+      api.server.onStatus((e: ServerStatusEvent) => {
+        stopInfo.value = e.stop ?? null;
         // 本应用拉起自身进程后，外部实例标记立即失效（端口将归自家进程所有）
-        if (s === 'starting' || s === 'running') external.value = null;
-        status.value = s;
+        if (e.status === 'starting' || e.status === 'running') external.value = null;
+        status.value = e.status;
       });
     } catch {
       // 浏览器预览环境(无 Electron preload)下 api.server 未定义,忽略事件订阅
@@ -217,6 +213,7 @@ export const useServerStore = defineStore('server', () => {
     // 防御性检查：浏览器预览/mock 环境下 getStatus 可能返回 null
     if (!info) return;
     status.value = info.status;
+    stopInfo.value = info.stop ?? null;
     pid.value = info.pid;
     host.value = info.host;
     port.value = info.port;
@@ -263,7 +260,6 @@ export const useServerStore = defineStore('server', () => {
 
   function clearOutputs() {
     outputs.value = [];
-    runStart.value = 0;
   }
 
   /**
@@ -278,17 +274,7 @@ export const useServerStore = defineStore('server', () => {
     return '';
   });
 
-  // ---- 增强状态机（单一事实源，ServicePage / Dashboard Q1 / StatusBar 共用）----
-  // 本轮运行输出窗口（最多 80 行）内是否出现失败关键词：
-  // 逐行读入队时算好的 fail 标记。上一轮（如端口冲突失败）残留的失败关键词不得把本轮
-  // starting/running 误判为 failed/crashed，故窗口起点仍是 runStart 下标。
-  // （此前这里是 slice(80).map(data).join('') 再对整串跑正则，每条新日志一次。）
-  const tailHasFail = computed(() => {
-    const arr = outputs.value;
-    const from = Math.max(runStart.value, arr.length - TAIL_LINES, 0);
-    for (let i = from; i < arr.length; i++) if (arr[i].fail) return true;
-    return false;
-  });
+  // ---- 增强状态机（单一事实源，ServicePage / Dashboard / StatusBar 共用）----
 
   /** 最近 OOM_LOOKBACK 行内是否出现显存/内存耗尽（状态卡 OOM 警示） */
   const OOM_LOOKBACK = 300;
@@ -299,19 +285,25 @@ export const useServerStore = defineStore('server', () => {
   });
 
   /**
-   * 有效状态：在原始 ServerStatus 之上按本轮输出增强判定——
-   * running + 失败关键词 → crashed；starting + 失败关键词 → failed；
-   * stopped 但本轮残留失败输出 → failed。UI 层临时态（stopping）由调用方按需覆盖。
+   * 有效状态：在原始 ServerStatus 之上，用主进程下发的停止事实细分「怎么停的」——
+   * 跑过之后非正常退出 → crashed；启动阶段就退出 / 压根没起来 → failed；
+   * 用户主动停或干净退出 → stopped。UI 层临时态（stopping）由调用方按需覆盖。
+   *
+   * 这里刻意不参考 outputs：日志里出现 error 字样与进程死活无关（llama-server 会用它
+   * 拒绝单个越界请求），旧实现正是据此把运行中的服务判成「异常退出」。
    */
   const effectiveStatus = computed<EffectiveStatus>(() => {
-    if (status.value === 'running') return tailHasFail.value ? 'crashed' : 'running';
-    if (status.value === 'starting') return tailHasFail.value ? 'failed' : 'starting';
-    if (status.value === 'stopped' && tailHasFail.value) return 'failed';
-    return status.value;
+    if (status.value !== 'stopped') return status.value;
+    const stop = stopInfo.value;
+    if (!stop || stop.reason === 'stopped_by_user') return 'stopped';
+    if (stop.reason === 'spawn_failed') return 'failed';
+    if (!stop.hadBeenReady) return 'failed';
+    // 曾就绪后自己退出：干净退出（code 0、无信号）不算崩，其余算异常退出
+    return stop.code === 0 && !stop.signal ? 'stopped' : 'crashed';
   });
 
   return {
-    status, pid, host, port, url, apiUrl, outputs, runningValues,
+    status, pid, host, port, url, apiUrl, outputs, runningValues, stopInfo,
     effectiveStatus, oomDetected,
     external,
     refreshExternal, adoptExternal, clearExternal,

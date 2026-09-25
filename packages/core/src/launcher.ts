@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import { LlamaServerProcess } from './process.js';
 import { buildCommand } from './command-builder.js';
 import { DEFAULT_HOST, DEFAULT_PORT } from '@llama-launcher/shared';
-import type { AppSettings, ServerStatus, ServerInfo, OutputEntry } from '@llama-launcher/shared';
+import type { AppSettings, ServerStatus, ServerStopInfo, ServerInfo, OutputEntry } from '@llama-launcher/shared';
 
 export interface StartOptions {
   values: Record<string, string | number | boolean>;
@@ -18,12 +18,23 @@ export class Launcher extends EventEmitter {
   private currentValues: Record<string, string | number | boolean> = {};
   private host = DEFAULT_HOST;
   private port = DEFAULT_PORT;
+  // 本轮运行是否曾到达 running：退出时据此区分「运行中崩了」与「启动阶段就失败」
+  private hadBeenReady = false;
+  // 本轮结束是否由本应用主动停（stop/restart/forceStop/应用退出）——必须显式记，
+  // 因为 Windows 下 taskkill /F 打出来的退出码并非 0，光看退出码分不清「用户停的」和「自己崩的」
+  private stopRequested = false;
+  private lastStop: ServerStopInfo | null = null;
 
   start(opts: StartOptions): void {
     if (this.proc && this.proc.isRunning()) {
       this.emit('error', new Error('Server is already running'));
       return;
     }
+    // 新一轮运行：先清掉上一轮的停止事实与标记，再发 starting——
+    // 留着旧崩溃记录会让渲染层把刚拉起的进程显示成「异常退出」。
+    this.lastStop = null;
+    this.hadBeenReady = false;
+    this.stopRequested = false;
     this.setStatus('starting');
     this.currentSettings = opts.settings;
     this.currentValues = { ...opts.values };
@@ -42,6 +53,7 @@ export class Launcher extends EventEmitter {
         customArgs: opts.settings.custom_args,
       });
     } catch (e) {
+      this.recordStop('spawn_failed');
       this.setStatus('stopped');
       this.emit('error', e);
       return;
@@ -65,17 +77,29 @@ export class Launcher extends EventEmitter {
       //   未来版本: 任何包含 "listening" + "http" 的行均视为启动完成
       const lower = entry.data.toLowerCase();
       if (lower.includes('listening') && (lower.includes('http') || lower.includes('server'))) {
+        this.hadBeenReady = true;
         this.setStatus('running');
       }
     });
-    this.proc.on('exit', (code) => {
-      this.emit('exit', code);
+    this.proc.on('exit', (code: number, signal: NodeJS.Signals | null) => {
+      this.emit('exit', code, signal);
+      // 先记事实再改状态：状态事件要自带「它是怎么没的」，否则渲染层只能自己去猜日志
+      this.lastStop = {
+        reason: this.stopRequested ? 'stopped_by_user' : 'exited',
+        // process.ts 把「被信号杀死、无退出码」归一成 -1，这里还原成 null，
+        // 别让上层把 -1 当成一个真实退出码去判等
+        code: code === -1 ? null : code,
+        signal: signal ?? null,
+        hadBeenReady: this.hadBeenReady,
+        at: Date.now(),
+      };
       this.setStatus('stopped');
       this.proc = null;
     });
     try {
       this.proc.start({ exePath: opts.settings.server_exe, args: cmd.slice(1) });
     } catch (e) {
+      this.recordStop('spawn_failed');
       this.setStatus('stopped');
       this.emit('error', e);
     }
@@ -83,6 +107,7 @@ export class Launcher extends EventEmitter {
 
   stop(): void {
     if (!this.proc) return;
+    this.stopRequested = true;
     this.proc.kill();
   }
 
@@ -91,6 +116,7 @@ export class Launcher extends EventEmitter {
    */
   stopSync(): void {
     if (!this.proc) return;
+    this.stopRequested = true;
     this.proc.killSync();
   }
 
@@ -100,6 +126,7 @@ export class Launcher extends EventEmitter {
    */
   forceStop(): void {
     if (!this.proc) return;
+    this.stopRequested = true;
     this.proc.forceKill();
   }
 
@@ -121,6 +148,8 @@ export class Launcher extends EventEmitter {
       url: `http://${this.host}:${this.port}/`,
       // 最近一次启动的参数快照（纯值映射，无 `_enabled`），供渲染进程判断当前服务是否与某组参数一致
       values: { ...this.currentValues },
+      // 与 status 事件同源，避免 refreshStatus() 拿到比事件旧的停止事实
+      stop: this.lastStop,
     };
   }
 
@@ -134,8 +163,19 @@ export class Launcher extends EventEmitter {
     return this.currentSettings?.server_exe ?? '';
   }
 
+  /** 起都没起来（命令构建/spawn 抛错）时的停止事实——没有退出码，也从未就绪。 */
+  private recordStop(reason: 'spawn_failed'): void {
+    this.lastStop = {
+      reason,
+      code: null,
+      signal: null,
+      hadBeenReady: this.hadBeenReady,
+      at: Date.now(),
+    };
+  }
+
   private setStatus(s: ServerStatus): void {
     this.status = s;
-    this.emit('status', s);
+    this.emit('status', { status: s, stop: this.lastStop });
   }
 }

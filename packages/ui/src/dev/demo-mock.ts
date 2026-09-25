@@ -8,6 +8,7 @@ import type {
   ModelScopeSearchResult, ModelScopeFileListResult,
   DownloadProgressPayload, DownloadCompletePayload,
   ParamDef, TargetRecommendation,
+  ServerStatus, ServerStatusEvent, ServerStopInfo,
 } from '@llama-launcher/shared';
 
 const ENGINE_DIR = 'D:/Models/llama-bins';
@@ -173,8 +174,19 @@ export function createDemoApi() {
   // ---- 服务模拟状态 ----
   const serverOutputs: OutputEntry[] = [];
   const outputCbs: Array<(entries: OutputEntry[]) => void> = [];
-  const statusCbs: Array<(s: string) => void> = [];
-  let serverStatus = 'running';
+  const statusCbs: Array<(e: ServerStatusEvent) => void> = [];
+  let serverStatus: ServerStatus = 'running';
+  // 与 core Launcher 同形状：状态与「停止事实」合成一条事件下发（渲染层据此区分 stopped/failed/crashed）
+  let lastStop: ServerStopInfo | null = null;
+  function emitStatus(s: ServerStatus, stop: ServerStopInfo | null = null): void {
+    serverStatus = s;
+    lastStop = s === 'stopped' ? stop : null;
+    for (const cb of statusCbs) cb({ status: s, stop: lastStop });
+  }
+  /** 主动停止的停止事实（用户点停止/重启）——渲染层据此保持「已停止」而非「异常退出」 */
+  function userStopInfo(hadBeenReady = true): ServerStopInfo {
+    return { reason: 'stopped_by_user', code: null, signal: null, hadBeenReady, at: Date.now() };
+  }
   let outputIdx = -1;
   let outputTimer: ReturnType<typeof setInterval> | null = null;
   // 运行中服务的参数快照（对齐 core getStatus().values：bench 复用/重启判定依赖它）
@@ -295,36 +307,31 @@ export function createDemoApi() {
     },
     server: {
       start: (values: never, _settings: never) => {
-        serverStatus = 'starting';
-        for (const cb of statusCbs) cb('starting');
+        emitStatus('starting');
         pushOutput('info', 'llama-server starting...');
         setTimeout(() => {
-          serverStatus = 'running';
           runningValuesSnapshot = cloneValues(values as DemoValues);
-          for (const cb of statusCbs) cb('running');
+          emitStatus('running');
         }, 1200);
         return Promise.resolve({ ok: true });
       },
-      stop: () => { serverStatus = 'stopped'; runningValuesSnapshot = null; for (const cb of statusCbs) cb('stopped'); pushOutput('info', 'llama-server stopped (signal: SIGTERM)'); return Promise.resolve({ ok: true }); },
+      stop: () => { runningValuesSnapshot = null; emitStatus('stopped', userStopInfo()); pushOutput('info', 'llama-server stopped (signal: SIGTERM)'); return Promise.resolve({ ok: true }); },
       // 模拟 core Launcher.restart() 语义：运行中先离开 running（旧进程退出），再 starting → running（新进程就绪）
       restart: (values: never, _settings: never) => {
-        serverStatus = 'stopped';
         runningValuesSnapshot = null;
-        for (const cb of statusCbs) cb('stopped');
+        emitStatus('stopped', userStopInfo());
         pushOutput('info', 'llama-server stopped (restart)');
         setTimeout(() => {
-          serverStatus = 'starting';
-          for (const cb of statusCbs) cb('starting');
+          emitStatus('starting');
           pushOutput('info', 'llama-server starting...');
           setTimeout(() => {
-            serverStatus = 'running';
             runningValuesSnapshot = cloneValues(values as DemoValues);
-            for (const cb of statusCbs) cb('running');
+            emitStatus('running');
           }, 1200);
         }, 400);
         return Promise.resolve({ ok: true });
       },
-      getStatus: () => Promise.resolve({ status: serverStatus, pid: 23508, host: '127.0.0.1', port: 8080, url: serverStatus === 'running' ? 'http://127.0.0.1:8080' : '', values: runningValuesSnapshot ? { ...runningValuesSnapshot } : null }),
+      getStatus: () => Promise.resolve({ status: serverStatus, pid: 23508, host: '127.0.0.1', port: 8080, url: serverStatus === 'running' ? 'http://127.0.0.1:8080' : '', values: runningValuesSnapshot ? { ...runningValuesSnapshot } : null, stop: lastStop }),
       previewCommand: (values: never, settings: never) => Promise.resolve({
         ok: true,
         data: buildDemoPreviewCommand(values as DemoValues, settings as AppSettings),
@@ -340,7 +347,7 @@ export function createDemoApi() {
         outputCbs.push(cb);
         return () => { const i = outputCbs.indexOf(cb); if (i >= 0) outputCbs.splice(i, 1); };
       },
-      onStatus: (cb: (s: string) => void) => {
+      onStatus: (cb: (e: ServerStatusEvent) => void) => {
         statusCbs.push(cb);
         return () => { const i = statusCbs.indexOf(cb); if (i >= 0) statusCbs.splice(i, 1); };
       },
