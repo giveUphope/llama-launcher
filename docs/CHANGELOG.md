@@ -4,7 +4,11 @@
 
 ## \[Unreleased]
 
+- **真机验证补上最后一格：Electron 冒烟现在跑一次真实的推送往返**：`pnpm dev` 起真应用只证明「能启动、preload 里 57 通道齐了」，证明不了「主进程推的一次，渲染层订阅者真收得到」——而 `pnpm e2e:electron` 的冒烟脚本本来就有这个能力（它 `_electron.launch` 起的就是生产模式真窗），只是此前只断到「版本 + 标题 + 侧栏渲染」。现在它多一步：渲染层经真实 preload 调 `system.onBenchStatus()` 订阅，再用 `benchLlamaRun()` 拿一个**确实存在但不是 GGUF** 的文件当 modelPath——handler 的 `existsSync` 放行、llama-bench 立刻报错进 catch、终态迁移 `publish()` 推一次，脚本断言收到的必须是终态（`error`/`done`）。**不加载模型、不占 GPU**，且不依赖有没有配引擎目录（引擎缺失时 spawn 直接失败，同样是一次 error 迁移）。实测：`[electron-smoke] PASS 主进程版本=0.0.49 标题="llama Launcher" 体检推送=error`。刻意没写「界面确实没在轮询」这条断言——contextBridge 暴露的属性在主世界不可写，包一层计数器只会假通过；轮询是否消失由源码事实（`setInterval(` 全库剩 2 处且都不相关）加浏览器侧计数器实测保证。文档同步 `testing.md` 中英两侧的冒烟职责描述。
+
 ## \[0.0.49] - 2026-09-25
+
+- **修掉 e2e job 的隐式构建依赖（上一推 CI 整只红的那条腿）**：`e2e/web/app.spec.ts` 从 `packages/shared/dist/index.js` 取 `PARAMS.length`，而 ui 的 build 经 tsconfig paths 直接吃 `../shared/src`、**根本不产出 dist**；本机 dist 常年存在把这条依赖完全掩盖了。现在 `e2e:web` 自己先 build shared。修在依赖成立的那一层，并删掉 spec 里那句断言「CI 在 e2e 前必跑 pnpm build」的错注释（该 job 早已不做全量 build）。本机按 clean 条件复现并验证：移走 dist 与 `*.tsbuildinfo` 后先复现原错、加修后 15 passed（只移 dist 会被 tsbuildinfo 判成 up-to-date 跳过 emit，第一遍就这样假复现过一次）。
 
 
 ## \[0.0.48] - 2026-09-25
