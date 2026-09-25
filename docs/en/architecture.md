@@ -137,7 +137,7 @@ llama_launcher/
 
 | Package                     | Version | Responsibility              |
 | ------------------------- | ----- | --------------------------- |
-| `@llama-launcher/desktop` | 0.0.48 | Electron main process + preload + packaging |
+| `@llama-launcher/desktop` | 0.0.49 | Electron main process + preload + packaging |
 | `@llama-launcher/core`    | 1.0.0 | Core business logic (process/command/scan/download/GGUF)    |
 | `@llama-launcher/shared`  | 1.0.0 | The single source for type definitions, the param table and i18n         |
 | `@llama-launcher/ui`      | 1.0.0 | Vue 3 + Vite + Pinia frontend     |
