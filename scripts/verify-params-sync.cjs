@@ -368,3 +368,40 @@ if (baselineErrors.length) {
   process.exit(1);
 }
 console.log(`[verify-params-sync] ✅ 引擎缺省基线 ${baselineEntries.size} 条与 PARAMS 键集相等；help 可对拍的 ${checked} 项 engineDefault 全等，条件式默认 ${complexTagged} 项均已注明，启动器有意覆盖引擎默认 ${overrides.length} 项均有 note：${overrides.join(', ')}`);
+
+// ---- ⑤ 发射实现唯一性 ----
+// 命令行 argv 只允许在 packages/shared/src/params/command.ts 里拼装。
+// 为什么单独守这一条：发射规则一旦只对执行方（core）可达，展示方（服务页预览、浏览器 mock）
+// 就只能各抄一份简化版，规则一改副本立刻静默失真——2026-09 的 engineDefault 修复、
+// 2026-09-26 的 mock 预览失准都是同一个成因。把「第二处 push(p.flag)」判为失败，
+// 是让这类副本没法再长出来，而不是靠人记得去同步。
+const UNIQUE_EMITTER = ['packages', 'shared', 'src', 'params', 'command.ts'].join('/');
+const EMIT_SCAN_ROOTS = ['packages', 'apps', 'e2e'].map((d) => path.join(__dirname, '..', d));
+const EMIT_SKIP_DIRS = new Set(['node_modules', 'dist', 'out', 'release', 'coverage', 'frontendDist']);
+const EMIT_RE = /\.(?:push|concat)\(\s*[A-Za-z_$][\w$]*(?:\.flag|\.invert_flag)\b/g;
+const emitterFiles = new Set();
+function scanEmitters(dir) {
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  for (const ent of entries) {
+    const full = path.join(dir, ent.name);
+    if (ent.isDirectory()) {
+      if (!EMIT_SKIP_DIRS.has(ent.name)) scanEmitters(full);
+      continue;
+    }
+    if (!/\.(ts|vue|cjs|js)$/.test(ent.name)) continue;
+    const text = fs.readFileSync(full, 'utf8');
+    EMIT_RE.lastIndex = 0;
+    if (EMIT_RE.test(text)) emitterFiles.add(path.relative(path.join(__dirname, '..'), full).split(path.sep).join('/'));
+  }
+}
+EMIT_SCAN_ROOTS.forEach(scanEmitters);
+const extraEmitters = [...emitterFiles].filter((f) => f !== UNIQUE_EMITTER).sort();
+if (extraEmitters.length) {
+  console.error('[verify-params-sync] ❌ 发现第二处命令行发射实现（拼装 argv 的代码只能有一份）：');
+  for (const f of extraEmitters) console.error('  - ' + f);
+  console.error(`修复：改为调用 ${UNIQUE_EMITTER} 的 buildArgv / argvFromPreviewOptions（浏览器侧没有 fs，`);
+  console.error('      所以 core 的 buildCommand 只多一层 exe 存在性校验，规则本身在 shared）。');
+  process.exit(1);
+}
+console.log(`[verify-params-sync] ✅ 命令行发射实现唯一：${UNIQUE_EMITTER}`);
