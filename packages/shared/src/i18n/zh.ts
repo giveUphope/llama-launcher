@@ -409,6 +409,11 @@ export const zh = {
   lbl_cmd_extra: '扩展参数（自定义，持久化）',
   cmd_extra_placeholder: '追加到命令末尾的自定义参数，如：--no-warmup --special',
   cmd_extra_hint: '内置命令只读、随参数实时生成（改参数请去参数设置页）；扩展参数原样追加到实际启动命令末尾并持久保存',
+  // 预览可信度：预览 = 下次启动会用的命令，运行中的服务用的是启动那一刻的参数
+  cmd_stale_running: '命令预览按【当前参数】生成；运行中的服务仍在用启动那一刻的参数，两者有 {0} 项不同，重启后生效',
+  act_expand_all: '展开全部分区',
+  act_collapse_all: '折叠全部分区',
+  subcat_changed_n: '{0} 项已改',
   msg_port_in_use: '端口 {0} 已被占用。请选择其他端口，或停止占用该端口的程序。',
   msg_port_conflict_title: '端口被占用',
   msg_port_conflict: '端口 {0} 已被 {1}（PID {2}）占用。可选择结束该进程后重试，或自动换用未占用的端口继续启动。',

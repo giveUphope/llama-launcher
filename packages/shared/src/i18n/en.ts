@@ -408,6 +408,11 @@ export const en: Dict = {
   lbl_cmd_extra: 'Extra args (custom, persisted)',
   cmd_extra_placeholder: 'Custom flags appended to the command, e.g. --no-warmup --special',
   cmd_extra_hint: 'The built-in command is read-only and regenerates live (edit params on the Parameters page); extra args are appended verbatim to the actual launch command and persisted',
+  // Preview trust: the preview is what the NEXT launch will use; the running service uses launch-time params
+  cmd_stale_running: 'The preview uses the CURRENT parameters; the running service still uses the ones captured at launch — {0} differ, they apply after a restart',
+  act_expand_all: 'Expand all sections',
+  act_collapse_all: 'Collapse all sections',
+  subcat_changed_n: '{0} changed',
   msg_port_in_use: 'Port {0} is already in use. Choose another port, or stop the program using it.',
   msg_port_conflict_title: 'Port is in use',
   msg_port_conflict: 'Port {0} is used by {1} (PID {2}). Stop that process and retry, or switch to an available port automatically.',

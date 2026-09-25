@@ -93,6 +93,35 @@ const activeParamCount = computed(() =>
 const totalParamCount = computed(() => PARAMS.length);
 const groupCount = computed(() => subcategoryGroups.value.length);
 
+// ---- 分区折叠（自定义参数页签）----
+// 默认全展开（与折叠前的信息密度一致），折叠状态只活在本页签话期内：
+// 本页 keep-alive 不卸载，ref 天然跨页签保留，应用重启后回到全展开。
+const openSections = ref<string[]>(subcategoryGroups.value.map((g) => g.key));
+const allSectionKeys = computed(() => subcategoryGroups.value.map((g) => g.key));
+const allOpen = computed(() => openSections.value.length === allSectionKeys.value.length);
+function expandAll() {
+  openSections.value = [...allSectionKeys.value];
+}
+function collapseAll() {
+  openSections.value = [];
+}
+function onToggleSection(key: string, expanded: boolean) {
+  const at = openSections.value.indexOf(key);
+  if (expanded && at < 0) openSections.value = [...openSections.value, key];
+  else if (!expanded && at >= 0) {
+    openSections.value = [...openSections.value.slice(0, at), ...openSections.value.slice(at + 1)];
+  }
+}
+// 每分区「相对出厂默认已改几项」一次算好随数据携带（§7.1 热路径铁律 ②：
+// 不在 v-for 里逐行调函数求派生值）
+const sectionChangedCount = computed(() => {
+  const out: Record<string, number> = {};
+  for (const g of subcategoryGroups.value) {
+    out[g.key] = g.params.filter((p) => params.values[p.key] !== p.default).length;
+  }
+  return out;
+});
+
 // 硬件资源占用估算（自定义参数标签状态条 stat 项）：主进程 `--list-devices` 探测 +
 // GGUF KV 内存模型，按当前会话配置（卸载层数/上下文/KV 档位）估算显存与内存双侧占用。
 // stat 槽位常驻占位（不可用显示 —），避免异步加载/显隐导致跳动；构成明细放 title tooltip。
@@ -284,6 +313,19 @@ async function onClearSession() {
         </template>
       </a-dropdown>
       <div class="status-right">
+        <!-- 分区折叠总控（仅自定义参数页签有分区概念）-->
+        <template v-if="activeTab === 'custom'">
+          <ToolTip :text="i18n.t('act_expand_all')">
+            <a-button size="small" :disabled="allOpen" @click="expandAll">
+              <template #icon><Icon name="chevron_down" :size="12" /></template>
+            </a-button>
+          </ToolTip>
+          <ToolTip :text="i18n.t('act_collapse_all')">
+            <a-button size="small" :disabled="openSections.length === 0" @click="collapseAll">
+              <template #icon><Icon name="chevron_right" :size="12" /></template>
+            </a-button>
+          </ToolTip>
+        </template>
         <!-- 基线徽章已移除（与「已调整」统计重复，基线状态保留在概览服务状态卡）；
              保留恢复基线 / 清除会话参数两个操作入口 -->
         <ToolTip :text="i18n.t('msg_restore_baseline')">
@@ -306,13 +348,20 @@ async function onClearSession() {
     <!-- 左侧 mini-nav 已重构入侧边栏子标签；内容区随 query.tab 切换 -->
     <div class="params-content">
       <template v-if="activeTab === 'custom'">
-        <!-- 分组卡使用标准卡片标题（fs-lg 主色，与预设/服务等页对齐） -->
+        <!-- 分组卡使用标准卡片标题（fs-lg 主色，与预设/服务等页对齐）；
+             可折叠：卡片头即切换钮，标题右侧 a-tag 标出该组相对出厂默认已改几项 -->
         <Card
           v-for="sub in subcategoryGroups"
           :key="sub.key"
           class="param-card"
           :title-key="`subcat_${sub.key}`"
+          collapsible
+          :expanded="openSections.includes(sub.key)"
+          @update:expanded="onToggleSection(sub.key, $event)"
         >
+          <template v-if="sectionChangedCount[sub.key]" #actions>
+            <a-tag size="small" color="orange">{{ i18n.t('subcat_changed_n', [String(sectionChangedCount[sub.key])]) }}</a-tag>
+          </template>
           <div class="param-grid">
             <ParamRow v-for="p in sub.params" :key="p.key" :p="p" />
           </div>

@@ -240,6 +240,23 @@ export const useParamsStore = defineStore('params', () => {
   }
 
   /**
+   * 与给定参数集比较，返回不同的项数（忽略自动检测字段，口径同 hasChanges）。
+   * 用途：命令预览卡提示「运行中的服务用的是启动那一刻的参数」——预览显示的是
+   * 下次启动会用的命令，两者不一致时必须说出来，否则用户会以为屏幕上的就是正在跑的。
+   * other 为空（服务未运行/无快照）返回 0。
+   */
+  function countDiffers(other: PresetValues | null | undefined): number {
+    if (!other) return 0;
+    let n = 0;
+    for (const p of PARAMS) {
+      if (IGNORE_FOR_DIRTY.has(p.key)) continue;
+      if (String(values[p.key] ?? '') !== String(other[p.key] ?? '')) n++;
+    }
+    if (String(values[MODEL_KEY] ?? '') !== String(other[MODEL_KEY] ?? '')) n++;
+    return n;
+  }
+
+  /**
    * 已修改（脏）标记：相对【基线】的偏离（双轨逻辑语义）。
    * - 有基线（已加载预设）：逐键与基线快照比较（忽略自动检测字段）→ 红点 = 有未固化的临时调整
    * - 无基线（出厂默认轨道）：与出厂默认比较（原语义）
@@ -515,7 +532,7 @@ export const useParamsStore = defineStore('params', () => {
   return {
     values, baseline, ggufInfo, ggufSuggestions, ggufLoading, ggufError,
     get, set, resetParam, resetGroup, resetAll,
-    applyPreset, snapshot, hasChanges,
+    applyPreset, snapshot, hasChanges, countDiffers,
     markBaseline, restoreBaseline, clearSession, restoreSession, confirmDiscardDirty, reattachModelRuntime,
     setGgufInfo, detectMmproj, detectDraftModel, loadGguf, applyModel, applyModelWithSuggestions,
   };

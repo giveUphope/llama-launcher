@@ -66,6 +66,13 @@ const fullCommand = computed(() => {
   return extra ? `${commandPreview.value} ${extra}` : commandPreview.value;
 });
 
+// 预览可信度提示：预览 = 下次启动会用的命令；服务在跑时它用的是启动那一刻的参数。
+// 不说出来，用户会把屏幕上这串当成"正在跑的"（本次参数默认值误报就是这么被误读的）。
+const staleCount = computed(() => {
+  if (server.status !== 'running' && server.status !== 'starting') return 0;
+  return params.countDiffers(server.runningValues);
+});
+
 async function onCopyCmd() {
   if (!fullCommand.value) return;
   await window.api.clipboard.write(fullCommand.value);
@@ -96,6 +103,11 @@ onUnmounted(() => {
           :auto-size="{ minRows: 4, maxRows: 12 }"
           :textarea-attrs="{ readonly: true, spellcheck: false }"
         />
+        <!-- 运行中参数与当前参数不一致时明示（否则用户以为屏幕上这串就是正在跑的） -->
+        <div v-if="staleCount" class="cmd-hint cmd-hint--warn">
+          <Icon name="alert" :size="11" />
+          <span>{{ i18n.t('cmd_stale_running', [String(staleCount)]) }}</span>
+        </div>
       </div>
 
       <!-- 扩展参数：唯一可编辑区，持久化，追加到实际启动命令末尾 -->
@@ -180,5 +192,10 @@ onUnmounted(() => {
   gap: 6px;
   font-size: var(--fs-sm);
   color: var(--color-text-3);
+}
+
+// 运行中参数与当前参数不一致：橙警示（与 ParamRow 的超限提示同一 token，不自造色值）
+.cmd-hint--warn {
+  color: rgb(var(--orange-6));
 }
 </style>
