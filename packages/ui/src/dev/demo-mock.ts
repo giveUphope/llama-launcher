@@ -1,73 +1,21 @@
 // 开发预览演示数据（仅浏览器 mock 环境注入，Electron 真实 api 不受影响）。
 // main.ts 在无 Electron preload 时调用 createDemoApi()，让预览环境呈现完整业务状态，
 // 便于目测 UI 布局与交互。数据为静态仿真 + 周期性模拟服务日志/下载进度。
-import { PARAMS, APP_VERSION, parseQuantization, formatBytes } from '@llama-launcher/shared';
+import { APP_VERSION, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, formatCommand } from '@llama-launcher/shared';
 import type {
   AppSettings, ModelInfo, Preset, GgufReadResult,
   ParsedModelUrl, OutputEntry, AppLogEntry,
   ModelScopeSearchResult, ModelScopeFileListResult,
   DownloadProgressPayload, DownloadCompletePayload,
-  ParamDef, TargetRecommendation,
+  TargetRecommendation,
   ServerStatus, ServerStatusEvent, ServerStopInfo,
+  PresetValues,
 } from '@llama-launcher/shared';
 
 const ENGINE_DIR = 'D:/Models/llama-bins';
 const MODELS_DIR = 'D:/Models';
 /** 体检演示作业的轮询计数（path → 已轮询次数，≥2 转 done） */
 const mockBenchCalls: Record<string, number> = {};
-
-// ---- 简化命令构建（规则与 core/command-builder 对齐，仅用于浏览器预览环境）----
-// 「还原命令」依赖 previewCommand 按当前参数重新生成：此前的硬编码命令与参数无关，
-// 导致还原后用户手输的内置参数值丢失。规则要点：checkbox 恒发射 flag/invert_flag、
-// 空串与默认值跳过、dependsOn 不满足跳过、spec_type 'draft-model'→'draft-simple'、
-// float 保留 2 位小数、含空格参数引号包装。
-type DemoValues = Record<string, string | number | boolean>;
-
-function isDepMet(dep: NonNullable<ParamDef['dependsOn']>, values: DemoValues): boolean {
-  const depDef = PARAMS.find((p) => p.key === dep.key);
-  if (!depDef) return false;
-  let depValue = values[dep.key];
-  if (depDef.key === 'spec_type' && depValue === 'draft-model') depValue = 'draft-simple';
-  if (depDef.type === 'checkbox') {
-    const b = depValue === true || depValue === 'true' || depValue === 1 || depValue === '1';
-    if (!b) return false;
-  } else if (depValue === depDef.default) {
-    return false;
-  }
-  const s = String(depValue);
-  if (dep.notValues && dep.notValues.includes(s)) return false;
-  if (dep.values && dep.values.length > 0 && !dep.values.includes(s)) return false;
-  return true;
-}
-
-function quoteArg(s: string): string {
-  if (/[\s"]/.test(s)) return '"' + s.replace(/"/g, '\\"') + '"';
-  return s;
-}
-
-function buildDemoPreviewCommand(values: DemoValues, settings: AppSettings): string {
-  const cmd: string[] = [settings.server_exe];
-  if (values.model) cmd.push('-m', String(values.model));
-  for (const p of PARAMS) {
-    const v = values[p.key];
-    if (v === undefined) continue;
-    if (p.type === 'checkbox') {
-      if (v === true) cmd.push(p.flag);
-      else if (p.invert_flag) cmd.push(p.invert_flag);
-      continue;
-    }
-    if (v === '') continue;
-    if (p.dependsOn && !isDepMet(p.dependsOn, values)) continue;
-    if (v === p.default) continue;
-    if (p.type === 'float_slider') {
-      cmd.push(p.flag, String(Math.round(Number(v) * 100) / 100));
-      continue;
-    }
-    const s = String(v);
-    cmd.push(p.flag, p.key === 'spec_type' && s === 'draft-model' ? 'draft-simple' : s);
-  }
-  return cmd.map(quoteArg).join(' ');
-}
 
 // ---- 模型目录（模型页「本地模型」列表） ----
 const DEMO_MODELS: ModelInfo[] = [
@@ -192,7 +140,7 @@ export function createDemoApi() {
   // 运行中服务的参数快照（对齐 core getStatus().values：bench 复用/重启判定依赖它）
   let runningValuesSnapshot: Record<string, string | number | boolean> | null = null;
 
-  function cloneValues(v: DemoValues): Record<string, string | number | boolean> {
+  function cloneValues(v: PresetValues): Record<string, string | number | boolean> {
     return JSON.parse(JSON.stringify(v ?? {})) as Record<string, string | number | boolean>;
   }
 
@@ -310,7 +258,7 @@ export function createDemoApi() {
         emitStatus('starting');
         pushOutput('info', 'llama-server starting...');
         setTimeout(() => {
-          runningValuesSnapshot = cloneValues(values as DemoValues);
+          runningValuesSnapshot = cloneValues(values as PresetValues);
           emitStatus('running');
         }, 1200);
         return Promise.resolve({ ok: true });
@@ -325,16 +273,19 @@ export function createDemoApi() {
           emitStatus('starting');
           pushOutput('info', 'llama-server starting...');
           setTimeout(() => {
-            runningValuesSnapshot = cloneValues(values as DemoValues);
+            runningValuesSnapshot = cloneValues(values as PresetValues);
             emitStatus('running');
           }, 1200);
         }, 400);
         return Promise.resolve({ ok: true });
       },
       getStatus: () => Promise.resolve({ status: serverStatus, pid: 23508, host: '127.0.0.1', port: 8080, url: serverStatus === 'running' ? 'http://127.0.0.1:8080' : '', values: runningValuesSnapshot ? { ...runningValuesSnapshot } : null, stop: lastStop }),
-      previewCommand: (values: never, settings: never) => Promise.resolve({
+      // 与真实侧同一发射规则：apps/desktop 的 SERVER_PREVIEW 走 core 的 previewCommand，
+      // 那里只多一层 exe 存在性校验（浏览器没有文件系统），argv 本身两边共用 shared 的实现。
+      // includeCustomArgs:false 与真实侧一致——内置参数命令框不含扩展参数。
+      previewCommand: (values: PresetValues, settings: AppSettings) => Promise.resolve({
         ok: true,
-        data: buildDemoPreviewCommand(values as DemoValues, settings as AppSettings),
+        data: formatCommand(buildArgv(argvFromPreviewOptions({ values, settings, includeCustomArgs: false }))),
       }),
       bench: () => Promise.resolve({
         ok: true,

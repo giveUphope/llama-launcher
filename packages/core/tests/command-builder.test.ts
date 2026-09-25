@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { buildCommand, quoteArg, formatCommand, previewCommand, tokenizeArgs } from '../src/command-builder.js';
+import { buildCommand, previewCommand } from '../src/command-builder.js';
+// 发射规则与纯字符串工具已收敛到 shared（预览方与执行方共用同一实现）
+import { formatCommand, quoteArg, tokenizeArgs } from '@llama-launcher/shared';
 import type { AppSettings } from '@llama-launcher/shared';
 
 // 使用真实存在的可执行文件路径，以便通过 buildCommand 的存在性校验
