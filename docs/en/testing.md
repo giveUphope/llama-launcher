@@ -6,7 +6,7 @@
 
 - **Framework**: Vitest 4 (`pnpm test` runs both the core and the ui package through turbo)
 
-- **Scale**: core 25 test files / **373** cases + ui **8** test files / **79** cases (`pnpm test` runs both packages through turbo)
+- **Scale**: core 26 test files / **381** cases + ui **8** test files / **79** cases (`pnpm test` runs both packages through turbo)
 
 - **Covered modules**:
 
@@ -37,6 +37,7 @@
 | `huggingface-client.test.ts`          | HF mirror configuration / injectable transport / file listing                       |
 | `retry.test.ts`                       | Unified retryability decision and backoff                                           |
 | `format.test.ts`                      | All boundaries of shared `formatBytes`/`formatDuration` (0/NaN/Infinity, the 1023/1024 switch point, tiers, whole-unit folding) |
+| `host-env.test.ts`                    | shared `hostList`/`tcpHosts`/`displayHost` (multiple addresses and `.sock`) + `detectLlamaEnvOverrides` (`LLAMA_ARG_*` detection) |
 
 ### ui package (inline tests under `src/`)
 

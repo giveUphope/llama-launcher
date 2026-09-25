@@ -6,7 +6,7 @@
 
 - **框架**：Vitest 4（`pnpm test` 经 turbo 一并运行 core 与 ui 两包）
 
-- **规模**：core 25 个测试文件 / **373** 个用例 + ui **8** 个测试文件 / **79** 个用例（`pnpm test` 经 turbo 一并运行两包）
+- **规模**：core 26 个测试文件 / **381** 个用例 + ui **8** 个测试文件 / **79** 个用例（`pnpm test` 经 turbo 一并运行两包）
 
 - **覆盖模块**：
 
@@ -37,6 +37,7 @@
 | `huggingface-client.test.ts`          | HF 镜像源配置 / 可注入传输 / 文件列表                                                         |
 | `retry.test.ts`                       | 统一可重试判定与退避                                                                      |
 | `format.test.ts`                      | shared `formatBytes`/`formatDuration` 全边界（0/NaN/Infinity、1023/1024 切换点、档位、整点折叠） |
+| `host-env.test.ts`                    | shared `hostList`/`tcpHosts`/`displayHost`（多地址与 `.sock`）+ `detectLlamaEnvOverrides`（`LLAMA_ARG_*` 检出） |
 
 ### ui 包（`src/` 内联测试）
 
