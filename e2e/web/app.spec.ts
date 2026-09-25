@@ -1,7 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 // 参数总数从事实源取，不写死字面量（写死的数字每加一个参数就要人去改一次）。
 // 走 dist 相对路径而非包名：Playwright 从仓库根解析模块，而根 package.json 不依赖
-// workspace 包；e2e 前 CI 必跑 pnpm build，shared/dist 必然存在。
+// workspace 包。代价是 shared/dist 得由 e2e:web 自己产——ui 的 build 经 tsconfig paths
+// 直接吃 ../shared/src，不产出 dist（本机 dist 长期存在，掩盖了这条隐式依赖，
+// clean 检出下 CI 的 e2e job 因此整只红过一次，现由脚本显式先 build shared）。
 import { PARAMS } from '../../packages/shared/dist/index.js';
 
 // Web 渲染层 E2E：跑真实构建产物（vite preview + demo-mock 数据）。
