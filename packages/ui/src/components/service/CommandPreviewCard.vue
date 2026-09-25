@@ -73,7 +73,14 @@ const staleCount = computed(() => {
   return params.countDiffers(server.runningValues);
 });
 
+// 回读对账派生：不一致与「引擎版本 ≠ 参数基线版本」是两件事，分开说；
+// env 覆写正是不一致的常见成因，两者同时存在时合成一条因果句而不是并列三行。
 const propsMismatch = computed(() => server.propsCheck?.mismatched ?? []);
+const mismatchList = computed(() => propsMismatch.value.map((m) => `${m.flag}: ${m.sent} ≠ ${m.actual}`).join(', '));
+const baselineDrift = computed(() => server.propsCheck?.baselineDrift ?? null);
+// 界面列出的 env 变量与不一致项同时出现时，才把两者说成有因果——只有 env 变量不构成归因，
+// 只有不一致也不该甩锅给环境（还可能是引擎版本漂移或我们基线填错）。
+const envBlame = computed(() => server.envOverrides.length > 0 && propsMismatch.value.length > 0);
 
 async function onCopyCmd() {
   if (!fullCommand.value) return;
@@ -116,10 +123,21 @@ onUnmounted(() => {
           <Icon name="info" :size="11" />
           <span>{{ i18n.t('cmd_env_overrides', [server.envOverrides.join(', ')]) }}</span>
         </div>
-        <!-- /props 回读：唯一「已证实」的信号。不一致才出声道，一致或未回读都保持安静 -->
-        <div v-if="propsMismatch.length" class="cmd-hint cmd-hint--warn">
+        <!-- /props 回读：唯一「已证实」的信号。不一致才出声道，一致或未回读都保持安静。
+             两种措辞各占各的槽（env 版多一段归因），分两支调用以免占位符槽数与实参不符 -->
+        <div v-if="propsMismatch.length && !envBlame" class="cmd-hint cmd-hint--warn">
           <Icon name="alert" :size="11" />
-          <span>{{ i18n.t('cmd_props_mismatch', [String(propsMismatch.length), propsMismatch.map((m) => `${m.flag}: ${m.sent} ≠ ${m.actual}`).join(', ')]) }}</span>
+          <span>{{ i18n.t('cmd_props_mismatch', [String(propsMismatch.length), mismatchList]) }}</span>
+        </div>
+        <div v-else-if="propsMismatch.length" class="cmd-hint cmd-hint--warn">
+          <Icon name="alert" :size="11" />
+          <span>{{ i18n.t('cmd_props_mismatch_env', [String(propsMismatch.length), mismatchList, server.envOverrides.join(', ')]) }}</span>
+        </div>
+        <!-- 参数基线是某个引擎版本 help 的快照：版本一变，47 个不可回读参数的判定基准就可能过期，
+             而这件事只有引擎自报的 build_info 能告诉我们 -->
+        <div v-if="baselineDrift" class="cmd-hint cmd-hint--warn">
+          <Icon name="alert" :size="11" />
+          <span>{{ i18n.t('cmd_baseline_drift', [baselineDrift.engineBuild, baselineDrift.baselineBuild]) }}</span>
         </div>
       </div>
 

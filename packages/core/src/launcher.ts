@@ -10,6 +10,9 @@ export interface StartOptions {
   settings: AppSettings;
 }
 
+/** /props 复检周期：够 catches 运行期 POST /props 的改动，又不至于每分钟敲一次本地端口还制造事件噪声 */
+const PROPS_POLL_MS = 60_000;
+
 export interface LauncherDeps {
   /**
    * /props 取数实现。默认走全局 fetch（主进程有网络），
@@ -29,6 +32,8 @@ export class Launcher extends EventEmitter {
   private port = DEFAULT_PORT;
   /** 本次启动时检出的 `LLAMA_ARG_*` 环境变量名（见 ServerInfo.envOverrides） */
   private envOverrides: string[] = [];
+  /** /props 复检定时器；进程退出即清，不留悬空轮询 */
+  private propsTimer: ReturnType<typeof setInterval> | null = null;
   /** 就绪后 /props 回读对账结果；每次 start 清空，未回读回来时为 null */
   private lastPropsCheck: PropsCheck | null = null;
   private readonly propsFetcher: PropsFetcher;
@@ -101,7 +106,7 @@ export class Launcher extends EventEmitter {
         this.hadBeenReady = true;
         this.setStatus('running');
         // 就绪即回读，不阻塞状态迁移（服务可用不必等 HTTP 往返）
-        this.runPropsCheck();
+        this.startPropsWatch();
       }
     });
     this.proc.on('exit', (code: number, signal: NodeJS.Signals | null) => {
@@ -117,6 +122,8 @@ export class Launcher extends EventEmitter {
         at: Date.now(),
       };
       this.setStatus('stopped');
+      // 进程没了就别再每分钟去敲它的端口
+      this.stopPropsWatch();
       this.proc = null;
     });
     try {
@@ -223,8 +230,27 @@ export class Launcher extends EventEmitter {
     const values = { ...this.currentValues };
     void verifyEngineProps({ baseUrl: `http://${viewHost}:${this.port}`, values, fetcher: this.propsFetcher }).then((check) => {
       if (this.status !== 'running') return;
+      // 周期复检下结果通常没变：只有真的变了才补发事件，避免每分钟一次无意义跨桥推送
+      const changed = JSON.stringify(check) !== JSON.stringify(this.lastPropsCheck);
       this.lastPropsCheck = check;
-      this.setStatus('running');
+      if (changed) this.setStatus('running');
     });
+  }
+
+  /**
+   * 首查 + 每 60s 复检。之所以不能只查一次：`POST /props` 允许运行期改全局生成属性，
+   * 只查一次的话界面会一直显示早已陈旧的「已证实」结论。
+   */
+  private startPropsWatch(): void {
+    this.stopPropsWatch();
+    this.runPropsCheck();
+    this.propsTimer = setInterval(() => this.runPropsCheck(), PROPS_POLL_MS);
+  }
+
+  private stopPropsWatch(): void {
+    if (this.propsTimer) {
+      clearInterval(this.propsTimer);
+      this.propsTimer = null;
+    }
   }
 }

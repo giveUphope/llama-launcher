@@ -270,6 +270,8 @@ export const en: Dict = {
   subcat_sampling: 'Sampling',
   subcat_identity: 'Server Identity',
   subcat_endpoints: 'Endpoints',
+  subcat_security: 'Security & CORS',
+  sec_open_endpoint_hint: 'No API key is set and CORS allows every origin: any local web page can call this endpoint. Restrict origins under Params → Security & CORS, or set an API key',
   subcat_behavior: 'Runtime Behavior',
   subcat_thinking: 'Thinking Control',
 
@@ -411,7 +413,9 @@ export const en: Dict = {
   // Preview trust: the preview is what the NEXT launch will use; the running service uses launch-time params
   cmd_stale_running: 'The preview uses the CURRENT parameters; the running service still uses the ones captured at launch — {0} differ, they apply after a restart',
   cmd_env_overrides: 'Engine-side env vars {0} override the defaults of parameters you left unset; those overrides never appear in the command',
-  cmd_props_mismatch: 'Engine read-back: {0} value(s) differ from what we sent ({1}) — /props is what is actually in effect, typically LLAMA_ARG_* overrides or engine-version default drift',
+  cmd_props_mismatch: 'Engine read-back: {0} value(s) differ from what we sent ({1}) — /props is what is actually in effect',
+  cmd_props_mismatch_env: 'Engine read-back: {0} value(s) differ from what we sent ({1}); {2} also detected — they most likely rewrote the engine defaults',
+  cmd_baseline_drift: 'Engine build differs from the parameter baseline: running {0}, baseline still pinned to {1} — the default basis of the non-readable parameters may be stale; re-cross-check the engine help',
   act_expand_all: 'Expand all sections',
   act_collapse_all: 'Collapse all sections',
   subcat_changed_n: '{0} changed',

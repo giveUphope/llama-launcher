@@ -21,6 +21,18 @@ const router = useRouter();
 
 const isRunning = computed(() => server.status === 'running');
 
+/**
+ * 端点暴露提示：未设 API Key 且 CORS 允许所有来源时，引擎只在启动日志打一行
+ * `security: no API key is set and CORS allows all origins`，滚过去就再也看不到——
+ * 而它的含义是"本机任意网页都能调这个端点"，所以必须常驻在 API 地址旁边。
+ */
+const openEndpoint = computed(() => {
+  if (!isRunning.value && !server.external) return false;
+  const key = String(params.values.api_key ?? '').trim();
+  const origins = String(params.values.cors_origins ?? '*').trim();
+  return key === '' && (origins === '' || origins === '*');
+});
+
 // ---- 外部 llama-server 实例（非本应用拉起）----
 // 探测节奏：卡片激活时立即探测 + 15s 轮询（仅概览页挂载期间运行，离开即停），
 // 会话参数的 host/port 为探测目标；本应用自身 starting/running 时 store 会自行清空外部标记。
@@ -223,6 +235,12 @@ function onOomKvQuant() {
       </a-descriptions-item>
     </a-descriptions>
 
+    <!-- 端点暴露常驻提示（成因见 openEndpoint 注释）：只在真的敞开时出现 -->
+    <div v-if="openEndpoint" class="sec-hint">
+      <Icon name="alert" :size="12" />
+      <span>{{ i18n.t('sec_open_endpoint_hint') }}</span>
+    </div>
+
     <!-- 快捷操作（自原概览 Q2/Q3 保留）：按钮不属于信息展示，不构成重复。
          打开 Web UI：本应用运行中跳内置页；停止但接管了外部实例时在系统浏览器打开其地址 -->
     <a-space :size="8" class="quick-actions">
@@ -269,6 +287,16 @@ function onOomKvQuant() {
 /* 运行状态行 */
 .status-row {
   margin-bottom: 8px;
+}
+
+/* 端点暴露提示：与命令预览卡的警示行同色同字号（橙色业务语义色） */
+.sec-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: -6px 0 10px;
+  font-size: var(--fs-sm);
+  color: rgb(var(--orange-6));
 }
 
 /* a-descriptions 字段表：标签列定宽右对齐（原生组件，仅调间距节奏） */

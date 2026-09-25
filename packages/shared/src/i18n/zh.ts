@@ -271,6 +271,8 @@ export const zh = {
   subcat_sampling: '采样',
   subcat_identity: '服务标识',
   subcat_endpoints: '端点',
+  subcat_security: '安全与跨域',
+  sec_open_endpoint_hint: '未设置 API Key 且 CORS 允许所有来源：本机任意网页都能调用这个端点。可在参数页「安全与跨域」收紧来源，或设置 API Key',
   subcat_behavior: '运行行为',
   subcat_thinking: '思考控制',
 
@@ -412,7 +414,9 @@ export const zh = {
   // 预览可信度：预览 = 下次启动会用的命令，运行中的服务用的是启动那一刻的参数
   cmd_stale_running: '命令预览按【当前参数】生成；运行中的服务仍在用启动那一刻的参数，两者有 {0} 项不同，重启后生效',
   cmd_env_overrides: '引擎侧环境变量 {0} 会改写界面上未设置的参数缺省值，这些改写不会出现在命令里',
-  cmd_props_mismatch: '引擎回读：{0} 项与发出的值不一致（{1}）——以 /props 实际生效值为准，多为 LLAMA_ARG_* 覆写或引擎版本默认值漂移',
+  cmd_props_mismatch: '引擎回读：{0} 项与发出的值不一致（{1}）——以 /props 实际生效值为准',
+  cmd_props_mismatch_env: '引擎回读：{0} 项与发出的值不一致（{1}）；同时检测到 {2}，很可能是它们改写了引擎缺省值',
+  cmd_baseline_drift: '引擎构建与参数基线不一致：实际 {0}，基线仍钉在 {1}——不可回读的那批参数默认值判定可能已过期，需重新对拍引擎 help',
   act_expand_all: '展开全部分区',
   act_collapse_all: '折叠全部分区',
   subcat_changed_n: '{0} 项已改',

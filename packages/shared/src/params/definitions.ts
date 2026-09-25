@@ -251,6 +251,16 @@ export const PARAMS: ParamDef[] = [
   { key: 'slots_endpoint', group: 'server', type: 'checkbox', flag: '--slots', default: true, invert_flag: '--no-slots', subcategory: 'endpoints' },
   { key: 'metrics', group: 'server', type: 'checkbox', flag: '--metrics', default: false, subcategory: 'endpoints' },
   { key: 'props_endpoint', group: 'server', type: 'checkbox', flag: '--props', default: false, subcategory: 'endpoints' },
+  // 子分组 security：跨域与鉴权。引擎在「未设 API key 且 CORS 放开所有来源」时每次启动都打
+  // `security: no API key is set and CORS allows all origins` 告警，此前界面上既改不了也看不见。
+  // 四个默认值一律照抄 help 的 (default: …) 原文（含 cors_methods 的空格），否则一进界面就多发一条 flag。
+  { key: 'cors_origins', group: 'server', type: 'text', flag: '--cors-origins', default: '*', subcategory: 'security' },
+  { key: 'cors_methods', group: 'server', type: 'text', flag: '--cors-methods', default: 'GET, POST, DELETE, OPTIONS', subcategory: 'security' },
+  { key: 'cors_headers', group: 'server', type: 'text', flag: '--cors-headers', default: '*', subcategory: 'security' },
+  {
+    key: 'cors_credentials', group: 'server', type: 'checkbox', flag: '--cors-credentials',
+    default: true, invert_flag: '--no-cors-credentials', subcategory: 'security',
+  },
   // 子分组 behavior：运行行为
   { key: 'timeout', group: 'server', type: 'int_entry', flag: '-to', default: 3600, min: 1, max: 86400, subcategory: 'behavior' },
   {

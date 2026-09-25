@@ -1,5 +1,5 @@
 import { MODEL_KEY, PARAMS } from './definitions.js';
-import { engineDefaultOf, isSentinelValue, sameParamValue } from './engine-baseline.js';
+import { ENGINE_BASELINE_BUILD, engineDefaultOf, isSentinelValue, sameParamValue } from './engine-baseline.js';
 import type { PresetValues } from '../types/index.js';
 
 /**
@@ -24,11 +24,23 @@ export interface PropsFieldMap {
   onlyWhenSent?: boolean;
   /** 不在 PARAMS 表里的项（如 model 走 MODEL_KEY + `-m` 特例通道）在此补旗标，否则报不出人话 */
   flag?: string;
+  /**
+   * 某些项在特定搭配下引擎会自行改写，比对必假报——`-c` 的生效值会被 `--fit` 按显存重算，
+   * 所以 fit 开着时不比 n_ctx。这是数据而非分支，加参数不用再改本文件。
+   */
+  skipWhen?: { param: string; in: readonly string[] };
 }
 
 export const PROPS_FIELD_MAP: readonly PropsFieldMap[] = [
   { param: MODEL_KEY, propsPath: 'model_path', kind: 'path', onlyWhenSent: true, flag: '-m' },
   { param: 'alias', propsPath: 'model_alias', kind: 'text', onlyWhenSent: true },
+  {
+    param: 'ctx_size',
+    propsPath: 'default_generation_settings.n_ctx',
+    kind: 'num',
+    onlyWhenSent: true,
+    skipWhen: { param: 'fit', in: ['on', 'auto'] },
+  },
   { param: 'temperature', propsPath: 'default_generation_settings.params.temperature', kind: 'num' },
   { param: 'top_k', propsPath: 'default_generation_settings.params.top_k', kind: 'num' },
   { param: 'top_p', propsPath: 'default_generation_settings.params.top_p', kind: 'num' },
@@ -52,6 +64,13 @@ export interface PropsMismatch {
   actual: string | number | boolean;
 }
 
+export interface PropsBaselineDrift {
+  /** 引擎自报构建（`/props` 的 build_info 里的 bNNNN） */
+  engineBuild: string;
+  /** 本表所钉基线构建（ENGINE_BASELINE_BUILD） */
+  baselineBuild: string;
+}
+
 export interface PropsCheck {
   /** 实际比对过的参数 key */
   checked: string[];
@@ -60,8 +79,25 @@ export interface PropsCheck {
   skipped: number;
   /** /props 的 build_info（b11178-f9af9be21 这类串），供界面注明校验依据的引擎构建 */
   buildInfo: string;
+  /**
+   * 引擎构建 ≠ 参数基线构建时非空：这张表是某个版本 help 的快照，一旦引擎升级，
+   * 47 个不可回读参数的判定基准就可能已经过期——不比对就会重演「拿旧尺子量新引擎」。
+   */
+  baselineDrift: PropsBaselineDrift | null;
   /** 取不到 /props 时不判为不一致，只标状态，避免服务未就绪或网络异常时误报 */
   error: 'unreachable' | 'bad_payload' | null;
+}
+
+/** 从 build_info（`b11178-f9af9be21`）取构建号；取不到返回 null（不猜） */
+export function parseBuildNumber(buildInfo: string): string | null {
+  const m = String(buildInfo ?? '').match(/\bb(\d{3,6})\b/);
+  return m ? `b${m[1]}` : null;
+}
+
+function driftOf(buildInfo: string): PropsBaselineDrift | null {
+  const engine = parseBuildNumber(buildInfo);
+  if (!engine || engine === ENGINE_BASELINE_BUILD) return null;
+  return { engineBuild: engine, baselineBuild: ENGINE_BASELINE_BUILD };
 }
 
 function readPath(obj: unknown, path: string): unknown {
@@ -110,7 +146,7 @@ export function checkEngineProps(props: unknown, values: PresetValues): PropsChe
   const mismatched: PropsMismatch[] = [];
   let skipped = 0;
   if (props === null || typeof props !== 'object') {
-    return { checked, mismatched, skipped: PROPS_FIELD_MAP.length, buildInfo: '', error: 'bad_payload' };
+    return { checked, mismatched, skipped: PROPS_FIELD_MAP.length, buildInfo: '', baselineDrift: null, error: 'bad_payload' };
   }
   const p = props as Record<string, unknown>;
   const buildInfo = typeof p.build_info === 'string' ? p.build_info : '';
@@ -120,6 +156,11 @@ export function checkEngineProps(props: unknown, values: PresetValues): PropsChe
     const flag = def?.flag ?? m.flag ?? m.param;
     const sent = values[m.param];
     if (sent === undefined) {
+      skipped++;
+      continue;
+    }
+    // 引擎在这些搭配下会自行改写该值（如 --fit 按显存重算 n_ctx），比对必假报
+    if (m.skipWhen && m.skipWhen.in.includes(String(values[m.skipWhen.param]))) {
       skipped++;
       continue;
     }
@@ -172,10 +213,10 @@ export function checkEngineProps(props: unknown, values: PresetValues): PropsChe
       mismatched.push({ param: m.param, flag, sent: describe(sent), actual: describe(actual) });
     }
   }
-  return { checked, mismatched, skipped, buildInfo, error: null };
+  return { checked, mismatched, skipped, buildInfo, baselineDrift: driftOf(buildInfo), error: null };
 }
 
 /** 取不到 /props 时的结果形状（与 checkEngineProps 同构，渲染层只认一种结构） */
 export function propsCheckUnavailable(error: PropsCheck['error']): PropsCheck {
-  return { checked: [], mismatched: [], skipped: PROPS_FIELD_MAP.length, buildInfo: '', error };
+  return { checked: [], mismatched: [], skipped: PROPS_FIELD_MAP.length, buildInfo: '', baselineDrift: null, error };
 }

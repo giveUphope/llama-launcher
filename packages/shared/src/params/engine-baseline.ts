@@ -149,6 +149,14 @@ export const PARAM_ENGINE_BASELINE: Record<string, EngineBaseline> = {
   slots_endpoint: { engineDefault: true },
   metrics: { engineDefault: false },
   props_endpoint: { engineDefault: false },
+  // CORS 族：照抄 b11178 help 的 (default: …) 原文。cors_methods 带空格也是原文形状，
+  // 去空格会让「界面默认」看起来不等于「引擎默认」，从而每次启动多发一条 --cors-methods。
+  // 三条的 note 都是门禁强制的：`*` 不是简单标量、列表默认值含逗号，解析器无法机械对拍，
+  // 故按「条件式默认」处理（见 verify-params-sync 的 helpDefault 判据）。
+  cors_origins: { engineDefault: '*', note: 'help 原文 (default: *)；* 为通配而非某个具体来源，无法与标量对拍' },
+  cors_methods: { engineDefault: 'GET, POST, DELETE, OPTIONS', note: 'help 原文是逗号分隔的方法列表，取首段会得到 GET 这一假默认值，故按列表整体登记、不参与标量对拍' },
+  cors_headers: { engineDefault: '*', note: 'help 原文 (default: *)；* 为通配而非某个具体来源，无法与标量对拍' },
+  cors_credentials: { engineDefault: true },
   timeout: { engineDefault: 3600 },
   cache_prompt: { engineDefault: true },
   cache_reuse: { engineDefault: 0 },
@@ -178,6 +186,17 @@ export function isSentinelValue(p: ParamDef, v: string | number | boolean): bool
 export function isUnsetValue(v: string | number | boolean): boolean {
   return v === '';
 }
+
+/**
+ * 本表所钉的 llama.cpp 构建（re-pin 时唯一需要同步改的声明处）。
+ *
+ * 为什么必须是常量而不是注释：这张表是 `llama-server --help` 的**快照**，用户换引擎后，
+ * 47 个不可回读的参数没有任何东西会提醒我们表已过期——那正是刚被清掉的那类静默失效，
+ * 只是搬到了版本维度。现在两头都守：运行时用 `/props` 的 `build_info` 比对（见
+ * `props-mapping.ts` 的 `baselineDrift`），开发期由 `verify-params-sync.cjs` ⑥ 对拍它在
+ * 5 个声明处（生成器 ×2 / README ×2 / params-system 当前实测段）是否与本常量一致。
+ */
+export const ENGINE_BASELINE_BUILD = 'b11178';
 
 /**
  * llama.cpp 的引擎侧环境变量前缀（help 条目尾的 `(env: LLAMA_ARG_*)`）。

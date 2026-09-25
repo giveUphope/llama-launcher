@@ -26,7 +26,7 @@ const TABS: Array<{ key: TabKey; icon: string; labelKey: string }> = [
 const SUBCATEGORY_ORDER: string[] = [
   'network', 'context', 'compute', 'memory', 'sampling',
   'kv_cache', 'multimodal', 'template', 'speculative', 'thinking',
-  'identity', 'endpoints', 'behavior',
+  'identity', 'endpoints', 'security', 'behavior',
 ];
 
 const route = useRoute();
