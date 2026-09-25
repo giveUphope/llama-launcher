@@ -51,15 +51,33 @@ function helpFlags(text) {
   return set;
 }
 
-function extractDefaults(text) {
-  // 返回 [{ line: flag 行首段, def: default 值 }]
+/**
+ * 把 help 的续行折回条目行。llama-server 的 --help 是「flag 行顶格 + 说明缩进」的排版，
+ * 长说明会把 `(default:` 挤到下一行、值再挤到第三行（b11178 的 `--host` 即如此）。
+ * 按物理行取默认值就会拿到空串，把一次纯描述改写报成「默认值变化」。
+ */
+function logicalLines(text) {
   const out = [];
   for (const raw of text.split(/\r?\n/)) {
-    const m = raw.match(/^(.*?default: ([^)\n]*))/);
-    if (m) {
-      const flag = m[1].trim().split(/\s{2,}/)[0].slice(0, 60);
-      out.push({ line: flag, def: m[2].trim() });
+    if (out.length && /^\s+\S/.test(raw)) {
+      out[out.length - 1] += ' ' + raw.trim();
+      continue;
     }
+    out.push(raw);
+  }
+  return out;
+}
+
+function extractDefaults(text) {
+  // 返回 [{ line: flag 行首段, def: default 值 }]
+  // 只认括号形态 `(default: X)`：续行里裸出现的 "default: follows --device" 属说明文字，
+  // 收进来会既取错值又把两个条目错配（b11053 那轮误报的同源问题）。
+  const out = [];
+  for (const line of logicalLines(text)) {
+    const m = line.match(/\(default:\s*([^)]*)\)/);
+    if (!m) continue;
+    const flag = line.slice(0, m.index).trim().split(/\s{2,}/)[0].slice(0, 60);
+    if (flag) out.push({ line: flag, def: m[1].trim() });
   }
   return out;
 }
