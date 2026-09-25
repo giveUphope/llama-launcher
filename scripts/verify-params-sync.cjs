@@ -295,14 +295,28 @@ if (baselineEntries.size !== PARAM_TOTAL) {
   process.exit(1);
 }
 
-/** help 里的 (default: X) → 取首段并归一；非简单标量返回 { complex } 以强制 note */
+/**
+ * help 里的 (default: X) → 取首段并归一；非简单标量返回 { complex } 以强制 note。
+ *
+ * 逗号有两种完全不同的含义，必须分开（b11178 收录 --cors-methods 时撞出来的）：
+ *  - 解释式「0, 0 = loaded from model」/「-1, use random seed for -1」→ 首段才是默认值，取首段对；
+ *  - 取值列表「GET, POST, DELETE, OPTIONS」→ 取首段会得到 "GET"，随后拿这个假默认值
+ *    去判 engineDefault 不符（门禁把自己的解析错误当成了数据的错）。
+ * 判据：逗号后的各段**都是无空格单词**时是列表，否则是解释式。实测本基线 10 条含逗号的
+ * 条目里 9 条为解释式、仅 cors_methods 为列表，故该判据不会凭空给既有条目加 note 义务。
+ */
 function helpDefault(flagName) {
   const hp = helpParams.find((h) => h.flags.includes(flagName));
   if (!hp) return { missing: true };
   const m = hp.description.match(/default:\s*([^)]*)/i);
   if (!m) return { missingDefault: true };
-  const first = m[1].trim().replace(/[.)\s]+$/, '').split(/[,;]/)[0].trim().replace(/^'|'$/g, '');
-  if (!/^[A-Za-z0-9_.-]+$/.test(first)) return { complex: m[1].trim() };
+  const raw = m[1].trim().replace(/[.)\s]+$/, '');
+  const parts = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  const looksLikeList =
+    parts.length > 1 && parts.every((s) => /^[A-Za-z0-9_.-]+$/.test(s));
+  if (looksLikeList) return { complex: raw };
+  const first = parts[0].replace(/^'|'$/g, '');
+  if (!/^[A-Za-z0-9_.-]+$/.test(first)) return { complex: raw };
   const low = first.toLowerCase();
   if (low === 'enabled' || low === 'true') return { value: 'true' };
   if (low === 'disabled' || low === 'false') return { value: 'false' };
@@ -405,3 +419,47 @@ if (extraEmitters.length) {
   process.exit(1);
 }
 console.log(`[verify-params-sync] ✅ 命令行发射实现唯一：${UNIQUE_EMITTER}`);
+
+// ---- ⑥ 参数基线构建号一致性 ----
+// engine-baseline.ts 是某个引擎版本 --help 的快照；它的构建号在 6 处声明（常量本体 + 常量注释 +
+// 生成器中英两行 + README 中英各一行 + params-system 中英「当前实测」段）。
+// 只改常量不改别处，就会出现「代码说钉在 bN、文档说钉在 bM」——re-pin 时漏改一处即长期误导，
+// 所以这里逐个解析并要求相等；**解析不到同样 fail**（声明改版式后检查不能静默空转）。
+const ROOT_DIR = path.join(__dirname, '..');
+const readRel = (rel) => fs.readFileSync(path.join(ROOT_DIR, rel), 'utf8');
+const EB_REL = 'packages/shared/src/params/engine-baseline.ts';
+const ebText = readRel(EB_REL);
+const constM = ebText.match(/export const ENGINE_BASELINE_BUILD = '(b\d+)'/);
+if (!constM) {
+  console.error(`[verify-params-sync] ❌ ${EB_REL} 里解析不到 ENGINE_BASELINE_BUILD 常量（形态应为 export const ... = 'bNNNNN'）`);
+  process.exit(1);
+}
+const baselineBuild = constM[1];
+const BUILD_SITES = [
+  [EB_REL, /当前固定 (b\d+)/, 'engine-baseline 头部注释'],
+  ['scripts/generate-params-doc.cjs', /llama-(b\d+)-bin/g, '对照表来源行（中英）'],
+  ['README.md', /基线对齐 llama\.cpp \*\*(b\d+)\*\*/, 'README 中文声明'],
+  ['README.en.md', /baseline aligned to llama\.cpp \*\*(b\d+)\*\*/i, 'README 英文声明'],
+  ['docs/zh/params-system.md', /当前实测（[^，]+，(b\d+) 基线/, '中文 params-system 当前实测段'],
+  ['docs/en/params-system.md', /Current measurement \([^,]+, (b\d+) baseline/, '英文 params-system 当前实测段'],
+];
+const buildErrors = [];
+for (const [rel, re, label] of BUILD_SITES) {
+  const text = readRel(rel);
+  const found = re.global ? [...text.matchAll(re)].map((m) => m[1]) : [(text.match(re) || [])[1]];
+  const parsed = found.filter(Boolean);
+  if (!parsed.length) {
+    buildErrors.push(`${label}：在 ${rel} 里解析不到构建号（声明版式变了，检查已空转）`);
+    continue;
+  }
+  for (const b of parsed) {
+    if (b !== baselineBuild) buildErrors.push(`${label}：${rel} 写的是 ${b}，常量为 ${baselineBuild}`);
+  }
+}
+if (buildErrors.length) {
+  console.error(`[verify-params-sync] ❌ 参数基线构建号不一致（${buildErrors.length} 项）：`);
+  for (const e of buildErrors) console.error('  - ' + e);
+  console.error(`修复：re-pin 后把 ${baselineBuild} 同步到上述每一处（流程见 docs/zh/params-system.md §5.5）。`);
+  process.exit(1);
+}
+console.log(`[verify-params-sync] ✅ 参数基线构建号 ${baselineBuild} 在 ${BUILD_SITES.length} 个声明处一致`);

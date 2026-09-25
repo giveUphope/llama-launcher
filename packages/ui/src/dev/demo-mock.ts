@@ -1,7 +1,7 @@
 // 开发预览演示数据（仅浏览器 mock 环境注入，Electron 真实 api 不受影响）。
 // main.ts 在无 Electron preload 时调用 createDemoApi()，让预览环境呈现完整业务状态，
 // 便于目测 UI 布局与交互。数据为静态仿真 + 周期性模拟服务日志/下载进度。
-import { APP_VERSION, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, formatCommand } from '@llama-launcher/shared';
+import { APP_VERSION, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, checkEngineProps, formatCommand } from '@llama-launcher/shared';
 import type {
   AppSettings, ModelInfo, Preset, GgufReadResult,
   ParsedModelUrl, OutputEntry, AppLogEntry,
@@ -9,7 +9,7 @@ import type {
   DownloadProgressPayload, DownloadCompletePayload,
   TargetRecommendation,
   ServerStatus, ServerStatusEvent, ServerStopInfo,
-  PresetValues,
+  PresetValues, PropsCheck,
 } from '@llama-launcher/shared';
 
 const ENGINE_DIR = 'D:/Models/llama-bins';
@@ -139,6 +139,59 @@ export function createDemoApi() {
   let outputTimer: ReturnType<typeof setInterval> | null = null;
   // 运行中服务的参数快照（对齐 core getStatus().values：bench 复用/重启判定依赖它）
   let runningValuesSnapshot: Record<string, string | number | boolean> | null = null;
+  /**
+   * 预览卡每次调 previewCommand 都会把当前值传进来——演示模式用它作为「服务在跑的值」，
+   * 而不是另造一份默认值快照：后者与 store 真值差几项，会让普通加载谎报
+   * 「运行中 ≠ 当前参数」（加 ?demo 开关时发现，2026-09-26）。
+   */
+  let lastSeenValues: PresetValues | null = null;
+
+  /**
+   * 演示开关：`?demo=props-mismatch` 造一条引擎回读不一致（并带上 env 变量以演示归因合并），
+   * `?demo=props-drift` 造一条「引擎版本 ≠ 参数基线版本」。默认两者都不出——
+   * 提示行平时是安静的，若 mock 总是亮着，就无法用它来证明"真实场景下不误报"。
+   * 规则本身复用 shared 的 checkEngineProps，mock 不另写一套判定（同 demo 命令预览的教训）。
+   */
+  const demoMode = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get('demo') ?? '';
+    } catch {
+      return '';
+    }
+  })();
+
+  function demoPropsCheck(values: PresetValues | null): PropsCheck | null {
+    if (!values || (demoMode !== 'props-mismatch' && demoMode !== 'props-drift')) return null;
+    const perturbTopK = demoMode === 'props-mismatch';
+    return checkEngineProps(
+      {
+        build_info: demoMode === 'props-drift' ? 'b99999-demo' : 'b11178-demo',
+        ui: values.ui !== false,
+        endpoint_slots: true,
+        endpoint_metrics: false,
+        model_path: String(values.model ?? ''),
+        model_alias: String(values.alias ?? ''),
+        default_generation_settings: {
+          n_ctx: Number(values.ctx_size) || 4096,
+          params: {
+            seed: -1,
+            temperature: Number(values.temperature ?? 0.8),
+            // 故意差 1：模拟"界面写着 40、引擎按别的值在跑"
+            top_k: Number(values.top_k ?? 40) + (perturbTopK ? 1 : 0),
+            top_p: Number(values.top_p ?? 0.95),
+            min_p: Number(values.min_p ?? 0.05),
+            repeat_penalty: Number(values.repeat_penalty ?? 1),
+            presence_penalty: Number(values.presence_penalty ?? 0),
+          },
+        },
+      },
+      values,
+    );
+  }
+
+  function demoEnvOverrides(check: PropsCheck | null): string[] {
+    return check && check.mismatched.length ? ['LLAMA_ARG_TOP_K'] : [];
+  }
 
   function cloneValues(v: PresetValues): Record<string, string | number | boolean> {
     return JSON.parse(JSON.stringify(v ?? {})) as Record<string, string | number | boolean>;
@@ -279,14 +332,22 @@ export function createDemoApi() {
         }, 400);
         return Promise.resolve({ ok: true });
       },
-      getStatus: () => Promise.resolve({ status: serverStatus, pid: 23508, host: '127.0.0.1', port: 8080, url: serverStatus === 'running' ? 'http://127.0.0.1:8080' : '', values: runningValuesSnapshot ? { ...runningValuesSnapshot } : null, stop: lastStop }),
+      getStatus: () => {
+        const snap = runningValuesSnapshot ? { ...runningValuesSnapshot } : null;
+        // 演示路径用「预览卡刚传进来的当前值」当在跑的值；真实快照语义不动
+        const check = demoPropsCheck(snap ?? lastSeenValues);
+        return Promise.resolve({ status: serverStatus, pid: 23508, host: '127.0.0.1', port: 8080, url: serverStatus === 'running' ? 'http://127.0.0.1:8080' : '', values: snap, stop: lastStop, envOverrides: demoEnvOverrides(check), propsCheck: check });
+      },
       // 与真实侧同一发射规则：apps/desktop 的 SERVER_PREVIEW 走 core 的 previewCommand，
       // 那里只多一层 exe 存在性校验（浏览器没有文件系统），argv 本身两边共用 shared 的实现。
       // includeCustomArgs:false 与真实侧一致——内置参数命令框不含扩展参数。
-      previewCommand: (values: PresetValues, settings: AppSettings) => Promise.resolve({
-        ok: true,
-        data: formatCommand(buildArgv(argvFromPreviewOptions({ values, settings, includeCustomArgs: false }))),
-      }),
+      previewCommand: (values: PresetValues, settings: AppSettings) => {
+        lastSeenValues = { ...values };
+        return Promise.resolve({
+          ok: true,
+          data: formatCommand(buildArgv(argvFromPreviewOptions({ values, settings, includeCustomArgs: false }))),
+        });
+      },
       bench: () => Promise.resolve({
         ok: true,
         data: {
