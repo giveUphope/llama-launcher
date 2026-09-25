@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { DEFAULT_HOST, DEFAULT_PORT } from '@llama-launcher/shared';
-import type { ServerStatus, ServerStatusEvent, ServerStopInfo, OutputEntry } from '@llama-launcher/shared';
+import type { ServerStatus, ServerStatusEvent, ServerStopInfo, OutputEntry, PropsCheck } from '@llama-launcher/shared';
 import { useIPC, invokeOk, toPlain } from '@/composables/useIPC';
 import { useI18nStore } from '@/stores/i18n';
 import type { AppSettings, PresetValues } from '@llama-launcher/shared';
@@ -89,6 +89,10 @@ export const useServerStore = defineStore('server', () => {
   // 引擎侧环境变量覆写项（LLAMA_ARG_*）：由主进程在启动那一刻检出并随 ServerInfo 下发。
   // 界面「未发射＝引擎按缺省值」这一前提只有在没有这些变量时才成立，故必须可见（见命令预览卡提示）。
   const envOverrides = ref<string[]>([]);
+
+  // /props 回读对账结果（核心在服务就绪后跑一次）：null = 尚未回读或该环境没有真实服务。
+  // 这是界面上唯一「已证实」的信号，其余参数值都只是「我们发出去了」。
+  const propsCheck = ref<PropsCheck | null>(null);
 
   // ---- 外部 llama-server 实例检测（非本应用拉起）----
   // 来源有二：① 概览页定时探测配置端口（refreshExternal）；② 启动端口冲突时用户选择
@@ -203,6 +207,8 @@ export const useServerStore = defineStore('server', () => {
       });
       api.server.onStatus((e: ServerStatusEvent) => {
         stopInfo.value = e.stop ?? null;
+        // 回读结果随同状态事件补发（核心跑完 /props 后再发一次 running），null 表示尚未回读到
+        if (e.propsCheck !== undefined) propsCheck.value = e.propsCheck;
         // 本应用拉起自身进程后，外部实例标记立即失效（端口将归自家进程所有）
         if (e.status === 'starting' || e.status === 'running') external.value = null;
         status.value = e.status;
@@ -224,6 +230,7 @@ export const useServerStore = defineStore('server', () => {
     url.value = info.url;
     runningValues.value = info.values ?? null;
     envOverrides.value = info.envOverrides ?? [];
+    if (info.propsCheck !== undefined) propsCheck.value = info.propsCheck;
     // 与 onStatus 订阅同一语义：自家进程 running 后外部实例标记失效
     if (info.status === 'running' || info.status === 'starting') external.value = null;
   }
@@ -308,7 +315,7 @@ export const useServerStore = defineStore('server', () => {
   });
 
   return {
-    status, pid, host, port, url, apiUrl, outputs, runningValues, stopInfo, envOverrides,
+    status, pid, host, port, url, apiUrl, outputs, runningValues, stopInfo, envOverrides, propsCheck,
     effectiveStatus, oomDetected,
     external,
     refreshExternal, adoptExternal, clearExternal,

@@ -73,6 +73,8 @@ const staleCount = computed(() => {
   return params.countDiffers(server.runningValues);
 });
 
+const propsMismatch = computed(() => server.propsCheck?.mismatched ?? []);
+
 async function onCopyCmd() {
   if (!fullCommand.value) return;
   await window.api.clipboard.write(fullCommand.value);
@@ -113,6 +115,11 @@ onUnmounted(() => {
         <div v-if="server.envOverrides.length" class="cmd-hint cmd-hint--warn">
           <Icon name="info" :size="11" />
           <span>{{ i18n.t('cmd_env_overrides', [server.envOverrides.join(', ')]) }}</span>
+        </div>
+        <!-- /props 回读：唯一「已证实」的信号。不一致才出声道，一致或未回读都保持安静 -->
+        <div v-if="propsMismatch.length" class="cmd-hint cmd-hint--warn">
+          <Icon name="alert" :size="11" />
+          <span>{{ i18n.t('cmd_props_mismatch', [String(propsMismatch.length), propsMismatch.map((m) => `${m.flag}: ${m.sent} ≠ ${m.actual}`).join(', ')]) }}</span>
         </div>
       </div>
 

@@ -412,6 +412,7 @@ export const zh = {
   // 预览可信度：预览 = 下次启动会用的命令，运行中的服务用的是启动那一刻的参数
   cmd_stale_running: '命令预览按【当前参数】生成；运行中的服务仍在用启动那一刻的参数，两者有 {0} 项不同，重启后生效',
   cmd_env_overrides: '引擎侧环境变量 {0} 会改写界面上未设置的参数缺省值，这些改写不会出现在命令里',
+  cmd_props_mismatch: '引擎回读：{0} 项与发出的值不一致（{1}）——以 /props 实际生效值为准，多为 LLAMA_ARG_* 覆写或引擎版本默认值漂移',
   act_expand_all: '展开全部分区',
   act_collapse_all: '折叠全部分区',
   subcat_changed_n: '{0} 项已改',

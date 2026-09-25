@@ -1,3 +1,5 @@
+import type { PropsCheck } from '../params/props-mapping.js';
+
 export type ServerStatus = 'stopped' | 'starting' | 'running';
 
 /**
@@ -36,6 +38,11 @@ export interface ServerStatusEvent {
   status: ServerStatus;
   /** 最近一次结束的事实；`start()` 时清空，故 running/starting 期间为 null */
   stop: ServerStopInfo | null;
+  /**
+   * /props 回读对账结果。就绪事件先带 null（回读还没跑完），跑完后核心会**再发一次同状态事件**
+   * 把它带下去——渲染层按 status 幂等处理，多一次 running 事件不改任何状态。
+   */
+  propsCheck?: PropsCheck | null;
 }
 
 export interface ServerInfo {
@@ -55,6 +62,11 @@ export interface ServerInfo {
    * 因此界面必须能说明「这里显示的值不一定是引擎实际用的」。
    */
   envOverrides?: string[];
+  /**
+   * 就绪后从 `GET /props` 回读的实际生效值对账结果（见 `params/props-mapping.ts`）。
+   * 只在服务进入 running 后有值；取不到 /props 时 error='unreachable' 而非判不一致。
+   */
+  propsCheck?: PropsCheck | null;
 }
 
 export type OutputKind =

@@ -1,12 +1,21 @@
 import { EventEmitter } from 'node:events';
 import { LlamaServerProcess } from './process.js';
 import { buildCommand } from './command-builder.js';
+import { defaultPropsFetcher, verifyEngineProps, type PropsFetcher } from './server-props.js';
 import { DEFAULT_HOST, DEFAULT_PORT, detectLlamaEnvOverrides, displayHost } from '@llama-launcher/shared';
-import type { AppSettings, ServerStatus, ServerStopInfo, ServerInfo, OutputEntry } from '@llama-launcher/shared';
+import type { AppSettings, ServerStatus, ServerStopInfo, ServerInfo, OutputEntry, PropsCheck } from '@llama-launcher/shared';
 
 export interface StartOptions {
   values: Record<string, string | number | boolean>;
   settings: AppSettings;
+}
+
+export interface LauncherDeps {
+  /**
+   * /props 取数实现。默认走全局 fetch（主进程有网络），
+   * 单测**必须**注入桩——否则会真去请求本机 8080 上用户正在跑的 llama-server。
+   */
+  propsFetcher?: PropsFetcher;
 }
 
 export class Launcher extends EventEmitter {
@@ -20,6 +29,14 @@ export class Launcher extends EventEmitter {
   private port = DEFAULT_PORT;
   /** 本次启动时检出的 `LLAMA_ARG_*` 环境变量名（见 ServerInfo.envOverrides） */
   private envOverrides: string[] = [];
+  /** 就绪后 /props 回读对账结果；每次 start 清空，未回读回来时为 null */
+  private lastPropsCheck: PropsCheck | null = null;
+  private readonly propsFetcher: PropsFetcher;
+
+  constructor(deps: LauncherDeps = {}) {
+    super();
+    this.propsFetcher = deps.propsFetcher ?? defaultPropsFetcher;
+  }
   // 本轮运行是否曾到达 running：退出时据此区分「运行中崩了」与「启动阶段就失败」
   private hadBeenReady = false;
   // 本轮结束是否由本应用主动停（stop/restart/forceStop/应用退出）——必须显式记，
@@ -37,6 +54,7 @@ export class Launcher extends EventEmitter {
     this.lastStop = null;
     this.hadBeenReady = false;
     this.stopRequested = false;
+    this.lastPropsCheck = null;
     this.setStatus('starting');
     this.currentSettings = opts.settings;
     this.currentValues = { ...opts.values };
@@ -82,6 +100,8 @@ export class Launcher extends EventEmitter {
       if (lower.includes('listening') && (lower.includes('http') || lower.includes('server'))) {
         this.hadBeenReady = true;
         this.setStatus('running');
+        // 就绪即回读，不阻塞状态迁移（服务可用不必等 HTTP 往返）
+        this.runPropsCheck();
       }
     });
     this.proc.on('exit', (code: number, signal: NodeJS.Signals | null) => {
@@ -159,6 +179,8 @@ export class Launcher extends EventEmitter {
       stop: this.lastStop,
       // 启动那一刻检出的引擎侧环境变量（改名/清掉后要重启才会刷新，与 host/port 同语义）
       envOverrides: [...this.envOverrides],
+      // 与 status 事件同源，页面重新激活时也能拿到最近一次回读结果
+      propsCheck: this.lastPropsCheck,
     };
   }
 
@@ -185,6 +207,24 @@ export class Launcher extends EventEmitter {
 
   private setStatus(s: ServerStatus): void {
     this.status = s;
-    this.emit('status', { status: s, stop: this.lastStop });
+    this.emit('status', { status: s, stop: this.lastStop, propsCheck: this.lastPropsCheck });
+  }
+
+  /**
+   * 就绪后回读 /props 对账「引擎实际收到的」与「我们以为发出的」。
+   * 结果晚于 running 事件到达，故完成后再发一次**同状态**事件把它带下去——
+   * 渲染层按 status 幂等处理，多一次 running 不改变任何状态机迁移。
+   * 取不到 /props（服务已停、网络异常）只标 error='unreachable'，不判成不一致，
+   * 否则一次偶发失败就会在界面上谎报参数没生效——那正是我们一直在消灭的那类问题。
+   */
+  private runPropsCheck(): void {
+    const viewHost = displayHost(this.host);
+    if (!viewHost) return;
+    const values = { ...this.currentValues };
+    void verifyEngineProps({ baseUrl: `http://${viewHost}:${this.port}`, values, fetcher: this.propsFetcher }).then((check) => {
+      if (this.status !== 'running') return;
+      this.lastPropsCheck = check;
+      this.setStatus('running');
+    });
   }
 }

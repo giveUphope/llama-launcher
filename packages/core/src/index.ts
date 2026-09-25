@@ -3,6 +3,7 @@ export * from './settings-store.js';
 export * from './presets-store.js';
 export * from './models-scanner.js';
 export * from './command-builder.js';
+export * from './server-props.js';
 export * from './process.js';
 export * from './launcher.js';
 export * from './gguf-meta.js';
