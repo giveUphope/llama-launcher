@@ -208,10 +208,11 @@ describe('按参数类型发射行为（表驱动）', () => {
     // 的参数（--metrics / --props / --swa-full）不发射任何东西，映射容易写错，故不自己推。
     const cmd = buildCommand({ exePath: EXE_PATH, modelPath: '', values: PARAMS_DEFAULTS });
     const emitted = cmd.slice(1).filter((t) => String(t).startsWith('-')).sort();
-    // 9 项来自 checkbox（恒定发射），4 项是启动器覆盖引擎缺省的基线推荐
+    // 10 项来自 checkbox（恒定发射，含收录 CORS 后默认即为 enabled 的 --cors-credentials），
+    // 4 项是启动器覆盖引擎缺省的基线推荐
     expect(emitted).toEqual([
-      '--cache-prompt', '--fit', '--jinja', '--load-mode', '--mmproj-offload',
-      '--no-context-shift', '--no-kv-unified', '--slots', '--ui',
+      '--cache-prompt', '--cors-credentials', '--fit', '--jinja', '--load-mode',
+      '--mmproj-offload', '--no-context-shift', '--no-kv-unified', '--slots', '--ui',
       '-cb', '-ctk', '-ctv', '-kvo',
     ]);
   });

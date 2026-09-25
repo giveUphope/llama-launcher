@@ -3,7 +3,7 @@
 // 用真实回读形状，而不是我想象中的形状：float32 噪声、seed 的 uint32 环绕、
 // model_path 的双反斜杠这三处只要猜一次就永远对不上真引擎。
 import { describe, it, expect } from 'vitest';
-import { MODEL_KEY, PARAMS, checkEngineProps, PROPS_FIELD_MAP, propsCheckUnavailable } from '@llama-launcher/shared';
+import { ENGINE_BASELINE_BUILD, MODEL_KEY, PARAMS, checkEngineProps, PROPS_FIELD_MAP, propsCheckUnavailable } from '@llama-launcher/shared';
 import { verifyEngineProps } from '../src/server-props.js';
 import type { PresetValues } from '@llama-launcher/shared';
 
@@ -30,6 +30,7 @@ const REAL_PROPS = {
       reasoning_format: 'none',
       speculative: { types: 'none' },
     },
+    // n_ctx 是真机 /props 里 default_generation_settings 的兄弟键（实测 262144）
     n_ctx: 262144,
   },
 };
@@ -38,6 +39,9 @@ const REAL_PROPS = {
 const sentValues: PresetValues = {
   model: 'D:/LLMmodels/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/Qwen3.6-35B-A3B-UD-IQ1_M.gguf',
   alias: 'Qwen3.6-35B-A3B-UD-IQ1_M',
+  // 显式 -c 且 fit 关（fit 开着时引擎会按显存重算 n_ctx，比对必假报，见 skipWhen）
+  ctx_size: 262144,
+  fit: 'off',
   temperature: 1,
   top_k: 20,
   top_p: 0.95,
@@ -100,6 +104,34 @@ describe('checkEngineProps（/props 回读对账）', () => {
     expect(r.checked).toEqual([]);
     expect(r.mismatched).toEqual([]);
     expect(r.skipped).toBe(PROPS_FIELD_MAP.length);
+  });
+
+  it('显式 -c 且 fit 关时 n_ctx 参与校验；不一致要报出', () => {
+    const ok = checkEngineProps(REAL_PROPS, { ...sentValues, ctx_size: 262144, fit: 'off' });
+    expect(ok.checked).toContain('ctx_size');
+    expect(ok.mismatched).toEqual([]);
+    const bad = checkEngineProps(REAL_PROPS, { ...sentValues, ctx_size: 8192, fit: 'off' });
+    expect(bad.mismatched.map((m) => m.param)).toEqual(['ctx_size']);
+  });
+
+  it('fit 开着时不比 n_ctx——引擎会按显存重算，比了必假报', () => {
+    const r = checkEngineProps(REAL_PROPS, { ...sentValues, ctx_size: 8192, fit: 'on' });
+    expect(r.checked).not.toContain('ctx_size');
+    expect(r.mismatched).toEqual([]);
+  });
+
+  it('-c 0（从模型加载）属未发值，不比', () => {
+    const r = checkEngineProps(REAL_PROPS, { ...sentValues, ctx_size: 0, fit: 'off' });
+    expect(r.checked).not.toContain('ctx_size');
+    expect(r.mismatched).toEqual([]);
+  });
+
+  it('引擎构建与参数基线构建不一致时报 baselineDrift（防拿旧尺子量新引擎）', () => {
+    expect(checkEngineProps(REAL_PROPS, sentValues).baselineDrift).toBeNull();
+    const newer = checkEngineProps({ ...REAL_PROPS, build_info: 'b11999-deadbeef' }, sentValues);
+    expect(newer.baselineDrift).toEqual({ engineBuild: 'b11999', baselineBuild: ENGINE_BASELINE_BUILD });
+    // 没有 build_info（老引擎/被裁剪）时不猜，保持安静
+    expect(checkEngineProps({ ...REAL_PROPS, build_info: '' }, sentValues).baselineDrift).toBeNull();
   });
 
   it('映射表的每一项都取得到 /props 值，且参数 key 真实存在（防改名后静默空转）', () => {

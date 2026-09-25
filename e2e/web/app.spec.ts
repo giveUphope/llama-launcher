@@ -1,4 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
+// 参数总数从事实源取，不写死字面量（写死的数字每加一个参数就要人去改一次）。
+// 走 dist 相对路径而非包名：Playwright 从仓库根解析模块，而根 package.json 不依赖
+// workspace 包；e2e 前 CI 必跑 pnpm build，shared/dist 必然存在。
+import { PARAMS } from '../../packages/shared/dist/index.js';
 
 // Web 渲染层 E2E：跑真实构建产物（vite preview + demo-mock 数据）。
 // demo-mock 在无 window.api 时由 main.ts 注入，静态 UI 自足可离线验证。
@@ -114,10 +118,12 @@ test.describe('表单标签几何（双语）', () => {
       }
     });
 
-    // 参数页 60 行同样纳入：该页列宽 124 是 #78 按中文最长标签（122.8px）定的，
+    // 参数页全行纳入：该页列宽 124 是 #78 按中文最长标签（122.8px）定的，
     // 英文曾有 11 条超出被省略号截断（STYLE_TODO #80 改文案后归零）。断言零截断，
     // 使「新增参数用了长英文标签」这类回归在 CI 就被拦下，而不是靠人工逐视口复测。
-    test(`${lang === 'zh' ? '中文' : '英文'}态参数页 60 行标签不截断不压控件`, async ({ page }) => {
+    // 行数取 PARAMS.length 而非写死：写死的数字每加一个参数就红一次，
+    // 于是人会去改数字而不是看布局——b11178 收录 CORS 族时正撞在这上面。
+    test(`${lang === 'zh' ? '中文' : '英文'}态参数页全行标签不截断不压控件`, async ({ page }) => {
       await page.goto('/');
       await expect(page.locator('.sidebar')).toBeVisible();
       await setLanguage(page, lang);
@@ -125,8 +131,8 @@ test.describe('表单标签几何（双语）', () => {
       await page.locator('.arco-tabs-tab', { hasText: lang === 'zh' ? '自定义参数' : 'Custom Params' }).click();
       await expect(page.locator('.param-row-wrapper').first()).toBeVisible();
       await expectLabelsFit(page, '参数页');
-      // 60 行全部在 DOM 内（无虚拟列表），少一行说明渲染或选择器变了
-      expect(await page.locator('.param-row-wrapper').count()).toBe(60);
+      // 全部参数行都在 DOM 内（无虚拟列表），少一行说明渲染或选择器变了
+      expect(await page.locator('.param-row-wrapper').count()).toBe(PARAMS.length);
     });
   }
 });
