@@ -21,7 +21,7 @@ llama_launcher/
 │       ├── src/
 │       │   ├── main/                  # Main process
 │       │   │   ├── index.ts           # Entry point: single-instance lock, window creation, lifecycle, transport injection
-│       │   │   ├── ipc/               # IPC registry per feature domain (56 channels, register*Ipc + index aggregation)
+│       │   │   ├── ipc/               # IPC registry per feature domain (57 channels, register*Ipc + index aggregation)
 │       │   │   │   ├── index.ts       #   aggregate wiring of the ipcRegistrars array (registerIpcHandlers)
 │       │   │   │   ├── settings.ts    #   settings:load/save
 │       │   │   │   ├── models.ts      #   models:scan/detectMmproj/detectDraft/readGgufMeta/remove

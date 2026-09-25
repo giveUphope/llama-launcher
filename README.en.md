@@ -115,7 +115,7 @@ Everything lives in `docs/en/` (Chinese originals in [`docs/zh/`](docs/zh/archit
 | Core modules (process, command builder, GGUF, downloads)    | [core-modules.md](docs/en/core-modules.md)                                  |
 | Parameter system, session vs preset, controls               | [params-system.md](docs/en/params-system.md)                                |
 | Electron main process (window, IPC registry, tray, preload) | [desktop-main.md](docs/en/desktop-main.md)                                  |
-| All 56 IPC channels — read before touching IPC              | [ipc-channels.md](docs/en/ipc-channels.md)                                  |
+| All 57 IPC channels — read before touching IPC              | [ipc-channels.md](docs/en/ipc-channels.md)                                  |
 | Frontend architecture + **UI style guide §7.5**             | [frontend.md](docs/en/frontend.md)                                          |
 | Types and persistence (`settings.json` fields, presets)     | [data-persistence.md](docs/en/data-persistence.md)                          |
 | Packaging config and known failure modes                    | [packaging.md](docs/en/packaging.md)                                        |

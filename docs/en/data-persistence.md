@@ -18,7 +18,7 @@ Every type file under `packages/shared/src/types/` and its key types:
 | `vram.ts` | `DeviceMemInfo`, `PerfTarget`/`TargetRecommendation` (the four performance-target tiers), `OccupancySide`/`HardwareOccupancy`/`VramEstimateResult`/`OccupancyConfig` (VRAM/system-memory occupancy estimation), `ModelFitVerdict`/`ModelFitResult` (model fit verdict) |
 | `download.ts` | `StartDownloadRequest`, download task/progress types |
 | `trash.ts` | `TrashKind`, `TrashRoot`, `TrashItem`, `DetectResult`, `CleanResult` (app-generated file cleanup: config directory + model directory, dual root) |
-| `ipc.ts` | `IPC` constant object (56 channels), `IpcChannel` |
+| `ipc.ts` | `IPC` constant object (57 channels), `IpcChannel` |
 | `index.ts` | Unified re-exports |
 
 ---

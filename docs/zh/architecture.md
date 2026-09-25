@@ -21,7 +21,7 @@ llama_launcher/
 │       ├── src/
 │       │   ├── main/                  # 主进程
 │       │   │   ├── index.ts           # 入口：单实例锁、窗口创建、生命周期、传输注入
-│       │   │   ├── ipc/               # 功能域 IPC 注册表（56 通道，register*Ipc + index 聚合）
+│       │   │   ├── ipc/               # 功能域 IPC 注册表（57 通道，register*Ipc + index 聚合）
 │       │   │   │   ├── index.ts       #   ipcRegistrars 数组汇总装配（registerIpcHandlers）
 │       │   │   │   ├── settings.ts    #   settings:load/save
 │       │   │   │   ├── models.ts      #   models:scan/detectMmproj/detectDraft/readGgufMeta/remove
