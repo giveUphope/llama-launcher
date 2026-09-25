@@ -41,7 +41,7 @@
 | `server:start`   | Start the service                               |
 | `server:stop`    | Stop the service                                |
 | `server:restart` | Restart the service                             |
-| `server:status`  | Query service status                            |
+| `server:status`  | Query service status; the main process also **pushes** `ServerStatusEvent { status, stop }` on this channel — `stop` (`ServerStopInfo`) is the sole basis for the UI telling "Stopped / Failed / Crashed" apart |
 | `server:preview` | Preview the launch command                      |
 | `server:output-batch` | Output push (main process → renderer), **payload is an `OutputEntry[]` array**: lines within a 16ms window are merged into a single message |
 

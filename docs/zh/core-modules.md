@@ -14,7 +14,7 @@
 
 - **`kill()`**：Windows 平台用 `taskkill /F /T /PID` 杀整个进程树（防止子进程残留），其他平台对负 pid（进程组）发 `SIGKILL`（立即终止；`SIGTERM` 优雅终止仅用于 `terminate()` 两阶段流程）。
 
-- **两阶段终止体系**：`LlamaServerProcess.terminate()`（SIGTERM 优雅 → 超时升级 killTree，process.ts:188）、`killSync()`（同步强杀，process.ts:150）、`sweepByName()`（按可执行文件名扫杀残留进程，process.ts:98）；**`forceStop()` 在 `Launcher` 上**（launcher.ts:100，组合 killTree + sweepByName，供 Electron `before-quit` 经 launcher-bridge.ts:140 调用），不在 process.ts。
+- **两阶段终止体系**：`LlamaServerProcess.terminate()`（SIGTERM 优雅 → 超时升级 killTree，process.ts:188）、`killSync()`（同步强杀，process.ts:150）、`sweepByName()`（按可执行文件名扫杀残留进程，process.ts:98）；**`forceStop()` 在 `Launcher` 上**（launcher.ts:127，组合 killTree + sweepByName，供 Electron `before-quit` 经 launcher-bridge.ts:141 调用），不在 process.ts。
 
 - **`isRunning()`**：判断条件为 `exitCode === null && !killed`。
 
@@ -24,15 +24,17 @@
 
 - **状态机**：`stopped → starting → running → stopped`
 
-- **`start(opts)`**：调用 `buildCommand` 构建命令 → 创建 `LlamaServerProcess` → 监听 `output` 事件，匹配到 "listening" 关键词后切换到 `running`。
+- **`start(opts)`**：调用 `buildCommand` 构建命令 → 创建 `LlamaServerProcess` → 监听 `output` 事件，匹配到 "listening" 关键词后切换到 `running`。开始新一轮时清空上一轮的停止事实。
 
 - **通用 listening 检测**：匹配同时包含 `"listening"` 与（`"http"` 或 `"server"`）的行，兼容所有版本的 llama-server 输出格式。
 
-- **`stop()`**：调用 `proc.kill()`。
+- **`stop()`**：调用 `proc.kill()`；`stop()`/`stopSync()`/`forceStop()` 都会先置 `stopRequested`，使随后的 exit 被记为「用户主动停」——Windows 下 `taskkill /F` 给出的退出码不是 0，只靠退出码分不出「用户停的」与「自己崩的」。
+
+- **停止事实 `ServerStopInfo`**：`Launcher` 在退出/失败时记录 `{ reason: 'exited' | 'spawn_failed' | 'stopped_by_user', code, signal, hadBeenReady, at }`，随 `status` 事件一起下发（`code` 里 `process.ts` 用于归一「被信号杀死」的 `-1` 会还原为 `null`）。界面据此把 `stopped` 细分为「已停止 / 启动失败 / 异常退出」——**渲染层不再从日志文字推断进程死活**：llama-server 正常运行期也会为拒绝一个越界请求打 `E srv  send_error: ... error: request ... exceeds the available context size` 这样的行，旧的「最近 80 行含 error 字样即判崩溃」会把活着的服务显示成「异常退出」（2026-09-25 移除）。
 
 - **`restart(opts)`**：先 `stop`，等 `exit` 事件后再 `start`，确保端口释放。
 
-- **`getStatus()`**：返回 `ServerInfo { status, pid, host, port, url, values }`（`values` 为本次启动的参数快照，供服务页展示运行时详情）。
+- **`getStatus()`**：返回 `ServerInfo { status, pid, host, port, url, values, stop }`（`values` 为本次启动的参数快照，供服务页展示运行时详情；`stop` 与状态事件同源，`refreshStatus()` 不会拿到比事件旧的停止事实）。
 
 ### 4.3 命令构建 (command-builder.ts)
 

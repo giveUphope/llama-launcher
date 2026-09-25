@@ -41,7 +41,7 @@
 | `server:start`   | 启动服务                                            |
 | `server:stop`    | 停止服务                                            |
 | `server:restart` | 重启服务                                            |
-| `server:status`  | 查询服务状态                                          |
+| `server:status`  | 查询服务状态；同一通道也由主进程**反向推送** `ServerStatusEvent { status, stop }`，`stop`（`ServerStopInfo`）是界面区分「已停止 / 启动失败 / 异常退出」的唯一依据 |
 | `server:preview` | 预览启动命令                                          |
 | `server:output-batch` | 输出推送（主进程 → 渲染进程），**载荷为 `OutputEntry[]` 数组**：16ms 窗口内的行合并成一条消息 |
 

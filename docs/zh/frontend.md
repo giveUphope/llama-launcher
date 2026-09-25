@@ -37,7 +37,7 @@
 | `settings.ts` | 加载/保存设置（200ms 防抖 + `flushSave` 强制落盘）、切换主题（`data-theme`，含 `system` 跟随 `prefers-color-scheme`）、切换语言 |
 | `i18n.ts` | 以 `settings.language` 为数据源，`watchEffect` 同步 |
 | `params.ts` | **双轨参数逻辑**：`values` 值表 + `baseline`（`SessionBaseline { preset_name, values }`）——临时轨道经 `persistSession` 将 `session_values`/`session_baseline` 节流写入 settings.json（autoSave watch 800ms 节流，**永不写预设文件**），启动经 `restoreSession` 恢复；预设轨道仅显式保存写入。`hasChanges` 有基线时逐键对比基线快照（无基线对比出厂默认）；`markBaseline`/`restoreBaseline`/`clearSession` 管理会话；换模型/应用 GGUF 建议（`applyModel`/`applyModelWithSuggestions`）前 `confirmDiscardDirty` 防丢确认，启动重挂模型走 `reattachModelRuntime`（不确认、不动基线）；`set(MODEL_KEY)` 自动派生 `alias`（`modelBaseName`）；依赖联动清理（`syncDependencies`）+ 草稿模型自动检测 |
-| `server.ts` | 状态/pid/host/port/url、`apiUrl`（**API 地址唯一来源**，见 §7.5.7）、`runningValues`（最近启动参数快照）、输出数组（上限 5000） |
+| `server.ts` | 状态/pid/host/port/url、`stopInfo`（主进程下发的停止事实，`effectiveStatus` 的唯一依据——**不看日志文字判进程死活**）、`apiUrl`（**API 地址唯一来源**，见 §7.5.7）、`runningValues`（最近启动参数快照）、输出数组（上限 5000） |
 | `download.ts` | 任务列表、IPC 监听注册（`ensureSubscribed` 仅注册一次） |
 | `appLog.ts` | 应用日志缓冲（消费 `logs:*` IPC 推送，供日志中心页渲染） |
 
