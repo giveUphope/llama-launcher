@@ -74,7 +74,7 @@ vi.mock('../src/process.js', () => {
 });
 
 import { Launcher } from '../src/launcher.js';
-import type { AppSettings } from '@llama-launcher/shared';
+import type { AppSettings, ServerInfo } from '@llama-launcher/shared';
 
 const baseSettings: AppSettings = {
   server_exe: process.execPath,
@@ -422,5 +422,47 @@ describe('Launcher - exit and restart', () => {
     const transitions = statuses.filter((s) => s === 'starting' || s === 'stopped');
     expect(transitions).toEqual(['starting', 'stopped', 'starting']);
     launcher.stop();
+  });
+});
+
+// 下面这组是 b11178 基线审计引出的界面可见性契约：`--host` 新支持逗号分隔多地址、
+// 且 57/60 个应用参数带 `LLAMA_ARG_*` 环境变量通道（可改写我们刻意不发射的缺省值）。
+describe('Launcher - 多地址 host 与引擎侧环境变量', () => {
+  // 每次起一个新实例：Launcher 是状态机，同一实例上「running 时再 start」会被拒（ emit error），
+  // 复用会把后一条断言变成对上一次启动的取值。
+  const instances: Launcher[] = [];
+  afterEach(() => {
+    for (const i of instances) if (i.getStatus().status !== 'stopped') i.stop();
+    instances.length = 0;
+    delete process.env.LLAMA_ARG_TEMPERATURE;
+  });
+
+  async function startedWith(values: Record<string, string | number | boolean>): Promise<ServerInfo> {
+    const inst = new Launcher();
+    instances.push(inst);
+    const p = new Promise<void>((r) => inst.once('command', () => r()));
+    inst.start({ values: { model: 'm.gguf', ...values }, settings: baseSettings });
+    await p;
+    return inst.getStatus();
+  }
+
+  it('多地址 host 的访问 URL 取回环项，host 字段保留用户原样串', async () => {
+    const info = await startedWith({ host: '0.0.0.0,127.0.0.1', port: 8080 });
+    expect(info.host).toBe('0.0.0.0,127.0.0.1');
+    expect(info.url).toBe('http://127.0.0.1:8080/');
+  });
+
+  it('纯 UNIX socket 配置不下发 http URL（避免界面渲染出打不开的链接）', async () => {
+    const info = await startedWith({ host: '/tmp/llama.sock', port: 8080 });
+    expect(info.url).toBe('');
+  });
+
+  it('启动时检出 LLAMA_ARG_* 覆写项并随 getStatus 下发', async () => {
+    // 不断言"空数组"：CI/本机若真设了引擎变量，那条断言会变成对环境的假设而非对代码的检验
+    const before = await startedWith({});
+    expect(before.envOverrides).not.toContain('LLAMA_ARG_TEMPERATURE');
+    process.env.LLAMA_ARG_TEMPERATURE = '0.5';
+    const after = await startedWith({});
+    expect(after.envOverrides).toContain('LLAMA_ARG_TEMPERATURE');
   });
 });
