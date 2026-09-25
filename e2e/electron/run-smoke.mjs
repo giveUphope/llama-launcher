@@ -43,7 +43,38 @@ try {
   // 侧栏导航任一可见即证明 Vue 应用已挂载（7 项导航都会渲染）
   await win.locator('.sidebar .arco-menu-item').first().waitFor({ state: 'visible', timeout: 15_000 });
 
-  console.log(`[electron-smoke] PASS 主进程版本=${version} 标题="${title}"`);
+  // 真机往返一条推送通道（回归用例：体检状态由主进程推送，不靠渲染层轮询）。
+  // 探针拿一个「确实存在但不是 GGUF」的文件当 modelPath：handler 的 existsSync 放行，
+  // llama-bench 随即报错进 catch → 状态迁移 → publish() 推一次；不加载模型、不占 GPU。
+  // 这里刻意不 monkeypatch benchLlamaStatus 去数「有没有轮询」——contextBridge 暴露的属性
+  // 在主世界不可写，那种断言会假通过；轮询是否消失由源码事实（无 setInterval）+ 浏览器计数实测保证。
+  const benchProbe = await win.evaluate(async (probeModel) => {
+    const api = window.api && window.api.system;
+    if (!api || typeof api.onBenchStatus !== 'function') {
+      throw new Error('preload 未暴露 system.onBenchStatus（推送桥接缺失）');
+    }
+    /** @type {string[]} */
+    const pushed = [];
+    const off = api.onBenchStatus((job) => pushed.push(String(job && job.state)));
+    if (typeof off !== 'function') throw new Error('onBenchStatus 未返回退订函数');
+    await api.benchLlamaRun(probeModel);
+    const deadline = Date.now() + 25_000;
+    while (!pushed.length && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    off();
+    return pushed;
+  }, join(here, '..', '..', 'apps', 'desktop', 'package.json'));
+
+  const benchState = benchProbe[0];
+  if (!benchState) {
+    throw new Error('25s 内未收到 system:benchOnStatus 推送（主进程 → 渲染层链路断）');
+  }
+  if (benchState !== 'error' && benchState !== 'done') {
+    throw new Error(`推送到的不是终态：${benchState}`);
+  }
+
+  console.log(`[electron-smoke] PASS 主进程版本=${version} 标题="${title}" 体检推送=${benchState}`);
   const code = 0;
   cleanup(code);
 } catch (e) {
