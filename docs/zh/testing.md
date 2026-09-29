@@ -38,7 +38,7 @@
 | `retry.test.ts`                       | 统一可重试判定与退避                                                                      |
 | `format.test.ts`                      | shared `formatBytes`/`formatDuration` 全边界（0/NaN/Infinity、1023/1024 切换点、档位、整点折叠） |
 | `host-env.test.ts`                    | shared `hostList`/`tcpHosts`/`displayHost`（多地址与 `.sock`）+ `detectLlamaEnvOverrides`（`LLAMA_ARG_*` 检出） |
-| `props-check.test.ts`                 | `/props` 回读对账：真机 b11178 快照零假报、float32/seed uint32/路径三处归一、`onlyWhenSent` 跳过、取数失败判 unreachable 不判不一致 |
+| `props-check.test.ts`                 | `/props` 回读对账：真机 b11178 快照零假报、float32/seed uint32/路径三处归一、`onlyWhenSent` 跳过、取数失败判 unreachable 不判不一致、基线相等与漂移两侧判定按 `ENGINE_BASELINE_BUILD` 取数（re-pin 不再假失败） |
 
 ### ui 包（`src/` 内联测试）
 

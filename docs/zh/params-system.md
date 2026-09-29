@@ -69,15 +69,16 @@
    node scripts/verify-help-drift.cjs docs/params/llama-server-help-new.txt
    ```
    flag 级漂移或应用 flag 缺失时退出码非 0（CI 可拦截）；默认值变化只提示不失败，需人工决策是否跟随。
-3. **审计通过后替换基线**：`llama-server-help-new.txt` 覆盖 `llama-server-help-out.txt`。
-4. **更新版本标注**：`scripts/generate-params-doc.cjs` 中硬编码的来源版本串（如 `b10734`）改为新版本号（文档头"来源"行）。
-5. **更新 `packages/shared/src/params/definitions.ts`**：按审计结果新增/移除参数、同步下拉 `options`（allowed values）、调整默认值（默认值变更需结合实测结论决策，例如 b10429 将 `--load-mode` 默认改为 `auto` 时，应用按 `docs/archive/experiments/plan-kv-split-cli-test.md` 实测结论保留 `none`）。
-6. **重建 shared**：`pnpm --filter @llama-launcher/shared build`（core 测试依赖 `dist`，不重建会测试不一致）。
-7. **重新生成参数文档**：`node scripts/generate-params-doc.cjs`。
-8. **校验一致**：`pnpm lint` 内含 `verify-params-sync.cjs`（三类校验，**任一有出入即 fail**）：① 参数定义 ↔ 对照表 ↔ help 三方对拍；② 文档里的参数计数声明（总数与分组数）与实测一致；③ `PARAM_LABELS`/`PARAM_HELP` 键集与 `PARAMS` 双向完全相等且 zh/en 非空（表里有字典无 → 界面渲染裸 key；字典有表里无 → 死条目）。单独跑该脚本可看逐项输出。
-9. **IPC 通道如有变更**：同步 `packages/shared/src/types/ipc.ts` 与 preload 生成，跑 `pnpm lint`（含 `verify-ipc-sync.cjs`）。
-10. **回归**：`pnpm lint` + `pnpm test`。
-11. **记录**：`docs/CHANGELOG.md` [Unreleased] 补充条目。
+3. **审计通过后替换基线**：`llama-server-help-new.txt` 覆盖 `llama-server-help-out.txt`。**两版 help 逐字节相同是合法结果**（b11178 → b11243 即如此，两侧 sha256 一致），此时该文件连 diff 都没有——但第 4 步照旧要做，因为界面那条「基线可能已过期」的告警比的是**构建号**，不是 help 内容。
+4. **更新基线构建号**：事实源是 `packages/shared/src/params/engine-baseline.ts` 的 `ENGINE_BASELINE_BUILD` 常量，另有 **6 处声明**必须同步：本文件头部注释「当前固定 bN」、`scripts/generate-params-doc.cjs` 中英两行的来源串、`README.md`「基线对齐 llama.cpp **bN**」、`README.en.md` "baseline aligned to llama.cpp **bN**"、本文中英两侧「当前实测」段首行的括号。`verify-params-sync` ⑥ 会把这 6 处逐个解析并要求相等（**解析不到同样 fail**），漏改一处即红。旧版本文在这一步只写了「改生成器里硬编码的版本串」——那是常量化之前的写法，今天照做只够改 1/6。
+5. **检查把基线值写死的夹具与 mock**：同一个字面量既表达「实测数据」又表达「当前配置」的地方，改完常量必然假失败或假报警——`packages/core/tests/props-check.test.ts` 真机快照的 `build_info`、`packages/ui/src/dev/demo-mock.ts` 的 props-ok 演示值都踩过这两个后果。处置口径：真机串按抓到的原样保留（它确实比新基线旧，就如实断言漂移），而「引擎等于基线 ⇒ 不报漂移」这类断言改由 `ENGINE_BASELINE_BUILD` 拼出值来验。
+6. **更新 `packages/shared/src/params/definitions.ts`**：按审计结果新增/移除参数、同步下拉 `options`（allowed values）、调整默认值（默认值变更需结合实测结论决策，例如 b10429 将 `--load-mode` 默认改为 `auto` 时，应用按 `docs/archive/experiments/plan-kv-split-cli-test.md` 实测结论保留 `none`）。
+7. **重建 shared**：`pnpm --filter @llama-launcher/shared build`（core 测试依赖 `dist`，不重建会测试不一致）。
+8. **重新生成参数文档**：`node scripts/generate-params-doc.cjs`。
+9. **校验一致**：`pnpm lint` 内含 `verify-params-sync.cjs`（六类校验，**任一有出入即 fail**）：① 参数定义 ↔ 对照表 ↔ help 三方对拍；② 文档里的参数计数声明（总数与分组数）与实测一致；③ `PARAM_LABELS`/`PARAM_HELP` 键集与 `PARAMS` 双向完全相等且 zh/en 非空（表里有字典无 → 界面渲染裸 key；字典有表里无 → 死条目）；④ `engine-baseline.ts` 的 `engineDefault` ↔ help 的 `(default: X)` 对拍（键集双向相等，`default ≠ engineDefault` 的覆盖必须写 `note`，解析不到条目同样 fail）；⑤ argv 发射实现唯一（只准 `shared/src/params/command.ts` 拼装）；⑥ 基线构建号 6 处一致。单独跑该脚本可看逐项输出。
+10. **IPC 通道如有变更**：同步 `packages/shared/src/types/ipc.ts` 与 preload 生成，跑 `pnpm lint`（含 `verify-ipc-sync.cjs`）。
+11. **回归**：`pnpm lint` + `pnpm test`。
+12. **记录**：`docs/CHANGELOG.md` [Unreleased] 补充条目。
 
 **实测参考（2026-08-15，b10429→b10502）**：flag 集合 415 个完全一致（应用 55 个 flag 全部存在于新 help），唯一语义变化为 `--load-mode` 默认 `mmap`→`auto`（b10502 新增 auto 模式）→ 应用下拉补入 `auto` 选项，默认保持实测推荐的 `none`。此流程即本次审计的完整回放。
 

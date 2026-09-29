@@ -38,7 +38,7 @@
 | `retry.test.ts`                       | Unified retryability decision and backoff                                           |
 | `format.test.ts`                      | All boundaries of shared `formatBytes`/`formatDuration` (0/NaN/Infinity, the 1023/1024 switch point, tiers, whole-unit folding) |
 | `host-env.test.ts`                    | shared `hostList`/`tcpHosts`/`displayHost` (multiple addresses and `.sock`) + `detectLlamaEnvOverrides` (`LLAMA_ARG_*` detection) |
-| `props-check.test.ts`                 | `/props` read-back reconciliation: zero false alarms on a real b11178 snapshot, the float32 / uint32-seed / path normalizations, `onlyWhenSent` skips, and a failed read-back reported as unreachable rather than a mismatch |
+| `props-check.test.ts`                 | `/props` read-back reconciliation: zero false alarms on a real b11178 snapshot, the float32 / uint32-seed / path normalizations, `onlyWhenSent` skips, a failed read-back reported as unreachable rather than a mismatch, and both baseline branches (equal and drifted) derived from `ENGINE_BASELINE_BUILD` so a re-pin no longer fails spuriously |
 
 ### ui package (inline tests under `src/`)
 
