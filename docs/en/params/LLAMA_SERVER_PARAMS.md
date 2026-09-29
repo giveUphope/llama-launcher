@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../../zh/params/LLAMA_SERVER_PARAMS.md)
 > Index: [README.en.md](../../../README.en.md) · Related: [params-system.md](../params-system.md)
-> Source: bundled binary ".\llama-b11178-bin-win-vulkan-x64\llama-server.exe --help"
+> Source: bundled binary ".\llama-b11243-bin-win-vulkan-x64\llama-server.exe --help"
 > Purpose: cross-check the parameters this launcher already supports and spot gaps
 
 ## Parameters supported today

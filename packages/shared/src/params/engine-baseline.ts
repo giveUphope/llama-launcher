@@ -13,7 +13,7 @@ import type { ParamDef } from '../types/index.js';
  * 发射规则因此改为：**值 ∈ `sentinel` ⇒ 不发射；值 == `engineDefault` ⇒ 不发射；否则发射。**
  * 一致性由 `scripts/verify-params-sync.cjs` 对拍 help 基线守住。
  *
- * 值来源：逐条读 `docs/params/llama-server-help-out.txt`（当前固定 b11178）；
+ * 值来源：逐条读 `docs/params/llama-server-help-out.txt`（当前固定 b11243）；
  * 换引擎版本后须按 `docs/zh/params-system.md` §5.5 重新对拍。
  */
 export interface EngineBaseline {
@@ -191,17 +191,19 @@ export function isUnsetValue(v: string | number | boolean): boolean {
  * 本表所钉的 llama.cpp 构建（re-pin 时唯一需要同步改的声明处）。
  *
  * 为什么必须是常量而不是注释：这张表是 `llama-server --help` 的**快照**，用户换引擎后，
- * 47 个不可回读的参数没有任何东西会提醒我们表已过期——那正是刚被清掉的那类静默失效，
- * 只是搬到了版本维度。现在两头都守：运行时用 `/props` 的 `build_info` 比对（见
+ * `props-mapping.ts` 回读不到的那批参数没有任何东西会提醒我们表已过期——那正是刚被清掉的那类
+ * 静默失效，只是搬到了版本维度。现在两头都守：运行时用 `/props` 的 `build_info` 比对（见
  * `props-mapping.ts` 的 `baselineDrift`），开发期由 `verify-params-sync.cjs` ⑥ 对拍它在
- * 5 个声明处（生成器 ×2 / README ×2 / params-system 当前实测段）是否与本常量一致。
+ * 6 个声明处（本文件头部注释 / 生成器中英两行 / README 中英 / params-system 中英「当前实测」段）
+ * 是否与本常量一致。
  */
-export const ENGINE_BASELINE_BUILD = 'b11178';
+export const ENGINE_BASELINE_BUILD = 'b11243';
 
 /**
  * llama.cpp 的引擎侧环境变量前缀（help 条目尾的 `(env: LLAMA_ARG_*)`）。
- * b11178 基线实测：60 个应用参数里 57 个带该通道，其中采样族 6 条（temperature / top_p /
- * min_p / repeat_penalty / presence_penalty / frequency_penalty）是 b11053 → b11178 之间新增的。
+ * b11243 基线实测：help 里该通道共 145 条，参数表的 74 个应用 flag 里 **67 个**带它。
+ * 该通道在 b11053 → b11178 之间增补过采样族 6 条（temperature / top_p / min_p /
+ * repeat_penalty / presence_penalty / frequency_penalty）。
  */
 export const LLAMA_ENV_PREFIX = 'LLAMA_ARG_';
 

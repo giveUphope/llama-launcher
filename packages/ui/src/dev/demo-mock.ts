@@ -1,7 +1,7 @@
 // 开发预览演示数据（仅浏览器 mock 环境注入，Electron 真实 api 不受影响）。
 // main.ts 在无 Electron preload 时调用 createDemoApi()，让预览环境呈现完整业务状态，
 // 便于目测 UI 布局与交互。数据为静态仿真 + 周期性模拟服务日志/下载进度。
-import { APP_VERSION, PARAMS, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, checkEngineProps, formatCommand } from '@llama-launcher/shared';
+import { APP_VERSION, PARAMS, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, checkEngineProps, formatCommand, ENGINE_BASELINE_BUILD } from '@llama-launcher/shared';
 import type {
   AppSettings, ModelInfo, Preset, GgufReadResult,
   ParsedModelUrl, OutputEntry, AppLogEntry,
@@ -176,7 +176,8 @@ export function createDemoApi() {
     const perturbTopK = demoMode === 'props-mismatch';
     return checkEngineProps(
       {
-        build_info: demoMode === 'props-drift' ? 'b99999-demo' : 'b11178-demo', // props-ok：全部对上，用于目测正面结论
+        // props-ok 的构建号必须等于当前基线，否则每次 re-pin 后演示页会自己显示成「基线漂移」
+        build_info: demoMode === 'props-drift' ? 'b99999-demo' : `${ENGINE_BASELINE_BUILD}-demo`,
         ui: v.ui !== false,
         endpoint_slots: true,
         endpoint_metrics: false,

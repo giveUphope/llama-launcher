@@ -2,7 +2,7 @@
 
 > 语言：中文 · [English](../../en/params/LLAMA_SERVER_PARAMS.md)
 > 索引：[README.md](../../../README.md) · 相关：[params-system.md](../params-system.md)
-> 来源：捆绑二进制 ".\llama-b11178-bin-win-vulkan-x64\llama-server.exe --help"
+> 来源：捆绑二进制 ".\llama-b11243-bin-win-vulkan-x64\llama-server.exe --help"
 > 用途：对照当前启动器已支持参数，识别可新增/调整项
 
 ## 当前启动器已支持参数

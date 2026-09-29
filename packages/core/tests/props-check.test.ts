@@ -127,7 +127,15 @@ describe('checkEngineProps（/props 回读对账）', () => {
   });
 
   it('引擎构建与参数基线构建不一致时报 baselineDrift（防拿旧尺子量新引擎）', () => {
-    expect(checkEngineProps(REAL_PROPS, sentValues).baselineDrift).toBeNull();
+    // 「相等 ⇒ 不报漂移」这条分支必须拿当前基线来验，否则每次 re-pin 都会假失败（b11243 那轮即撞上）。
+    // 夹具的 build_info 是真机抓到的原样串，按历史保留；它现在确实比基线旧，就如实断言漂移。
+    expect(
+      checkEngineProps({ ...REAL_PROPS, build_info: `${ENGINE_BASELINE_BUILD}-fc07d781e` }, sentValues).baselineDrift,
+    ).toBeNull();
+    expect(checkEngineProps(REAL_PROPS, sentValues).baselineDrift).toEqual({
+      engineBuild: 'b11178',
+      baselineBuild: ENGINE_BASELINE_BUILD,
+    });
     const newer = checkEngineProps({ ...REAL_PROPS, build_info: 'b11999-deadbeef' }, sentValues);
     expect(newer.baselineDrift).toEqual({ engineBuild: 'b11999', baselineBuild: ENGINE_BASELINE_BUILD });
     // 没有 build_info（老引擎/被裁剪）时不猜，保持安静
