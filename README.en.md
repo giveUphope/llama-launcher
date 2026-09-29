@@ -133,4 +133,4 @@ New to the codebase? Read [architecture.md](docs/en/architecture.md) → [core-m
 
 ## License
 
-MIT
+MIT — full text in [LICENSE](LICENSE), copyright line `Copyright (c) 2026 giveUphope`.

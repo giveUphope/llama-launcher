@@ -133,4 +133,4 @@ Electron 44 · Vue 3.5 + Pinia 4 + Vue Router 5 · TypeScript 6 · Vite 8 + vue-
 
 ## 许可证
 
-MIT
+MIT — 全文见 [LICENSE](LICENSE)，版权行 `Copyright (c) 2026 giveUphope`。
