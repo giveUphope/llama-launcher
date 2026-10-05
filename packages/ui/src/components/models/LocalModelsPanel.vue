@@ -287,7 +287,9 @@ const fitMap = ref<Record<string, ModelFitResult>>({});
 
 watch(() => models.value.map((m) => m.path).join('|'), (joined) => {
   if (!joined) return;
-  void refreshFit(joined.split('|'));
+  const paths = joined.split('|');
+  void refreshFit(paths);
+  void hydrateBenchRecords(paths);
 });
 
 async function refreshFit(paths: string[]) {
@@ -358,6 +360,30 @@ async function resyncBench() {
       applyBenchState(await window.api.system.benchLlamaStatus(p));
     } catch {
       benchInFlight.delete(p);
+    }
+  }
+}
+
+/**
+ * 取回「以前测过」的体检记录：结果留在主进程（应用重启后由 bench-records.json 回灌），
+ * 界面按模型路径问一次即可，与显存徽章同一时机、同一批路径。
+ * 问过记在案，所以文件监听反复触发扫描也只问一轮；本地已有状态的路径不查询——
+ * 那可能是正在跑的作业，异步晚到的旧记录不该把它盖掉。
+ * 单批上限与主进程 fit 批量的 100 对齐：库里模型很多时也不会在一次扫描后发太多请求。
+ */
+const benchHydrated = new Set<string>();
+const BENCH_HYDRATE_MAX = 100;
+
+async function hydrateBenchRecords(paths: string[]) {
+  const todo = paths.filter((p) => !benchHydrated.has(p) && !benchJobs.value[p]).slice(0, BENCH_HYDRATE_MAX);
+  if (!todo.length) return;
+  todo.forEach((p) => benchHydrated.add(p));
+  for (const p of todo) {
+    try {
+      applyBenchState(await window.api.system.benchLlamaStatus(p));
+    } catch {
+      // 浏览器预览环境（无 preload）或主进程异常：这条没问到，摘掉标记下次扫描再试
+      benchHydrated.delete(p);
     }
   }
 }

@@ -6,7 +6,7 @@
 
 - **Framework**: Vitest 4 (`pnpm test` runs both the core and the ui package through turbo)
 
-- **Scale**: core 27 test files / **401** cases + ui **8** test files / **79** cases (`pnpm test` runs both packages through turbo)
+- **Scale**: core 28 test files / **408** cases + ui **8** test files / **79** cases (`pnpm test` runs both packages through turbo)
 
 - **Covered modules**:
 
@@ -23,6 +23,7 @@
 | `vram-estimate.test.ts`               | KV memory model + the arithmetic of the VRAM/RAM dual-side usage estimate + solving for the largest OOM-free context (units hand-computed) |
 | `target-recommend.test.ts`            | Linked suggestions across the four performance tiers (ctx / KV tier / offload layers / MTP derived within the budget for the target dtype) |
 | `llama-bench.test.ts`                 | llama-bench JSON parsing and pp/tg summarization (real output samples)              |
+| `bench-records.test.ts`               | Persisting and rehydrating health-check results: round-trip fidelity, a missing or half-written JSON reads back empty, running records and done-without-summary are dropped, one record per path keeps the latest, beyond 300 the oldest by testedAt are pruned, and the atomic write leaves no .tmp behind |
 | `process.test.ts`                     | Child-process management                                                            |
 | `process-terminate.test.ts`           | Process termination strategies                                                      |
 | `dev-session.test.ts`                 | Dev-session process-tree cleanup                                                    |

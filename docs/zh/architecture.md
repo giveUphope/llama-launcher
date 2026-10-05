@@ -62,6 +62,7 @@ llama_launcher/
 │   │       ├── vram-estimate.ts       # KV 内存模型 + 显存/内存双侧占用估算 + 无 OOM 最大上下文求解
 │   │       ├── target-recommend.ts    # 性能目标四档联动建议（ctx / KV 档位 / 卸载层数 / MTP）
 │   │       ├── llama-bench.ts         # llama-bench 离线体检（pp/tg 实测，-o json 解析）
+│   │       ├── bench-records.ts       # 体检结果跨重启落盘（~/.llama_launcher/bench-records.json）
 │   │       ├── url-parser.ts          # 模型 URL 解析（LM Studio / HuggingFace / hf-mirror / ModelScope）
 │   │       ├── modelscope-client.ts   # ModelScope API 客户端
 │   │       ├── huggingface-client.ts  # HuggingFace 镜像客户端（hf-mirror.com，可注入 Electron net 传输）

@@ -26,6 +26,8 @@
 ## 10. 持久化
 
 - **配置目录**：`~/.llama_launcher/`
+  - `settings.json`：应用设置与会话参数（字段清单见下节）。
+  - `bench-records.json`：模型体检结果（llama-bench 的 pp/tg 实测值），由 core `bench-records.ts` 原子写。只存 done / error 终态，同一路径留最近一条，超过 300 条按 `testedAt` 丢最旧的；主进程启动时把它回灌进结果缓存，所以关掉应用再打开，模型页照样显示上次测出的速度（此前这些数字随进程退出一起消失）。
 
 ### `settings.json` 字段全清单
 
@@ -54,7 +56,7 @@
 - **双轨参数逻辑**（2026-08-29）：**临时轨道** = `session_values`（任何参数变化自动写入，跨重启恢复，不碰预设文件）；**预设轨道** = 预设文件，只由 PresetsPanel 显式保存/覆盖写入（保存点同时刷新 `session_baseline` 并归零脏标记）。`hasChanges` = 相对基线的偏离（无基线时相对出厂默认）。
 - **预设文件**：存储在用户设置的模型目录下 `presets/` 子目录，由 `resolvePresetsDir(modelsDir)` 动态解析。每个预设一个 JSON 文件，v2 结构：`preset_version`（当前 2）、`name`、`created_at`（首次创建时间，覆盖保存保留）、`saved_at`（最近保存）、`app_version`（写入方应用版本，参数漂移审计用）、`model`（顶层元数据：关联模型文件路径，null = 纯参数集）、`values`（纯参数值——不含 model 与 legacy `_enabled` 残留，按 `PARAMS` 定义顺序稳定序列化，重复保存无 diff 噪音）。加载统一迁移到 v2 内存形状（v1 的 `values.model` 提升为顶层 `model`，无版本字段按 v1 处理，`created_at` 缺失以 `saved_at` 回填；文件在下次显式保存时才改写落盘）；形状校验（`values` 非对象回退空对象）。写入为原子替换（`.tmp` + rename）。
 - **应用生成文件全清单（清理检测覆盖范围，`trash-cleaner.ts` 双根扫描）**：
-  - **配置目录** `~/.llama_launcher/`：`settings.json`（白名单永不清理）、`settings.json.bak`（损坏备份）、`settings.json.tmp`（原子写残留）、`presets/`（旧版预设目录，已迁移到 modelsDir/presets → `stale_presets_dir`）、`stats.jsonl`（旧版下载统计，已停用 → `legacy_stats`）、根目录损坏 JSON（非 settings → `broken_json`）、`*.tmp/*.bak/*.old/*.log`（`temp_file`）。
+  - **配置目录** `~/.llama_launcher/`：`settings.json`（白名单永不清理）、`settings.json.bak`（损坏备份）、`settings.json.tmp`（原子写残留）、`presets/`（旧版预设目录，已迁移到 modelsDir/presets → `stale_presets_dir`）、`stats.jsonl`（旧版下载统计，已停用 → `legacy_stats`）、根目录损坏 JSON（非 settings → `broken_json`）、`bench-records.json`（体检记录：解析得开的 JSON **不列入清理**，只有损坏时才归入 `broken_json`，其原子写残留的 `.tmp` 归 `temp_file`）、`*.tmp/*.bak/*.old/*.log`（`temp_file`）。
   - **模型目录** `models_dir`：`*.part`（下载临时文件）、`*.llama_dl.jsonl`（续传事件日志）、`*.llama_dl.json`（旧版周期快照）→ 无活动任务占用时列 `download_orphan`；`presets/*.json` 为有效数据（仅当顶层绑定模型文件不存在时列 `orphan_preset`、解析失败列 `broken_json`；纯参数集与有效预设保留）、`presets/*.tmp|*.bak` 原子写/备份残留 → `temp_file`。
   - **保护与再校验**：`queued/downloading/paused/error` 状态任务占用的 localPath/partPath/续传日志由 `DownloadManager.getProtectedPaths()` 传入保护，检测与清理时刻双重排除；`cleanTrash` 对每个传入项按声明 kind 复核根归属（config → CONFIG_DIR，models → modelsDir）、路径特征与内容（孤儿预设清理时刻重读，模型重新出现即放弃删除），未识别文件一律不列入（保守策略）。
 - **`stats.jsonl`（下载统计）**：已随「累计下载」展示移除一并停用（2026-08-14 起不再落盘，`download:stats` IPC 与 `download-stats.ts` 模块删除）。

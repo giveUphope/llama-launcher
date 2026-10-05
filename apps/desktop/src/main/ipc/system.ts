@@ -7,7 +7,7 @@ import { execFile, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { join, dirname } from 'node:path';
 import { totalmem, freemem } from 'node:os';
-import { detectTrashAsync, cleanTrashAsync, getDownloadManager, loadSettings, listDevices, resolveServerExe, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench, detectMmproj, DEFAULT_SERVER_EXE } from '@llama-launcher/core';
+import { detectTrashAsync, cleanTrashAsync, getDownloadManager, loadSettings, listDevices, resolveServerExe, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench, loadBenchRecords, saveBenchRecords, detectMmproj, DEFAULT_SERVER_EXE } from '@llama-launcher/core';
 import { IPC, tcpHosts, PORT_MIN, PORT_MAX, tr } from '@llama-launcher/shared';
 import type { TrashItem, VramEstimateResult, LlamaBenchJobState, PerfTarget, DeviceMemInfo, ModelFitResult, OccupancyConfig } from '@llama-launcher/shared';
 
@@ -370,9 +370,16 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
   });
 
   // llama-bench 离线体检：单模型单作业，run 启动（fire-and-forget，错误落 job state）、
-  // status 轮询取状态/结果；结果按模型路径缓存会话期（同模型重复体检直接返回缓存）。
+  // status 取状态/结果；结果按模型路径缓存（同模型重复体检直接返回缓存）。
+  // 终态还会落盘（bench-records.ts）并在启动时回灌这张 Map——否则应用一关，用户花
+  // 1–3 分钟测出来的 pp/tg 就没了，模型页的徽章整片空白，只能重测。回灌走既有的
+  // system:benchLlamaStatus 通道，不新开 IPC：那条通道本义就是「激活时补状态」。
   const benchJobs = new Map<string, LlamaBenchJobState>();
-  const benchResults = new Map<string, LlamaBenchJobState>();  ipcMain.handle(IPC.SYSTEM_BENCH_LLAMA_RUN, (_e, modelPath: string) => {
+  const benchResults = new Map<string, LlamaBenchJobState>();
+  for (const rec of loadBenchRecords()) benchResults.set(rec.modelPath, rec);
+  const persistBenchResults = () => saveBenchRecords([...benchResults.values()]);
+
+  ipcMain.handle(IPC.SYSTEM_BENCH_LLAMA_RUN, (_e, modelPath: string) => {
     if (!modelPath || !existsSync(modelPath)) {
       return { ok: false as const, error: 'file not found' };
     }
@@ -398,12 +405,14 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
         job.state = 'done';
         job.summary = summary;
         benchResults.set(modelPath, job);
+        persistBenchResults();
         publish();
       })
       .catch((err: Error) => {
         job.state = 'error';
         job.error = err.message;
         benchResults.set(modelPath, job);
+        persistBenchResults();
         publish();
       });
     // 显式重跑：返回新作业（running），完成后覆盖旧结果

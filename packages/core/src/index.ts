@@ -11,6 +11,7 @@ export * from './devices.js';
 export * from './vram-estimate.js';
 export * from './target-recommend.js';
 export * from './llama-bench.js';
+export * from './bench-records.js';
 export * from './url-parser.js';
 export * from './modelscope-client.js';
 export * from './huggingface-client.js';

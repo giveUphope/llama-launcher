@@ -62,6 +62,7 @@ llama_launcher/
 │   │       ├── vram-estimate.ts       # KV memory model + dual-sided VRAM/RAM footprint estimate + solver for the largest OOM-free context
 │   │       ├── target-recommend.ts    # Four-tier performance-target recommendations, cross-linked (ctx / KV tier / offload layers / MTP)
 │   │       ├── llama-bench.ts         # Offline llama-bench health check (measured pp/tg, parsed via -o json)
+│   │       ├── bench-records.ts       # Cross-restart persistence of health-check results (~/.llama_launcher/bench-records.json)
 │   │       ├── url-parser.ts          # Model URL parser (LM Studio / HuggingFace / hf-mirror / ModelScope)
 │   │       ├── modelscope-client.ts   # ModelScope API client
 │   │       ├── huggingface-client.ts  # HuggingFace mirror client (hf-mirror.com, injectable Electron net transport)

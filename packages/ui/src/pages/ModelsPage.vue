@@ -45,8 +45,14 @@ function setTab(key: TabKey) {
     </a-tabs>
 
     <div class="tab-content">
-      <LocalModelsPanel v-if="activeTab === 'local'" />
-      <LibraryPanel v-else-if="activeTab === 'library'" />
+      <!-- 「本地模型」面板用 KeepAlive 缓存：v-if 会在每次切子标签时销毁重建它，面板里的
+           体检徽章（组件局部 ref）随之消失，用户刚花 1–3 分钟测出的结果看不回来。
+           「模型库」面板（内含 DownloadCard 的订阅/定时器）刻意不缓存——它按挂载即订阅
+           的写法工作，缓存会把它变成后台常驻订阅。include 按文件名匹配，同参数页
+           PresetsPanel 的既有范式。 -->
+      <KeepAlive include="LocalModelsPanel">
+        <component :is="activeTab === 'local' ? LocalModelsPanel : LibraryPanel" :key="activeTab" />
+      </KeepAlive>
     </div>
   </PageFrame>
 </template>

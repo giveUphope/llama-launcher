@@ -82,8 +82,8 @@
 | `system:killProcess`  | 结束指定进程（端口占用处理：Windows `taskkill /F /PID`、POSIX SIGKILL；由渲染端确认后调用）                                                    |
 | `system:findFreePort` | 从指定端口向后扫描，返回首个空闲端口（host 语义同 checkPort：多地址时**每个** TCP 地址都可绑才算空闲，部分可绑会让启动失败故不算；无可用返回 null）                                                                    |
 | `system:estimateVram` | 显存探测 + 上下文容量估算（spawn `llama-server --list-devices` 取每设备空闲显存 + GGUF KV 内存模型估算全卸载上下文上限 + 性能目标联动建议；探测用 exe 由 core `resolveServerExe` 逐级回退解析（`server_exe` → 同目录 → `llama_dir` 及一级子目录 → 开发态 `llama-*-bin-*`），引擎目录改名/搬走不会静默失效；尽力而为，失败字段为 null 且原因随 `probeError` 带回（含尝试过的路径）；设备探测 30s 缓存**只缓存成功结果**，失败时归零时间戳以便改回目录后立刻重探；结果按 模型\|dtype\|target\|ngl\|ctxSize 缓存 60s） |
-| `system:benchLlamaRun`    | 启动 llama-bench 离线体检（pp512/tg128 全卸载，fire-and-forget 单模型单作业；结果按模型路径缓存会话期） |
-| `system:benchLlamaStatus` | 取体检作业状态/结果（running/done/error + LlamaBenchSummary）；**仅作页签激活时补状态用**，运行期更新走下面的推送 |
+| `system:benchLlamaRun`    | 启动 llama-bench 离线体检（pp512/tg128 全卸载，fire-and-forget 单模型单作业；结果按模型路径缓存，并在终态落盘 `bench-records.json` 以跨重启保留） |
+| `system:benchLlamaStatus` | 取体检作业状态/结果（running/done/error + LlamaBenchSummary）；**仅作页签激活时补状态用**，运行期更新走下面的推送。主进程缓存会被落盘记录回灌，所以重启后问同一模型也能拿回上次结果 |
 | `system:benchOnStatus` | **主进程推送**体检作业状态迁移（`LlamaBenchJobState`）：作业完成发生在主进程的 Promise 回调里，推一次即可，此前渲染层每 2.5s 轮询 status 把已知事件变成定时提问 |
 | `system:estimateModelFit` | 模型列表批量显存适配判定（fit/partial/no 徽章 + 全卸载上下文上限；元数据不可读 verdict 为 null） |
 | `system:fileExists`   | 检查文件是否存在                                                                                                             |

@@ -15,6 +15,8 @@ const __filename = fileURLToPath(import.meta.url);
 export const SCRIPT_DIR = path.resolve(__filename, '..', '..', '..', '..');
 export const CONFIG_DIR = path.join(os.homedir(), '.llama_launcher');
 export const SETTINGS_FILE = path.join(CONFIG_DIR, 'settings.json');
+// llama-bench 体检结果（跨重启保留，见 bench-records.ts）
+export const BENCH_RECORDS_FILE = path.join(CONFIG_DIR, 'bench-records.json');
 // 预设文件不再存放在固定目录，改为与模型同一目录下的 presets 子目录
 // 保留 PRESETS_DIR 仅作为向后兼容的迁移源
 export const PRESETS_DIR = path.join(CONFIG_DIR, 'presets');

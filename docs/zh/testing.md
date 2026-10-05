@@ -6,7 +6,7 @@
 
 - **框架**：Vitest 4（`pnpm test` 经 turbo 一并运行 core 与 ui 两包）
 
-- **规模**：core 27 个测试文件 / **401** 个用例 + ui **8** 个测试文件 / **79** 个用例（`pnpm test` 经 turbo 一并运行两包）
+- **规模**：core 28 个测试文件 / **408** 个用例 + ui **8** 个测试文件 / **79** 个用例（`pnpm test` 经 turbo 一并运行两包）
 
 - **覆盖模块**：
 
@@ -23,6 +23,7 @@
 | `vram-estimate.test.ts`               | KV 内存模型 + 显存/内存双侧占用估算数学 + 无 OOM 最大上下文求解（单位手算）                               |
 | `target-recommend.test.ts`            | 性能目标四档联动建议（按目标 dtype 预算内推算 ctx/KV 档位/卸载层数/MTP）                              |
 | `llama-bench.test.ts`                 | llama-bench JSON 解析与 pp/tg 汇总（真实输出样本）                                           |
+| `bench-records.test.ts`               | 体检结果落盘与回灌：往返一致、缺失/半截 JSON 读回空数组、running 与缺 summary 的坏数据被丢弃、同路径留最近一条、超 300 条按 testedAt 截断、原子写不留 .tmp |
 | `process.test.ts`                     | 子进程管理                                                                           |
 | `process-terminate.test.ts`           | 进程终止策略                                                                          |
 | `dev-session.test.ts`                 | 开发会话进程树清理                                                                       |

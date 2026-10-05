@@ -28,6 +28,21 @@ const DEMO_MODELS: ModelInfo[] = [
   { name: 'DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf', path: `${MODELS_DIR}/DeepSeek-R1-7B/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf`, size: 4500000000, size_str: '4.2 GB', modified: '2026-07-20T16:00:00.000Z' },
 ];
 
+// ---- 体检「历史记录」演示数据 ----
+// 真实侧这条记录来自 ~/.llama_launcher/bench-records.json：应用重启后主进程把落盘的终态
+// 回灌进结果缓存，模型面板按路径问一次 system:benchLlamaStatus 就把徽章补回来。
+// 这里预置一条已完成记录，用来目测「重启后记录仍在」这条路径（不必真跑一次 1–3 分钟的体检）。
+benchJobStates.set(DEMO_MODELS[1].path, {
+  modelPath: DEMO_MODELS[1].path,
+  state: 'done',
+  summary: {
+    modelPath: DEMO_MODELS[1].path,
+    ppTokS: 1421.6, tgTokS: 96.4, ngl: 99,
+    backend: 'Vulkan', modelType: 'qwen3 8B Q8_0（历史记录）',
+    testedAt: new Date(Date.now() - 26 * 3600_000).toISOString(),
+  },
+});
+
 // ---- GGUF 元数据（模型信息卡 + 建议参数） ----
 const DEMO_GGUF: GgufReadResult = {
   info: {
@@ -480,7 +495,7 @@ export function createDemoApi() {
         }, 1400);
         return Promise.resolve({ ok: true, data: { modelPath, state: 'running' } as never });
       },
-      // 页签激活时的补状态用（真实侧同名通道保留此职责）：直接回当前态
+      // 激活时补状态 + 取回历史记录（真实侧这个缓存会被 bench-records.json 回灌）：直接回当前态
       benchLlamaStatus: (modelPath: string) =>
         Promise.resolve(benchJobStates.get(modelPath) ?? null),
       onBenchStatus: (cb: (job: unknown) => void) => {
