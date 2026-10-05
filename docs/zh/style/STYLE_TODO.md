@@ -295,6 +295,46 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 
 
+### 81. 布局跳变总账：`v-if` 元素未预留占位，数据到位才插入正常流 — 🔴 待修复（2026-10-06 登记，全库审查）
+
+- **位置**：见下表（`packages/ui/src/` 下 11 处，均已读到具体行的 `v-if` 与容器布局）。
+- **描述（用户视角）**：这些元素在**初次渲染时不存在**（没有默认值 / 没有占位），等数据到位才插进正常流，于是周围内容「跳一下」。判定标准是几何的：自身或兄弟/父容器的位置、尺寸是否因内容到达而改变。锚点是本轮刚修的 `ServicePage` 「有新日志」胶囊——它原先 `v-if` 渲染在日志框上方，出现即把日志框顶下一档，已改绝对定位浮在框内（同文件 `LogsPage` 一并改）。
+- **既有正确范式（修法照抄这里，别另创）**：`ServiceStatusCard.vue:397-400` 的 `.failure-banner-slot`（`min-height: 30px` + 无内容时 `visibility: hidden`，注释明写「两种状态高度恒等」）、`ParamRow.vue` 的 `.gguf-hint-slot`（`flex: 0 0 72px`）与 `.clear-slot`（`flex: 0 0 24px`，槽恒在、内容 `v-if`，见 #77）、`DashboardPage.vue:111-165` 的问题框（`min-height: 72px` + `.issues-actions-slot` 常驻）。
+- **修法边界（重要）**：不许用「每帧测量再回填」消除跳变——那是把跳变换成性能问题，违反 `../frontend.md` §7.1 铁律③（强制布局操作必须 `pageActive` 门控 + rAF 合帧）。预留必须是**静态 CSS**（`min-height` / `flex: 0 0 Npx` / `visibility` / 绝对定位）。
+
+| 位置 | 触发时机（用户看到它跳的那一刻） | 跳变形态 | 严重度 |
+|---|---|---|---|
+| `components/layout/TopBar.vue:167`（`v-if="hasModels"`） | 冷启动后模型目录扫描返回那一瞬 | 顶开兄弟：启动/停止/重启/打开网页整簇左移 | 高 |
+| `components/layout/TopBar.vue:176`（`.model-name` 只有 `max-width`） | 每次切换模型 | 宽度变化：按钮宽随模型名长短变，同簇横向重排 | 高 |
+| `components/common/ModelMetaCard.vue:75`（整卡 `v-if`） | 选模型 / 启动恢复会话后 GGUF 读头返回 | 整块下移：卡片凭空插入，下方内容下沉 100px 以上 | 高 |
+| `components/service/CommandPreviewCard.vue:139-168`（5 条提示行） | 服务运行中拖滑块；回读落地；点「复检」 | 提示行插在预览框与扩展参数区之间，整卡长高（两条分支文案长短不同还可能变两行） | 高 |
+| `components/models/LocalModelsPanel.vue:482`（行内徽章排） | 扫描完成后 fit 批量计算 / 体检记录回灌 | 名称列下多出第二行 → 每行行高 1 行变 2 行，行数少时表格整块长高顶移下方三张卡 | 高 |
+| `components/common/DownloadCard.vue:707-864`（解析结果 / 文件区 / 筛选芯片 / 分页 / 任务区） | 粘 URL 点解析 → 点模型 → 文件到位 → 加第一个任务 | 连续多级整块下移（每一步都往正常流里插东西），四态互换行高各异 | 中高 |
+| `components/layout/StatusBar.vue:92,103`（复制反馈胶囊） | 每次点复制（1.2s 出现再消失，最高频） | 宽度变化：胶囊内插标签 → 自身变宽、同行再排两次 | 中高 |
+| `components/service/ServiceStatusCard.vue:279`（开放端点提示行） | 进概览且未设 API Key；在参数页改这两项再回来 | 提示行插在字段表与快捷按钮之间，按钮行以下整块下移（英文态可能两行） | 中高 |
+| `components/params/ParamRow.vue:147`（`.dep-hint` 无槽） | 改依赖源参数或应用预设后依赖不满足 | 警示图标插在行末 → 控件列当场被挤窄、72px 提示槽整体左移。**这是 #77 同一范式漏掉的第四处**（建议值槽与 ✕ 槽都已常驻，只它没有）；e2e「表单标签几何」只静态断言标签不压控件，抓不到后插入的宽度挤压 | 中 |
+| `components/layout/StatusBar.vue:81,82,84`（状态标签 / PID / URL 胶囊） | 每次状态迁移、每次启停服务 | 顶开兄弟：文案长短不一 + `v-if` 增删 flex item | 中 |
+| 低档若干：`ServiceStatusCard.vue:317`（OOM 建议行只兜了 banner 的 30px）、`ServiceStatusCard.vue:235`（外部实例徽章横向并排）、`settings/GeneralPanel.vue:222`（引擎胶囊 + `.path-row` 是 `flex-wrap` → 窄窗口折第二行）、`service/ParamSummaryCard.vue:90`（模型 chip 值变长换行）、`presets/PresetsPanel.vue:170`（先「暂无预设」后整块换列表，缺 loading 态）、`LocalModelsPanel.vue:458,478,514-525`（搜索计数插位 / 星标插名称前 / 三张卡整块互换）、`pages/ParamsPage.vue:239-269,295-311`（「已调整」位数变化撑宽统计块；建议弹层无定高）、`pages/SettingsPage.vue:100-120`（三态文案长短不一）、`pages/../TrashCleanCard.vue:112`（按钮换文案变宽） | 各自数据到位时 | 横向挤动为主，个别为纵向长高 | 低～中 |
+
+- **建议落地次序**：① 先做「一行一槽」零风险的三处（`ParamRow` dep-hint 加 `flex: 0 0 16px` 常驻槽、`StatusBar` 复制反馈改绝对定位、`TopBar` `.model-name` 给 `min-width`）；② 再做提示行合并为常驻单行槽的三处（`CommandPreviewCard` 五行合一、`ServiceStatusCard` 端点提示、`ModelMetaCard` 骨架卡）；③ `DownloadCard` 与模型表格行高需要单独设计（改动面大，别和前两档混做）。
+- **修复效果验证**：每处修完按「两态等高」判定——用浏览器在**内容到位前后**各量一次目标容器与其后第一个兄弟元素的 `boundingRect`，`top` 差值必须为 0（横向类则兄弟 `left` 差值为 0）；`pnpm style:audit` 与 `pnpm e2e:web` 双语几何用例不回归；改前改后各截一张同视口截图对比。
+
+### 82. `PageFrame` 不是 flex 列，页面里写的 `flex: 1` 全部失效 → 日志控制台无限长高且内部滚动永不生效 — 🔴 待修复（2026-10-06 实测钉死）
+
+- **位置**：`packages/ui/src/components/common/PageFrame.vue:8-11`（`.page-frame { min-height: 100%; padding: … }`，无 `display: flex`）；受影响消费者 `pages/LogsPage.vue:179-214` 与 `styles 257-264,303-318`（`.console-wrap` / `.console` 都写 `flex: 1; min-height: 0`）。
+- **描述（先讲发生了什么）**：日志页的控制台**不会自己滚动**——日志一多，它是把整页撑出外层滚动条，用户以为「自动滚动到底部」在工作，其实那行 `scrollTop = scrollHeight` 永远作用在一个「高度等于内容高度」的盒子上，是空转；「有新日志」胶囊在这一页也因此永远不可能出现（盒子内部根本不存在「没到底」这个状态）。
+- **根因（实测，非推断）**：`.page-frame` 计算样式是 `display: block`（Arco `.arco-layout-content` 只给 `flex: 1`，不给 `display: flex`），所以它的子元素写的 `flex: 1` 没有弹性上下文，高度退化为「由内容决定」。浏览器实测（mock 页，视口内 `.app-content` 高 705px）：5 行日志时 `.console` 高 **159px**、`.app-content.scrollHeight` **705**；临时塞进 200 行后 `.console` 高 **4187px**、`.app-content.scrollHeight` **4353**，而 `.console` 自身 `scrollHeight > clientHeight` 恒为 **false**、`scrollTop = 99999` 之后仍是 **0**。
+- **修法方向与代价（必须先决策再动手）**：把 `.page-frame` 改为 `display: flex; flex-direction: column`（子元素 `flex: 1; min-height: 0` 即刻生效，`LogsPage` / `ModelsPage` / `ParamsPage` 现有写法不用动）。**代价是全站性的**：块流改 flex 列会取消相邻外边距合并，7 个页面的纵向间距都可能变；`ModelsPage` 的 `.tab-content { flex: 1 }` 一类「今天失效、改后突然生效」的规则要逐页复核。故不与前两档小修混做，需单独一轮 + 全页面截图对比。
+- **修复效果验证**：改后在日志页把条目推到 300 行以上，实测 `.console` 高度**不随行数增长**（等于视口可用高）、`box.scrollHeight > box.clientHeight` 为 **true**、`scrollTop` 可被赋值并稳定在非 0；同时 7 个页面（含英文态）逐页截图对比间距无回归，`pnpm e2e:web` 全绿。
+
+### 83. `DashboardPage` 读 `scrollHeight` 未做 `pageActive` 门控，与同族两处不一致 — 🔴 待修复（2026-10-06 登记）
+
+- **位置**：`packages/ui/src/pages/DashboardPage.vue:37`（`watch(recentIssues.length)` 回调里读 `scrollHeight`）。
+- **描述**：`../frontend.md` §7.1 铁律③要求强制布局操作要 `pageActive` 门控 + rAF 合帧；`LogsPage` 与 `ServicePage` 的同类自滚动都做了门控，唯独概览页没有——页面被 keep-alive 停用后，问题列表一变仍会在后台强制布局。属一致性缺陷（不是跳变），随手登记在此避免丢失。
+- **修复效果验证**：`grep -n "scrollHeight" packages/ui/src/pages/*.vue` 三处命中都带 `pageActive` 门控；切到别的页触发问题列表变化，DevTools Performance 录制里概览页不应再出现 layout 任务。
+
+
+
 ## 🟢 已修复索引
 
 完整的问题描述 / 修复方案 / 验证证据见 [已修复归档](../../archive/style-todo-resolved.md)（只读留档）；修复后的规范落点见 [frontend.md §7.5](../frontend.md)。
