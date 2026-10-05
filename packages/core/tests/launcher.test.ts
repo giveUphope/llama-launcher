@@ -6,6 +6,12 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 // - kill() 同步触发 exit 事件（真实 process 是异步，但 mock 同步便于测试）
 // - start() 始终成功（buildCommand 已校验路径存在性）
 vi.mock('../src/process.js', () => {
+  // deferExit：真实进程被 taskkill 之后 exit 事件是稍后才派发的，而本夹具默认在
+  // kill() 里同步触发——那等于把「退出之前连点重启」这个时序窗口从测试里抹掉了
+  // （2026-10-06 的状态机修复正是靠这个窗口才测得出来）。开启后退出排队，由
+  // __flushExit() 逐个放行。
+  let deferExit = false;
+  const pendingExit: Array<() => void> = [];
   const FakeLlamaServerProcess = class {
     pid: number | null = null;
     _running = false;
@@ -23,11 +29,18 @@ vi.mock('../src/process.js', () => {
 
     kill(): boolean {
       if (!this._running) return false;
-      this._running = false;
-      // 模拟真实进程退出：触发 exit 事件，使 Launcher 能感知并切换状态
-      if (this._listeners.exit) {
-        this._listeners.exit.forEach((fn: Function) => fn(0));
-      }
+      // 与真实实现同语义：死亡由 exit 事件收口，kill() 自己不宣布进程已死
+      const fire = () => {
+        this._running = false;
+        if (this._listeners.exit) {
+          // 快照遍历：once 处理器会在回调里 off 掉自己，边遍历边删会跳过后续监听器
+          // （真实 EventEmitter 是快照派发）。不快照的话，第二个排队 restart 的处理器
+          // 会被静默吞掉，「连点两次重启」的用例就永远测不到那次并发。
+          [...this._listeners.exit].forEach((fn: Function) => fn(0));
+        }
+      };
+      if (deferExit) pendingExit.push(fire);
+      else fire();
       return true;
     }
 
@@ -70,8 +83,20 @@ vi.mock('../src/process.js', () => {
 
   return {
     LlamaServerProcess: FakeLlamaServerProcess,
+    __setDeferExit: (v: boolean) => {
+      deferExit = v;
+      if (!v) pendingExit.length = 0;
+    },
+    __flushExit: () => {
+      const fire = pendingExit.shift();
+      if (fire) fire();
+    },
   };
 });
+
+import * as processModule from '../src/process.js';
+// 夹具工厂额外导出的两个开关；真实模块没有这两个名字，故按测试控制面取用
+const mockCtl = processModule as unknown as { __setDeferExit: (v: boolean) => void; __flushExit: () => void };
 
 import { Launcher } from '../src/launcher.js';
 import type { PropsFetcher } from '../src/server-props.js';
@@ -428,6 +453,73 @@ describe('Launcher - exit and restart', () => {
     const transitions = statuses.filter((s) => s === 'starting' || s === 'stopped');
     expect(transitions).toEqual(['starting', 'stopped', 'starting']);
     launcher.stop();
+  });
+
+  // ---- 2026-10-06 状态机修复：停止态出声 + 重启只排队一次 + 迟到事件不改写新一轮 ----
+  // 这三条都要靠 __setDeferExit 把夹具的 exit 改成异步：真实进程被 taskkill 之后
+  // exit 是稍后才派发的，而夹具原本在 kill() 里同步触发，等于把这个时序窗口抹掉了。
+
+  it('stop() 先出声 stopping 再落 stopped（此前中间没有任何事件）', () => {
+    const statuses: string[] = [];
+    launcher.on('status', (e: { status: string }) => statuses.push(e.status));
+
+    launcher.start({ values: {}, settings: baseSettings });
+    launcher.stop();
+
+    expect(statuses).toEqual(['starting', 'stopping', 'stopped']);
+  });
+
+  it('退出前连点两次重启，旧进程真死后只补起一个进程且不报 already running', () => {
+    mockCtl.__setDeferExit(true);
+    try {
+      const commands: any[][] = [];
+      const errors: unknown[] = [];
+      launcher.on('command', (cmd: any[]) => commands.push(cmd));
+      launcher.on('error', (e: unknown) => errors.push(e));
+
+      launcher.start({ values: {}, settings: baseSettings });
+      const first = launcher.getProcess();
+      launcher.restart({ values: {}, settings: baseSettings });
+      // 旧进程还没死（exit 被推迟），此刻 isRunning() 仍为真——第二次必须被忽略
+      launcher.restart({ values: {}, settings: baseSettings });
+      expect(launcher.getStatus().status).toBe('stopping');
+      expect(commands.length).toBe(1);
+
+      mockCtl.__flushExit();
+      // 判据必须含「没有 error」：只数命令数的话，去掉排队守卫后第二次 start 会被
+      // already running 内层守卫挡下，命令数照样是 2，用例假绿（实测踩过）。
+      // 而那次冲突会以 error 事件冒出来——界面上就是「服务在跑却显示启动失败」。
+      expect(errors.length).toBe(0);
+      expect(commands.length).toBe(2);
+      expect(launcher.getProcess()).not.toBe(first);
+      expect(launcher.getStatus().status).toBe('starting');
+    } finally {
+      mockCtl.__setDeferExit(false);
+      launcher.stop();
+    }
+  });
+
+  it('旧进程迟到的 exit 不得改写新一轮状态与停止事实', () => {
+    mockCtl.__setDeferExit(true);
+    try {
+      launcher.start({ values: {}, settings: baseSettings });
+      const old = launcher.getProcess();
+      launcher.stop();
+      mockCtl.__flushExit(); // 旧进程此刻才真的死
+      expect(launcher.getStatus().status).toBe('stopped');
+
+      launcher.start({ values: {}, settings: baseSettings });
+      const statuses: string[] = [];
+      launcher.on('status', (e: { status: string }) => statuses.push(e.status));
+      // 同一句柄再补一次迟到的退出（真实场景：taskkill 后 exit 重复/延迟派发）
+      (old as unknown as { _triggerExit: (c: number | null) => void })._triggerExit(0);
+
+      expect(statuses).toEqual([]);
+      expect(launcher.getStatus().status).toBe('starting');
+    } finally {
+      mockCtl.__setDeferExit(false);
+      launcher.stop();
+    }
   });
 });
 

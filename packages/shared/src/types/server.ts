@@ -1,6 +1,11 @@
 import type { PropsCheck } from '../params/props-mapping.js';
 
-export type ServerStatus = 'stopped' | 'starting' | 'running';
+/**
+ * 服务生命周期。`stopping` 是 2026-10-06 补上的一态：此前从 running 到 stopped 之间
+ * 没有任何事件，界面在进程真正退出之前一直显示「运行中」，停止/重启按钮全程可点，
+ * 连点就会并发拉起第二个进程（表现为「停不掉」+「再启动报端口占用」）。
+ */
+export type ServerStatus = 'stopped' | 'starting' | 'running' | 'stopping';
 
 /**
  * 子进程最近一次「退出 / 停止」的事实，由核心状态机（`Launcher`）记录，随状态事件一起跨桥下发。

@@ -111,7 +111,9 @@ class LauncherBridge {
   }
 
   isRunning(): boolean {
-    return this.launcher.getStatus().status === 'running' || this.launcher.getStatus().status === 'starting';
+    // stopping 期间端口仍归自家进程：把它当空闲端口去接管，会误判成「外部实例」
+    const s = this.launcher.getStatus().status;
+    return s === 'running' || s === 'starting' || s === 'stopping';
   }
 
   dispose(): Promise<void> {

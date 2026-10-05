@@ -13,7 +13,7 @@ import type { ParamDef } from '../types/index.js';
  * 发射规则因此改为：**值 ∈ `sentinel` ⇒ 不发射；值 == `engineDefault` ⇒ 不发射；否则发射。**
  * 一致性由 `scripts/verify-params-sync.cjs` 对拍 help 基线守住。
  *
- * 值来源：逐条读 `docs/params/llama-server-help-out.txt`（当前固定 b11243）；
+ * 值来源：逐条读 `docs/params/llama-server-help-out.txt`（当前固定 b11408）；
  * 换引擎版本后须按 `docs/zh/params-system.md` §5.5 重新对拍。
  */
 export interface EngineBaseline {
@@ -197,7 +197,7 @@ export function isUnsetValue(v: string | number | boolean): boolean {
  * 6 个声明处（本文件头部注释 / 生成器中英两行 / README 中英 / params-system 中英「当前实测」段）
  * 是否与本常量一致。
  */
-export const ENGINE_BASELINE_BUILD = 'b11243';
+export const ENGINE_BASELINE_BUILD = 'b11408';
 
 /**
  * llama.cpp 的引擎侧环境变量前缀（help 条目尾的 `(env: LLAMA_ARG_*)`）。

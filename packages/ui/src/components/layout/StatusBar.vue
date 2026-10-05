@@ -15,7 +15,8 @@ const statusText = computed(() => {
   if (s === 'crashed') return i18n.t('svc_status_crashed');
   if (s === 'failed') return i18n.t('svc_status_failed');
   if (s === 'running') return i18n.t('status_running');
-  if (s === 'starting' || s === 'stopping') return i18n.t('status_starting');
+  if (s === 'starting') return i18n.t('status_starting');
+  if (s === 'stopping') return i18n.t('svc_status_stopping');
   return i18n.t('status_stopped');
 });
 

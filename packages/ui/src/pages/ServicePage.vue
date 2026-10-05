@@ -125,19 +125,23 @@ const logCount = computed(() => server.outputs.length);
         </ToolTip>
         <span class="log-count">{{ logCount }} {{ i18n.t('col_lines') }}</span>
       </template>
-      <!-- 有新日志胶囊：a-button 基座（点击回到底部），仅在有提示时渲染 -->
-      <div v-if="hasNewLogs" class="console-header">
-        <a-button class="new-logs" type="text" size="mini" @click="scheduleScrollToBottom()">
-          <Icon name="chevron_down" :size="12" />
-          <span>{{ i18n.t('msg_new_logs') }}</span>
-        </a-button>
-      </div>
-      <div
-        ref="consoleEl"
-        class="console"
-        @scroll="onScroll"
-      >
-        <span v-for="line in renderedOutputs" :key="line.id" :class="['output-line', TONE_CLASS[line.tone]]">{{ line.data }}</span>
+      <div class="console-wrap">
+        <!-- 有新日志胶囊：a-button 基座（点击回到底部），浮在日志框内右下角。
+             此前它渲染在日志框上方的正常流里，出现即把整块往下顶一档（用户看到的
+             「框高度跳变」）；改成绝对定位后布局零变化，只在需要时盖住一行内容。 -->
+        <div v-if="hasNewLogs" class="console-jump">
+          <a-button class="new-logs" type="text" size="mini" @click="scheduleScrollToBottom()">
+            <Icon name="chevron_down" :size="12" />
+            <span>{{ i18n.t('msg_new_logs') }}</span>
+          </a-button>
+        </div>
+        <div
+          ref="consoleEl"
+          class="console"
+          @scroll="onScroll"
+        >
+          <span v-for="line in renderedOutputs" :key="line.id" :class="['output-line', TONE_CLASS[line.tone]]">{{ line.data }}</span>
+        </div>
       </div>
     </Card>
   </PageFrame>
@@ -145,30 +149,35 @@ const logCount = computed(() => server.outputs.length);
 
 <style scoped lang="scss">
 /* 控制台 */
-.console-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end; // 自动滚动提示已移除（b8c1d59），胶囊槽保持右侧
-  gap: 8px;
-  margin-bottom: 4px;
-  font-size: var(--fs-sm);
-  color: var(--color-text-3);
+/* 日志框容器：给「有新日志」胶囊当绝对定位参照。胶囊浮在框内右下角，
+   不参与布局——它此前渲染在框上方的正常流里，出现即把整块顶下一档（框高度跳变）。 */
+.console-wrap {
+  position: relative;
 }
 
-/* 有新日志胶囊行：仅提示时渲染（不再常驻占位，卡片体顶部无空白条） */
+.console-jump {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  font-size: var(--fs-sm);
+}
+
+/* 有新日志胶囊：浮在日志内容之上，底色以 --console-bg 打底保证压住文字仍可读
+   （Arco 玻璃拟态与 backdrop-filter 全站禁用，这里用不透明混色而不是模糊） */
 .new-logs {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  background: color-mix(in srgb, rgb(var(--primary-6)) 14%, transparent);
+  background: color-mix(in srgb, rgb(var(--primary-6)) 22%, var(--console-bg));
   color: rgb(var(--primary-6));
   border-radius: var(--radius-pill);
   font-weight: 600;
   height: auto;
 
   &:hover {
-    background: color-mix(in srgb, rgb(var(--primary-6)) 24%, transparent);
+    background: color-mix(in srgb, rgb(var(--primary-6)) 32%, var(--console-bg));
     color: rgb(var(--primary-6));
   }
 }

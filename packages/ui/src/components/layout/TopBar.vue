@@ -213,7 +213,7 @@ async function onOpenWeb() {
         </a-button>
       </ToolTip>
       <ToolTip :text="i18n.t('open_web')">
-        <a-button type="text" :disabled="!isRunning" @click="onOpenWeb">
+        <a-button type="text" :disabled="!server.canOpenWeb" @click="onOpenWeb">
           <template #icon><Icon name="external" :size="14" /></template>
           {{ i18n.t('open_web') }}
         </a-button>

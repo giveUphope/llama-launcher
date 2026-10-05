@@ -121,10 +121,17 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
     </div>
 
     <div class="tab-content">
-      <GeneralPanel v-if="activeTab === 'general'" />
-      <AppearancePanel v-else-if="activeTab === 'appearance'" />
-      <AdvancedPanel v-else-if="activeTab === 'advanced'" />
-      <AboutPanel v-else-if="activeTab === 'about'" />
+      <!-- GeneralPanel 包进 KeepAlive：v-if 切子标签会销毁重建它，而它的引擎二进制检测
+           是「挂载即跑」（400ms 去抖 + 两趟 IPC + 目录扫描），于是每次从「外观」切回「常规」
+           徽章都先掉回灰色「未检测」、约半秒后才跳回「已就绪」。缓存后检测结论随组件保留；
+           组件自身的监听已按 activate/deactivate 配对且 addEventListener 幂等，缓存不会
+           留下后台常驻监听。其余三个面板读的是 store/setting，重建成本可忽略，不缓存。 -->
+      <KeepAlive include="GeneralPanel">
+        <GeneralPanel v-if="activeTab === 'general'" />
+      </KeepAlive>
+      <AppearancePanel v-if="activeTab === 'appearance'" />
+      <AdvancedPanel v-if="activeTab === 'advanced'" />
+      <AboutPanel v-if="activeTab === 'about'" />
     </div>
   </PageFrame>
 </template>

@@ -56,7 +56,7 @@ llama_launcher/
 │   │       ├── command-builder.ts     # Executor-side wrapper for the startup command (exe existence check; the emission rule lives in shared/params/command.ts)
 │   │       ├── server-props.ts        # Post-readiness GET /props read-back, reconciled against what we sent (injectable transport so tests never touch the network)
 │   │       ├── process.ts             # Child-process wrapper (LlamaServerProcess, two-phase termination)
-│   │       ├── launcher.ts            # Startup orchestration state machine (stopped→starting→running)
+│   │       ├── launcher.ts            # Startup orchestration state machine (stopped→starting→running→stopping)
 │   │       ├── gguf-meta.ts           # Streaming GGUF metadata reader (64KB blocks + LRU)
 │   │       ├── devices.ts             # Device VRAM probe (spawns llama-server --list-devices, parses total/free MiB per device)
 │   │       ├── vram-estimate.ts       # KV memory model + dual-sided VRAM/RAM footprint estimate + solver for the largest OOM-free context

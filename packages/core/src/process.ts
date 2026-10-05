@@ -111,7 +111,10 @@ export class LlamaServerProcess extends EventEmitter {
     const pid = this.proc.pid;
     try {
       this.killTree(pid);
-      this.proc = null;
+      // 刻意不把句柄置 null：置了就等于宣布「进程已死」，而 taskkill 返回时子进程往往
+      // 还没派发 exit。上层用 isRunning() 决定「等 exit 再 start」还是「直接 start」，
+      // 在这里谎报 false 会让连点两下「重启」并发拉起第二个 llama-server。
+      // 死亡由 exit 事件收口（Launcher 的 exit 处理负责清 this.proc）。
       return true;
     } catch { return false; }
   }

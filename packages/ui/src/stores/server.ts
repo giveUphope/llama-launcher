@@ -102,8 +102,8 @@ export const useServerStore = defineStore('server', () => {
 
   /** 探测配置端口上是否有外部 llama-server 在监听。返回是否存在。 */
   async function refreshExternal(portVal?: number, hostVal?: string): Promise<boolean> {
-    // 本应用自己的服务已在启动/运行：端口被自家进程占用，不存在「外部实例」语义
-    if (status.value === 'running' || status.value === 'starting') {
+    // 本应用自己的服务已在启动/运行/正在停：端口被自家进程占用，不存在「外部实例」语义
+    if (status.value !== 'stopped') {
       external.value = null;
       return false;
     }
@@ -209,8 +209,15 @@ export const useServerStore = defineStore('server', () => {
         stopInfo.value = e.stop ?? null;
         // 回读结果随同状态事件补发（核心跑完 /props 后再发一次 running），null 表示尚未回读到
         if (e.propsCheck !== undefined) propsCheck.value = e.propsCheck;
-        // 本应用拉起自身进程后，外部实例标记立即失效（端口将归自家进程所有）
-        if (e.status === 'starting' || e.status === 'running') external.value = null;
+        // starting / running / stopping 期间端口归自家进程所有，外部实例标记立即失效
+        if (e.status !== 'stopped') external.value = null;
+        // PID 与访问 URL 属于「这一轮运行」的事实：留着就是给一个已经不在的进程继续挂账号
+        // （此前这里只写 status，两者要等主动拉取才更新，于是停服后概览与状态栏仍显示旧进程号）。
+        // host/port 是用户配置的监听地址，不是运行事实，保留。
+        if (e.status === 'stopped') {
+          pid.value = null;
+          url.value = '';
+        }
         status.value = e.status;
       });
     } catch {
@@ -292,6 +299,14 @@ export const useServerStore = defineStore('server', () => {
     return '';
   });
 
+  /**
+   * 「现在能不能打开内置 Web UI」的唯一口径。此前这个判断在顶栏（无门控）、
+   * 概览服务状态卡（严格 running）、内嵌帧（严格 running）各写一份，同一时刻
+   * 一处可点一处是灰的。内嵌帧只在 running 时真正加载 iframe，所以口径按它定：
+   * starting 期端口还没监听，跳过去只能看到「服务未运行」。
+   */
+  const canOpenWeb = computed(() => status.value === 'running');
+
   // ---- 增强状态机（单一事实源，ServicePage / Dashboard / StatusBar 共用）----
 
   /** 最近 OOM_LOOKBACK 行内是否出现显存/内存耗尽（状态卡 OOM 警示） */
@@ -321,7 +336,7 @@ export const useServerStore = defineStore('server', () => {
   });
 
   return {
-    status, pid, host, port, url, apiUrl, outputs, runningValues, stopInfo, envOverrides, propsCheck,
+    status, pid, host, port, url, apiUrl, canOpenWeb, outputs, runningValues, stopInfo, envOverrides, propsCheck,
     effectiveStatus, oomDetected,
     external,
     refreshExternal, adoptExternal, clearExternal,

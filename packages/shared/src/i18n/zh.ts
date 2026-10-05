@@ -418,7 +418,7 @@ export const zh = {
   act_recheck: '向引擎重新回读核对（/props）',
   cmd_props_mismatch: '引擎回读：{0} 项与发出的值不一致（{1}）——以 /props 实际生效值为准',
   cmd_props_mismatch_env: '引擎回读：{0} 项与发出的值不一致（{1}）；同时检测到 {2}，很可能是它们改写了引擎缺省值',
-  cmd_baseline_drift: '引擎构建与参数基线不一致：实际 {0}，基线仍钉在 {1}——不可回读的那批参数默认值判定可能已过期，需重新对拍引擎 help',
+  cmd_baseline_drift: '引擎构建比参数基线旧：实际 {0}，基线已核对到 {1}——更旧引擎那批不可回读参数的默认值判定可能对不上，需重新对拍引擎 help',
   act_expand_all: '展开全部分区',
   act_collapse_all: '折叠全部分区',
   subcat_changed_n: '{0} 项已改',

@@ -126,7 +126,7 @@ describe('checkEngineProps（/props 回读对账）', () => {
     expect(r.mismatched).toEqual([]);
   });
 
-  it('引擎构建与参数基线构建不一致时报 baselineDrift（防拿旧尺子量新引擎）', () => {
+  it('baselineDrift 只在引擎比基线旧时出声（2026-10-06 起方向性，新引擎不 nag）', () => {
     // 「相等 ⇒ 不报漂移」这条分支必须拿当前基线来验，否则每次 re-pin 都会假失败（b11243 那轮即撞上）。
     // 夹具的 build_info 是真机抓到的原样串，按历史保留；它现在确实比基线旧，就如实断言漂移。
     expect(
@@ -136,8 +136,11 @@ describe('checkEngineProps（/props 回读对账）', () => {
       engineBuild: 'b11178',
       baselineBuild: ENGINE_BASELINE_BUILD,
     });
+    // 引擎比基线新：刻意不再出声。基线始终钉在本项目已核对的最新版，抢先升级的用户
+    // 每个都收到一条「基线过期」只会让这条告警被无视掉。这条断言钉的是**代价**，
+    // 不是漏检——真要恢复双向告警，改 driftOf 并同步本用例与 §5.5 的「当前实测」段。
     const newer = checkEngineProps({ ...REAL_PROPS, build_info: 'b11999-deadbeef' }, sentValues);
-    expect(newer.baselineDrift).toEqual({ engineBuild: 'b11999', baselineBuild: ENGINE_BASELINE_BUILD });
+    expect(newer.baselineDrift).toBeNull();
     // 没有 build_info（老引擎/被裁剪）时不猜，保持安静
     expect(checkEngineProps({ ...REAL_PROPS, build_info: '' }, sentValues).baselineDrift).toBeNull();
   });

@@ -6,7 +6,7 @@
 //  - 【扩展参数】：唯一可编辑区，绑定 settings.custom_args（持久化），原样追加到实际
 //    启动命令末尾（buildCommand customArgs）。
 // 复制命令 = 内置命令 + 扩展参数合并。
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onActivated, onMounted, onUnmounted, ref, watch } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
@@ -79,6 +79,12 @@ const staleCount = computed(() => {
 const propsMismatch = computed(() => server.propsCheck?.mismatched ?? []);
 const mismatchList = computed(() => propsMismatch.value.map((m) => `${m.flag}: ${m.sent} ≠ ${m.actual}`).join(', '));
 const baselineDrift = computed(() => server.propsCheck?.baselineDrift ?? null);
+// 核对结论展示在本卡（服务页），可刷新触发点此前只在概览页的激活钩子里——直接进服务页、
+// 或在参数页改完参数再过来，看到的都是上一轮的结论。展示在哪就在哪刷：仍是「页面真的
+// 可见了」才触发一次，不是定时器（架构约定：/props 只可能被外部改动，定时敲端口无事可报）。
+onActivated(() => {
+  if (server.status === 'running') void server.refreshStatus(true);
+});
 // 界面列出的 env 变量与不一致项同时出现时，才把两者说成有因果——只有 env 变量不构成归因，
 // 只有不一致也不该甩锅给环境（还可能是引擎版本漂移或我们基线填错）。
 const envBlame = computed(() => server.envOverrides.length > 0 && propsMismatch.value.length > 0);

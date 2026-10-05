@@ -43,6 +43,11 @@ export class Launcher extends EventEmitter {
   // 因为 Windows 下 taskkill /F 打出来的退出码并非 0，光看退出码分不清「用户停的」和「自己崩的」
   private stopRequested = false;
   private lastStop: ServerStopInfo | null = null;
+  // 已排队的重启只允许有一个：restart() 等旧进程 exit 后再 start，连点两次「重启」
+  // 若排队两次就会并发拉起第二个进程（表现为停不掉 + 再启动报端口占用）
+  private restartArmed = false;
+  // 每轮 start 自增：/props 回读是异步的，旧一轮晚到的结果不得写进新一轮
+  private runSeq = 0;
 
   start(opts: StartOptions): void {
     if (this.proc && this.proc.isRunning()) {
@@ -55,6 +60,7 @@ export class Launcher extends EventEmitter {
     this.hadBeenReady = false;
     this.stopRequested = false;
     this.lastPropsCheck = null;
+    this.runSeq++;
     this.setStatus('starting');
     this.currentSettings = opts.settings;
     this.currentValues = { ...opts.values };
@@ -81,6 +87,8 @@ export class Launcher extends EventEmitter {
     }
     this.emit('command', cmd);
     this.proc = new LlamaServerProcess();
+    // 本轮进程对象的本地引用：exit 回调可能在下一轮已经开始之后才到达
+    const proc = this.proc;
     // 进程拉起后向上层转发 spawned 事件（携带进程实例 + pid + exePath），
     // 供主进程建立窗口-进程关联映射，从而能在窗口关闭时精准清理。
     this.proc.on('spawned', (info: { pid: number | null; exePath?: string }) => {
@@ -106,6 +114,10 @@ export class Launcher extends EventEmitter {
     });
     this.proc.on('exit', (code: number, signal: NodeJS.Signals | null) => {
       this.emit('exit', code, signal);
+      // 迟到的旧进程退出不得改写新一轮：restart 之后 this.proc 已指向新进程，
+      // 若在这里无条件清状态，刚拉起的服务会被显示成「已停止」，还会按旧轮的
+      // stopRequested / hadBeenReady 判成「异常退出」。
+      if (this.proc !== proc) return;
       // 先记事实再改状态：状态事件要自带「它是怎么没的」，否则渲染层只能自己去猜日志
       this.lastStop = {
         reason: this.stopRequested ? 'stopped_by_user' : 'exited',
@@ -116,6 +128,9 @@ export class Launcher extends EventEmitter {
         hadBeenReady: this.hadBeenReady,
         at: Date.now(),
       };
+      // 回读结论属于「这一轮服务运行期」的事实：进程没了还挂着，服务页就会在
+      // 停止状态下显示上一轮的「N 项与运行中不一致」
+      this.lastPropsCheck = null;
       this.setStatus('stopped');
       this.proc = null;
     });
@@ -131,6 +146,9 @@ export class Launcher extends EventEmitter {
   stop(): void {
     if (!this.proc) return;
     this.stopRequested = true;
+    // 先出声再动手：没有 stopping 这一态时，界面在进程真正退出之前一直显示「运行中」，
+    // 停止/重启按钮全程可点——连点就会并发拉起第二个进程。
+    if (this.status !== 'stopping') this.setStatus('stopping');
     this.proc.kill();
   }
 
@@ -155,7 +173,14 @@ export class Launcher extends EventEmitter {
 
   restart(opts: StartOptions): void {
     if (this.proc && this.proc.isRunning()) {
-      this.proc.once('exit', () => this.start(opts));
+      // 只允许排队一次：连点两次「重启」若挂上两个 once('exit')，旧进程一死就会
+      // 并发拉起两个 llama-server，第二个直接撞 already running / 端口占用
+      if (this.restartArmed) return;
+      this.restartArmed = true;
+      this.proc.once('exit', () => {
+        this.restartArmed = false;
+        this.start(opts);
+      });
       this.stop();
     } else {
       this.start(opts);
@@ -225,12 +250,14 @@ export class Launcher extends EventEmitter {
     const viewHost = displayHost(this.host);
     if (!viewHost) return;
     const values = { ...this.currentValues };
+    // 世代号：重启后新一轮也是 running，旧一轮在途的回读若只判 status 就会晚到并覆盖新结论
+    const seq = this.runSeq;
     void verifyEngineProps({
       baseUrl: `http://${viewHost}:${this.port}`,
       values,
       fetcher: this.propsFetcher,
     }).then((check) => {
-      if (this.status !== 'running') return;
+      if (seq !== this.runSeq || this.status !== 'running') return;
       const changed = JSON.stringify(check.mismatched) !== JSON.stringify(this.lastPropsCheck?.mismatched)
         || check.error !== this.lastPropsCheck?.error
         || JSON.stringify(check.baselineDrift) !== JSON.stringify(this.lastPropsCheck?.baselineDrift);

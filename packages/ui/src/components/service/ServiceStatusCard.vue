@@ -65,7 +65,7 @@ function probeExternal() {
 /** 只有"停在停服状态、需要盯外部实例"时才续探；结论变了就把退避档位收回快档 */
 function scheduleExternalProbe() {
   if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
-  if (!pageActive || server.status === 'running' || server.status === 'starting') return;
+  if (!pageActive || server.status !== 'stopped') return;
   const now = externalKey();
   externalIdleSteps = now === externalSeen
     ? Math.min(externalIdleSteps + 1, 4)
@@ -91,7 +91,7 @@ const externalHint = computed(() => {
 
 /** 打开 Web UI：本应用实例跳内置 WebUI 页；外部实例直接在系统浏览器打开其地址 */
 function onOpenWeb() {
-  if (isRunning.value) {
+  if (server.canOpenWeb) {
     void router.push('/webui');
     return;
   }
@@ -193,7 +193,7 @@ watch(() => server.status, (s) => {
 
 // 探测目标（会话参数里的 host/port）被改动时立刻重探一次——比等下一个退避周期准
 watch(() => [params.values.host, params.values.port], () => {
-  if (!pageActive || server.status === 'running' || server.status === 'starting') return;
+  if (!pageActive || server.status !== 'stopped') return;
   if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
   externalIdleSteps = 0;
   probeExternal();

@@ -56,7 +56,7 @@ llama_launcher/
 │   │       ├── command-builder.ts     # 启动命令构建的执行侧包装（exe 存在性校验；发射规则在 shared/params/command.ts）
 │   │       ├── server-props.ts        # 就绪后 GET /props 回读，与发出的参数对账（取数实现可注入，单测不碰真网络）
 │   │       ├── process.ts             # 子进程封装（LlamaServerProcess，两阶段终止）
-│   │       ├── launcher.ts            # 启动编排状态机（stopped→starting→running）
+│   │       ├── launcher.ts            # 启动编排状态机（stopped→starting→running→stopping）
 │   │       ├── gguf-meta.ts           # GGUF 元数据流式读取（64KB 块 + LRU）
 │   │       ├── devices.ts             # 设备显存探测（spawn llama-server --list-devices，解析每设备总/空闲 MiB）
 │   │       ├── vram-estimate.ts       # KV 内存模型 + 显存/内存双侧占用估算 + 无 OOM 最大上下文求解

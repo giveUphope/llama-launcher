@@ -100,9 +100,21 @@ export function parseBuildNumber(buildInfo: string): string | null {
   return m ? `b${m[1]}` : null;
 }
 
+/**
+ * 基线漂移只在**引擎比基线旧**时出声。
+ *
+ * 这张基线表是「本项目已核对过的最新引擎 help」快照，且每次 re-pin 都钉到当时最新版；
+ * 用户拿更旧的框架跑，那批不可回读参数的缺省判定才真的可能失效。
+ * 引擎比基线新时不再 nag：那只代表上游又前进了而我们还没重钉，逐个抢先升级的用户都
+ * 收到一条「基线过期」只会让这条告警被无视——§5.5 第 1 条讲的正是同一件事。
+ * 解析不出构建号时按「不提示」处理（不猜）。
+ */
 function driftOf(buildInfo: string): PropsBaselineDrift | null {
   const engine = parseBuildNumber(buildInfo);
   if (!engine || engine === ENGINE_BASELINE_BUILD) return null;
+  const engineNum = Number(engine.slice(1));
+  const baselineNum = Number(ENGINE_BASELINE_BUILD.slice(1));
+  if (!(engineNum < baselineNum)) return null;
   return { engineBuild: engine, baselineBuild: ENGINE_BASELINE_BUILD };
 }
 

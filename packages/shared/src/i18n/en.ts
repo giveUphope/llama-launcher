@@ -417,7 +417,7 @@ export const en: Dict = {
   act_recheck: 'Re-read and verify against the engine (/props)',
   cmd_props_mismatch: 'Engine read-back: {0} value(s) differ from what we sent ({1}) — /props is what is actually in effect',
   cmd_props_mismatch_env: 'Engine read-back: {0} value(s) differ from what we sent ({1}); {2} also detected — they most likely rewrote the engine defaults',
-  cmd_baseline_drift: 'Engine build differs from the parameter baseline: running {0}, baseline still pinned to {1} — the default basis of the non-readable parameters may be stale; re-cross-check the engine help',
+  cmd_baseline_drift: 'Engine build is older than the parameter baseline: running {0}, baseline verified against {1} — for that older engine the default basis of the non-readable parameters may not line up; re-cross-check the engine help',
   act_expand_all: 'Expand all sections',
   act_collapse_all: 'Collapse all sections',
   subcat_changed_n: '{0} changed',

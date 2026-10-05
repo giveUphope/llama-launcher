@@ -181,7 +181,9 @@ function onScroll() {
         <Icon name="info" :size="11" />
         <span>{{ i18n.t('msg_app_logs_hint') }}</span>
       </div>
-      <!-- 有新日志胶囊：a-button 基座（点击回到底部），仅在有提示时渲染 -->
+      <!-- 有新日志胶囊：a-button 基座（点击回到底部），仅在有提示时渲染。
+           绝对定位浮在日志框内右下角——此前它在正常流里，出现即把日志框往下顶一档
+           （框高度跳变），与服务页同一处缺陷，两边一起改不留例外。 -->
       <a-button v-if="hasNewLogs" class="new-logs-bar" type="text" size="mini" @click="scheduleScrollToBottom()">
         <Icon name="chevron_down" :size="12" />
         <span>{{ i18n.t('msg_new_logs') }}</span>
@@ -253,6 +255,7 @@ function onScroll() {
 
 /* 内容区 */
 .console-wrap {
+  position: relative; // 给「有新日志」胶囊当定位参照（胶囊浮在日志框内，不参与布局）
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -270,11 +273,15 @@ function onScroll() {
 
 /* 有新日志胶囊：a-button 基座，仅提示时渲染（不再常驻占位，控制台顶部无空白条） */
 .new-logs-bar {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  background: color-mix(in srgb, rgb(var(--primary-6)) 16%, transparent);
+  background: color-mix(in srgb, rgb(var(--primary-6)) 22%, var(--console-bg));
   color: rgb(var(--primary-6));
   border: 1px solid rgb(var(--primary-6));
   border-radius: var(--radius-pill);

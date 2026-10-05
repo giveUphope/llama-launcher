@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../../zh/params/LLAMA_SERVER_PARAMS.md)
 > Index: [README.en.md](../../../README.en.md) · Related: [params-system.md](../params-system.md)
-> Source: bundled binary ".\llama-b11243-bin-win-vulkan-x64\llama-server.exe --help"
+> Source: bundled binary ".\llama-b11408-bin-win-vulkan-x64\llama-server.exe --help"
 > Purpose: cross-check the parameters this launcher already supports and spot gaps
 
 ## Parameters supported today
@@ -164,6 +164,7 @@ Parameter definitions live in [packages/shared/src/params/definitions.ts](../../
 | `--spec-draft-p-split`, `--draft-p-split` | speculative decoding split probability (default: 0.10) (env: LLAMA_ARG_SPEC_DRAFT_P_SPLIT) | ⬜ not supported |
 | `--spec-draft-p-min`, `--draft-p-min` | minimum speculative decoding probability (greedy) (default: 0.00) (env: LLAMA_ARG_SPEC_DRAFT_P_MIN) | ⬜ not supported |
 | `--spec-draft-backend-sampling`, `--no-spec-draft-backend-sampling` | offload draft sampling to the backend (default: enabled) (env: LLAMA_ARG_SPEC_DRAFT_BACKEND_SAMPLING) | ⬜ not supported |
+| `--spec-draft-sampling` | {greedy,probabilistic} how the draft is sampled: greedy takes its argmax, probabilistic samples it and has the target verify by rejection sampling (default: greedy) (env: LLAMA_ARG_SPEC_DRAFT_SAMPLING) | ⬜ not supported |
 | `--spec-draft-device`, `-devd`, `--device-draft` | <dev1,dev2,..> comma-separated list of devices to use for offloading the draft model (none = don't offload, default: follows --device) use --list-devices to see a list of available devices | ⬜ not supported |
 | `--spec-draft-ngl`, `-ngld`, `--gpu-layers-draft`, `--n-gpu-layers-draft` | max. number of draft model layers to store in VRAM, either an exact number, 'auto', or 'all' (default: auto) (env: LLAMA_ARG_N_GPU_LAYERS_DRAFT) | ✅ supported |
 | `--spec-draft-model`, `-md`, `--model-draft` | draft model for speculative decoding (default: unused) (env: LLAMA_ARG_SPEC_DRAFT_MODEL) | ✅ supported |
@@ -290,6 +291,6 @@ Parameter definitions live in [packages/shared/src/params/definitions.ts](../../
 
 ## Summary
 
-- Flags in official help: 259
+- Flags in official help: 260
 - Supported: 64
-- Not supported: 195
+- Not supported: 196

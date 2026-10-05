@@ -254,3 +254,39 @@ describe('外部 llama-server 实例检测（refreshExternal / adoptExternal）'
     expect(await server.refreshExternal(8080)).toBe(false);
   });
 });
+
+describe('状态事件与运行事实（2026-10-06 停止态补全）', () => {
+  it('stopped 事件清掉 PID 与 URL：不给已经不在的进程继续挂账号', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    mainStatus = {
+      status: 'running', pid: 23508, host: '127.0.0.1', port: 8080,
+      url: 'http://127.0.0.1:8080/', values: {},
+    };
+    await server.refreshStatus();
+    expect(server.pid).toBe(23508);
+
+    statusCb(ev('stopped'));
+    expect(server.status).toBe('stopped');
+    expect(server.pid).toBeNull();
+    expect(server.url).toBe('');
+    // host/port 是用户配置的监听地址，不是「这一轮运行」的事实，必须留着
+    expect(server.port).toBe(8080);
+    expect(server.host).toBe('127.0.0.1');
+  });
+
+  it('stopping 期间 canOpenWeb 为 false、effectiveStatus 报 stopping、外部标记不复活', () => {
+    const server = useServerStore();
+    server.subscribe();
+    statusCb(ev('running'));
+    expect(server.canOpenWeb).toBe(true);
+
+    statusCb(ev('stopping'));
+    expect(server.canOpenWeb).toBe(false);
+    expect(server.effectiveStatus).toBe('stopping');
+    // 端口此刻仍归自家进程（进程还没退），把外部实例算进来就是错的
+    server.adoptExternal({ pid: 42, name: 'llama-server', port: 8080, host: '127.0.0.1' });
+    statusCb(ev('stopping'));
+    expect(server.external).toBeNull();
+  });
+});
