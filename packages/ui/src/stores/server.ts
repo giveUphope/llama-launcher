@@ -226,9 +226,11 @@ export const useServerStore = defineStore('server', () => {
   }
 
   /**
-   * 拉取主进程状态。`refresh: true` 顺带触发一次 /props 回读——用于「页签可见 /
-   * 窗口重新聚焦 / 用户点校验」这些真的需要新鲜结论的时刻，
-   * 取代此前核心侧每分钟一次的盲轮询（引擎参数只可能被外部改动，定时敲端口既抓不到
+   * 拉取主进程状态。`refresh: true` 顺带触发一次 /props 回读——渲染层只在「页签可见 /
+   * 用户点重新校验」时带上该标志；「窗口重新聚焦」那一侧的信号不经这里，由主进程
+   * `launcher-bridge` 挂 `win.on('focus')` 直接调 `Launcher.recheckProps()`
+   * （窗口没聚焦时渲染层自己也收不到 focus，放在主进程才可靠）。
+   * 三者都是事件，取代此前核心侧每分钟一次的盲轮询（引擎参数只可能被外部改动，定时敲端口既抓不到
    * 规律也无事可报）。
    */
   async function refreshStatus(refresh = false) {

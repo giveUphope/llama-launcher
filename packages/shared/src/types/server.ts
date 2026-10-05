@@ -48,6 +48,14 @@ export interface ServerStatusEvent {
    * 把它带下去——渲染层按 status 幂等处理，多一次 running 事件不改任何状态。
    */
   propsCheck?: PropsCheck | null;
+  /**
+   * 本轮首次就绪（引擎打出 listening）的时刻，epoch ms；尚未就绪或本轮进程已退出为 null。
+   * `stopping` 期间仍有值（进程还在，时长还在走）。
+   * 下发它而不是让界面自己记：界面只知道「自己什么时候看见 running」，
+   * 服务已在跑而用户第一次进概览页、或渲染层重载时，那个时刻比真就绪晚得多——
+   * 于是「已运行时长」要么永远「—」要么从进页面那刻起重算（2026-10 实测的缺陷）。
+   */
+  readyAt?: number | null;
 }
 
 export interface ServerInfo {
@@ -72,6 +80,12 @@ export interface ServerInfo {
    * 只在服务进入 running 后有值；取不到 /props 时 error='unreachable' 而非判不一致。
    */
   propsCheck?: PropsCheck | null;
+  /**
+   * 本轮首次就绪（引擎打出 listening）的时刻，epoch ms；尚未就绪或进程已退出为 null。
+   * 与 `IPC.SERVER_STATUS` 事件同源，渲染层重载后首次 `getStatus()` 就该拿到它，
+   * 「已运行时长」据此派生——界面自己按「看见 running 的那一刻」起算会失真。
+   */
+  readyAt?: number | null;
 }
 
 export type OutputKind =

@@ -39,6 +39,14 @@ export class Launcher extends EventEmitter {
   }
   // 本轮运行是否曾到达 running：退出时据此区分「运行中崩了」与「启动阶段就失败」
   private hadBeenReady = false;
+  /**
+   * 本轮首次检出就绪（listening）的时刻，epoch ms；未就绪或本轮进程已退出为 null。
+   * 为什么核心要专门记这个时刻：界面要显示「已运行 N 分 N 秒」，而渲染层只知道
+   * 「自己什么时候看见 running」——用户第一次进概览页 / 渲染层重载时看见的 running
+   * 比真就绪晚得多，时长于是永远显示「—」或从进页面那一刻起算（2026-10 实测）。
+   * 进程何时可用只有状态机知道，事实必须由这里下发。
+   */
+  private readyAt: number | null = null;
   // 本轮结束是否由本应用主动停（stop/restart/forceStop/应用退出）——必须显式记，
   // 因为 Windows 下 taskkill /F 打出来的退出码并非 0，光看退出码分不清「用户停的」和「自己崩的」
   private stopRequested = false;
@@ -58,6 +66,7 @@ export class Launcher extends EventEmitter {
     // 留着旧崩溃记录会让渲染层把刚拉起的进程显示成「异常退出」。
     this.lastStop = null;
     this.hadBeenReady = false;
+    this.readyAt = null;
     this.stopRequested = false;
     this.lastPropsCheck = null;
     this.runSeq++;
@@ -107,6 +116,9 @@ export class Launcher extends EventEmitter {
       const lower = entry.data.toLowerCase();
       if (lower.includes('listening') && (lower.includes('http') || lower.includes('server'))) {
         this.hadBeenReady = true;
+        // 只认第一次：引擎后续还可能再打一行含 listening 的输出，覆盖成晚一些的时刻
+        // 会让界面显示的时长比真实运行时间短
+        if (this.readyAt === null) this.readyAt = Date.now();
         this.setStatus('running');
         // 就绪即回读一次，不阻塞状态迁移（服务可用不必等 HTTP 往返）
         this.runPropsCheck();
@@ -131,6 +143,9 @@ export class Launcher extends EventEmitter {
       // 回读结论属于「这一轮服务运行期」的事实：进程没了还挂着，服务页就会在
       // 停止状态下显示上一轮的「N 项与运行中不一致」
       this.lastPropsCheck = null;
+      // 就绪时刻同理只活在进程活着的那段：停服后还留着，界面就会给一个已经不存在的
+      // 进程继续计时（hadBeenReady 不清，它已被上面的 lastStop 快照带走）
+      this.readyAt = null;
       this.setStatus('stopped');
       this.proc = null;
     });
@@ -206,6 +221,8 @@ export class Launcher extends EventEmitter {
       envOverrides: [...this.envOverrides],
       // 与 status 事件同源，页面重新激活时也能拿到最近一次回读结果
       propsCheck: this.lastPropsCheck,
+      // 与 status 事件同源：重载后的渲染层第一次拉状态就该有就绪时刻，不必等下一次状态推送
+      readyAt: this.readyAt,
     };
   }
 
@@ -232,7 +249,7 @@ export class Launcher extends EventEmitter {
 
   private setStatus(s: ServerStatus): void {
     this.status = s;
-    this.emit('status', { status: s, stop: this.lastStop, propsCheck: this.lastPropsCheck });
+    this.emit('status', { status: s, stop: this.lastStop, propsCheck: this.lastPropsCheck, readyAt: this.readyAt });
   }
 
   /**
@@ -241,9 +258,11 @@ export class Launcher extends EventEmitter {
    * 取不到 /props 只标 error='unreachable'，不判成不一致——偶发网络失败
    * 不该让界面谎报「参数没生效」，那正是本项目一直在消灭的那类问题。
    *
-   * 触发时机是事件而非定时器：就绪时一次；此后仅在「有人真的在看」
-   * （状态卡/预览卡所在页签激活、窗口重新聚焦）或用户手动点「重新校验」时，
-   * 由 `recheckProps()` 触发。引擎的参数只可能被外部 `POST /props` 改动，
+   * 触发时机是事件而非定时器：就绪时一次；此后仅在「有人真的在看」——页签重新可见或
+   * 用户手动点「重新校验」（两者经 `server:status(refresh:true)`），以及窗口重新聚焦
+   * （主进程 `launcher-bridge` 挂 `win.on('focus')` 直接调 `recheckProps()`，
+   * 不经渲染层：窗口没聚焦时渲染层也收不到那个信号）——时由 `recheckProps()` 触发。
+   * 引擎的参数只可能被外部 `POST /props` 改动，
    * 盲目每 60s 敲一次端口既抓不到规律，也无事可报。
    */
   private runPropsCheck(): void {
@@ -266,7 +285,7 @@ export class Launcher extends EventEmitter {
     });
   }
 
-  /** 供主进程在 `server:status(refresh)` 或手动校验时调用；不阻塞调用方 */
+  /** 供主进程在 `server:status(refresh)`、窗口重新聚焦或手动校验时调用；不阻塞调用方 */
   recheckProps(): void {
     if (this.status === 'running') this.runPropsCheck();
   }

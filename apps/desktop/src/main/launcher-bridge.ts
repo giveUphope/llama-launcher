@@ -2,6 +2,7 @@ import { Launcher, basenameSafe } from '@llama-launcher/core';
 import { BrowserWindow } from 'electron';
 import { IPC } from '@llama-launcher/shared';
 import { processRegistry } from './process-registry.js';
+import type { WebContents } from 'electron';
 import type { AppSettings, PresetValues, OutputEntry, ServerStatusEvent } from '@llama-launcher/shared';
 
 class LauncherBridge {
@@ -9,9 +10,13 @@ class LauncherBridge {
   private win: BrowserWindow | null = null;
   private outputBuffer: OutputEntry[] = [];
   private MAX_BUFFER = 5000;
-  // 已重发过缓冲的窗口：同一窗口重复 setWindow 时跳过重发，
-  // 避免同一窗口多次收到整段历史日志（控制台重复输出）。
-  private bufferedWin: BrowserWindow | null = null;
+  // 已挂上「文档加载完成 → 缓冲回放」钩子的 webContents：同一窗口重复 setWindow 不重复挂，
+  // 否则一次加载会触发多遍整段回放（控制台历史日志翻倍）。
+  private hookedWc: WebContents | null = null;
+  /** 当前文档是否已收过整段缓冲回放；主框架每次加载完成（含 Ctrl+R）都会重新置空 */
+  private replayedWc: WebContents | null = null;
+  /** 已挂上「窗口聚焦 → /props 复检」钩子的窗口，去重同上 */
+  private focusHookedWin: BrowserWindow | null = null;
   /** 输出批量推送：模型加载等突发日志按 16ms 窗口合并发送，避免逐行 IPC 压垮渲染进程 */
   private outputQueue: OutputEntry[] = [];
   private outputFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -66,18 +71,49 @@ class LauncherBridge {
 
   setWindow(win: BrowserWindow | null) {
     this.win = win;
-    if (win && !win.isDestroyed() && win !== this.bufferedWin) {
-      // 缓冲历史按批重放（同样走 SERVER_OUTPUT_BATCH），避免整段 5000 行逐条 send
-      for (let i = 0; i < this.outputBuffer.length; i += LauncherBridge.REPLAY_CHUNK) {
-        win.webContents.send(
-          IPC.SERVER_OUTPUT_BATCH,
-          this.outputBuffer.slice(i, i + LauncherBridge.REPLAY_CHUNK),
-        );
-      }
-      this.bufferedWin = win;
-    } else if (!win) {
-      // 窗口关闭后重置，下一次新建窗口仍能恢复历史日志
-      this.bufferedWin = null;
+    if (!win) {
+      // 窗口关闭后重置，下一次新建窗口仍能重新挂钩并恢复历史日志
+      this.hookedWc = null;
+      this.replayedWc = null;
+      this.focusHookedWin = null;
+      return;
+    }
+    if (win.isDestroyed()) return;
+    const wc = win.webContents;
+    if (wc !== this.hookedWc) {
+      this.hookedWc = wc;
+      // 回放时机选在「渲染层刚重新订阅完」而不是「窗口刚创建」：
+      // App.vue 的 onMounted 里才 api.server.onOutputBatch(...)，而 preload 收到没人
+      // 订阅的事件是直接丢弃的——在窗口创建那一刻 send，渲染层还没订阅，整段缓冲等于白发生。
+      // 更要紧的是 Ctrl+R / dev 重载：那是同一个窗口、同一次 setWindow，旧写法再不会回放，
+      // 于是引擎明明还在吐日志，界面却全空，要等下一条新日志才有内容。
+      wc.on('did-finish-load', () => {
+        this.replayedWc = null; // 新文档的控制台是空的 → 整段缓冲该再来一遍
+        this.replayBuffer(win);
+      });
+    }
+    if (this.focusHookedWin !== win) {
+      this.focusHookedWin = win;
+      // 窗口重新聚焦 = 「有人真的在看」的事件信号（与 ipc/download.ts 的 focus 补发进度同构）。
+      // 放在主进程而不是渲染层：窗口没聚焦时渲染层自己也收不到 focus，且这里不需要跨桥。
+      // recheckProps 只在 running 时发一次本地 GET，结论没变就不补发状态事件，不是轮询。
+      win.on('focus', () => this.launcher.recheckProps());
+    }
+    // setWindow 晚于页面加载完成时（启动顺序被调整）did-finish-load 不会再补一次，当场回放
+    if (!wc.isLoading()) this.replayBuffer(win);
+  }
+
+  /** 缓冲历史按批重放（同样走 SERVER_OUTPUT_BATCH），避免整段 5000 行逐条 send。每个文档一次。 */
+  private replayBuffer(win: BrowserWindow): void {
+    if (win.isDestroyed()) return;
+    const wc = win.webContents;
+    if (wc.isDestroyed() || this.replayedWc === wc) return;
+    this.replayedWc = wc;
+    for (let i = 0; i < this.outputBuffer.length; i += LauncherBridge.REPLAY_CHUNK) {
+      wc.send(
+        IPC.SERVER_OUTPUT_BATCH,
+        this.outputBuffer.slice(i, i + LauncherBridge.REPLAY_CHUNK),
+      );
     }
   }
 

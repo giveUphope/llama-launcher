@@ -664,3 +664,101 @@ describe('Launcher - 就绪后 /props 回读对账', () => {
     expect(calls).toBe(0);
   });
 });
+
+// 运行时长的事实源（2026-10）。此前的做法是界面在「看见 status 变为 running」的那一瞬间
+// 自己记开始时间：服务早就在跑了、用户第一次进概览页（或渲染层 Ctrl+R 重载）时那次 watch
+// 根本不触发，「已运行」就一直显示「—」。进程何时可用只有状态机知道，故由核心记 readyAt。
+describe('Launcher - 就绪时刻 readyAt', () => {
+  let l: Launcher;
+
+  beforeEach(() => {
+    l = new Launcher({ propsFetcher: noProps });
+  });
+
+  afterEach(() => {
+    if (l.getStatus().status !== 'stopped') l.stop();
+  });
+
+  /** 喂一行 llama-server 的就绪信号（引擎真实输出即此形状），进入 running */
+  function markReady(inst: Launcher) {
+    const proc = inst['proc'] as any;
+    const t0 = Date.now();
+    proc._triggerOutput('llama_server: listening on http://127.0.0.1:8080');
+    expect(inst.getStatus().status).toBe('running');
+    return { proc, t0, t1: Date.now() };
+  }
+
+  it('starting 阶段没有就绪时刻；就绪那一刻记下，并随 getStatus 与 running 事件一起下发', () => {
+    l.start({ values: {}, settings: baseSettings });
+    expect(l.getStatus().readyAt ?? null).toBeNull();
+
+    const events: ServerStatusEvent[] = [];
+    l.on('status', (e: ServerStatusEvent) => events.push(e));
+    const { t0, t1 } = markReady(l);
+
+    const readyAt = l.getStatus().readyAt;
+    expect(typeof readyAt).toBe('number');
+    expect(readyAt!).toBeGreaterThanOrEqual(t0);
+    expect(readyAt!).toBeLessThanOrEqual(t1);
+    // 事件载荷也得带：界面看见 running 的那一瞬间就应有事实，不必回头再拉一次 getStatus
+    expect(events.at(-1)!.status).toBe('running');
+    expect(events.at(-1)!.readyAt).toBe(readyAt);
+  });
+
+  it('运行期再来一行 listening 不覆盖首次就绪时刻', () => {
+    l.start({ values: {}, settings: baseSettings });
+    const { proc } = markReady(l);
+    const first = l.getStatus().readyAt;
+
+    // 引擎可能重复打同类行；若每次都覆盖，显示的时长会被最后一条日志推着走
+    proc._triggerOutput('http server listening on http://127.0.0.1:8080');
+    expect(l.getStatus().readyAt).toBe(first);
+  });
+
+  it('stopping 期间仍保留（进程还活着），真退出才归零', () => {
+    mockCtl.__setDeferExit(true);
+    try {
+      l.start({ values: {}, settings: baseSettings });
+      markReady(l);
+
+      l.stop();
+      expect(l.getStatus().status).toBe('stopping');
+      // 此刻进程还没死，计时该继续走——归零要等 exit
+      expect(l.getStatus().readyAt).not.toBeNull();
+
+      mockCtl.__flushExit();
+      expect(l.getStatus().status).toBe('stopped');
+      // 进程没了还挂着就绪时刻，界面就会给一个已经不存在的服务继续计时
+      expect(l.getStatus().readyAt).toBeNull();
+    } finally {
+      mockCtl.__setDeferExit(false);
+      l.stop();
+    }
+  });
+
+  it('新一轮不继承旧轮的就绪时刻，旧句柄迟到的 exit 也不得清掉新一轮的', () => {
+    mockCtl.__setDeferExit(true);
+    try {
+      l.start({ values: {}, settings: baseSettings });
+      const old = markReady(l).proc;
+      expect(typeof l.getStatus().readyAt).toBe('number');
+
+      l.restart({ values: {}, settings: baseSettings });
+      mockCtl.__flushExit(); // 旧进程到这一步才真的死
+      expect(l.getStatus().status).toBe('starting');
+      expect(l.getStatus().readyAt).toBeNull();
+
+      markReady(l);
+      const ready2 = l.getStatus().readyAt;
+      expect(typeof ready2).toBe('number');
+
+      // 同一旧句柄补一次迟到的退出（真实场景：taskkill 后 exit 延迟/重复派发）
+      old._triggerExit(0);
+      expect(l.getStatus().status).toBe('running');
+      expect(l.getStatus().readyAt).toBe(ready2);
+    } finally {
+      mockCtl.__setDeferExit(false);
+      l.stop();
+    }
+  });
+});
