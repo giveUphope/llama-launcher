@@ -74,6 +74,12 @@ export const useServerStore = defineStore('server', () => {
   const host = ref(DEFAULT_HOST);
   const port = ref(DEFAULT_PORT);
   const url = ref('');
+  /**
+   * 本轮服务「就绪」的时刻（epoch ms），由核心随状态事件与 getStatus 一并下发。
+   * 界面据此派生运行时长——不能像以前那样在「本页第一次看见 running」时自记：
+   * 服务已运行而用户第一次进概览页时那个 watch 根本不触发，时长就一直显示「—」。
+   */
+  const readyAt = ref<number | null>(null);
   // 最近一次启动/重启使用的参数快照（仅参数值，无逐参数启用位），用于判断服务是否与当前参数一致
   const runningValues = ref<Record<string, string | number | boolean> | null>(null);
   const outputs = ref<OutputLine[]>([]);
@@ -209,6 +215,8 @@ export const useServerStore = defineStore('server', () => {
         stopInfo.value = e.stop ?? null;
         // 回读结果随同状态事件补发（核心跑完 /props 后再发一次 running），null 表示尚未回读到
         if (e.propsCheck !== undefined) propsCheck.value = e.propsCheck;
+        // 就绪时刻由核心下发（stopping 期间保留，进程真死才归零）——界面不许自己猜
+        if (e.readyAt !== undefined) readyAt.value = e.readyAt ?? null;
         // starting / running / stopping 期间端口归自家进程所有，外部实例标记立即失效
         if (e.status !== 'stopped') external.value = null;
         // PID 与访问 URL 属于「这一轮运行」的事实：留着就是给一个已经不在的进程继续挂账号
@@ -243,6 +251,7 @@ export const useServerStore = defineStore('server', () => {
     host.value = info.host;
     port.value = info.port;
     url.value = info.url;
+    readyAt.value = info.readyAt ?? null;
     runningValues.value = info.values ?? null;
     envOverrides.value = info.envOverrides ?? [];
     if (info.propsCheck !== undefined) propsCheck.value = info.propsCheck;
@@ -338,7 +347,7 @@ export const useServerStore = defineStore('server', () => {
   });
 
   return {
-    status, pid, host, port, url, apiUrl, canOpenWeb, outputs, runningValues, stopInfo, envOverrides, propsCheck,
+    status, pid, host, port, url, readyAt, apiUrl, canOpenWeb, outputs, runningValues, stopInfo, envOverrides, propsCheck,
     effectiveStatus, oomDetected,
     external,
     refreshExternal, adoptExternal, clearExternal,

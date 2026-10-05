@@ -57,15 +57,15 @@
 | `-lm`, `--load-mode` | model loading mode (default: auto) - auto: mmap, unless a device does not support it - none: no special loading mode - mmap: memory-map model (if mmap disabled, slower load but may reduce pageouts if not using mlock) - mlock: force system to keep model in RAM rather than swapping or compressing - mmap+mlock: mmap + force system to keep model in RAM rather than swapping or compressing - dio: use DirectIO if available | ✅ 已支持 |
 | `-lzm`, `--lazy-mode` | on-demand reading of certain tensors, for example per-layer embeddings (default: auto) - on: read the rows of such tensors from disk on demand instead of keeping them resident (requires mmap) - auto: on, but only for tensors larger than 4 GiB - off: always keep them resident (env: LLAMA_ARG_LAZY_MODE) | ✅ 已支持 |
 | `--numa` | attempt optimizations that help on some NUMA systems - distribute: spread execution evenly over all nodes - isolate: only spawn threads on CPUs on the node that execution started on - numactl: use the CPU map provided by numactl if run without this previously, it is recommended to drop the system page cache before using this see https://github.com/ggml-org/llama.cpp/issues/1437 (env: LLAMA_ARG_NUMA) | ⬜ 未支持 |
-| `-dev`, `--device` | <dev1,dev2,..>          comma-separated list of devices to use for offloading (none = don't offload) use --list-devices to see a list of available devices (env: LLAMA_ARG_DEVICE) | ⬜ 未支持 |
+| `-dev`, `--device` | <dev1,dev2,..>          comma-separated list of devices to use for offloading (none = don't offload) use --list-devices to see a list of available devices (env: LLAMA_ARG_DEVICE) | ✅ 已支持 |
 | `--list-devices` | print list of available devices and exit | ⬜ 未支持 |
-| `-ot`, `--override-tensor` | <tensor name pattern>=<buffer type>,... override tensor buffer type (env: LLAMA_ARG_OVERRIDE_TENSOR) | ⬜ 未支持 |
-| `-cmoe`, `--cpu-moe` | keep all Mixture of Experts (MoE) weights in the CPU (env: LLAMA_ARG_CPU_MOE) | ⬜ 未支持 |
+| `-ot`, `--override-tensor` | <tensor name pattern>=<buffer type>,... override tensor buffer type (env: LLAMA_ARG_OVERRIDE_TENSOR) | ✅ 已支持 |
+| `-cmoe`, `--cpu-moe` | keep all Mixture of Experts (MoE) weights in the CPU (env: LLAMA_ARG_CPU_MOE) | ✅ 已支持 |
 | `-ncmoe`, `--n-cpu-moe` | keep the Mixture of Experts (MoE) weights of the first N layers in the CPU (env: LLAMA_ARG_N_CPU_MOE) | ✅ 已支持 |
 | `-ncffn`, `--n-cpu-ffn` | keep the dense FFN weights of the first N layers in the CPU (dense models; for MoE expert weights use --n-cpu-moe) (env: LLAMA_ARG_N_CPU_FFN) | ✅ 已支持 |
 | `-ngl`, `--gpu-layers`, `--n-gpu-layers` | max. number of layers to store in VRAM, either an exact number, 'auto', or 'all' (default: auto) (env: LLAMA_ARG_N_GPU_LAYERS) | ✅ 已支持 |
 | `-sm`, `--split-mode` | {none,layer,row,tensor} how to split the model across multiple GPUs, one of: - none: use one GPU only - layer (default): split layers and KV across GPUs (pipelined) - row: split weight across GPUs by rows (parallelized) - tensor: split weights and KV across GPUs (parallelized, EXPERIMENTAL) (env: LLAMA_ARG_SPLIT_MODE) | ⬜ 未支持 |
-| `-ts`, `--tensor-split` | N0,N1,N2,...      fraction of the model to offload to each GPU, comma-separated list of proportions, e.g. 3,1 (env: LLAMA_ARG_TENSOR_SPLIT) | ⬜ 未支持 |
+| `-ts`, `--tensor-split` | N0,N1,N2,...      fraction of the model to offload to each GPU, comma-separated list of proportions, e.g. 3,1 (env: LLAMA_ARG_TENSOR_SPLIT) | ✅ 已支持 |
 | `-mg`, `--main-gpu` | the GPU to use for the model (with split-mode = none), or for intermediate results and KV (with split-mode = row) (default: 0) (env: LLAMA_ARG_MAIN_GPU) | ⬜ 未支持 |
 | `-fit`, `--fit` | [on\|off]                   whether to adjust unset arguments to fit in device memory ('on' or 'off', default: 'on') (env: LLAMA_ARG_FIT) | ✅ 已支持 |
 | `-fitt`, `--fit-target` | MiB0,MiB1,MiB2,... target margin per device for --fit, comma-separated list of values, single value is broadcast across all devices, default: 1024 (env: LLAMA_ARG_FIT_TARGET) | ⬜ 未支持 |
@@ -292,5 +292,5 @@
 ## 汇总
 
 - 官方参数总数：260
-- 已支持：64
-- 未支持：196
+- 已支持：68
+- 未支持：192

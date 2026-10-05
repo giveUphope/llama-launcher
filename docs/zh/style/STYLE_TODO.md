@@ -320,7 +320,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复效果验证**：每处修完按「两态等高」判定——用浏览器在**内容到位前后**各量一次目标容器与其后第一个兄弟元素的 `boundingRect`，`top` 差值必须为 0（横向类则兄弟 `left` 差值为 0）；`pnpm style:audit` 与 `pnpm e2e:web` 双语几何用例不回归；改前改后各截一张同视口截图对比。
 - **修复（2026-10-06）**：11 处全部改为静态预留（常驻槽 `flex: 0 0 Npx` / `min-height` / `visibility: hidden` / 绝对定位），无一处用逐帧测量。参数网格最小轨因新增依赖警示槽 418 → **434**（算式与列数判据已改写为纯算术不变式：两列 ≥882、三列 ≥1330、五列 ≥2226，旧的「视口→列数」经验串是 418 时代值，已删）。新增 i18n 键 `cmd_props_pending`（中英）与 `msg_no_download_tasks`（中英）。
 - **实测结果（mock 页 `getBoundingClientRect`）**：参数页 64 行的三类槽宽度**各自唯一**（提示槽 72 / 依赖槽 12 / 还原槽 24，无一格例外，且依赖槽 64 个全在、当前 0 格有图标——槽常驻即几何不变）；模型表 6 行行高**全部 66px**，而各行徽章数是 1 / 2 / 2 / 3（徽章排不再决定行高）；概览页 `.sec-hint-slot` 36、`.failure-banner-slot` 66（两档）、`.oom-row` 28 且 `visibility: hidden` 零子节点（占位在、内容没有）；服务页 `.cmd-status` 36 常驻并显示「尚未向引擎回读核对（/props）」；下载卡 `.parse-status-slot` 38 与 `.task-empty` 38 均在**空态**下即撑出预留档、`.parse-btn` 宽 132 等于其 `min-width`；设置页 `.summary-label` 132、`.exe-status-slot` 156 均按较宽态锁定。
-- **两处未验到（不当作已修）**：① `DownloadCard` 的 `.files-section`（194px 档）需先搜索并选中一个模型才会出现，本轮没走完该交互；② `PresetsPanel` 的加载占位窗口短于测量间隔，`presetsLoaded` 为 false 的那一帧没抓到（`.list-wrap` 140 ≥ `min-height` 120 已确认）。两处的 CSS 预留都在，缺的是「两态等高」的实测证据。
+- **两处补验结果（2026-10-06 同日追量）**：① `PresetsPanel` 的加载档与空态档**等高成立**——注入真实结构的 `.arco-empty` 量得自然高 **88px**，小于 `.list-wrap` / `.list-loading` 的 `min-height: 120px`，故两态都落在 120（余量 32px，代理担心的「a-empty 更高」被排除）；② `DownloadCard` 走完「填 URL → 搜索 → 选中结果」链路，`.files-section` 出现时 `min-height: 194px` 生效（实测 306 为内容超过下限，属正常），筛选行常驻，搜索按钮宽度在点击前后 **132 → 132 不变**。仍留一条未验：`.files-section` **出现那一刻**是否顶动兄弟（要回到解析前状态复测，本轮没做），但结构上它与其内部各行都已是常驻元素，塌陷式跳变已被排除。
 
 ### 82. `PageFrame` 不是 flex 列，页面里写的 `flex: 1` 全部失效 → 日志控制台无限长高且内部滚动永不生效 — 🔴 待修复（2026-10-06 实测钉死）
 

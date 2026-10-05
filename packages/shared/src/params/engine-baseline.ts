@@ -56,6 +56,11 @@ export const PARAM_ENGINE_BASELINE: Record<string, EngineBaseline> = {
   gpu_layers: { engineDefault: 'auto' },
   n_cpu_moe: { engineDefault: 0 }, // help 未标 default，0 = 不搬任何层
   n_cpu_ffn: { engineDefault: 0 },
+  // 「内存外溢」四件套：help 条目均未标注 (default: X)，引擎未收到 flag 时自行决定，故 UI 空串/未勾选 = 不下发。
+  device: { engineDefault: '' }, // help 未标 default；none 是「完全不卸载」的字面取值，不是哨兵，填了就下发
+  cpu_moe: { engineDefault: false }, // 开关型，help 未标 default；未勾选不发射（勾选发 -cmoe，无 invert_flag）
+  override_tensor: { engineDefault: '' }, // help 未标 default；空串 = 不下发
+  tensor_split: { engineDefault: '' }, // help 未标 default；空串 = 不下发（单卡无需填）
   // ---------------- KV 缓存 ----------------
   cache_type_k: {
     engineDefault: 'f16',

@@ -66,6 +66,24 @@ export const PARAMS: ParamDef[] = [
   { key: 'gpu_layers', group: 'basic', type: 'text', flag: '-ngl', default: 'auto', subcategory: 'memory' },
   { key: 'n_cpu_moe', group: 'basic', type: 'int_entry', flag: '-ncmoe', default: 0, min: 0, max: 256, subcategory: 'memory' },
   { key: 'n_cpu_ffn', group: 'basic', type: 'int_entry', flag: '-ncffn', default: 0, min: 0, max: 512, subcategory: 'memory' },
+  // 「内存外溢」四件套（2026-10-06 收录，落地 docs/zh/params-system.md §5.6 第 1 项；均在 b11408 help 内）：
+  // 显存装不下的那部分权重留在系统内存，显卡只算当下要用的块——超大模型（MoE 类最明显）因此能跑起来。
+  // help 原文（docs/params/llama-server-help-out.txt）：
+  //   -dev,  --device <dev1,dev2,..>              comma-separated list of devices to use for offloading (none = don't offload)
+  //   -cmoe, --cpu-moe                            keep all Mixture of Experts (MoE) weights in the CPU
+  //   -ot,   --override-tensor <tensor name pattern>=<buffer type>,...   override tensor buffer type
+  //   -ts,   --tensor-split N0,N1,N2,...          fraction of the model to offload to each GPU, comma-separated list of proportions, e.g. 3,1
+  // flag 一律登记**短别名**（与同族 -ncmoe / -ncffn / -mmdev 一致）：这张表存的就是发射到命令行的那个 token，
+  // 按长名 grep 会得出「未收录」的假阴性（§5.6 记过这次事故）。
+  // 归 basic/memory：与 -ngl / -ncmoe / -ncffn 同属「权重落在哪」这一族，且 memory 分区现有成员全为 basic，
+  // 不新建 subcategory（界面 14 个分区与 i18n 键由 packages/ui 侧固定，本轮不动）。
+  // 与 --fit 的关系用**提示**而不是 dependsOn：help 把 --fit 定义为 "whether to adjust unset arguments to fit in
+  // device memory"，即它只改写「未设置」的参数；这四项留空/未勾选时本就不发射（与 fit 无冲突），填了则属显式设置。
+  // dependsOn 会在依赖翻转时把用户填的设备名/比例清空重置，那是数据丢失而非提示，故不采用（说明写进 PARAM_HELP）。
+  { key: 'device', group: 'basic', type: 'text', flag: '-dev', default: '', subcategory: 'memory' },
+  { key: 'cpu_moe', group: 'basic', type: 'checkbox', flag: '-cmoe', default: false, subcategory: 'memory' },
+  { key: 'override_tensor', group: 'basic', type: 'text', flag: '-ot', default: '', subcategory: 'memory' },
+  { key: 'tensor_split', group: 'basic', type: 'text', flag: '-ts', default: '', subcategory: 'memory' },
 
   // ---------------- advanced (28) ----------------
   // 子分组 kv_cache：KV 缓存

@@ -126,7 +126,6 @@ export const en: Dict = {
 
   // ---------------- gguf metadata ----------------
   card_model_info: 'Model Metadata',
-  card_suggested_params: 'Suggested Parameters',
   msg_gguf_reading: 'Reading model metadata...',
   msg_gguf_read_failed: 'Failed to read model metadata: {0}',
   msg_gguf_applied: 'Applied {0} suggested parameter(s) from model',

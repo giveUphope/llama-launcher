@@ -124,7 +124,6 @@ export const zh = {
 
   // ---------------- gguf metadata ----------------
   card_model_info: '模型内置信息',
-  card_suggested_params: '建议参数',
   msg_gguf_reading: '正在读取模型元数据...',
   msg_gguf_read_failed: '读取模型元数据失败: {0}',
   msg_gguf_applied: '已应用 {0} 项模型建议参数',

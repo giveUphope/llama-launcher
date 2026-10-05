@@ -7,8 +7,8 @@
 ### 5.1 参数定义 (shared/params/definitions.ts)
 
 - **`PARAM_GROUPS`**：3 组 — `basic`（基础）/ `advanced`（高级）/ `server`（服务）。
-- **`PARAMS`**：共 64 个参数，分布如下：
-  - basic：22 个（15 核心 + 7 采样）
+- **`PARAMS`**：共 68 个参数，分布如下：
+  - basic：26 个（19 核心 + 7 采样）
   - advanced：28 个（5 思考控制 + 9 推测解码（其中 **4 个** `dependsOn.values` 依赖外部草稿类型 draft-simple/eagle3/dflash/dspark，另 2 个 `spec_draft_n_max`/`spec_draft_n_min` 用 `notValues: ['', 'none']` 即任何非空类型都生效）+ 6 多模态 + 6 KV 扩展 + 2 模板）
   - server：14 个（2 服务标识与鉴权 + 4 端点 + 4 CORS + 4 运行行为）
 - 每个参数定义包含：`key, group, type, flag, default, subcategory, dependsOn, ggufField, invert_flag` 等字段。
@@ -107,9 +107,11 @@
 2. **漂移提示改成方向性（本轮的行为变更）**：`driftOf` 此前是「构建号不等就报」。基线一旦钉到最新版，这条就会打在每一个抢先升级引擎的用户身上，而真正需要提醒的是**引擎比基线旧**的人——那批不可回读参数的缺省判定可能对不上。现在只在 `engine < baseline` 时出声，中英文案同步改为「引擎构建比参数基线旧」。**代价必须写明**：引擎比基线新的用户从此**不再收到任何提示**，「上游前进了而我们还没重钉」这件事退回靠 re-pin 纪律与本节流程保证，运行期通道不再兜底。
 3. **未验证项（诚实记录）**：`/props` 的字段形状本轮**没有**用 b11408 真机重抓（本轮未起 server），与上一轮同一格空缺。补法不变：在有模型的环境跑 `node scripts/verify-server-start.mjs --model=…`，或直接 GET `/props` 与 `packages/core/tests/props-check.test.ts` 的夹具对拍。
 
-### 5.6 待落地：把「装不下的模型放内存跑」接进界面（2026-10-05 登记，本轮未实施）
+### 5.6 部分落地：把「装不下的模型放内存跑」接进界面（2026-10-05 登记，2026-10-06 收下第 1 项）
 
-出了什么事：llama-server 早就能把模型里「暂时用不到的那块知识」留在系统内存、只让显卡算当下要用的部分，因此 24 GB 显存也能跑远超显存容量的模型（MoE 类最明显），代价是内存到显卡的搬运决定出字速度。**但界面碰不到这些开关**：`--device` / `--override-tensor` / `--tensor-split` / `--cpu-moe` 在 `packages/shared/src/params/definitions.ts` 里**没有**（四个都在 b11243 与 b11408 的 help 里，`--cpu-moe` 带 `LLAMA_ARG_CPU_MOE` 环境通道）。
+**第 1 项已落地（2026-10-06）**：`--device` / `--override-tensor` / `--tensor-split` / `--cpu-moe` 已收进 `packages/shared/src/params/definitions.ts`。flag 取**短别名形态** `-dev` / `-ot` / `-ts` / `-cmoe`（与同族 `-ncmoe`、`-ncffn` 一致——这张表存的就是实际发射的那个 token）。控件类型 `text` / `text` / `text` / `checkbox`：设备名与张量模式串都是动态值、多卡比例是逗号分隔列表，沿用 `-mmdev` / `--spec-synth-rates` 的 `text` 写法，没有新增 type。四项一律归 `basic` 的 `memory` 分区，与 `-ngl` / `-ncmoe` / `-ncffn` 同族，**分区总数仍是 14**（`packages/ui` 的 `SUBCATEGORY_ORDER` 是硬编码清单，加分区要动 UI，本轮不动）。`engine-baseline.ts`：这四条 help 原文都没有标注 `(default: X)`，故 `engineDefault` 登记为「不下发」（`''` / `false`），`default == engineDefault` 因此无需 `note`；`none` 对 `--device` 是「完全不卸载」的字面取值，不是哨兵，填了照样下发。`--device` 与 `--fit` 的交互写成行内提示而不是 `dependsOn`，依据是 help 把 `--fit` 定义为 "whether to adjust unset arguments to fit in device memory"——它只改写**未设置**的参数，填了值本就不归它改；而 `dependsOn` 会在依赖翻转时清空用户输入的设备名，那是数据丢失而不是提示。**参数总数 64 → 68**：`README.md` / `README.en.md` 与本文中英两处的计数声明本轮已同步；`AGENTS.md`、`docs/{zh,en}/architecture.md`、`docs/{zh,en}/core-modules.md`（还含 basic 分组数 22 → 26）、`docs/{zh,en}/frontend.md`、`docs/{zh,en}/testing.md` 共 9 处声明**本轮未改**（不在授权改动范围内），`verify-params-sync` 的计数门禁会红，需由串行改动者一并更新。**第 2、3 项仍未实施**（服务页说明权重落在哪、显存不足时给减负建议）。
+
+出了什么事（以下为登记当时 2026-10-05 的状态，保留作历史陈述）：llama-server 早就能把模型里「暂时用不到的那块知识」留在系统内存、只让显卡算当下要用的部分，因此 24 GB 显存也能跑远超显存容量的模型（MoE 类最明显），代价是内存到显卡的搬运决定出字速度。**当时界面碰不到这些开关**：`--device` / `--override-tensor` / `--tensor-split` / `--cpu-moe` 在 `packages/shared/src/params/definitions.ts` 里**没有**（四个都在 b11243 与 b11408 的 help 里，`--cpu-moe` 带 `LLAMA_ARG_CPU_MOE` 环境通道）。
 
 **上一条登记时写的是「五个收录数为 0」，那是错的**（2026-10-06 更正）：`--n-cpu-moe` 早就在表里，登记形态是短别名 `-ncmoe`（`definitions.ts:67`），同族的 `-ncffn` / `--n-cpu-ffn` 也在 `:68`——所以真实缺口是 4 个而不是 5 个。错的成因值得记下来：**这张表按短别名存 flag**，拿长名 `--n-cpu-moe` 去 grep `definitions.ts` 必然报「没有」，本轮我按长名搜就复现了这次假阴性。判收录与否要按表里实际登记的 token 搜，或长名短名两种形态各搜一遍再取并集。于是用户只能去「扩展参数」手打字符串——命令预览不体现它、界面无法核对（这几项 `/props` 不回读）、切预设或换模型时容易被无声覆盖。
 

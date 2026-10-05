@@ -124,7 +124,10 @@ const currentModel = computed(() => {
 // 显示层对空值以占位符呈现，保证运行前后显示项行结构稳定。
 
 // ---- 运行时长（秒 → 文本）----
-const startTimeMs = ref<number | null>(null);
+// 起点取核心下发的「本轮就绪时刻」，不是「本页第一次看见 running 的时刻」——
+// 后者在服务已运行、用户第一次进概览页时永远为空（下面的 watch 不触发），
+// 运行时长就一直显示「—」，要停止再启动才正常（STYLE_TODO 记录过这条）。
+const startTimeMs = computed<number | null>(() => server.readyAt);
 const now = ref(Date.now());
 let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -175,15 +178,11 @@ const durationSec = computed(() => {
 // ---- 服务状态变化时刷新 ----
 watch(() => server.status, (s) => {
   if (s === 'running') {
-    // 启动成功后记录开始时间（若之前未记录）
-    if (startTimeMs.value == null) {
-      startTimeMs.value = Date.now();
-    }
+    // 起点由 server.readyAt 提供（核心下发），这里只负责起计时器
     startDurationTimer();
     // 端口归自家进程所有，外部探测在此期间无意义：清掉已排定的续探
     if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
   } else if (s === 'stopped') {
-    startTimeMs.value = null;
     stopDurationTimer();
     // 自家进程刚停 = 端口可能马上被外部实例接手的时刻，立刻探一次并把退避收回快档
     if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }

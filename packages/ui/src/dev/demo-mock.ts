@@ -140,12 +140,18 @@ export function createDemoApi() {
   const outputCbs: Array<(entries: OutputEntry[]) => void> = [];
   const statusCbs: Array<(e: ServerStatusEvent) => void> = [];
   let serverStatus: ServerStatus = 'running';
+  // 与 core 同语义的「本轮就绪时刻」：首次 running 记下、进程真死才归零（stopping 保留）。
+  // mock 不给这个字段的话，演示页的运行时长永远是 0，界面上看不出这条修复。
+  // 初值取 42 秒前，纯演示数据。
+  let readyAtMs: number | null = Date.now() - 42_000;
   // 与 core Launcher 同形状：状态与「停止事实」合成一条事件下发（渲染层据此区分 stopped/failed/crashed）
   let lastStop: ServerStopInfo | null = null;
   function emitStatus(s: ServerStatus, stop: ServerStopInfo | null = null): void {
     serverStatus = s;
     lastStop = s === 'stopped' ? stop : null;
-    for (const cb of statusCbs) cb({ status: s, stop: lastStop });
+    if (s === 'running' && readyAtMs === null) readyAtMs = Date.now();
+    if (s === 'stopped') readyAtMs = null;
+    for (const cb of statusCbs) cb({ status: s, stop: lastStop, readyAt: readyAtMs });
   }
   /** 主动停止的停止事实（用户点停止/重启）——渲染层据此保持「已停止」而非「异常退出」 */
   function userStopInfo(hadBeenReady = true): ServerStopInfo {
@@ -365,7 +371,7 @@ export function createDemoApi() {
         const snap = runningValuesSnapshot ? { ...runningValuesSnapshot } : null;
         // 演示路径用「预览卡刚传进来的当前值」当在跑的值；真实快照语义不动
         const check = demoPropsCheck(snap ?? lastSeenValues);
-        return Promise.resolve({ status: serverStatus, pid: 23508, host: '127.0.0.1', port: 8080, url: serverStatus === 'running' ? 'http://127.0.0.1:8080' : '', values: snap, stop: lastStop, envOverrides: demoEnvOverrides(check), propsCheck: check });
+        return Promise.resolve({ status: serverStatus, pid: 23508, host: '127.0.0.1', port: 8080, url: serverStatus === 'running' ? 'http://127.0.0.1:8080' : '', readyAt: readyAtMs, values: snap, stop: lastStop, envOverrides: demoEnvOverrides(check), propsCheck: check });
       },
       // 与真实侧同一发射规则：apps/desktop 的 SERVER_PREVIEW 走 core 的 previewCommand，
       // 那里只多一层 exe 存在性校验（浏览器没有文件系统），argv 本身两边共用 shared 的实现。
