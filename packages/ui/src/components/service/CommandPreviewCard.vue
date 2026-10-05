@@ -6,7 +6,7 @@
 //  - 【扩展参数】：唯一可编辑区，绑定 settings.custom_args（持久化），原样追加到实际
 //    启动命令末尾（buildCommand customArgs）。
 // 复制命令 = 内置命令 + 扩展参数合并。
-import { computed, onActivated, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onActivated, onUnmounted, ref, watch } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
@@ -20,7 +20,7 @@ const server = useServerStore();
 const params = useParamsStore();
 const i18n = useI18nStore();
 
-// 内置参数命令（只读展示）
+// 内置参数命令（只读展示，随参数实时自动生成）
 const commandPreview = ref('');
 
 async function updatePreview() {
@@ -75,7 +75,7 @@ const staleCount = computed(() => {
 });
 
 // 回读对账派生：不一致与「引擎版本 ≠ 参数基线版本」是两件事，分开说；
-// env 覆写正是不一致的常见成因，两者同时存在时合成一条因果句而不是并列三行。
+// env 覆写正是不一致的常见成因，两者同时存在时合成一条因果句而不是并列两句。
 const propsMismatch = computed(() => server.propsCheck?.mismatched ?? []);
 const mismatchList = computed(() => propsMismatch.value.map((m) => `${m.flag}: ${m.sent} ≠ ${m.actual}`).join(', '));
 const baselineDrift = computed(() => server.propsCheck?.baselineDrift ?? null);
@@ -96,6 +96,59 @@ const propsAllClear = computed(() => {
 const checkedAtLabel = computed(() =>
   server.propsCheck ? new Date(server.propsCheck.checkedAt).toLocaleTimeString() : '',
 );
+
+// ---- 常驻状态行（STYLE_TODO #81 档 2：五行合一，槽恒在、只换文案）----
+// 原先这五条提示各自 v-if，插在预览框与「扩展参数」区之间：任何一条出现就把整卡顶高一档，
+// 两条分支文案长短不同还会再变行数——用户拖一下滑块就看到下方卡片上下跳。
+// 现在只留一条固定高度的状态行：内容按优先级并列成一句（超出两档的部分省略，完整文案走 title），
+// 「保持安静」的口径不变——一致或未回读绝不写成「全部参数都核对过」，未核对时只说明可做什么。
+interface StatusPart {
+  text: string;
+  warn: boolean;
+}
+const statusParts = computed<StatusPart[]>(() => {
+  const parts: StatusPart[] = [];
+  const envList = server.envOverrides.join(', ');
+  if (staleCount.value) {
+    parts.push({ warn: true, text: i18n.t('cmd_stale_running', [String(staleCount.value)]) });
+  }
+  if (propsMismatch.value.length) {
+    parts.push(
+      envBlame.value
+        ? {
+            warn: true,
+            text: i18n.t('cmd_props_mismatch_env', [
+              String(propsMismatch.value.length),
+              mismatchList.value,
+              envList,
+            ]),
+          }
+        : {
+            warn: true,
+            text: i18n.t('cmd_props_mismatch', [String(propsMismatch.value.length), mismatchList.value]),
+          },
+    );
+  }
+  // env 覆写单独说明：不一致那句已经带上同一批变量时不再重复列一遍
+  if (server.envOverrides.length && !envBlame.value) {
+    parts.push({ warn: true, text: i18n.t('cmd_env_overrides', [envList]) });
+  }
+  const drift = baselineDrift.value;
+  if (drift) {
+    parts.push({ warn: true, text: i18n.t('cmd_baseline_drift', [drift.engineBuild, drift.baselineBuild]) });
+  }
+  if (propsAllClear.value) {
+    parts.push({
+      warn: false,
+      text: i18n.t('cmd_props_ok', [String(server.propsCheck?.checked.length ?? 0), checkedAtLabel.value]),
+    });
+  }
+  return parts;
+});
+// 无结论 = 未回读（服务未跑 / 回读还没落地），给一句不带结论的默认文案。
+const statusText = computed(() => statusParts.value.map((p) => p.text).join(' · ') || i18n.t('cmd_props_pending'));
+// 配色/图标跟随最高优先级那条（首条）：混排时不并列两种颜色，避免一行里出现两个语义色。
+const statusWarn = computed(() => statusParts.value[0]?.warn ?? false);
 
 async function onCopyCmd() {
   if (!fullCommand.value) return;
@@ -135,39 +188,14 @@ onUnmounted(() => {
           :auto-size="{ minRows: 4, maxRows: 12 }"
           :textarea-attrs="{ readonly: true, spellcheck: false }"
         />
-        <!-- 运行中参数与当前参数不一致时明示（否则用户以为屏幕上这串就是正在跑的） -->
-        <div v-if="staleCount" class="cmd-hint cmd-hint--warn">
-          <Icon name="alert" :size="11" />
-          <span>{{ i18n.t('cmd_stale_running', [String(staleCount)]) }}</span>
-        </div>
-        <!-- 引擎侧参数覆写通道：本框只反映命令行里写得下的东西，LLAMA_ARG_* 改写的部分不出现，
-             因此"没发射＝按引擎缺省"这一读法在存在这些变量时不成立，必须就地说明 -->
-        <div v-if="server.envOverrides.length" class="cmd-hint cmd-hint--warn">
-          <Icon name="info" :size="11" />
-          <span>{{ i18n.t('cmd_env_overrides', [server.envOverrides.join(', ')]) }}</span>
-        </div>
-        <!-- /props 回读：唯一「已证实」的信号。不一致才出声道，一致或未回读都保持安静。
-             两种措辞各占各的槽（env 版多一段归因），分两支调用以免占位符槽数与实参不符 -->
-        <div v-if="propsMismatch.length && !envBlame" class="cmd-hint cmd-hint--warn">
-          <Icon name="alert" :size="11" />
-          <span>{{ i18n.t('cmd_props_mismatch', [String(propsMismatch.length), mismatchList]) }}</span>
-        </div>
-        <div v-else-if="propsMismatch.length" class="cmd-hint cmd-hint--warn">
-          <Icon name="alert" :size="11" />
-          <span>{{ i18n.t('cmd_props_mismatch_env', [String(propsMismatch.length), mismatchList, server.envOverrides.join(', ')]) }}</span>
-        </div>
-        <!-- 参数基线是某个引擎版本 help 的快照：版本一变，那批不可回读参数的判定基准就可能过期，
-             而这件事只有引擎自报的 build_info 能告诉我们 -->
-        <div v-if="baselineDrift" class="cmd-hint cmd-hint--warn">
-          <Icon name="alert" :size="11" />
-          <span>{{ i18n.t('cmd_baseline_drift', [baselineDrift.engineBuild, baselineDrift.baselineBuild]) }}</span>
-        </div>
-        <!-- 核过且一致也要说一句：只报坏消息会让「没提示」被读成「没核对过」。
-             判据必须独立写全（一致 = 无不一致 且 无漂移 且 取数成功）——这里原先挂在
-             上一行的 v-else-if 上，导致"有不一致"时正面结论照样并列显示，自相矛盾。 -->
-        <div v-if="propsAllClear" class="cmd-hint">
-          <Icon name="info" :size="11" />
-          <span>{{ i18n.t('cmd_props_ok', [String(server.propsCheck?.checked.length ?? 0), checkedAtLabel]) }}</span>
+        <!-- 常驻状态行槽：min-height 预留两档行高（中文态一行、英文长句两行都装得下），
+             文案再怎么换都不撑高；不一致明细再长也只占两档，完整内容走 title（§7.1 铁律③：
+             预留用静态 CSS，不做「测量再回填」）。 -->
+        <div class="cmd-status">
+          <Icon class="cmd-status-icon" :name="statusWarn ? 'alert' : 'info'" :size="11" />
+          <span class="cmd-status-text" :class="{ 'cmd-status-text--warn': statusWarn }" :title="statusText">
+            {{ statusText }}
+          </span>
         </div>
       </div>
 
@@ -255,8 +283,34 @@ onUnmounted(() => {
   color: var(--color-text-3);
 }
 
-// 运行中参数与当前参数不一致：橙警示（与 ParamRow 的超限提示同一 token，不自造色值）
-.cmd-hint--warn {
+// 常驻状态行槽（原五条 v-if 提示行的替代物）：槽恒在，只换文案。
+// 高度 = 两档 --fs-sm 行高（12px × 1.5 = 18px/档），中英两态都不会超出。
+.cmd-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 36px;
+}
+
+.cmd-status-icon {
+  flex: 0 0 auto;
+  margin-top: 3px; // 与 18px 行框的首行文字基线对齐（18 - 11 图标高）/ 2 ≈ 3px
+}
+
+// 两档封顶：超出部分省略，完整文案由 title 承载（不加滚动、不做测量）
+.cmd-status-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--color-text-3);
+}
+
+// 警示语义：橙（与 ParamRow 的超限提示同一 token，不自造色值）
+.cmd-status-text--warn {
   color: rgb(var(--orange-6));
 }
 </style>

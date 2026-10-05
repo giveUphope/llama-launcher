@@ -695,21 +695,28 @@ function quantTooltip(q: QuantizationInfo | null): string {
         </a-dropdown>
         <a-button
           type="primary"
+          class="parse-btn"
           :disabled="!urlInput.trim() || parsing"
           @click="onParseUrl"
         >
-          <Icon v-if="parsing" name="loading" :size="12" />
-          {{ parsing ? i18n.t('msg_parsing') : i18n.t('btn_parse_url') }}
+          <!-- #81 ②：图标位常驻（非解析态用 visibility:hidden 仍占 12px），配合 .parse-btn
+               的 min-width（按中英两态较宽者算，推导见样式块注释），「搜索 ↔ 正在搜索...」
+               换字与 loading 图标都不改写按钮宽度 -->
+          <span class="parse-btn-icon" :class="{ 'is-idle': !parsing }">
+            <Icon name="loading" :size="12" />
+          </span>
+          <span class="parse-btn-text">{{ parsing ? i18n.t('msg_parsing') : i18n.t('btn_parse_url') }}</span>
         </a-button>
       </div>
 
-      <!-- 错误提示 -->
-      <div v-if="parseError" class="error-msg">{{ parseError }}</div>
-
-      <!-- 解析信息 -->
-      <div v-if="parsedInfo" class="parsed-info">
-        <span class="info-id">{{ parsedInfo.modelId }}</span>
-        <span v-if="parsedInfo.fileName" class="info-file">→ {{ parsedInfo.fileName }}</span>
+      <!-- #81 ①：解析状态槽常驻——错误提示与解析信息在同一槽内互换（min-height 见样式块），
+           不再往正常流里整块插入/删除；英文错误文案更长，预留按 1 行 + 上下内距算 -->
+      <div class="parse-status-slot">
+        <div v-if="parseError" class="error-msg">{{ parseError }}</div>
+        <div v-else-if="parsedInfo" class="parsed-info">
+          <span class="info-id">{{ parsedInfo.modelId }}</span>
+          <span v-if="parsedInfo.fileName" class="info-file">→ {{ parsedInfo.fileName }}</span>
+        </div>
       </div>
 
       <!-- 搜索结果列表（分页式） -->
@@ -771,8 +778,9 @@ function quantTooltip(q: QuantizationInfo | null): string {
           </ToolTip>
         </div>
 
-        <!-- 类别筛选：checkable a-tag（单选语义，@check 忽略布尔参数保持"恒有选中"） -->
-        <div v-if="modelFiles.length > 0" class="cat-filter">
+        <!-- 类别筛选行（#81 ①）：元素常驻、min-height 一档，无文件时为空行占位——
+             原先 v-if="modelFiles.length > 0"，文件到位整行插入并把下方列表顶下一档 -->
+        <div class="cat-filter">
           <a-tag
             class="cat-chip"
             checkable
@@ -797,42 +805,49 @@ function quantTooltip(q: QuantizationInfo | null): string {
           </a-tag>
         </div>
 
-        <div v-if="loadingFiles" class="loading-msg">{{ i18n.t('msg_parsing') }}</div>
-        <div v-else-if="filesError" class="error-msg">{{ filesError }}</div>
-        <div v-else-if="modelFiles.length === 0" class="empty-msg">{{ i18n.t('msg_no_files') }}</div>
-        <div v-else-if="pagedFiles.length === 0" class="empty-msg">{{ i18n.t('msg_no_files_in_cat') }}</div>
-        <a-list v-else class="file-list" :bordered="false" :split="false" size="small">
-          <!-- 模型文件列表：a-list 承载（行选中 = 行点击 + a-checkbox，§7.5.5 交互控件原生） -->
-          <a-list-item
-            v-for="f in pagedFiles"
-            :key="f.path"
-            class="file-item"
-            :class="{ checked: selectedFiles.has(f.path), recommended: f.path === recommendedPath }"
-            @click="toggleFile(f.path)"
-          >
-            <a-checkbox
-              class="file-check"
-              :model-value="selectedFiles.has(f.path)"
-              @click.stop
-              @change="toggleFile(f.path)"
-            />
-            <span class="file-name" :title="f.path">{{ f.name }}</span>
-            <a-tag
-              v-if="f.quantization"
-              class="quant-badge"
-              size="small"
-              :class="`quant-${f.quantization.family}`"
-              :title="quantTooltip(f.quantization)"
-            >{{ f.quantization.label }}</a-tag>
-            <a-tag v-if="f.path === recommendedPath" class="rec-badge" size="small">{{ i18n.t('lbl_recommended') }}</a-tag>
-            <a-tag class="file-cat" size="small" :class="`cat-${f.category}`">{{ categoryLabel(f.category) }}</a-tag>
-            <span class="file-size">{{ f.sizeStr }}</span>
-          </a-list-item>
-        </a-list>
+        <!-- 四态状态槽（#81 ①）：解析中 / 出错 / 空 / 列表 共用一个常驻槽，min-height 一档
+             （= 单行消息高度 + 上下内距），四态互换本段高度不变；列表行多于 1 行时长高是
+             数据量本身而非状态互换，预留不用每帧测量回填（§7.1 铁律③） -->
+        <div class="files-state-slot">
+          <div v-if="loadingFiles" class="loading-msg">{{ i18n.t('msg_parsing') }}</div>
+          <div v-else-if="filesError" class="error-msg">{{ filesError }}</div>
+          <div v-else-if="modelFiles.length === 0" class="empty-msg">{{ i18n.t('msg_no_files') }}</div>
+          <div v-else-if="pagedFiles.length === 0" class="empty-msg">{{ i18n.t('msg_no_files_in_cat') }}</div>
+          <a-list v-else class="file-list" :bordered="false" :split="false" size="small">
+            <!-- 模型文件列表：a-list 承载（行选中 = 行点击 + a-checkbox，§7.5.5 交互控件原生） -->
+            <a-list-item
+              v-for="f in pagedFiles"
+              :key="f.path"
+              class="file-item"
+              :class="{ checked: selectedFiles.has(f.path), recommended: f.path === recommendedPath }"
+              @click="toggleFile(f.path)"
+            >
+              <a-checkbox
+                class="file-check"
+                :model-value="selectedFiles.has(f.path)"
+                @click.stop
+                @change="toggleFile(f.path)"
+              />
+              <span class="file-name" :title="f.path">{{ f.name }}</span>
+              <a-tag
+                v-if="f.quantization"
+                class="quant-badge"
+                size="small"
+                :class="`quant-${f.quantization.family}`"
+                :title="quantTooltip(f.quantization)"
+              >{{ f.quantization.label }}</a-tag>
+              <a-tag v-if="f.path === recommendedPath" class="rec-badge" size="small">{{ i18n.t('lbl_recommended') }}</a-tag>
+              <a-tag class="file-cat" size="small" :class="`cat-${f.category}`">{{ categoryLabel(f.category) }}</a-tag>
+              <span class="file-size">{{ f.sizeStr }}</span>
+            </a-list-item>
+          </a-list>
+        </div>
 
-        <!-- 文件分页 -->
-        <div v-if="filesTotalPages > 1" class="pager">
+        <!-- 文件分页（#81 ①）：分页条元素常驻（min-height 一档），控件超过一页才渲染
+             ——原先整条 v-if 插在按钮上方，翻页态一改就把下方内容顶一挡 -->
+        <div class="pager">
           <a-pagination
+            v-if="filesTotalPages > 1"
             class="dl-pager"
             simple
             :current="filesPage"
@@ -842,8 +857,9 @@ function quantTooltip(q: QuantizationInfo | null): string {
           />
         </div>
 
-        <!-- 下载按钮 -->
-        <div v-if="modelFiles.length > 0" class="files-actions">
+        <!-- 下载按钮行（#81 ①）：元素常驻（min-height 一档）；无文件时计数为 0/0
+             且按钮本已 disabled，不再出现「按钮行凭空插入」 -->
+        <div class="files-actions">
           <span class="selected-count">
             {{ i18n.t('lbl_selected') }}: {{ selectedFiles.size }}/{{ modelFiles.length }}
           </span>
@@ -860,8 +876,12 @@ function quantTooltip(q: QuantizationInfo | null): string {
       </div>
       </template>
 
-      <!-- 下载任务列表 -->
-      <div v-if="tasks.length > 0" class="tasks-section">
+      <!-- 下载任务区（#81 ①）：整块常驻，不再 v-if="tasks.length > 0"——
+           原先首个任务加入时整块（标题 + 分隔线 + 两个按钮）凭空插进正常流，
+           把下方内容整块下移。0 任务时给一行空态占位（min-height 一档），
+           标题计数 (0) 已说明状态。空态文案用 `msg_no_download_tasks`（中英两份同轮新增，
+           代理当时受「不许改字典」约束临时借用了 `lbl_dep_empty`，收尾时换成正式键）。 -->
+      <div class="tasks-section">
         <div class="tasks-header">
           <span v-if="mode !== 'tasks'" class="section-title">{{ i18n.t('lbl_download_tasks') }} ({{ tasks.length }})</span>
           <div class="tasks-actions">
@@ -880,6 +900,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
           </div>
         </div>
         <div class="task-list">
+          <div v-if="tasks.length === 0" class="empty-msg task-empty">{{ i18n.t('msg_no_download_tasks') }}</div>
           <div v-for="t in tasks" :key="t.id" class="task-item">
             <div class="task-main">
               <div class="task-info">
@@ -960,6 +981,63 @@ function quantTooltip(q: QuantizationInfo | null): string {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* ── STYLE_TODO #81 ①②：静态高度预留（纯 CSS，不做「每帧测量再回填」，§7.1 铁律③）──────
+   档位取值来源（都是各元素本已存在的自然高，预留只是让它恒在，不新造视觉规格）：
+   · Arco medium 按钮高 32px → .parse-btn / .files-actions
+   · Arco 默认 a-tag 高 24px（§7.5.4 ⑥）→ .cat-filter
+   · a-pagination 项高 32px + .pager 上下内距 4px×2 → .pager
+   · 单行消息 = --fs-base 行高约 22px + .loading-msg/.empty-msg 上下内距 8px×2 = 38px
+     → .files-state-slot / .parse-status-slot（.error-msg 内距 4px 较矮，统一到 38 档）
+   双语按较长那态算：文案换行属数据量而非状态互换，槽只保证「状态互换」时高度不变。
+   .files-section 的 194px = 头部 28 + 24 + 38 + 40 + 32 + 4 段 flex gap(8) ——
+   即选中模型那一刻本段已按最终外形出现，后续文件到位不再改变它的最小高。 */
+.parse-btn {
+  min-width: 132px;
+  gap: 8px;
+}
+
+.parse-btn-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 12px;
+  justify-content: center;
+
+  &.is-idle {
+    visibility: hidden;
+  }
+}
+
+.parse-status-slot {
+  min-height: 38px;
+}
+
+.files-section {
+  min-height: 194px;
+}
+
+.cat-filter {
+  min-height: 24px;
+}
+
+.files-state-slot {
+  min-height: 38px;
+}
+
+.pager {
+  min-height: 40px;
+}
+
+.files-actions {
+  min-height: 32px;
+}
+
+.task-empty {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* URL 输入区 */

@@ -455,8 +455,9 @@ function benchTitle(m: ModelInfo): string {
           <a-input v-model="searchQuery" :placeholder="i18n.t('lbl_search_models')" allow-clear>
             <template #prefix><Icon name="search" :size="13" /></template>
           </a-input>
-          <span class="search-count" v-if="searchQuery">
-            {{ filteredModels.length }} / {{ models.length }}
+          <!-- 计数走常驻定宽槽：无搜索词时留同宽空白，输入框宽度不再随搜索当场变化 -->
+          <span class="search-count">
+            <template v-if="searchQuery">{{ filteredModels.length }} / {{ models.length }}</template>
           </span>
         </div>
         <!-- 表格列用 columns prop（a-table-column 子组件模式在当前版本组合下渲染为空）；
@@ -475,11 +476,15 @@ function benchTitle(m: ModelInfo): string {
         >
           <template #name="{ record }">
             <div class="model-name-cell">
-              <Icon v-if="record.path === modelPath" name="star" :size="12" class="selected-icon" />
+              <!-- 选中星标槽恒在且定宽：出现时不再把名称起点右移、不改名称截断点 -->
+              <span class="selected-slot">
+                <Icon v-if="record.path === modelPath" name="star" :size="12" class="selected-icon" />
+              </span>
               <div class="model-name-row" :title="record.path">{{ record.name }}</div>
             </div>
-            <!-- 伴随文件标签 + 显存适配 + 体检结果合并同一行 -->
-            <div v-if="(record.tags && record.tags.length) || fitOf(record)?.verdict || benchBadge(record)" class="model-tags">
+            <!-- 伴随文件标签 + 显存适配 + 体检结果合并同一行：徽章排容器恒渲染（内部各徽章仍 v-if），
+                 min-height 预留一行，fit 批量结果 / 体检记录回灌时行高不再从 1 行变 2 行 -->
+            <div class="model-tags">
               <a-tag v-for="t in record.tags ?? []" :key="t" size="small" :color="tagColor(t)">{{ t }}</a-tag>
               <a-tag v-if="fitOf(record)?.verdict" size="small" :color="fitColor(record)" :title="fitTitle(record)">
                 {{ fitBadge(record) }}
@@ -510,34 +515,41 @@ function benchTitle(m: ModelInfo): string {
         </a-table>
       </Card>
 
-      <!-- 精简的模型信息摘要（可折叠）+ 建议参数一键应用 -->
-      <ModelMetaCard v-if="modelPath" />
-
-      <!-- GGUF 读取状态 -->
-      <Card v-if="modelPath && (params.ggufLoading || params.ggufError)" title-key="card_model_info">
-        <div v-if="params.ggufLoading" class="gguf-status">{{ i18n.t('msg_gguf_reading') }}</div>
-        <div v-else-if="params.ggufError" class="gguf-status error">
-          {{ i18n.t('msg_gguf_read_failed', [params.ggufError]) }}
-        </div>
-      </Card>
-
-      <!-- 建议参数（精简：仅显示 key=value 和一键应用按钮） -->
-      <Card v-if="modelPath && !params.ggufLoading && !params.ggufError && params.ggufSuggestions.length" title-key="card_suggested_params">
-        <div class="suggestions-toolbar">
-          <a-button size="small" type="primary" @click="applySuggestions">
+      <!-- 模型信息常驻卡：未选模型 / GGUF 读取中 / 读取失败 / 建议参数四态在同一张卡体内切换，
+           卡体 min-height 预留一档，不再整块互换或凭空出现顶动下方内容。
+           应用建议按钮按 §7.5.4 归入 Card 的 #actions（卡片头高度恒定，按钮显隐不改卡体高度）。 -->
+      <Card title-key="card_model_info">
+        <template #actions>
+          <a-button
+            v-if="modelPath && !params.ggufLoading && !params.ggufError && params.ggufSuggestions.length"
+            size="small"
+            type="primary"
+            @click="applySuggestions"
+          >
             {{ i18n.t('gguf_apply_suggestions') }} ({{ params.ggufSuggestions.length }})
           </a-button>
-        </div>
-        <div class="suggestions-compact">
-          <!-- 建议参数 chips：a-tag 原生承载（同 meta-chip/summary-chip 范式），
-               自定义 span 胶囊（padding/bg/radius）已移除 -->
-          <a-tag v-for="(s, idx) in params.ggufSuggestions" :key="idx" size="small" class="suggestion-chip">
-            <span class="chip-key">{{ s.key }}</span>
-            <span class="chip-eq">=</span>
-            <span class="chip-val">{{ formatValue(s.value) }}</span>
-          </a-tag>
+        </template>
+        <div class="model-info-slot">
+          <div v-if="!modelPath" class="model-info-state">{{ i18n.t('msg_no_model') }}</div>
+          <div v-else-if="params.ggufLoading" class="model-info-state">{{ i18n.t('msg_gguf_reading') }}</div>
+          <div v-else-if="params.ggufError" class="model-info-state error">
+            {{ i18n.t('msg_gguf_read_failed', [params.ggufError]) }}
+          </div>
+          <div v-else-if="params.ggufSuggestions.length" class="suggestions-compact">
+            <!-- 建议参数 chips：a-tag 原生承载（同 meta-chip/summary-chip 范式），
+                 自定义 span 胶囊（padding/bg/radius）已移除 -->
+            <a-tag v-for="(s, idx) in params.ggufSuggestions" :key="idx" size="small" class="suggestion-chip">
+              <span class="chip-key">{{ s.key }}</span>
+              <span class="chip-eq">=</span>
+              <span class="chip-val">{{ formatValue(s.value) }}</span>
+            </a-tag>
+          </div>
         </div>
       </Card>
+
+      <!-- 精简的模型信息摘要：常驻卡之后的追加块，出现时只延长页面底部，不再顶动上方卡片。
+           它自身的整卡 v-if（骨架常驻）属 ModelMetaCard 那一行，本轮不改该文件 -->
+      <ModelMetaCard v-if="modelPath" />
     </div>
   </PageFrame>
 </template>
@@ -604,11 +616,15 @@ function benchTitle(m: ModelInfo): string {
   margin-bottom: 8px;
 }
 
+// 常驻定宽槽：宽度按双语最宽计数态（「999 / 999」mono）预留，空态留同宽空白
 .search-count {
   font-size: var(--fs-sm);
   color: var(--color-text-3);
   font-family: var(--font-mono);
-  flex-shrink: 0;
+  flex: 0 0 76px;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .models-table {
@@ -640,6 +656,15 @@ function benchTitle(m: ModelInfo): string {
   min-width: 0; /* 允许 flex 子项收缩，让下方 ellipsis 生效 */
 }
 
+// 星标槽恒在且定宽（与 Icon :size=12 同档）：选中态切换不改该行起点
+.selected-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 12px;
+  min-height: 12px;
+}
+
 .selected-icon {
   color: rgb(var(--primary-6));
   flex-shrink: 0;
@@ -658,12 +683,22 @@ function benchTitle(m: ModelInfo): string {
   flex-wrap: nowrap;
   gap: 4px;
   margin-top: 4px;
+  // 单行预留：a-tag size=small 实测 h20，徽章排容器常驻后行高与徽章数量无关
+  min-height: 20px;
   // 标签恒单行：超出时整行省略（名称列已有 min-width 保底）
   overflow: hidden;
 }
 
-/* GGUF 状态提示 */
-.gguf-status {
+/* 常驻卡体：min-height 预留一档（单行状态文案 + 上下内距），四态切换不改卡体高度 */
+.model-info-slot {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 46px;
+}
+
+/* 卡体内状态提示（未选模型 / 读取中 / 读取失败） */
+.model-info-state {
   padding: 12px;
   font-size: var(--fs-md);
   color: var(--color-text-3);
@@ -675,11 +710,6 @@ function benchTitle(m: ModelInfo): string {
 }
 
 /* 建议参数（精简芯片布局） */
-.suggestions-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 10px;
-}
 
 .suggestions-compact {
   display: flex;

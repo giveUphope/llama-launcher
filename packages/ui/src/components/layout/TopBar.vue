@@ -163,15 +163,19 @@ async function onOpenWeb() {
       <span class="app-name">{{ APP_NAME }}</span>
     </div>
     <div class="right">
-      <!-- 模型选择常驻下拉（Arco Dropdown） -->
+      <!-- 模型按钮常驻（不再 v-if="hasModels"）：原先冷启动模型目录扫描返回那一瞬，整簇
+           按钮（启动/停止/重启/打开网页）会被这个凭空插入的 flex item 顶开左移（STYLE_TODO #81 档 1）。
+           无模型时按钮仍在、置 disabled 并显示「请选择模型」占位文案，宽度由 .model-name 的
+           min-width 锁死，切换模型不再横向重排；下拉内容里的「管理模型…」在禁用态点不到，
+           导航侧栏本就有 Models 入口，不构成能力缺失。 -->
       <a-dropdown
-        v-if="hasModels"
         trigger="click"
+        :disabled="!hasModels"
         :popup-visible="modelDropdownOpen"
         @popup-visible-change="(v: boolean) => (modelDropdownOpen = v)"
       >
-        <ToolTip :text="currentModelName">
-          <a-button class="tb-model" :disabled="false">
+        <ToolTip :text="currentModelName || i18n.t('lbl_select_model')">
+          <a-button class="tb-model" :disabled="!hasModels">
             <template #icon><Icon name="models" :size="14" /></template>
             <span class="model-name">{{ currentModelName || i18n.t('lbl_select_model') }}</span>
             <template #suffix><Icon name="chevron_down" :size="12" /></template>
@@ -327,8 +331,13 @@ async function onOpenWeb() {
   }
 }
 
+/* 名称区宽度锁死：min = max = 180px（STYLE_TODO #81 档 1）。
+   原先只有 max-width，短模型名时按钮按文字收缩，每次切换模型整簇按钮横向重排。
+   取 180 而不是「实测最长模型名」：① 180 是既有上限、也是历史上长名已实际达到的宽度，
+   当下限后按钮宽恒定，两个方向都不再跳；② 模型名由用户目录决定，无法枚举上限。
+   超出部分仍走省略号（overflow/ellipsis/nowrap 保留），完整名看 tooltip。 */
 .model-name {
-  min-width: 0;
+  min-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

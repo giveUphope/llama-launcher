@@ -178,6 +178,10 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
 .summary-label {
   font-size: var(--fs-sm);
   color: var(--color-text-1);
+  // 状态三态文案长短不一（zh「模型目录不存在」/「模型目录未设置」，en「Model dir not found」）：
+  // min-width 按双语最宽态预留，同行项不再随状态切换横向抖动
+  min-width: 132px;
+  white-space: nowrap;
 }
 
 .summary-divider {

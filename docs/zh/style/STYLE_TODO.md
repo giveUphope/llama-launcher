@@ -295,7 +295,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 
 
-### 81. 布局跳变总账：`v-if` 元素未预留占位，数据到位才插入正常流 — 🔴 待修复（2026-10-06 登记，全库审查）
+### 81. 布局跳变总账：`v-if` 元素未预留占位，数据到位才插入正常流 — 🟢 已修复（2026-10-06 登记并同日落地，实测见下）
 
 - **位置**：见下表（`packages/ui/src/` 下 11 处，均已读到具体行的 `v-if` 与容器布局）。
 - **描述（用户视角）**：这些元素在**初次渲染时不存在**（没有默认值 / 没有占位），等数据到位才插进正常流，于是周围内容「跳一下」。判定标准是几何的：自身或兄弟/父容器的位置、尺寸是否因内容到达而改变。锚点是本轮刚修的 `ServicePage` 「有新日志」胶囊——它原先 `v-if` 渲染在日志框上方，出现即把日志框顶下一档，已改绝对定位浮在框内（同文件 `LogsPage` 一并改）。
@@ -318,19 +318,23 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 - **建议落地次序**：① 先做「一行一槽」零风险的三处（`ParamRow` dep-hint 加 `flex: 0 0 16px` 常驻槽、`StatusBar` 复制反馈改绝对定位、`TopBar` `.model-name` 给 `min-width`）；② 再做提示行合并为常驻单行槽的三处（`CommandPreviewCard` 五行合一、`ServiceStatusCard` 端点提示、`ModelMetaCard` 骨架卡）；③ `DownloadCard` 与模型表格行高需要单独设计（改动面大，别和前两档混做）。
 - **修复效果验证**：每处修完按「两态等高」判定——用浏览器在**内容到位前后**各量一次目标容器与其后第一个兄弟元素的 `boundingRect`，`top` 差值必须为 0（横向类则兄弟 `left` 差值为 0）；`pnpm style:audit` 与 `pnpm e2e:web` 双语几何用例不回归；改前改后各截一张同视口截图对比。
+- **修复（2026-10-06）**：11 处全部改为静态预留（常驻槽 `flex: 0 0 Npx` / `min-height` / `visibility: hidden` / 绝对定位），无一处用逐帧测量。参数网格最小轨因新增依赖警示槽 418 → **434**（算式与列数判据已改写为纯算术不变式：两列 ≥882、三列 ≥1330、五列 ≥2226，旧的「视口→列数」经验串是 418 时代值，已删）。新增 i18n 键 `cmd_props_pending`（中英）与 `msg_no_download_tasks`（中英）。
+- **实测结果（mock 页 `getBoundingClientRect`）**：参数页 64 行的三类槽宽度**各自唯一**（提示槽 72 / 依赖槽 12 / 还原槽 24，无一格例外，且依赖槽 64 个全在、当前 0 格有图标——槽常驻即几何不变）；模型表 6 行行高**全部 66px**，而各行徽章数是 1 / 2 / 2 / 3（徽章排不再决定行高）；概览页 `.sec-hint-slot` 36、`.failure-banner-slot` 66（两档）、`.oom-row` 28 且 `visibility: hidden` 零子节点（占位在、内容没有）；服务页 `.cmd-status` 36 常驻并显示「尚未向引擎回读核对（/props）」；下载卡 `.parse-status-slot` 38 与 `.task-empty` 38 均在**空态**下即撑出预留档、`.parse-btn` 宽 132 等于其 `min-width`；设置页 `.summary-label` 132、`.exe-status-slot` 156 均按较宽态锁定。
+- **两处未验到（不当作已修）**：① `DownloadCard` 的 `.files-section`（194px 档）需先搜索并选中一个模型才会出现，本轮没走完该交互；② `PresetsPanel` 的加载占位窗口短于测量间隔，`presetsLoaded` 为 false 的那一帧没抓到（`.list-wrap` 140 ≥ `min-height` 120 已确认）。两处的 CSS 预留都在，缺的是「两态等高」的实测证据。
 
 ### 82. `PageFrame` 不是 flex 列，页面里写的 `flex: 1` 全部失效 → 日志控制台无限长高且内部滚动永不生效 — 🔴 待修复（2026-10-06 实测钉死）
 
 - **位置**：`packages/ui/src/components/common/PageFrame.vue:8-11`（`.page-frame { min-height: 100%; padding: … }`，无 `display: flex`）；受影响消费者 `pages/LogsPage.vue:179-214` 与 `styles 257-264,303-318`（`.console-wrap` / `.console` 都写 `flex: 1; min-height: 0`）。
 - **描述（先讲发生了什么）**：日志页的控制台**不会自己滚动**——日志一多，它是把整页撑出外层滚动条，用户以为「自动滚动到底部」在工作，其实那行 `scrollTop = scrollHeight` 永远作用在一个「高度等于内容高度」的盒子上，是空转；「有新日志」胶囊在这一页也因此永远不可能出现（盒子内部根本不存在「没到底」这个状态）。
 - **根因（实测，非推断）**：`.page-frame` 计算样式是 `display: block`（Arco `.arco-layout-content` 只给 `flex: 1`，不给 `display: flex`），所以它的子元素写的 `flex: 1` 没有弹性上下文，高度退化为「由内容决定」。浏览器实测（mock 页，视口内 `.app-content` 高 705px）：5 行日志时 `.console` 高 **159px**、`.app-content.scrollHeight` **705**；临时塞进 200 行后 `.console` 高 **4187px**、`.app-content.scrollHeight` **4353**，而 `.console` 自身 `scrollHeight > clientHeight` 恒为 **false**、`scrollTop = 99999` 之后仍是 **0**。
-- **修法方向与代价（必须先决策再动手）**：把 `.page-frame` 改为 `display: flex; flex-direction: column`（子元素 `flex: 1; min-height: 0` 即刻生效，`LogsPage` / `ModelsPage` / `ParamsPage` 现有写法不用动）。**代价是全站性的**：块流改 flex 列会取消相邻外边距合并，7 个页面的纵向间距都可能变；`ModelsPage` 的 `.tab-content { flex: 1 }` 一类「今天失效、改后突然生效」的规则要逐页复核。故不与前两档小修混做，需单独一轮 + 全页面截图对比。
+- **修法方向与代价（必须先决策再动手）**：⚠ **只把 `.page-frame` 改成 `display: flex; flex-direction: column` 实测不够**——2026-10-06 试过并复量：`.page-frame` 计算样式确实变成 `flex`，但塞 200 行后 `.console` 仍是 **4187px**、`scrollHeight > clientHeight` 仍为 **false**、`scrollTop` 赋值后仍是 **0**。原因是还缺「确定高度」这一环：`.app-content` 本身是 `display: block`，Arco 给 `.page-frame` 的 `flex: 1` 在它身上同样失效，于是 `.page-frame` 高度仍由内容决定，子元素的 `flex: 1` 没有自由空间可分。正确做法要同时满足两件事：① 给 `.app-content` 或 `.page-frame` 一个**确定高度**（`height: 100%`，父级 `.app-content` 实测有确定高 705px）；② 处理 flex 列默认的 `flex-shrink: 1` —— 长页面（参数页 60 行）的子项若被压缩会**裁切内容而不是溢出滚动**，需要给非弹性子项显式 `flex-shrink: 0`。**代价是全站性的**：块流改 flex 列取消相邻外边距合并，7 个页面纵向间距都可能变；`ModelsPage` 的 `.tab-content { flex: 1 }` 一类「今天失效、改后突然生效」的规则要逐页复核。故必须单独一轮，配 7 页面 × 双语的截图对比，且**必须在其他呈现层改动落地并验证之后再做**（否则基线一直在动）。
 - **修复效果验证**：改后在日志页把条目推到 300 行以上，实测 `.console` 高度**不随行数增长**（等于视口可用高）、`box.scrollHeight > box.clientHeight` 为 **true**、`scrollTop` 可被赋值并稳定在非 0；同时 7 个页面（含英文态）逐页截图对比间距无回归，`pnpm e2e:web` 全绿。
 
-### 83. `DashboardPage` 读 `scrollHeight` 未做 `pageActive` 门控，与同族两处不一致 — 🔴 待修复（2026-10-06 登记）
+### 83. `DashboardPage` 读 `scrollHeight` 未做 `pageActive` 门控，与同族两处不一致 — 🟢 已修复（2026-10-06）
 
 - **位置**：`packages/ui/src/pages/DashboardPage.vue:37`（`watch(recentIssues.length)` 回调里读 `scrollHeight`）。
 - **描述**：`../frontend.md` §7.1 铁律③要求强制布局操作要 `pageActive` 门控 + rAF 合帧；`LogsPage` 与 `ServicePage` 的同类自滚动都做了门控，唯独概览页没有——页面被 keep-alive 停用后，问题列表一变仍会在后台强制布局。属一致性缺陷（不是跳变），随手登记在此避免丢失。
+- **修复**：`scrollToBottom` 改为 `pageActive` 门控 + `scrollScheduled` rAF 合帧（同帧多条只滚一次），`onActivated` 补滚、`onDeactivated` 置 false，写法逐行对齐 `LogsPage` / `ServicePage`；顺带删掉不再需要的 `nextTick` 导入。
 - **修复效果验证**：`grep -n "scrollHeight" packages/ui/src/pages/*.vue` 三处命中都带 `pageActive` 门控；切到别的页触发问题列表变化，DevTools Performance 录制里概览页不应再出现 layout 任务。
 
 
@@ -341,6 +345,8 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 83 | `DashboardPage` 读 `scrollHeight` 未做 `pageActive` 门控（同族 `LogsPage` / `ServicePage` 都有，唯独概览没有，keep-alive 停用期仍强制布局）→ 补门控 + rAF 合帧，写法对齐同族 | 2026-10-06 |
+| 81 | 布局跳变总账 11 处：`v-if` 元素无默认占位、数据到位才插正常流（顶栏模型按钮簇与模型名宽、状态栏 PID/URL/复制反馈、模型内置信息卡、命令预览 5 条提示行、模型表行内徽章排、下载卡解析链与任务区、`ParamRow` 依赖警示槽、设置页三态标签与引擎胶囊、清理按钮换文案）→ 全部改静态预留（常驻槽 / `min-height` / `visibility` / 绝对定位），参数网格最小轨 418→434，新增 `cmd_props_pending` 与 `msg_no_download_tasks` 双语键；实测 64 行三类槽宽度唯一、6 行模型行高恒 66px（徽章 1/2/2/3 不影响） | 2026-10-06 |
 | 78 | 参数行固定开销 32px 虚胖：Arco `label-col` 自带 16px 右内距（§7.5.4 写的 8px 间距从未为真、可用宽也不是 132 而是 124）+ 滑块数字框 88 对 6 位值富余 12px + 提示槽余量 4px → 最小轨 450 回收到 418，两列阈值 914→850（视口 ≥~1170 即两列）、1600 由 2 列回 3 列、2560 由 4 列回 5 列 | 2026-09-20 |
 | 77 | 行尾还原 ✕ 内联在 `v-if` 里，出现即挤掉同行控件 28px（控件宽 `[171,143]` 两值、芯片 x 569↔597）+ 建议值芯片族两种高度两种内距（`.rec-chip` 缺 `size="small"`、`.gguf-hint` 6px 内距覆写）→ 两槽常驻 + 芯片同档 + 最小轨 400→450 | 2026-09-20 |
 | 76 | 参数网格 `max-width:1160px` 硬封顶 3 列：1920 右侧空 486px / 2560 空 1126px，且 1440 未封顶时排 3 列把滑块轨道压到 31px（改为无上限 + 最小轨 400px） | 2026-09-20 |

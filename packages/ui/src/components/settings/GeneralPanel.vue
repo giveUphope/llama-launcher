@@ -219,12 +219,16 @@ const closeBehavior = computed<CloseBehavior>({
             <template #icon><Icon name="folder" :size="12" /></template>
             {{ i18n.t('btn_change_dir') }}
           </a-button>
-          <ToolTip v-if="exeBadge" :text="exeBadge.tip">
-            <span class="exe-status" :class="exeBadge.cls">
-              <Icon :name="exeBadge.spin ? 'loading' : exeBadge.icon" :size="12" />
-              <span>{{ exeBadge.label }}</span>
-            </span>
-          </ToolTip>
+          <!-- 引擎状态胶囊走常驻定宽槽：槽宽按双语最宽状态文案预留，检测结论落地时
+               行内固有宽度不再变化，.path-row 的 flex-wrap 也不会因此把整行折成两行 -->
+          <span class="exe-status-slot">
+            <ToolTip v-if="exeBadge" :text="exeBadge.tip">
+              <span class="exe-status" :class="exeBadge.cls">
+                <Icon :name="exeBadge.spin ? 'loading' : exeBadge.icon" :size="12" />
+                <span class="exe-status-text">{{ exeBadge.label }}</span>
+              </span>
+            </ToolTip>
+          </span>
         </div>
       </a-form-item>
 
@@ -274,12 +278,29 @@ const closeBehavior = computed<CloseBehavior>({
   }
 }
 
+// 胶囊定宽槽：156px 覆盖英文最宽态「Engine file missing」+ 图标 + 内距（中文态留白但几何恒定）
+.exe-status-slot {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 156px;
+  min-width: 0;
+}
+
 .exe-status {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   height: 22px;
+  max-width: 100%;
+  min-width: 0;
   padding: 0 10px;
+
+  // 万一某语言译文超出预留宽：就地省略，绝不撑破槽（槽宽恒定是本修法的前提）
+  .exe-status-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   border-radius: var(--radius-pill);
   font-size: var(--fs-xs);
   font-weight: 600;

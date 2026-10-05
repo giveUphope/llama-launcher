@@ -89,7 +89,7 @@ onUnmounted(() => {
           @click="onCopyUrl"
         >
           <span class="url-text">{{ server.apiUrl }}</span>
-          <a-tag v-if="copiedKey === 'url'" size="small" color="green">{{ i18n.t('msg_url_copied') }}</a-tag>
+          <a-tag v-if="copiedKey === 'url'" class="copied-tag" size="small" color="green">{{ i18n.t('msg_url_copied') }}</a-tag>
         </a-button>
       </ToolTip>
       <ToolTip v-if="params.get(MODEL_KEY)" :text="i18n.t('copy_model')">
@@ -100,7 +100,7 @@ onUnmounted(() => {
           @click="onCopyModel"
         >
           <span class="model-text">{{ modelName }}</span>
-          <a-tag v-if="copiedKey === 'model'" size="small" color="green">{{ i18n.t('msg_model_copied') }}</a-tag>
+          <a-tag v-if="copiedKey === 'model'" class="copied-tag" size="small" color="green">{{ i18n.t('msg_model_copied') }}</a-tag>
         </a-button>
       </ToolTip>
       <span v-else class="model">{{ modelName }}</span>
@@ -131,6 +131,8 @@ onUnmounted(() => {
 
 /* 可点击复制值：a-button 基座 + 状态栏铬覆盖（胶囊、白字、hover 表面着色） */
 .pill-copy {
+  /* position: relative 只为复制反馈胶囊当绝对定位参照（见 .copied-tag） */
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -145,5 +147,19 @@ onUnmounted(() => {
     background: var(--statusbar-hover);
     color: inherit;
   }
+}
+
+/* 复制反馈胶囊浮在宿主胶囊右下角，不参与 flex 正常流（STYLE_TODO #81 档 1）：
+   原先它 v-if 插在 .pill-copy 内，点一次复制「出现 → 1.2s 后消失」让胶囊宽度跳两回、
+   同行状态栏元素跟着重排两次。同一修法已在 ServicePage「有新日志」胶囊验证过
+   （宿主 position: relative + 标签 position: absolute）。
+   pointer-events: none 保证浮层不吃掉按钮 hover / 点击；标签自带不透明底色，
+   全站禁用 backdrop-filter，这里不用模糊。 */
+.copied-tag {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  z-index: 2;
+  pointer-events: none;
 }
 </style>

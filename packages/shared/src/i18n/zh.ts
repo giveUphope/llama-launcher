@@ -169,6 +169,7 @@ export const zh = {
   msg_no_models_dir: '未配置模型目录',
   msg_no_exe_hint: '请在应用设置页配置 llama.cpp 引擎目录',
   msg_no_models_dir_hint: '请在模型管理页面设置模型目录',
+  msg_no_download_tasks: '暂无下载任务',
   msg_select_exe_dir: '选择 llama-server 所在目录',
   msg_exe_not_found: '未在目录中检测到 llama-server 可执行文件',
   msg_exe_file_missing: '引擎文件不存在，请检查目录',
@@ -414,6 +415,7 @@ export const zh = {
   // 预览可信度：预览 = 下次启动会用的命令，运行中的服务用的是启动那一刻的参数
   cmd_stale_running: '命令预览按【当前参数】生成；运行中的服务仍在用启动那一刻的参数，两者有 {0} 项不同，重启后生效',
   cmd_env_overrides: '引擎侧环境变量 {0} 会改写界面上未设置的参数缺省值，这些改写不会出现在命令里',
+  cmd_props_pending: '尚未向引擎回读核对（/props）',
   cmd_props_ok: '已向引擎回读核对 {0} 项，与发出的值一致（{1}）',
   act_recheck: '向引擎重新回读核对（/props）',
   cmd_props_mismatch: '引擎回读：{0} 项与发出的值不一致（{1}）——以 /props 实际生效值为准',

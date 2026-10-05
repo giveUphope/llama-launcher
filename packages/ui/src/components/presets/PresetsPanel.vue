@@ -54,10 +54,19 @@ watch(autoPresetName, (nv) => {
   lastAutoName = nv;
 }, { immediate: true });
 
+// 首次取数是否已落地（STYLE_TODO #81 ③）：IPC 回来之前 presets 是空数组，
+// 直接渲染「暂无预设」等于把「还没查到」说成「确实没有」——错的默认态，
+// 且列表一到位就整块替换。取数未回时渲染一行加载占位，不回就不下结论。
+const presetsLoaded = ref(false);
+
 async function onRefreshList() {
-  const result = await window.api.presets.list();
-  // 防御性检查：浏览器预览/mock 环境下 list 可能返回 null
-  presets.value = Array.isArray(result) ? result : [];
+  try {
+    const result = await window.api.presets.list();
+    // 防御性检查：浏览器预览/mock 环境下 list 可能返回 null
+    presets.value = Array.isArray(result) ? result : [];
+  } finally {
+    presetsLoaded.value = true;
+  }
 }
 
 // 名称↔模型一致性守卫（仅针对真实的错绑风险，不打扰自定义命名）：
@@ -167,7 +176,11 @@ onActivated(() => { void onRefreshList(); });
            2026-09-07 移除；提示为用户操作后的瞬时反馈，出现时列表下移可接受） -->
       <div v-if="appliedMsg" class="applied-msg">{{ appliedMsg }}</div>
       <div class="list-wrap">
-        <a-empty v-if="!presets.length" class="empty" :description="i18n.t('preset_empty')" />
+        <!-- #81 ③：取数未回之前渲染一行加载占位（Arco a-spin），不再抢跑显示「暂无预设」 -->
+        <div v-if="!presetsLoaded" class="list-loading">
+          <a-spin />
+        </div>
+        <a-empty v-else-if="!presets.length" class="empty" :description="i18n.t('preset_empty')" />
         <a-list v-else :bordered="false" size="small" class="preset-list">
           <a-list-item
             v-for="p in presets"
@@ -254,6 +267,19 @@ onActivated(() => { void onRefreshList(); });
 .list-wrap {
   max-height: 360px;
   overflow: auto;
+  /* #81 ③：静态预留——本容器常驻，加载占位行 / 空态 / 列表 三者都在同一 ≥120px 盒子里
+     互换，切状态不再改变卡片体高度（120 按 a-empty 的「图标 + 一行文案」自然高拍的，
+     本轮不许开浏览器，未实测；若 a-empty 实测更高只需上调此值） */
+  min-height: 120px;
+}
+
+/* 加载占位行：容器是块级，a-spin 默认贴左上，居中一下让占位与空态视觉同位
+   （代理收尾报告点名缺这条；预留高度由上方 .list-wrap 的 min-height 负责） */
+.list-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
 }
 
 // 预设列表行：对齐 Arco 原生列表样式（small 行 padding 9px 20px + split 分割线），

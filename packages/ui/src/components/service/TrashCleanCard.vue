@@ -107,7 +107,7 @@ async function onCleanTrash() {
   <Card title-key="msg_clean_trash">
     <!-- 操作按钮上移至卡片头（与标题同行，§7.5.4 卡片头操作区）；说明文字留在体内 -->
     <template #actions>
-      <a-button type="outline" status="warning" size="small" :disabled="detecting" @click="onCleanTrash">
+      <a-button class="trash-detect-btn" type="outline" status="warning" size="small" :disabled="detecting" @click="onCleanTrash">
         <template #icon><Icon name="trash" :size="12" /></template>
         {{ detecting ? i18n.t('msg_detecting') : i18n.t('msg_detect_trash') }}
       </a-button>
@@ -120,6 +120,12 @@ async function onCleanTrash() {
 </template>
 
 <style scoped lang="scss">
+// 两态文案宽窄不同（zh「检测配置目录」/「检测中…」，en「Scan Config Dir」/「Detecting…」）：
+// 按较宽态定 min-width，按钮不再随检测状态换文案而撑宽，卡片头操作区不横向抖动
+.trash-detect-btn {
+  min-width: 142px;
+}
+
 .trash-hint {
   display: inline-flex;
   align-items: center;

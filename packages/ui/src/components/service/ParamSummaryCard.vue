@@ -90,7 +90,10 @@ const activeParamCount = computed(() => {
           <a-tag v-for="r in g.rows" :key="r.key" class="summary-chip" size="small" :title="r.flag">
             <span class="chip-key">{{ r.label }}</span>
             <span class="chip-eq">=</span>
-            <span class="chip-val">{{ r.value }}</span>
+            <!-- 值区单行省略（#81 低档：模型 chip 的值由短文本变成完整绝对路径 →
+                 chip 超宽换行、摘要卡整块长高）；截断值按 §7.5「截断值保留原生 title」
+                 的边界补原生 title 携完整值（STYLE_TODO #75 的保留类别） -->
+            <span class="chip-val" :title="r.value">{{ r.value }}</span>
           </a-tag>
         </div>
       </div>
@@ -127,6 +130,9 @@ const activeParamCount = computed(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  /* 芯片行为一档定高（Arco small a-tag 自然高 20px）：组内空/一条/多条时
+     行高不变，值改写不再让整组长高 */
+  min-height: 20px;
 }
 // 参数摘要 chip：Arco a-tag 承载（同 ModelMetaCard meta-chip 范式），仅补 mono 字体
 // 与内容排列；key/eq/val 三段配色与原自绘一致。
@@ -137,8 +143,30 @@ const activeParamCount = computed(() => {
   font-family: var(--font-mono);
   align-items: center;
   gap: 5px;
+  // 芯片整体不越行宽（值再长也只在自己的 max-width 内省略，不换行撑高）
+  max-width: 100%;
+  min-width: 0;
 }
-.chip-key { color: rgb(var(--primary-6)); font-weight: 600; }
-.chip-eq { color: var(--color-text-3); }
-.chip-val { color: var(--color-text-1); }
+// key 列定宽档：中英标签长短不一时（英文更长）按较长那态预留，key 自身省略
+.chip-key {
+  color: rgb(var(--primary-6));
+  font-weight: 600;
+  flex: 0 0 auto;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip-eq { color: var(--color-text-3); flex: 0 0 auto; }
+// 值区：单行省略 + 静态 max-width（绝对路径 / --host 多址串等长值都在此收敛），
+// 完整值走原生 title，行结构固定不再因值变长而换行
+.chip-val {
+  color: var(--color-text-1);
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 </style>

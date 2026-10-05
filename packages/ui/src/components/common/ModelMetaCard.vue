@@ -72,11 +72,21 @@ function formatValue(v: unknown): string {
 </script>
 
 <template>
-  <Card v-if="modelPath && hasInfo" title-key="card_model_info">
+  <!-- 骨架卡（STYLE_TODO #81 档 2 第 3 处）：原先整卡 v-if="modelPath && hasInfo"，
+       选模型或启动恢复会话后要等 GGUF 读头返回，卡片凭空插入、下方内容下沉 100px 以上。
+       现在只要选了模型（modelPath）就渲染卡片：标题与三档行（模型名行 / 主摘要芯片行 /
+       详情芯片行）常驻并各自预留固定高度，数据到位只换内容不换结构。
+       未读到信息时，模型名行显示既有的「正在读取模型元数据...」；读失败时留空——
+       那条文案由同页的读取状态卡承载，不在这里重复。 -->
+  <Card v-if="modelPath" title-key="card_model_info">
     <div class="meta-header">
       <span v-if="modelName" class="meta-model-name">{{ modelName }}</span>
+      <span v-else-if="params.ggufLoading && !params.ggufError" class="meta-pending">
+        {{ i18n.t('msg_gguf_reading') }}
+      </span>
     </div>
     <div class="meta-body">
+      <!-- 主摘要行：槽恒在（min-height 一档芯片行高），到位只填内容 -->
       <div class="meta-chips">
         <a-tag v-for="row in summaryRows" :key="row.labelKey" class="meta-chip" size="small">
           <span class="chip-key">{{ i18n.t(row.labelKey) }}</span>
@@ -84,13 +94,16 @@ function formatValue(v: unknown): string {
           <span class="chip-val">{{ formatValue(row.value) }}</span>
         </a-tag>
       </div>
-      <!-- 详情常驻完整展示（无收起/展开开关）：dashed 次级分隔 -->
-      <div v-if="detailRows.length" class="meta-chips details">
-        <a-tag v-for="row in detailRows" :key="row.labelKey" class="meta-chip" size="small">
-          <span class="chip-key">{{ i18n.t(row.labelKey) }}</span>
-          <span class="chip-eq">=</span>
-          <span class="chip-val">{{ formatValue(row.value) }}</span>
-        </a-tag>
+      <!-- 详情常驻完整展示（无收起/展开开关）：dashed 次级分隔；
+           行本身也是常驻槽，芯片到位前后高度不变 -->
+      <div class="meta-chips details">
+        <template v-if="hasInfo && detailRows.length">
+          <a-tag v-for="row in detailRows" :key="row.labelKey" class="meta-chip" size="small">
+            <span class="chip-key">{{ i18n.t(row.labelKey) }}</span>
+            <span class="chip-eq">=</span>
+            <span class="chip-val">{{ formatValue(row.value) }}</span>
+          </a-tag>
+        </template>
       </div>
     </div>
   </Card>
@@ -102,6 +115,8 @@ function formatValue(v: unknown): string {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+  // 常驻一档：无模型名（读头未返回）与有模型名同高，插卡/换文本都不改变卡片高度
+  min-height: 22px; // = fs-md 14px × 1.5 ≈ 21px 取整，与 meta-model-name 行高一致
 }
 
 .meta-model-name {
@@ -115,6 +130,12 @@ function formatValue(v: unknown): string {
   white-space: nowrap;
 }
 
+// 读取中的占位文案：次级灰，与骨架槽同一口径（不宣称已读到任何信息）
+.meta-pending {
+  color: var(--color-text-3);
+  font-size: var(--fs-sm);
+}
+
 .meta-body {
   display: flex;
   flex-direction: column;
@@ -125,6 +146,8 @@ function formatValue(v: unknown): string {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  // 常驻一档芯片行高（Arco small tag ≈ 24px）：芯片从 0 条变 N 条时卡片不外扩
+  min-height: 24px;
 }
 
 /* gap 写在 a-tag 根元素上：Arco 无 .arco-tag-content 包装层（插槽子节点直接挂在

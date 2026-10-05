@@ -421,6 +421,10 @@ async function onClearSession() {
     color: var(--color-text-1);
     font-family: var(--font-mono);
     line-height: 1.3;
+    // 「已调整」0 → 12 → 64 的位数变化会撑宽统计块、把后面的分隔线与相邻 stat 顶开：
+    // mono 字体下 2ch 恰为两位数字宽（参数总数与已调整数都不超过两位），预留后位数变化不改几何
+    display: inline-block;
+    min-width: 2ch;
   }
 
   // 已调整参数 > 0：数值警示橙（与行容器的 warn 描边同色系）
@@ -463,16 +467,20 @@ async function onClearSession() {
 .param-grid {
   // 自适应多列网格：auto-fill 不折叠空轨道——各组共享同一轨道宽度，参数少的组
   // 控件不会被拉伸（auto-fit 会折叠空轨道：2 参数组控件被撑到 ~795px，4 参数组仅 ~391px）。
-  // 最小轨 418px = 一行参数的实测最小舒适宽：边框 2 + 行内距 16 + 标签列 124 + 8 +
-  // 控件 ≥164（滑块轨道 80 + 间隙 8 + 数字框 76）+ 4 + 提示槽 72 + 4 + 还原 ✕ 槽 24。
+  // 最小轨 434px = 一行参数的实测最小舒适宽：边框 2 + 行内距 16 + 标签列 124 + 8 +
+  // 控件 ≥164（滑块轨道 80 + 间隙 8 + 数字框 76）+ 4 + 提示槽 72 + 4 + 还原 ✕ 槽 24
+  // + 4 + 依赖警示槽 12（STYLE_TODO #81 档 1：#77「槽位常驻」范式漏掉的第四处）。
   // （#77 曾按「标签 140 + 数字框 88」推到 450；#78 查明其中 16px 是 Arco label-col
   //  的默认右内距、88 对 6 位值有 12px 富余，两处回收后行宽省 32px。）
   // 曾取 340px 并配 max-width:1160px 封顶 3 列，实测两头都坏：
   // ① ≥1600 视口卡片可用宽 1326→2286 而网格恒 1160（1920 右侧空 486px、2560 空 1126px）；
-  // ② 1440（未触及封顶）排成 3 列 ×369px，滑块轨道被压到 31px。现不设上限，列数随宽度
-  // 单调增长：1156/1280/1440 → 2 列，1600/1728/1920 → 3 列，2560 → 5 列。窄屏退化单列。
+  // ② 1440（未触及封顶）排成 3 列 ×369px，滑块轨道被压到 31px。现不设上限。
+  // 列数随宽度单调增长，判据是算术而非记忆：轨道 434 + 列间距 14 ⇒
+  // 两列需卡内可用宽 ≥ 882，三列 ≥ 1330，四列 ≥ 1778，五列 ≥ 2226。
+  // （旧注释里「1156/1280/1440 → 2 列、1600/1728/1920 → 3 列」是 418 轨时代按视口记的
+  //  经验值，轨道一变就整体失准，故改为写公式；要按视口用就自己按上面的式子换算。）
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(418px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(434px, 1fr));
   gap: 4px 14px;
 
   @media (max-width: 720px) {
@@ -515,10 +523,14 @@ async function onClearSession() {
 .target-menu .target-recs {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 8px;
   margin-top: 4px;
   padding: 8px 4px 4px;
   border-top: 1px solid var(--color-border-2);
+  // 定高一档（chips 一行 20 + gap 8 + 应用按钮 24 + 上下内距）：切换性能目标时建议条数增减
+  // 不再让弹层高度跳动，与 .target-recs-empty 同档保证两态等高
+  min-height: 64px;
 }
 
 .target-menu .target-rec-chips {
@@ -548,6 +560,8 @@ async function onClearSession() {
   border-top: 1px solid var(--color-border-2);
   color: var(--color-text-3);
   font-size: var(--fs-base);
+  // 与 .target-recs 同档定高：有无建议两种内容形状下弹层高度一致
+  min-height: 64px;
 }
 </style>
 

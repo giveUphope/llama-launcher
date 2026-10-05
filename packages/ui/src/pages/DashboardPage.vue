@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue';
+import { computed, onActivated, onDeactivated, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Icon from '@/components/common/Icon.vue';
@@ -29,13 +29,37 @@ function lineClass(entry: AppLogEntry): string {
 }
 
 // ---- 控制台滚动（迷你问题列表） ----
+// §7.1 铁律③：读 scrollHeight 是强制同步布局。本页 keep-alive 停用时不再滚动
+// （回到本页时补滚到底），写法照抄 LogsPage / ServicePage 的同一套 pageActive 门控 +
+// rAF 合帧（STYLE_TODO #83：此前唯独本页没门控，停用后问题列表一变仍在后台强制布局）。
 const consoleEl = ref<HTMLElement | null>(null);
-async function scrollToBottom() {
-  await nextTick();
-  consoleEl.value?.scrollTo?.(0, consoleEl.value.scrollHeight);
+const pageActive = ref(true);
+
+// 同帧多条问题只滚一次
+let scrollScheduled = false;
+function scheduleScrollToBottom() {
+  if (scrollScheduled) return;
+  scrollScheduled = true;
+  requestAnimationFrame(() => {
+    scrollScheduled = false;
+    const el = consoleEl.value;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  });
 }
-watch(() => recentIssues.value.length, () => { void scrollToBottom(); });
-onActivated(() => { void scrollToBottom(); });
+
+watch(
+  () => recentIssues.value.length,
+  () => {
+    if (!pageActive.value) return;
+    scheduleScrollToBottom();
+  },
+);
+onActivated(() => {
+  pageActive.value = true;
+  scheduleScrollToBottom();
+});
+onDeactivated(() => { pageActive.value = false; });
 onMounted(() => { appLog.subscribe(); });
 </script>
 

@@ -144,11 +144,19 @@ function onClear() {
           >{{ ggufHintText }}</a-tag>
         </ToolTip>
       </div>
-      <a-tooltip v-if="showDepWarning" :content="dependencyHint">
-        <span class="dep-hint">
-          <Icon name="alert" :size="12" />
-        </span>
-      </a-tooltip>
+      <!-- 依赖警示图标常驻槽位（定宽 12px = .dep-hint 图标宽，Icon :size="12" 即 fontSize 12px，
+           Arco 图标正方形）：槽恒在、图标仍 v-if——此前它是 #77「槽位常驻」范式漏掉的第四处，
+           依赖一不满足（改依赖源参数 / 应用预设后）图标就插进正常流，把控件列当场挤窄、
+           72px 提示槽整体左移（STYLE_TODO #81 档 1）。
+           代价：行固定开销 +16px（12px 槽 + 4px gap），ParamsPage `.param-grid` 最小轨
+           需随之 418 → 434（本轮未改该文件，见收尾报告）。 -->
+      <div class="dep-hint-slot">
+        <a-tooltip v-if="showDepWarning" :content="dependencyHint">
+          <span class="dep-hint">
+            <Icon name="alert" :size="12" />
+          </span>
+        </a-tooltip>
+      </div>
     </div>
     <!-- 还原 ✕ 常驻定宽槽（24px，与建议值槽同一处理）：按钮仍 v-if（挂在 ToolTip 上，
          避免空 host + 空浮层，见 §7.5.6），但槽位恒在——否则「已修改」行的按钮一出现
@@ -292,6 +300,19 @@ function onClear() {
     min-width: 0;
     max-width: 100%;
   }
+}
+
+/* 依赖警示图标的常驻槽：与 .gguf-hint-slot / .clear-slot 同构（槽恒在、内容 v-if），
+   宽 = 图标 12px（Icon :size="12" → fontSize 12px，Arco 图标字形为正方形），
+   使「依赖是否满足」不再影响同行控件列与提示槽的宽度与位置。
+   min-width: 0 的理由同 .gguf-hint-slot：flex 项默认 min-width:auto，内容会把定宽槽撑宽，
+   反过来挤控件列。 */
+.dep-hint-slot {
+  flex: 0 0 12px;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-start;
+  overflow: hidden;
 }
 
 /* 还原 ✕ 的常驻槽：宽 = a-button size="mini" shape="circle" 原生 24px，

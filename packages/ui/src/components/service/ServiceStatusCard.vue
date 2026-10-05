@@ -32,6 +32,7 @@ const openEndpoint = computed(() => {
   const origins = String(params.values.cors_origins ?? '*').trim();
   return key === '' && (origins === '' || origins === '*');
 });
+const secHintText = computed(() => i18n.t('sec_open_endpoint_hint'));
 
 // ---- 外部 llama-server 实例（非本应用拉起）----
 // 探测只在「可能真的变了」的时候做，不做无脑定时轮询：
@@ -275,10 +276,13 @@ function onOomKvQuant() {
       </a-descriptions-item>
     </a-descriptions>
 
-    <!-- 端点暴露常驻提示（成因见 openEndpoint 注释）：只在真的敞开时出现 -->
-    <div v-if="openEndpoint" class="sec-hint">
-      <Icon name="alert" :size="12" />
-      <span>{{ i18n.t('sec_open_endpoint_hint') }}</span>
+    <!-- 端点暴露常驻提示（成因见 openEndpoint 注释）：槽恒在、未触发时 visibility:hidden。
+         此前 v-if 插在字段表与快捷按钮之间，进页面/改这两项再回来会把按钮行以下整块下推
+         （STYLE_TODO #81 档 2）。预留按较长那态算：中文一行、英文两行，故两档封顶 + 省略，
+         完整文案走 title（同 #81 既有范式 .failure-banner-slot，静态 CSS，不做测量回填）。 -->
+    <div class="sec-hint-slot" :class="{ 'is-active': openEndpoint }">
+      <Icon class="sec-hint-icon" name="alert" :size="12" />
+      <span class="sec-hint-text" :title="secHintText">{{ secHintText }}</span>
     </div>
 
     <!-- 快捷操作（自原概览 Q2/Q3 保留）：按钮不属于信息展示，不构成重复。
@@ -303,21 +307,27 @@ function onOomKvQuant() {
       </ToolTip>
     </a-space>
     <!-- 失败/异常退出提示（设计稿 §8.4：错误摘要 + 解决方案）。
-         ⚠️ 布局防跳动：外层 slot 常驻并预留与 banner 等高的固定高度，
-         仅当失败时插入 banner——下方内容位置保持稳定，出现/消失不再下推。 -->
-    <div class="failure-banner-slot" :class="{ 'has-banner': statusInfo.status === 'error' }">
-      <div v-if="statusInfo.status === 'error'" class="failure-banner" role="alert">
-        <Icon name="alert" :size="14" />
-        <span>
-          {{ server.effectiveStatus === 'crashed' ? i18n.t('msg_service_crashed') : i18n.t('msg_service_failed') }}
-          · {{ i18n.t('msg_check_console_below') }}
-        </span>
+         ⚠️ 布局防跳动（STYLE_TODO #81 档 2 第 2 处）：外层 slot 常驻，内部拆成**两档**行——
+         banner 行与建议行各自预留固定高度、未触发时 visibility:hidden。
+         此前只预留了 banner 的 30px，OOM 建议（含 2 个按钮）是扫日志异步判出的，到位后再把
+         下方内容顶高约 28px；现在两种状态高度恒等，建议到不到都不动。 -->
+    <div class="failure-banner-slot">
+      <div class="failure-row" :class="{ 'has-banner': statusInfo.status === 'error' }">
+        <div v-if="statusInfo.status === 'error'" class="failure-banner" role="alert">
+          <Icon name="alert" :size="14" />
+          <span>
+            {{ server.effectiveStatus === 'crashed' ? i18n.t('msg_service_crashed') : i18n.t('msg_service_failed') }}
+            · {{ i18n.t('msg_check_console_below') }}
+          </span>
+        </div>
       </div>
       <!-- OOM 归因建议（输出尾部命中显存不足特征时追加，给出可执行缓解动作） -->
-      <div v-if="statusInfo.status === 'error' && oomDetected" class="oom-hint">
-        <span class="oom-text">{{ i18n.t('msg_oom_detected') }}</span>
-        <a-button size="mini" @click="onOomHalveCtx">{{ i18n.t('act_oom_halve_ctx') }}</a-button>
-        <a-button size="mini" @click="onOomKvQuant">{{ i18n.t('act_oom_kv_quant') }}</a-button>
+      <div class="oom-row" :class="{ 'is-active': oomDetected }">
+        <div v-if="oomDetected" class="oom-hint">
+          <span class="oom-text">{{ i18n.t('msg_oom_detected') }}</span>
+          <a-button size="mini" @click="onOomHalveCtx">{{ i18n.t('act_oom_halve_ctx') }}</a-button>
+          <a-button size="mini" @click="onOomKvQuant">{{ i18n.t('act_oom_kv_quant') }}</a-button>
+        </div>
       </div>
     </div>
   </Card>
@@ -329,14 +339,36 @@ function onOomKvQuant() {
   margin-bottom: 8px;
 }
 
-/* 端点暴露提示：与命令预览卡的警示行同色同字号（橙色业务语义色） */
-.sec-hint {
+/* 端点暴露提示常驻槽：与命令预览卡的警示行同色同字号（橙色业务语义色）。
+   min-height = 两档 fs-sm 行高（12px × 1.5 = 18px/档），中英两态都不撑高。 */
+.sec-hint-slot {
   display: flex;
   align-items: flex-start;
   gap: 6px;
   margin: -6px 0 10px;
+  min-height: 36px;
   font-size: var(--fs-sm);
   color: rgb(var(--orange-6));
+  visibility: hidden; // 未触发：保留占位但不显示，位置不动
+
+  &.is-active {
+    visibility: visible;
+  }
+}
+
+.sec-hint-icon {
+  flex: 0 0 auto;
+  margin-top: 3px; // 与 18px 行框首行文字对齐：(18 - 12) / 2
+}
+
+// 两档封顶：超出省略，完整文案由 title 承载
+.sec-hint-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.5;
 }
 
 /* a-descriptions 字段表：标签列定宽右对齐（原生组件，仅调间距节奏） */
@@ -390,14 +422,28 @@ function onOomKvQuant() {
   margin-bottom: 8px;
 }
 
-/* 失败提示槽位：常驻预留 banner 等高的固定高度（防出现/消失时下推下方内容）。
-   margin-top 归一到 slot 上；banner 本身仅负责内容呈现。 */
+/* 失败提示槽位：常驻两档（banner 行 + OOM 建议行），margin-top 归一到 slot 上。
+   两档各自 min-height + visibility，出现/消失都不再下推下方内容（#81 既有范式）。 */
 .failure-banner-slot {
   margin-top: 8px;
-  min-height: 30px; // = banner 高度（padding 6px×2 + fs-base 13px 行高 1.4 ≈ 30px），两种状态高度恒等
+}
 
-  &:not(.has-banner) {
-    visibility: hidden; // 无失败时保留占位但隐藏，仍占满 slot 高度
+.failure-row {
+  min-height: 30px; // = banner 高度（padding 6px×2 + fs-base 13px 行高 1.4 ≈ 30px），两种状态高度恒等
+  visibility: hidden;
+
+  &.has-banner {
+    visibility: visible;
+  }
+}
+
+.oom-row {
+  margin-top: 8px;
+  min-height: 28px; // = 建议行一档（文案 18px / mini 按钮 24px 取高者 + 余量），到位前后高度恒等
+  visibility: hidden;
+
+  &.is-active {
+    visibility: visible;
   }
 }
 
@@ -415,12 +461,12 @@ function onOomKvQuant() {
 }
 
 // OOM 归因建议行：紧随失败 banner 的次级提示 + 行内缓解按钮
+// （行高由 .oom-row 的常驻槽负责，这里只管内容呈现）
 .oom-hint {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 8px;
 
   .oom-text {
     color: var(--color-text-2);
