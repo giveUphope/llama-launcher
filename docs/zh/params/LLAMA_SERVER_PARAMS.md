@@ -164,7 +164,7 @@
 | `--spec-draft-p-split`, `--draft-p-split` | speculative decoding split probability (default: 0.10) (env: LLAMA_ARG_SPEC_DRAFT_P_SPLIT) | ⬜ 未支持 |
 | `--spec-draft-p-min`, `--draft-p-min` | minimum speculative decoding probability (greedy) (default: 0.00) (env: LLAMA_ARG_SPEC_DRAFT_P_MIN) | ⬜ 未支持 |
 | `--spec-draft-backend-sampling`, `--no-spec-draft-backend-sampling` | offload draft sampling to the backend (default: enabled) (env: LLAMA_ARG_SPEC_DRAFT_BACKEND_SAMPLING) | ⬜ 未支持 |
-| `--spec-draft-sampling` | {greedy,probabilistic} how the draft is sampled: greedy takes its argmax, probabilistic samples it and has the target verify by rejection sampling (default: greedy) (env: LLAMA_ARG_SPEC_DRAFT_SAMPLING) | ⬜ 未支持 |
+| `--spec-draft-sampling` | {greedy,probabilistic} how the draft is sampled: greedy takes its argmax, probabilistic samples it and has the target verify by rejection sampling (default: greedy) (env: LLAMA_ARG_SPEC_DRAFT_SAMPLING) | ✅ 已支持 |
 | `--spec-draft-device`, `-devd`, `--device-draft` | <dev1,dev2,..> comma-separated list of devices to use for offloading the draft model (none = don't offload, default: follows --device) use --list-devices to see a list of available devices | ⬜ 未支持 |
 | `--spec-draft-ngl`, `-ngld`, `--gpu-layers-draft`, `--n-gpu-layers-draft` | max. number of draft model layers to store in VRAM, either an exact number, 'auto', or 'all' (default: auto) (env: LLAMA_ARG_N_GPU_LAYERS_DRAFT) | ✅ 已支持 |
 | `--spec-draft-model`, `-md`, `--model-draft` | draft model for speculative decoding (default: unused) (env: LLAMA_ARG_SPEC_DRAFT_MODEL) | ✅ 已支持 |
@@ -292,5 +292,5 @@
 ## 汇总
 
 - 官方参数总数：260
-- 已支持：68
-- 未支持：192
+- 已支持：69
+- 未支持：191

@@ -85,7 +85,7 @@ export const PARAMS: ParamDef[] = [
   { key: 'override_tensor', group: 'basic', type: 'text', flag: '-ot', default: '', subcategory: 'memory' },
   { key: 'tensor_split', group: 'basic', type: 'text', flag: '-ts', default: '', subcategory: 'memory' },
 
-  // ---------------- advanced (28) ----------------
+  // ---------------- advanced (29) ----------------
   // 子分组 kv_cache：KV 缓存
   // KV cache 类型：与模型权重量化（quantization）无关，不挂 ggufField——
   // 权重量化 → q8_0 的推荐走 buildSuggestions 启发式建议（带来源说明），行内不显示误导性灰字
@@ -200,6 +200,22 @@ export const PARAMS: ParamDef[] = [
     key: 'spec_cache_type_v', group: 'advanced', type: 'dropdown', flag: '-ctvd', default: 'f16',
     options: ['f16', 'f32', 'bf16', 'q8_0', 'q4_0', 'q4_1', 'iq4_nl', 'q5_0', 'q5_1'], subcategory: 'speculative',
     dependsOn: { key: 'spec_type', values: ['draft-simple', 'draft-eagle3', 'draft-dflash', 'draft-dspark'] },
+  },
+  // 草稿采样方式（b11408 新增，无短别名 ⇒ 按长名登记；这张表存的就是实际发射的 token）：
+  // greedy = 直接取草稿分布的 argmax；probabilistic = 从草稿分布采样，再由目标模型用拒绝采样验证。
+  // help 原文（docs/params/llama-server-help-out.txt:367-371）：
+  //   --spec-draft-sampling {greedy,probabilistic}
+  //       how the draft is sampled: greedy takes its argmax, probabilistic samples it and has the
+  //       target verify by rejection sampling (default: greedy)
+  //       (env: LLAMA_ARG_SPEC_DRAFT_SAMPLING)
+  // **有意不挂 dependsOn: spec_type**：help 并没有写「须 --spec-type 非 none 才生效」这条依赖，
+  // 参数系统文档 §5.6 末把「是否要求非 none」记为**未实测**项，而只凭语义推断就挂 dependsOn 的后果是
+  // spec_type 翻回 none 时会清空用户已选的值，那是数据丢失而不是提示（同族先例：--device 与 --fit
+  // 的交互同样写成行内提示，见 §5.6 第 1 项）。生效条件写在 PARAM_HELP 文案里。
+  // UI 初值取 help 的 greedy（== engineDefault），故不覆盖引擎缺省、无需 note；两条取值都不做哨兵。
+  {
+    key: 'spec_draft_sampling', group: 'advanced', type: 'dropdown', flag: '--spec-draft-sampling',
+    default: 'greedy', options: ['greedy', 'probabilistic'], subcategory: 'speculative',
   },
   // 投机合成基准（b10734 引入，benchmarking only）
   {

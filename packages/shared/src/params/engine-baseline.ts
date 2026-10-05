@@ -113,6 +113,9 @@ export const PARAM_ENGINE_BASELINE: Record<string, EngineBaseline> = {
   spec_draft_ngl: { engineDefault: 'auto' },
   spec_draft_n_max: { engineDefault: 3 },
   spec_draft_n_min: { engineDefault: 0 },
+  // help 原文 `(default: greedy)`（b11408 新增条目，跨行折行写法：`(default:` 在上一行行尾、
+  // `greedy)` 独占下一行）；UI 初值同为 greedy，故不覆盖引擎缺省、无需 note。
+  spec_draft_sampling: { engineDefault: 'greedy' },
   spec_cache_type_k: { engineDefault: 'f16' },
   spec_cache_type_v: { engineDefault: 'f16' },
   spec_synth_len: { engineDefault: 0 },

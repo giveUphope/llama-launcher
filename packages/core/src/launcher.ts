@@ -31,6 +31,8 @@ export class Launcher extends EventEmitter {
   private envOverrides: string[] = [];
   /** 就绪后 /props 回读对账结果；每次 start 清空，未回读回来时为 null */
   private lastPropsCheck: PropsCheck | null = null;
+  /** 是否有一次 /props 回读在途（存的是发起时的世代号；自适应节拍会密集触发，见 runPropsCheck 的在途去重） */
+  private propsCheckInFlightSeq = -1;
   private readonly propsFetcher: PropsFetcher;
 
   constructor(deps: LauncherDeps = {}) {
@@ -258,31 +260,49 @@ export class Launcher extends EventEmitter {
    * 取不到 /props 只标 error='unreachable'，不判成不一致——偶发网络失败
    * 不该让界面谎报「参数没生效」，那正是本项目一直在消灭的那类问题。
    *
-   * 触发时机是事件而非定时器：就绪时一次；此后仅在「有人真的在看」——页签重新可见或
-   * 用户手动点「重新校验」（两者经 `server:status(refresh:true)`），以及窗口重新聚焦
-   * （主进程 `launcher-bridge` 挂 `win.on('focus')` 直接调 `recheckProps()`，
-   * 不经渲染层：窗口没聚焦时渲染层也收不到那个信号）——时由 `recheckProps()` 触发。
-   * 引擎的参数只可能被外部 `POST /props` 改动，
-   * 盲目每 60s 敲一次端口既抓不到规律，也无事可报。
+   * 触发时机：就绪时一次；此后一律由外部事件驱动 `recheckProps()`——
+   * ① 渲染层「本页真的有人在看」时的自适应节拍（`server` store 的 `enterPropsWatch`：
+   *    可见 + 只在 running + 结论连续不变就 ×2^n 退避到封顶，走 `server:status(refresh:true)`）；
+   * ② 用户点「重新校验」；③ 窗口重新聚焦（`launcher-bridge` 挂 `win.on('focus')`，
+   *    不经渲染层：窗口没聚焦时渲染层自己也收不到那个信号）。
+   * 本类自身不排任何定时器——「有没有人在看」只有渲染层知道，核心只知道端口。
+   * 引擎的参数只可能被外部 `POST /props` 改动，那件事在本机没有可订阅的事件源，
+   * 所以节拍器必须存在；被删掉的是「无人看也照敲、结论没变也照敲」的盲轮询。
    */
   private runPropsCheck(): void {
     const viewHost = displayHost(this.host);
     if (!viewHost) return;
-    const values = { ...this.currentValues };
+    // 在途去重：自适应节拍让「上一次回读还没回来、下一次又被触发」成为常态
+    //（窗口聚焦 + 页签节拍 + 手动点击可能挤在同一秒）。引擎忙时那次 GET 会挂住，
+    // 不去重就会把同一个端口的并发连接越堆越多，而结论只认最后一次。
+    // 去重按世代号（runSeq）判：旧一轮的在途不得挡住新一轮就绪时的那一次回读。
+    if (this.propsCheckInFlightSeq === this.runSeq) return;
     // 世代号：重启后新一轮也是 running，旧一轮在途的回读若只判 status 就会晚到并覆盖新结论
     const seq = this.runSeq;
+    const values = { ...this.currentValues };
+    this.propsCheckInFlightSeq = seq;
     void verifyEngineProps({
       baseUrl: `http://${viewHost}:${this.port}`,
       values,
       fetcher: this.propsFetcher,
     }).then((check) => {
+      this.clearPropsInFlight(seq);
       if (seq !== this.runSeq || this.status !== 'running') return;
       const changed = JSON.stringify(check.mismatched) !== JSON.stringify(this.lastPropsCheck?.mismatched)
         || check.error !== this.lastPropsCheck?.error
         || JSON.stringify(check.baselineDrift) !== JSON.stringify(this.lastPropsCheck?.baselineDrift);
       this.lastPropsCheck = check;
       if (changed) this.setStatus('running');
+    }).catch(() => {
+      // 取数实现自身抛错（正常路径是 verifyEngineProps 内部吞掉并标 unreachable）：
+      // 也必须放行下一次，否则一次异常就把自动刷新永久关掉
+      this.clearPropsInFlight(seq);
     });
+  }
+
+  /** 放行下一次回读；新一轮已开始（seq ≠ runSeq）时不得清掉新一轮的在途标记 */
+  private clearPropsInFlight(seq: number): void {
+    if (seq === this.runSeq) this.propsCheckInFlightSeq = -1;
   }
 
   /** 供主进程在 `server:status(refresh)`、窗口重新聚焦或手动校验时调用；不阻塞调用方 */

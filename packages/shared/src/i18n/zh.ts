@@ -416,7 +416,7 @@ export const zh = {
   cmd_env_overrides: '引擎侧环境变量 {0} 会改写界面上未设置的参数缺省值，这些改写不会出现在命令里',
   cmd_props_pending: '尚未向引擎回读核对（/props）',
   cmd_props_ok: '已向引擎回读核对 {0} 项，与发出的值一致（{1}）',
-  act_recheck: '向引擎重新回读核对（/props）',
+  act_recheck_auto_tip: '本页可见时会自动向引擎回读核对（/props），空闲时拉长间隔；点一下可立刻要答案',
   cmd_props_mismatch: '引擎回读：{0} 项与发出的值不一致（{1}）——以 /props 实际生效值为准',
   cmd_props_mismatch_env: '引擎回读：{0} 项与发出的值不一致（{1}）；同时检测到 {2}，很可能是它们改写了引擎缺省值',
   cmd_baseline_drift: '引擎构建比参数基线旧：实际 {0}，基线已核对到 {1}——更旧引擎那批不可回读参数的默认值判定可能对不上，需重新对拍引擎 help',

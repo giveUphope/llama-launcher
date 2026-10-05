@@ -38,6 +38,7 @@ export const PARAM_LABELS: Record<string, ParamI18nEntry> = {
   spec_draft_n_min: { zh: '最小草稿 Token 数', en: 'Min Draft Tokens' },
   spec_cache_type_k: { zh: '草稿 KV 缓存类型 K', en: 'Draft KV Type K' },
   spec_cache_type_v: { zh: '草稿 KV 缓存类型 V', en: 'Draft KV Type V' },
+  spec_draft_sampling: { zh: '草稿采样方式', en: 'Draft Sampling' },
 
   // ---------------- thinking ----------------
   reasoning: { zh: '思考模式', en: 'Reasoning Mode' },
@@ -123,6 +124,7 @@ export const PARAM_HELP: Record<string, ParamI18nEntry> = {
   spec_draft_n_min: { zh: '最小草稿 token 数（0 = 贪婪；始终不超过最大草稿数）', en: 'Min draft tokens (0 = greedy; never exceeds max draft tokens)' },
   spec_cache_type_k: { zh: '草稿模型的 K 缓存数据类型；量化可节省显存（仅外部草稿模型类型）', en: 'K cache dtype for draft model; quantization saves VRAM (external draft types only)' },
   spec_cache_type_v: { zh: '草稿模型的 V 缓存数据类型（仅外部草稿模型类型）', en: 'V cache dtype for draft model (external draft types only)' },
+  spec_draft_sampling: { zh: '草稿模型出 token 的方式：greedy 直接取草稿分布的 argmax；probabilistic 从草稿分布采样、再由目标模型用拒绝采样逐项核验。两种取值的速度差本仓库未实测（不写没量过的数字）。仅在启用推测解码（「投机采样类型」不是 none）时才起作用：help 没有把这条写成依赖，所以界面不做强制联动，切换投机采样类型不会清空本项。取值等于引擎默认 greedy 时不下发该 flag', en: "How the draft model produces tokens: greedy takes its argmax; probabilistic samples from the draft distribution and the target model then verifies it token by token by rejection sampling. The speed difference between the two values is not measured in this repository. Only has an effect when speculative decoding is enabled (Speculative Type is not none) — help does not state that as a dependency, so the UI does not force-link it and switching the speculative type will not clear this value. Not emitted while the value equals the engine default greedy." },
 
   // ---------------- thinking ----------------
   reasoning: { zh: '控制是否启用思考/推理；auto 按模板自动探测，on 强制开启，off 关闭；空（不发送）使用默认 auto', en: 'Enable thinking/reasoning: auto (detect from template), on, or off; empty (not sent) uses default auto' },

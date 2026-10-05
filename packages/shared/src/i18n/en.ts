@@ -414,7 +414,7 @@ export const en: Dict = {
   cmd_stale_running: 'The preview uses the CURRENT parameters; the running service still uses the ones captured at launch — {0} differ, they apply after a restart',
   cmd_env_overrides: 'Engine-side env vars {0} override the defaults of parameters you left unset; those overrides never appear in the command',
   cmd_props_ok: 'Read back and verified {0} value(s) against the engine — all match what we sent ({1})',
-  act_recheck: 'Re-read and verify against the engine (/props)',
+  act_recheck_auto_tip: 'While this page is visible the launcher re-reads and verifies against the engine (/props) on its own, backing off when idle; click to get an answer right now',
   cmd_props_pending: 'Not yet verified against the engine (/props)',
   cmd_props_mismatch: 'Engine read-back: {0} value(s) differ from what we sent ({1}) — /props is what is actually in effect',
   cmd_props_mismatch_env: 'Engine read-back: {0} value(s) differ from what we sent ({1}); {2} also detected — they most likely rewrote the engine defaults',

@@ -106,12 +106,28 @@ describe('checkEngineProps（/props 回读对账）', () => {
     expect(r.skipped).toBe(PROPS_FIELD_MAP.length);
   });
 
-  it('显式 -c 且 fit 关时 n_ctx 参与校验；不一致要报出', () => {
-    const ok = checkEngineProps(REAL_PROPS, { ...sentValues, ctx_size: 262144, fit: 'off' });
+  it('单槽时 n_ctx 参与校验，不一致要报出（b11408 真机 -np 1 实测形状）', () => {
+    const single = {
+      ...REAL_PROPS,
+      total_slots: 1,
+      default_generation_settings: { ...REAL_PROPS.default_generation_settings, n_ctx: 4096 },
+    };
+    const ok = checkEngineProps(single, { ...sentValues, ctx_size: 4096, fit: 'off' });
     expect(ok.checked).toContain('ctx_size');
     expect(ok.mismatched).toEqual([]);
-    const bad = checkEngineProps(REAL_PROPS, { ...sentValues, ctx_size: 8192, fit: 'off' });
+    const bad = checkEngineProps(single, { ...sentValues, ctx_size: 8192, fit: 'off' });
     expect(bad.mismatched.map((m) => m.param)).toEqual(['ctx_size']);
+  });
+
+  it('多槽时不比 n_ctx——b11408 真机实测它回读的是**每槽**值（同一 -c 4096：-np 4 → 1024、-np 1 → 4096），比了必假报', () => {
+    // 夹具 REAL_PROPS 的 total_slots 是 4：这条同时守住「不假报」与「不参与」
+    const r = checkEngineProps(REAL_PROPS, { ...sentValues, ctx_size: 1024, parallel: 4, fit: 'off' });
+    expect(r.checked).not.toContain('ctx_size');
+    expect(r.mismatched.map((m) => m.param)).not.toContain('ctx_size');
+    // 反证：若把发出值乘回槽数去比（1024×4=4096 ≠ 引擎给的每槽 1024），才会去报不一致——
+    // 乘回不可行还因为 4097÷4 向下取整成 1024，任何算术补偿都会重新制造假报
+    const noGate = checkEngineProps({ ...REAL_PROPS, total_slots: 1 }, { ...sentValues, ctx_size: 1024, fit: 'off' });
+    expect(noGate.mismatched.map((m) => m.param)).toContain('ctx_size');
   });
 
   it('fit 开着时不比 n_ctx——引擎会按显存重算，比了必假报', () => {
@@ -151,7 +167,12 @@ describe('checkEngineProps（/props 回读对账）', () => {
     for (const m of PROPS_FIELD_MAP) {
       expect(keys.has(m.param), `映射表引用了不存在的参数 ${m.param}`).toBe(true);
       // 取不到值说明 propsPath 写错或引擎不再回读该字段——此时这项永远 skip，等于没在校验
-      const probe = checkEngineProps(REAL_PROPS, { ...sentValues, [m.param]: m.param === 'parallel' ? 4 : sentValues[m.param] });
+      // 带 skipWhenProps 的项先把闸门放开再测——本用例守的是「propsPath 有没有失效」，
+      // 闸门逻辑由上面「多槽时不比 n_ctx」那条单独守，两者不互相顶包
+      const probeProps = m.skipWhenProps
+        ? { ...REAL_PROPS, [m.skipWhenProps.path]: 1 }
+        : REAL_PROPS;
+      const probe = checkEngineProps(probeProps, { ...sentValues, [m.param]: m.param === 'parallel' ? 4 : sentValues[m.param] });
       expect(probe.checked, `${m.param} 未能参与比对（propsPath=${m.propsPath} 取不到值？）`).toContain(m.param);
     }
   });

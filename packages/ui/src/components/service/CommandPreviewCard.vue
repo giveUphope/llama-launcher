@@ -6,7 +6,7 @@
 //  - 【扩展参数】：唯一可编辑区，绑定 settings.custom_args（持久化），原样追加到实际
 //    启动命令末尾（buildCommand customArgs）。
 // 复制命令 = 内置命令 + 扩展参数合并。
-import { computed, onActivated, onUnmounted, ref, watch } from 'vue';
+import { computed, onActivated, onDeactivated, onUnmounted, ref, watch } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
@@ -79,11 +79,20 @@ const staleCount = computed(() => {
 const propsMismatch = computed(() => server.propsCheck?.mismatched ?? []);
 const mismatchList = computed(() => propsMismatch.value.map((m) => `${m.flag}: ${m.sent} ≠ ${m.actual}`).join(', '));
 const baselineDrift = computed(() => server.propsCheck?.baselineDrift ?? null);
-// 核对结论展示在本卡（服务页），可刷新触发点此前只在概览页的激活钩子里——直接进服务页、
-// 或在参数页改完参数再过来，看到的都是上一轮的结论。展示在哪就在哪刷：仍是「页面真的
-// 可见了」才触发一次，不是定时器（架构约定：/props 只可能被外部改动，定时敲端口无事可报）。
+// 核对结论展示在本卡（服务页），自动刷新的节拍也在这里挂：展示在哪就在哪看。
+// 挂接是「本页真的可见」计数的进入/退出（keep-alive 下 onUnmounted 不执行，必须配对
+// onActivated/onDeactivated，§7.1 铁律①）——后台页不计数就不敲端口。
+// store 侧的节拍只在 running 时排表、结论连续不变就 ×2^n 退避到封顶，
+// 与概览页外部实例探测同一套形状；引擎参数只可能被外部改写，本机没有事件源，
+// 所以「可见 + 自适应退避」取代了此前「必须有人点一下」的纯按需。
+let releasePropsWatch: (() => void) | null = null;
 onActivated(() => {
-  if (server.status === 'running') void server.refreshStatus(true);
+  releasePropsWatch?.();
+  releasePropsWatch = server.enterPropsWatch();
+});
+onDeactivated(() => {
+  releasePropsWatch?.();
+  releasePropsWatch = null;
 });
 // 界面列出的 env 变量与不一致项同时出现时，才把两者说成有因果——只有 env 变量不构成归因，
 // 只有不一致也不该甩锅给环境（还可能是引擎版本漂移或我们基线填错）。
@@ -157,6 +166,9 @@ async function onCopyCmd() {
 
 onUnmounted(() => {
   if (previewTimer) clearTimeout(previewTimer);
+  // keep-alive 外的真实卸载（路由配置变更 / 测试挂载）也要退掉可见计数
+  releasePropsWatch?.();
+  releasePropsWatch = null;
 });
 </script>
 
@@ -164,10 +176,10 @@ onUnmounted(() => {
   <Card title-key="card_cmd">
     <!-- 复制命令上移至卡片头（与标题同行，§7.5.4 卡片头操作区） -->
     <template #actions>
-      <!-- 手动复检：不带 loading 态——结果何时落地取决于主进程那次 HTTP，做成转圈就得
-           配一个"等多久没回就自清"的兜底定时器，等于把轮询换个地方塞回来。
-           点了就请求，行内结论自行更新（server:status 推送）。 -->
-      <ToolTip :text="i18n.t('act_recheck')">
+      <!-- 手动复检降级为逃生阀：平时由「本页可见 + 空闲退避」的自动节拍刷（store 的
+           enterPropsWatch），这个按钮只服务「现在就要答案」。仍不带 loading 态——结果何时
+           落地取决于主进程那次 HTTP，做成转圈就得配一个「等多久没回就自清」的兜底定时器。 -->
+      <ToolTip :text="i18n.t('act_recheck_auto_tip')">
         <a-button size="small" :disabled="server.status !== 'running'" @click="server.refreshStatus(true)">
           <template #icon><Icon name="refresh" :size="12" /></template>
         </a-button>

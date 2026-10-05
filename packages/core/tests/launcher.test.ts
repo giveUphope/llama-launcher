@@ -663,6 +663,63 @@ describe('Launcher - 就绪后 /props 回读对账', () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(calls).toBe(0);
   });
+
+  // 自动刷新把「同一秒内被触发好几次」变成常态（页签节拍 + 窗口聚焦 + 用户点按钮），
+  // 引擎忙时那次 GET 会挂住：不去重就会把并发连接越堆越多，而结论只认最后一次。
+  it('在途去重：上一次回读还没回来时，重复触发不再敲第二次端口', async () => {
+    let calls = 0;
+    const gates: Array<() => void> = [];
+    const l = new Launcher({
+      propsFetcher: async () => {
+        calls++;
+        await new Promise<void>((resolve) => { gates.push(resolve); });
+        return { ok: true, json: propsFixture };
+      },
+    });
+    l.start({ values: { model: 'D:/m.gguf' }, settings: baseSettings });
+    (l['proc'] as any)._triggerOutput('llama server is listening');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).toBe(1); // 就绪那一次已在途（还没回来）
+
+    l.recheckProps();
+    l.recheckProps();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toBe(1);
+
+    gates.shift()!();
+    await vi.waitFor(() => expect(l.getStatus().propsCheck).not.toBeNull());
+    // 上一次落地了 → 下一次放行
+    l.recheckProps();
+    await vi.waitFor(() => expect(calls).toBe(2));
+    gates.shift()?.();
+    l.stop();
+  });
+
+  it('去重按运行世代判：新一轮就绪的首次回读不被上一轮在途的请求挡掉', async () => {
+    let calls = 0;
+    const gates: Array<() => void> = [];
+    const l = new Launcher({
+      propsFetcher: async () => {
+        calls++;
+        await new Promise<void>((resolve) => { gates.push(resolve); });
+        return { ok: true, json: propsFixture };
+      },
+    });
+    l.start({ values: { model: 'D:/m.gguf' }, settings: baseSettings });
+    (l['proc'] as any)._triggerOutput('llama server is listening');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).toBe(1);
+
+    // 停掉再起：上一轮那次请求还挂着（真实场景＝旧进程已死但 GET 未超时）
+    l.stop();
+    l.start({ values: { model: 'D:/m.gguf' }, settings: baseSettings });
+    (l['proc'] as any)._triggerOutput('llama server is listening');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toBe(2);
+
+    for (const g of gates.splice(0)) g();
+    l.stop();
+  });
 });
 
 // 运行时长的事实源（2026-10）。此前的做法是界面在「看见 status 变为 running」的那一瞬间

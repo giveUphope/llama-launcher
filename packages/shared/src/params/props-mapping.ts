@@ -29,6 +29,14 @@ export interface PropsFieldMap {
    * 所以 fit 开着时不比 n_ctx。这是数据而非分支，加参数不用再改本文件。
    */
   skipWhen?: { param: string; in: readonly string[] };
+  /**
+   * 依据**回读侧**事实跳过比对：有些字段引擎给的不是我们发的那个量。
+   * `default_generation_settings.n_ctx` 就是其一——b11408 真机实测（同一 `-c 4096`）：
+   * `-np 4` 回读 1024、`-np 1` 回读 4096，即它给的是**每槽** ctx（`n_ctx ÷ 槽数`，整数除），
+   * 不是 `-c` 的总值。槽数 > 1 时任何直接相等比对都会稳定假报「参数没生效」。
+   * 乘回去也不可行：4097 ÷ 4 = 1024（向下取整），乘回 4096 ≠ 发出值，仍是假报。
+   */
+  skipWhenProps?: { path: string; gt: number };
 }
 
 export const PROPS_FIELD_MAP: readonly PropsFieldMap[] = [
@@ -40,6 +48,8 @@ export const PROPS_FIELD_MAP: readonly PropsFieldMap[] = [
     kind: 'num',
     onlyWhenSent: true,
     skipWhen: { param: 'fit', in: ['on', 'auto'] },
+    // 引擎给的是每槽 ctx（见 PropsFieldMap.skipWhenProps 的真机实测），多槽下不比
+    skipWhenProps: { path: 'total_slots', gt: 1 },
   },
   { param: 'temperature', propsPath: 'default_generation_settings.params.temperature', kind: 'num' },
   { param: 'top_k', propsPath: 'default_generation_settings.params.top_k', kind: 'num' },
@@ -181,6 +191,14 @@ export function checkEngineProps(props: unknown, values: PresetValues, checkedAt
     if (m.skipWhen && m.skipWhen.in.includes(String(values[m.skipWhen.param]))) {
       skipped++;
       continue;
+    }
+    // 回读侧事实决定不比（如多槽下 n_ctx 是每槽值，与发出的总量不同量纲）
+    if (m.skipWhenProps) {
+      const gate = readPath(p, m.skipWhenProps.path);
+      if (typeof gate === 'number' && gate > m.skipWhenProps.gt) {
+        skipped++;
+        continue;
+      }
     }
     if (m.onlyWhenSent) {
       // 「没发」的三种形态：空串、声明的哨兵、等于引擎缺省基线（这三种下引擎会自己派生值）

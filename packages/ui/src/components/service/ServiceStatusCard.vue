@@ -146,13 +146,18 @@ function stopDurationTimer() {
   if (timer) { clearInterval(timer); timer = null; }
 }
 
+// 概览页也派一份 /props 自动刷新的可见计数：这里显示状态与基线徽章，用户停在此页时
+// 同样在「真的看」（服务页那份见 CommandPreviewCard）。节拍与退避全在 store 里，
+// 本页只负责进/出计数——失活必须退掉，否则后台页会继续敲端口（§7.1 铁律①）。
+let releasePropsWatch: (() => void) | null = null;
+
 onActivated(() => {
   pageActive = true;
-  if (isRunning.value) {
-    // 页签重新可见 = 有人真的在看 → 顺带触发一次 /props 复检（核心侧不再有定时轮询）
-    void server.refreshStatus(true);
-    startDurationTimer();
-  }
+  // 页签重新可见 = 有人真的在看 → 进入自动刷新计数（running 时立刻复检一次，
+  // 之后按「结论连续不变就 ×2^n 退避」续探；核心侧自己不排定时器）
+  releasePropsWatch?.();
+  releasePropsWatch = server.enterPropsWatch();
+  if (isRunning.value) startDurationTimer();
   // 外部实例探测：激活立即探一次，之后按退避续探（失活/卸载即停）
   externalIdleSteps = 0;
   probeExternal();
@@ -160,12 +165,16 @@ onActivated(() => {
 
 onDeactivated(() => {
   pageActive = false;
+  releasePropsWatch?.();
+  releasePropsWatch = null;
   stopDurationTimer();
   if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
 });
 
 onUnmounted(() => {
   pageActive = false;
+  releasePropsWatch?.();
+  releasePropsWatch = null;
   stopDurationTimer();
   if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
 });

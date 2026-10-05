@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import type { ServerStatus, ServerStatusEvent, ServerStopInfo } from '@llama-launcher/shared';
-import { LLAMA_SERVER_NAME_RE, PORT_BUSY_RE, useServerStore } from './server';
+import type { ServerStatus, ServerStatusEvent, ServerStopInfo, PropsCheck } from '@llama-launcher/shared';
+import { LLAMA_SERVER_NAME_RE, PORT_BUSY_RE, PROPS_POLL_MAX_MS, PROPS_POLL_MAX_STEPS, propsPollDelayMs, useServerStore } from './server';
 
 // —— window.api 桩：捕获 onOutputBatch/onStatus 回调，getStatus 返回可控的主进程状态 ——
 type StatusCb = (e: ServerStatusEvent) => void;
@@ -11,6 +11,29 @@ let outputCb: OutputCb = () => {};
 let mainStatus: any = { status: 'stopped', pid: null, host: '127.0.0.1', port: 8080, url: '', values: {} };
 // checkPort 桩返回值（外部实例探测用），null 模拟 mock 环境无响应
 let checkPortResult: { inUse: boolean; pid?: number; name?: string } | null = { inUse: false };
+/** 每次 getStatus 的调用记录（refresh 标志决定主进程要不要敲端口做 /props 回读） */
+let statusCalls: Array<{ refresh: boolean }> = [];
+
+/** 带 refresh 的拉取次数 = 「敲了一次端口」的次数，自动刷新的所有判据都数这个 */
+function refreshCalls(): number {
+  return statusCalls.filter((c) => c.refresh).length;
+}
+
+/**
+ * 造一条回读结论。checkedAt 固定：结论指纹**不该**把时间戳算进去
+ * （每次回读都带新时间戳，算进去就等于每次「变了」，退避永不生效）。
+ */
+function propsOf(mismatchFlags: string[], error: string | null = null): PropsCheck {
+  return {
+    checked: ['temperature'],
+    mismatched: mismatchFlags.map((flag) => ({ flag, param: flag, sent: '40', actual: '20' })),
+    skipped: 0,
+    buildInfo: 'b11178-f9af9be21',
+    checkedAt: 1_700_000_000_000,
+    error: error as PropsCheck['error'],
+    baselineDrift: null,
+  } as unknown as PropsCheck;
+}
 
 /** 状态事件：与主进程同形状（状态 + 停止事实），停止事实默认空 */
 function ev(status: ServerStatus, stop: ServerStopInfo | null = null): ServerStatusEvent {
@@ -27,7 +50,10 @@ function stopOf(part: Partial<ServerStopInfo> & { reason: ServerStopInfo['reason
   server: {
     onOutputBatch: (cb: OutputCb) => { outputCb = cb; },
     onStatus: (cb: StatusCb) => { statusCb = cb; },
-    getStatus: () => Promise.resolve(mainStatus),
+    getStatus: (refresh?: boolean) => {
+      statusCalls.push({ refresh: refresh === true });
+      return Promise.resolve(mainStatus);
+    },
     start: () => Promise.resolve({ ok: true }),
     stop: () => Promise.resolve({ ok: true }),
     restart: () => Promise.resolve({ ok: true }),
@@ -51,6 +77,7 @@ beforeEach(() => {
   setActivePinia(createPinia());
   statusCb = () => {};
   outputCb = () => {};
+  statusCalls = [];
   mainStatus = { status: 'stopped', pid: null, host: '127.0.0.1', port: 8080, url: '', values: {} };
   checkPortResult = { inUse: false };
 });
@@ -288,5 +315,184 @@ describe('状态事件与运行事实（2026-10-06 停止态补全）', () => {
     server.adoptExternal({ pid: 42, name: 'llama-server', port: 8080, host: '127.0.0.1' });
     statusCb(ev('stopping'));
     expect(server.external).toBeNull();
+  });
+});
+
+// /props 自动刷新（2026-10-06 用户要求「不再需要点按钮」）。判据全部对着
+// `statusCalls` 里带 refresh:true 的条目数——那一条是渲染层唯一能证明「这次真的敲了端口」的观测点。
+// 与被删掉的核心侧 60s 盲轮询的差别全在这几条里：没人看就不敲、没在跑就不敲、结论没变就拉长间隔。
+describe('/props 自动刷新（可见 + 只在 running + 空闲退避）', () => {
+  let release: (() => void) | null = null;
+
+  /** 推进假时钟并顺带冲刷微任务（store 里的 watch 是 pre-flush，不冲一次就看不到它生效） */
+  async function advance(ms: number) {
+    await vi.advanceTimersByTimeAsync(ms);
+  }
+
+  function runningMain(check: PropsCheck | null, over: Record<string, unknown> = {}) {
+    mainStatus = {
+      status: 'running', pid: 23508, host: '127.0.0.1', port: 8080,
+      url: 'http://127.0.0.1:8080/', values: {}, propsCheck: check, ...over,
+    };
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    release = null;
+  });
+
+  afterEach(() => {
+    // 上一个测试留下的定时器会打到下一个测试的计数上，必须先退掉可见计数
+    release?.();
+    release = null;
+    vi.useRealTimers();
+  });
+
+  it('只有「本页可见」时才敲端口：退掉计数后一个也不发', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    runningMain(propsOf([]));
+    await server.refreshStatus();
+    statusCb(ev('running'));
+    expect(refreshCalls()).toBe(0);
+
+    release = server.enterPropsWatch();
+    await advance(0);
+    expect(refreshCalls()).toBe(1);
+    await advance(propsPollDelayMs(0));
+    expect(refreshCalls()).toBe(2);
+
+    // 切到别的页（onDeactivated 走 release）：后台页不许继续敲端口
+    release();
+    release = null;
+    await advance(propsPollDelayMs(PROPS_POLL_MAX_STEPS) * 10);
+    expect(refreshCalls()).toBe(2);
+  });
+
+  it('结论连续不变 → 间隔逐档按 ×2 拉长并在封顶后保持（期望值由 propsPollDelayMs 派生）', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    runningMain(propsOf([]));
+    await server.refreshStatus();
+    statusCb(ev('running'));
+
+    release = server.enterPropsWatch();
+    await advance(0);
+    expect(refreshCalls()).toBe(1);
+
+    // 档位序列：第 i 档的间隔就是 propsPollDelayMs(i)，期望值全部从常量派生，不抄死数字
+    const gaps = Array.from({ length: PROPS_POLL_MAX_STEPS + 1 }, (_, i) => propsPollDelayMs(i));
+    // 非空转对照（删掉退避就会红在这里）：这套档位确实在拉长，且拉长到那个上限常量就封顶
+    expect(gaps[1]).toBeGreaterThan(gaps[0]);
+    expect(gaps[gaps.length - 1]).toBe(PROPS_POLL_MAX_MS);
+
+    let expected = 1;
+    for (const gap of gaps) {
+      await advance(gap - 1);
+      // 还没到点：一次都不许多敲（固定周期轮询在这里必然多敲）
+      expect(refreshCalls(), `到点前（间隔 ${gap}ms）不应多敲`).toBe(expected);
+      await advance(1);
+      expected += 1;
+      expect(refreshCalls(), `到点应恰好敲一次`).toBe(expected);
+    }
+  });
+
+  it('结论一变（引擎被外部 POST /props 改写）→ 立刻回到快档', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    runningMain(propsOf([]));
+    await server.refreshStatus();
+    statusCb(ev('running'));
+
+    release = server.enterPropsWatch();
+    await advance(0);
+    expect(refreshCalls()).toBe(1);
+    // 连续两轮无事可报，退避已经拉长到 propsPollDelayMs(2)
+    await advance(propsPollDelayMs(0));
+    await advance(propsPollDelayMs(1));
+    expect(refreshCalls()).toBe(3);
+
+    // 引擎侧改动被下一次回读带回：结论变了
+    runningMain(propsOf(['top_k']));
+    await advance(propsPollDelayMs(2));
+    expect(refreshCalls()).toBe(4);
+    expect(server.propsCheck?.mismatched.map((m) => m.param)).toEqual(['top_k']);
+
+    // 变了就回快档：下一次间隔回到 propsPollDelayMs(0)，而不是继续停在慢档
+    await advance(propsPollDelayMs(0) - 1);
+    expect(refreshCalls()).toBe(4);
+    await advance(1);
+    expect(refreshCalls()).toBe(5);
+  });
+
+  it('没在 running 就一个也不敲；服务起来当场补一次并归零退避，停服立刻停表', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    runningMain(propsOf([]));
+
+    release = server.enterPropsWatch();
+    await advance(propsPollDelayMs(PROPS_POLL_MAX_STEPS) * 10);
+    expect(refreshCalls()).toBe(0);
+
+    // 服务就绪：有人在看着 → 立刻敲一次，并从快档起步
+    statusCb(ev('running'));
+    await advance(0);
+    expect(refreshCalls()).toBe(1);
+    await advance(propsPollDelayMs(0));
+    expect(refreshCalls()).toBe(2);
+
+    // 停服：无端口可敲，节拍必须当场停（不是等下一次 tick 自己发现）
+    statusCb(ev('stopping'));
+    statusCb(ev('stopped', stopOf({ reason: 'stopped_by_user', hadBeenReady: true })));
+    await advance(propsPollDelayMs(PROPS_POLL_MAX_STEPS) * 10);
+    expect(refreshCalls()).toBe(2);
+  });
+
+  it('监听地址（port）变了 → 立刻归零重探一次，不傻等下一个退避周期', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    runningMain(propsOf([]));
+    await server.refreshStatus();
+    statusCb(ev('running'));
+
+    release = server.enterPropsWatch();
+    await advance(0);
+    await advance(propsPollDelayMs(0));
+    await advance(propsPollDelayMs(1));
+    expect(refreshCalls()).toBe(3);
+
+    // 重启后主进程报回新的端口（一次不带 refresh 的常规拉取把它写进 store）
+    runningMain(propsOf([]), { port: 8099 });
+    await server.refreshStatus();
+    await advance(0);
+    expect(refreshCalls()).toBe(4);
+    // 归零：下一次间隔回到快档
+    await advance(propsPollDelayMs(0) - 1);
+    expect(refreshCalls()).toBe(4);
+    await advance(1);
+    expect(refreshCalls()).toBe(5);
+  });
+
+  it('重复 enter/leave 幂等：keep-alive 下 deactivate 与 unmount 双触发不会把计数减成负数', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    runningMain(propsOf([]));
+    statusCb(ev('running'));
+
+    const rel1 = server.enterPropsWatch();
+    const rel2 = server.enterPropsWatch();
+    await advance(0);
+    const afterEnter = refreshCalls();
+    rel1();
+    rel1(); // 重复放（deactivate + unmount 双触发）
+    rel2();
+    await advance(propsPollDelayMs(PROPS_POLL_MAX_STEPS) * 10);
+    // 两份挂接都退掉后必须彻底静默：计数若被减成负数，下一次 enter 就永远开不了
+    expect(refreshCalls()).toBe(afterEnter);
+
+    const rel3 = server.enterPropsWatch();
+    await advance(0);
+    expect(refreshCalls()).toBeGreaterThan(afterEnter);
+    release = rel3;
   });
 });

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { DEFAULT_HOST, DEFAULT_PORT } from '@llama-launcher/shared';
 import type { ServerStatus, ServerStatusEvent, ServerStopInfo, OutputEntry, PropsCheck } from '@llama-launcher/shared';
 import { useIPC, invokeOk, toPlain } from '@/composables/useIPC';
@@ -64,6 +64,24 @@ export interface ExternalServerInstance {
   name?: string;
   port: number;
   host: string;
+}
+
+/**
+ * /props 自动刷新的退避档位（与概览页外部实例探测 ServiceStatusCard 同一套形状）。
+ * 为什么这里允许定时、而核心侧那个 60s 盲轮询被删：被删的是「不管有没有人看、不管有没有变」
+ * 的固定周期敲端口；引擎参数只可能被外部 `POST /props` 改写，而那次改写**在本机没有可订阅的事件源**
+ * ——这与「别人家的 llama-server 何时起来」完全同构，所以沿用外部实例探测那条已被审查保留下来的
+ * 「该探才探 + 空闲退避」规则：可见才探、只在 running 探、结论连续不变就把间隔按 ×2^n 拉长到封顶。
+ */
+export const PROPS_POLL_BASE_MS = 15_000;
+export const PROPS_POLL_MAX_MS = 60_000;
+/** 退避步数上限（15s→30s→60s 后保持封顶，继续翻倍只会白等） */
+export const PROPS_POLL_MAX_STEPS = 4;
+
+/** 第 step 档的等待时长：派生而非抄死，测试与被测代码共用这一个算式。 */
+export function propsPollDelayMs(step: number): number {
+  const s = Math.max(0, Math.min(step, PROPS_POLL_MAX_STEPS));
+  return Math.min(PROPS_POLL_BASE_MS * 2 ** s, PROPS_POLL_MAX_MS);
 }
 
 export const useServerStore = defineStore('server', () => {
@@ -234,12 +252,12 @@ export const useServerStore = defineStore('server', () => {
   }
 
   /**
-   * 拉取主进程状态。`refresh: true` 顺带触发一次 /props 回读——渲染层只在「页签可见 /
-   * 用户点重新校验」时带上该标志；「窗口重新聚焦」那一侧的信号不经这里，由主进程
-   * `launcher-bridge` 挂 `win.on('focus')` 直接调 `Launcher.recheckProps()`
-   * （窗口没聚焦时渲染层自己也收不到 focus，放在主进程才可靠）。
-   * 三者都是事件，取代此前核心侧每分钟一次的盲轮询（引擎参数只可能被外部改动，定时敲端口既抓不到
-   * 规律也无事可报）。
+   * 拉取主进程状态。`refresh: true` 顺带触发一次 /props 回读——触发点有两类：
+   * ① 自动刷新（下面的 `enterPropsWatch` 那一套「可见 + 只在 running + 空闲退避」的节拍）；
+   * ② 用户点「重新校验」按钮想立刻要答案。
+   * 「窗口重新聚焦」那一侧的信号不经这里，由主进程 `launcher-bridge` 挂 `win.on('focus')`
+   * 直接调 `Launcher.recheckProps()`（窗口没聚焦时渲染层自己也收不到 focus，放在主进程才可靠）。
+   * 核心侧始终不含定时器：敲端口与否由这里的可见性决定。
    */
   async function refreshStatus(refresh = false) {
     const info = await api.server.getStatus(refresh);
@@ -258,6 +276,111 @@ export const useServerStore = defineStore('server', () => {
     // 与 onStatus 订阅同一语义：自家进程 running 后外部实例标记失效
     if (info.status === 'running' || info.status === 'starting') external.value = null;
   }
+
+  // ---- /props 自动刷新（渲染层节拍：可见 + 只在 running + 空闲退避）----
+  // 为什么放在渲染层而不是核心：「有没有人在看」只有渲染层知道（keep-alive 的激活/失活），
+  // 而核心只有端口。节拍器写在这里，核心仍是纯事件驱动——它收到 `server:status(refresh:true)`
+  // 才敲一次端口，自己从不排表。
+  // 生命周期铁律 §7.1①：定时器必须与 onActivated/onDeactivated 配对，失活清表；
+  // 计数式挂接（多个卡片各持一个 release）是为了「概览 ↔ 服务」来回切页时不出现 0 空窗，
+  // 也让同一组件在 keep-alive 下 unmount + deactivate 双触发时不会把计数减成负数。
+  let propsWatchers = 0;
+  let propsTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 连续「结论没变」的步数：决定下一档等多久 */
+  let propsIdleSteps = 0;
+  /** 上一次节拍见到的结论指纹，用于判断这一轮有没有新东西可报 */
+  let propsLastKey = '';
+  /** 在途节拍标记：同一时刻只允许一次回读排队（回读是异步的，节拍可能撞上） */
+  let propsPollInFlight = false;
+
+  /**
+   * 结论指纹：与核心 `runPropsCheck` 的 changed 判定取同一组字段
+   * （mismatched / error / baselineDrift）。字段不一致会导致两侧对「变没变」各有看法，
+   * 退避档位就失去意义（该回快档时没回）。checkedAt 刻意不参与——它每次都变，
+   * 把它算进指纹等于退避永不生效。
+   */
+  function propsConclusionKey(): string {
+    const c = propsCheck.value;
+    if (!c) return '';
+    return JSON.stringify([c.mismatched, c.error ?? '', c.baselineDrift ?? null]);
+  }
+
+  function clearPropsTimer() {
+    if (propsTimer) { clearTimeout(propsTimer); propsTimer = null; }
+  }
+
+  /** 只有「真的有人在看」且「有端口可敲（running）」时才允许排下一次 */
+  function propsShouldPoll(): boolean {
+    return propsWatchers > 0 && status.value === 'running';
+  }
+
+  function schedulePropsPoll() {
+    clearPropsTimer();
+    if (!propsShouldPoll()) return;
+    propsTimer = setTimeout(() => {
+      propsTimer = null;
+      void propsPollTick();
+    }, propsPollDelayMs(propsIdleSteps));
+  }
+
+  async function propsPollTick(): Promise<void> {
+    if (propsPollInFlight) return;
+    propsPollInFlight = true;
+    try {
+      await refreshStatus(true);
+    } finally {
+      propsPollInFlight = false;
+    }
+    const key = propsConclusionKey();
+    if (key !== propsLastKey) {
+      // 结论变了 = 这次敲端口是有产出的 → 回到快档，趁热接着看
+      propsIdleSteps = 0;
+      propsLastKey = key;
+    } else {
+      // 无事可报 → 拉长间隔，直到封顶
+      propsIdleSteps = Math.min(propsIdleSteps + 1, PROPS_POLL_MAX_STEPS);
+    }
+    schedulePropsPoll();
+  }
+
+  /** 归零退避并立刻敲一次端口（页面重新可见 / 服务变 running / host·port 改动） */
+  function propsProbeNow() {
+    propsIdleSteps = 0;
+    propsLastKey = '';
+    clearPropsTimer();
+    if (propsShouldPoll()) void propsPollTick();
+  }
+
+  /**
+   * 声明「本页正在有人看 /props 结论」，返回幂等的 release。
+   * 调用方：展示回读结论的卡片，onActivated 挂、onDeactivated/onUnmounted 放。
+   */
+  function enterPropsWatch(): () => void {
+    propsWatchers++;
+    propsProbeNow();
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      propsWatchers = Math.max(0, propsWatchers - 1);
+      if (propsWatchers === 0) {
+        // 没人看了：立刻停表，后台页不许敲端口
+        clearPropsTimer();
+        propsIdleSteps = 0;
+        propsLastKey = '';
+      }
+    };
+  }
+
+  // 服务变 running（含重启后的新一轮）：退避归零并立刻探一次；离开 running 一律停表
+  watch(status, (s) => {
+    if (s === 'running') propsProbeNow();
+    else clearPropsTimer();
+  });
+  // 监听地址变了（多地址 host / 改端口后重启）：上一轮结论与新端点无关，归零重探
+  watch([host, port], () => {
+    if (propsShouldPoll()) propsProbeNow();
+  });
 
   async function start(values: PresetValues, settings: AppSettings) {
     try {
@@ -352,6 +475,7 @@ export const useServerStore = defineStore('server', () => {
     external,
     refreshExternal, adoptExternal, clearExternal,
     subscribe, refreshStatus, clearOutputs, pushOutput, pushOutputBatch,
+    enterPropsWatch,
     start, stop, restart, previewCommand,
   };
 });
