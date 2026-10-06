@@ -9,17 +9,14 @@
 import { computed, onActivated, onDeactivated, onUnmounted, ref, watch } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
-import ToolTip from '@/components/common/ToolTip.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
-import { useHardwareStore } from '@/stores/hardware';
 import { useI18nStore } from '@/stores/i18n';
 
 const settings = useSettingsStore();
 const server = useServerStore();
 const params = useParamsStore();
-const hw = useHardwareStore();
 const i18n = useI18nStore();
 
 // 内置参数命令（只读展示，随参数实时自动生成）
@@ -88,40 +85,18 @@ const baselineDrift = computed(() => server.propsCheck?.baselineDrift ?? null);
 // 与概览页外部实例探测同一套形状；引擎参数只可能被外部改写，本机没有事件源，
 // 所以「可见 + 自适应退避」取代了此前「必须有人点一下」的纯按需。
 let releasePropsWatch: (() => void) | null = null;
-// 权重落位行的取数订阅：与回读同一套「本页可见才取数」，失活必须退掉（§7.1 铁律①）。
-let releaseHwWatch: (() => void) | null = null;
 onActivated(() => {
   releasePropsWatch?.();
   releasePropsWatch = server.enterPropsWatch();
-  releaseHwWatch?.();
-  releaseHwWatch = hw.enter();
 });
 onDeactivated(() => {
   releasePropsWatch?.();
   releasePropsWatch = null;
-  releaseHwWatch?.();
-  releaseHwWatch = null;
 });
 
-// ---- 权重落位（§5.6 第 2 项）：命令里那几个 -ngl / -cmoe / -dev 到底把模型放在哪儿 ----
-// 数字来自 core 的占用估算（estimateOccupancy），文案只说这两态之一：
-// 全在显卡（不涉及搬运）/ 显卡 + 内存分放（搬运决定出字速度）。没测过的量不写。
-const placementText = computed(() =>
-  hw.placement ? i18n.t(hw.placement.key, hw.placement.args) : '',
-);
-// 有内存侧权重 = 存在搬运开销，用橙（与回读不一致同一语义色），不是错误红
-const placementWarn = computed(() => hw.placement?.spilled === true);
 // 界面列出的 env 变量与不一致项同时出现时，才把两者说成有因果——只有 env 变量不构成归因，
 // 只有不一致也不该甩锅给环境（还可能是引擎版本漂移或我们基线填错）。
 const envBlame = computed(() => server.envOverrides.length > 0 && propsMismatch.value.length > 0);
-// 「一致」是个正面结论，判据必须写全：核对过、无不一致、无基线漂移、取数成功。
-const propsAllClear = computed(() => {
-  const c = server.propsCheck;
-  return !!c && !c.error && !c.baselineDrift && c.mismatched.length === 0 && c.checked.length > 0;
-});
-const checkedAtLabel = computed(() =>
-  server.propsCheck ? new Date(server.propsCheck.checkedAt).toLocaleTimeString() : '',
-);
 
 // ---- 常驻状态行（STYLE_TODO #81 档 2：五行合一，槽恒在、只换文案）----
 // 原先这五条提示各自 v-if，插在预览框与「扩展参数」区之间：任何一条出现就把整卡顶高一档，
@@ -163,16 +138,12 @@ const statusParts = computed<StatusPart[]>(() => {
   if (drift) {
     parts.push({ warn: true, text: i18n.t('cmd_baseline_drift', [drift.engineBuild, drift.baselineBuild]) });
   }
-  if (propsAllClear.value) {
-    parts.push({
-      warn: false,
-      text: i18n.t('cmd_props_ok', [String(server.propsCheck?.checked.length ?? 0), checkedAtLabel.value]),
-    });
-  }
   return parts;
 });
-// 无结论 = 未回读（服务未跑 / 回读还没落地），给一句不带结论的默认文案。
-const statusText = computed(() => statusParts.value.map((p) => p.text).join(' · ') || i18n.t('cmd_props_pending'));
+// 只在**有事要说**时出声：核对通过、还没轮到回读、服务没跑——这些都是「无需提示」的常态，
+// 一行字都不出（用户 2026-10-06 标注：智能处理完成后不必提示，也不该催人点按钮）。
+// 槽位仍由 .cmd-status 的 min-height 常驻，空文案不改变卡片高度（STYLE_TODO #81 的预留纪律）。
+const statusText = computed(() => statusParts.value.map((p) => p.text).join(' · '));
 // 配色/图标跟随最高优先级那条（首条）：混排时不并列两种颜色，避免一行里出现两个语义色。
 const statusWarn = computed(() => statusParts.value[0]?.warn ?? false);
 
@@ -186,8 +157,6 @@ onUnmounted(() => {
   // keep-alive 外的真实卸载（路由配置变更 / 测试挂载）也要退掉可见计数
   releasePropsWatch?.();
   releasePropsWatch = null;
-  releaseHwWatch?.();
-  releaseHwWatch = null;
 });
 </script>
 
@@ -195,14 +164,6 @@ onUnmounted(() => {
   <Card title-key="card_cmd">
     <!-- 复制命令上移至卡片头（与标题同行，§7.5.4 卡片头操作区） -->
     <template #actions>
-      <!-- 手动复检降级为逃生阀：平时由「本页可见 + 空闲退避」的自动节拍刷（store 的
-           enterPropsWatch），这个按钮只服务「现在就要答案」。仍不带 loading 态——结果何时
-           落地取决于主进程那次 HTTP，做成转圈就得配一个「等多久没回就自清」的兜底定时器。 -->
-      <ToolTip :text="i18n.t('act_recheck_auto_tip')">
-        <a-button size="small" :disabled="server.status !== 'running'" @click="server.refreshStatus(true)">
-          <template #icon><Icon name="refresh" :size="12" /></template>
-        </a-button>
-      </ToolTip>
       <a-button size="small" :disabled="!fullCommand" @click="onCopyCmd">
         <template #icon><Icon name="copy" :size="12" /></template>
         {{ i18n.t('copy_cmd') }}
@@ -226,19 +187,6 @@ onUnmounted(() => {
           <Icon class="cmd-status-icon" :name="statusWarn ? 'alert' : 'info'" :size="11" />
           <span class="cmd-status-text" :class="{ 'cmd-status-text--warn': statusWarn }" :title="statusText">
             {{ statusText }}
-          </span>
-        </div>
-        <!-- 权重落位常驻行（§5.6 第 2 项）：槽恒在、只换文案，取数未到/无设备时隐藏占位。
-             高度与上面状态行同档（两档 fs-sm 行高 18px × 2 = 36px），中英两态都不长高；
-             完整文案走 title（STYLE_TODO #81 既有范式，静态预留，不做测量回填）。 -->
-        <div class="cmd-placement" :class="{ 'is-active': !!placementText }">
-          <Icon class="cmd-status-icon" :name="placementWarn ? 'alert' : 'info'" :size="11" />
-          <span
-            class="cmd-status-text"
-            :class="{ 'cmd-status-text--warn': placementWarn }"
-            :title="placementText"
-          >
-            {{ placementText }}
           </span>
         </div>
       </div>
@@ -351,20 +299,6 @@ onUnmounted(() => {
   font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--color-text-3);
-}
-
-// 权重落位行：与状态行同一档预留（两行 × 18px = 36px），槽恒在、无数据时只隐藏不塌，
-// 因此「取数到达 / 换模型 / 无设备」三种切换都不改变卡片高度（STYLE_TODO #81）。
-.cmd-placement {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  min-height: 36px;
-  visibility: hidden;
-
-  &.is-active {
-    visibility: visible;
-  }
 }
 
 // 警示语义：橙（与 ParamRow 的超限提示同一 token，不自造色值）

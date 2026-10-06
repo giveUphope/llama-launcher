@@ -361,6 +361,30 @@ export const useParamsStore = defineStore('params', () => {
     values[p.key] = p.default;
   }
 
+  /** 目录归一（分隔符与大小写）：判「这个路径是否落在那个模型所在目录里」用。 */
+  function dirOf(p: string): string {
+    const norm = p.replace(/\\/g, '/');
+    const cut = norm.lastIndexOf('/');
+    return cut > 0 ? norm.slice(0, cut).toLowerCase() : '';
+  }
+
+  /**
+   * 换模型时的伴随文件清理（用户标注：切换模型后智能处理模态权重的路径）。
+   * `mmproj` / `spec_draft_model` 是跟着模型走的**伴随文件**，而 detect* 只在字段为空时才探测
+   * （不覆盖用户手挑的值）——于是换模型后，旧模型目录里那两条会一直留着，指着一个新模型用不上的
+   * 伴随文件，界面上还看不出异常。这里只清「落在**上一个模型所在目录**里」的那些：那是旧模型的
+   * 残留，清掉后下面的 detect* 会为新模型重探；用户手挑到别处（跨目录复用）的路径保留不动——
+   * 那是显式选择，不是陈旧残留。
+   */
+  function dropStaleCompanions(prevModel: string): void {
+    const prevDir = dirOf(prevModel);
+    if (!prevDir) return;
+    for (const key of ['mmproj', 'spec_draft_model']) {
+      const v = String(values[key] ?? '').trim();
+      if (v && dirOf(v) === prevDir) values[key] = '';
+    }
+  }
+
   async function detectMmproj(modelPathValue: string): Promise<void> {
     const server = useServerStore();
     const i18n = useI18nStore();
@@ -474,6 +498,8 @@ export const useParamsStore = defineStore('params', () => {
       server.clearOutputs();
     }
     set(MODEL_KEY, path);
+    // 旧模型目录里的伴随文件先清掉，下面的 detect* 才会为新模型重新探（见 dropStaleCompanions）
+    if (path !== prev) dropStaleCompanions(prev);
     // 无预设基线轨道：应用模型即重建"临时"基线（该模型的当前参数；
     // 若随后智能预设匹配命中，applyPreset 会以预设名重建基线）
     markBaseline('');

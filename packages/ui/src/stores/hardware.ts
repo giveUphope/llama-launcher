@@ -25,18 +25,6 @@ const REFRESH_DEBOUNCE_MS = 300;
 /** 减负建议取的目标档：落位与「装不下」判定与目标无关，固定用均衡档的求解口径 */
 const ADVICE_TARGET = 'balanced' as const;
 
-/** 一句「权重落在哪」的展示派生值（文案键 + 纯数值 args，渲染端 t() 翻译） */
-export interface PlacementLine {
-  /** i18n 键：place_all_vram / place_split / place_all_ram */
-  key: string;
-  /** 只放数字与设备名——数据层不产文案 */
-  args: (string | number)[];
-  /** 有权重落在内存侧 ⇒ 存在搬运开销（界面用警示色，不用错误色） */
-  spilled: boolean;
-}
-
-const mibToGiB = (mib: number): string => (mib / 1024).toFixed(1);
-
 export const useHardwareStore = defineStore('hardware', () => {
   const params = useParamsStore();
 
@@ -112,27 +100,6 @@ export const useHardwareStore = defineStore('hardware', () => {
   }
 
   /**
-   * 「主体在显卡、闲置部分在内存」那一句的派生：只在同时拿到设备与占用估算时成立，
-   * 缺任一项就返回 null（隐藏整行）。数字全部来自 core estimateOccupancy，未测得的量
-   * （例如「慢多少 token/s」）一概不出现在文案里。
-   */
-  const placement: ComputedRef<PlacementLine | null> = computed(() => {
-    const e = estimate.value;
-    const occ = e?.occupancy;
-    if (!e || !occ || e.devices.length === 0) return null;
-    const gpuW = occ.vram.weightsMiB;
-    const ramW = occ.ram.weightsMiB;
-    if (gpuW === null) return null;
-    // 显存侧归属「空闲最多的那块」——与 core 计算 ngl 用的那块一致
-    const primary = [...e.devices].sort((a, b) => b.freeMiB - a.freeMiB)[0];
-    if (gpuW <= 0) return { key: 'place_all_ram', args: [], spilled: true };
-    if (ramW !== null && ramW > 0) {
-      return { key: 'place_split', args: [mibToGiB(gpuW), primary.name, mibToGiB(ramW)], spilled: true };
-    }
-    return { key: 'place_all_vram', args: [mibToGiB(gpuW), primary.name], spilled: false };
-  });
-
-  /**
    * 减负建议条目：core 已判定「装不下」并发了条目，这里只滤掉「会话里本来就是这个值」的
    * （已经在正确位置上，不必再让用户点一次）。
    */
@@ -143,5 +110,5 @@ export const useHardwareStore = defineStore('hardware', () => {
     );
   });
 
-  return { estimate, loading, refresh, enter, placement, relief, modelPath, kvDtype };
+  return { estimate, loading, refresh, enter, relief, modelPath, kvDtype };
 });

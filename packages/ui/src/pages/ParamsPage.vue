@@ -175,6 +175,9 @@ const vramTooltip = computed(() => {
   lines.push(i18n.t('msg_occ_vram_line', [e.devices[0].name, giB(v.weightsMiB), giB(v.kvMiB), giB(v.reserveMiB), giB(v.totalMiB), giB(v.availableMiB), v.fits === false ? i18n.t('occ_over') : i18n.t('occ_ok')]));
   lines.push(i18n.t('msg_occ_ram_line', [giB(o.ram.weightsMiB), giB(o.ram.kvMiB), giB(o.ram.reserveMiB), giB(o.ram.totalMiB), giB(o.ram.availableMiB)]));
   lines.push(i18n.t('msg_occ_ctx_line', [(o.contextTokens ?? 0).toLocaleString(), (o.maxContext ?? 0).toLocaleString(), kvDtype.value]));
+  // 「为什么慢」只在这里说一次（服务页原先还有一行同义提示，与这里重复，2026-10-06 用户标注后删除）：
+  // 有权重落在内存侧时，内存→显卡的搬运才是决定出字速度的那条链路。
+  if ((o.ram.weightsMiB ?? 0) > 0) lines.push(i18n.t('msg_occ_spill_line'));
   return lines.join('\n');
 });
 

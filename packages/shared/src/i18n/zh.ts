@@ -194,6 +194,7 @@ export const zh = {
   occ_over: '⚠ 超出空闲显存',
   msg_occ_ram_line: '内存：CPU 权重 {0} + KV {1} + 开销 {2} ≈ {3} GiB / 系统可用 {4} GiB',
   msg_occ_ctx_line: '估算上下文 {0} tok · 全卸载上限 ~{1}（KV {2}）',
+  msg_occ_spill_line: '内存里那部分权重每生成一步都要搬进显卡——出字速度由这条搬运决定（估算）',
   target_max_context: '最大上下文',
   target_balanced: '均衡',
   target_latency: '最低延迟',
@@ -227,9 +228,6 @@ export const zh = {
   act_oom_halve_ctx: '上下文减半',
   act_oom_kv_quant: 'KV 量化 q8_0（自动开 FA）',
   // 权重落位说明（服务页命令预览卡，§5.6 第 2 项）：数字来自 core 的占用估算，未估算的一律不写
-  place_all_vram: '权重约 {0} GiB 全部在显卡（{1}），不涉及内存搬运',
-  place_split: '约 {0} GiB 在显卡（{1}）、{2} GiB 留在内存——内存那部分每生成一步都要搬进显卡，出字速度由这条搬运决定（估算）',
-  place_all_ram: '权重全部留在内存（显卡不放层），出字速度由内存搬运决定（估算）',
   // 装不下时的减负建议（概览页状态卡常驻行，§5.6 第 3 项）：条目由 core recommendOffloadAdvice 下发
   msg_offload_advice: '权重超出空闲显存，可把闲置部分放内存：',
   offload_rec_cmoe: '所有 MoE 专家权重留在内存，显卡只算当下要用的专家',
@@ -425,9 +423,6 @@ export const zh = {
   // 预览可信度：预览 = 下次启动会用的命令，运行中的服务用的是启动那一刻的参数
   cmd_stale_running: '命令预览按【当前参数】生成；运行中的服务仍在用启动那一刻的参数，两者有 {0} 项不同，重启后生效',
   cmd_env_overrides: '引擎侧环境变量 {0} 会改写界面上未设置的参数缺省值，这些改写不会出现在命令里',
-  cmd_props_pending: '尚未向引擎回读核对（/props）',
-  cmd_props_ok: '已向引擎回读核对 {0} 项，与发出的值一致（{1}）',
-  act_recheck_auto_tip: '本页可见时会自动向引擎回读核对（/props），空闲时拉长间隔；点一下可立刻要答案',
   cmd_props_mismatch: '引擎回读：{0} 项与发出的值不一致（{1}）——以 /props 实际生效值为准',
   cmd_props_mismatch_env: '引擎回读：{0} 项与发出的值不一致（{1}）；同时检测到 {2}，很可能是它们改写了引擎缺省值',
   cmd_baseline_drift: '引擎构建比参数基线旧：实际 {0}，基线已核对到 {1}——更旧引擎那批不可回读参数的默认值判定可能对不上，需重新对拍引擎 help',

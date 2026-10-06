@@ -195,6 +195,7 @@ export const en: Dict = {
   occ_over: '⚠ exceeds free VRAM',
   msg_occ_ram_line: 'RAM: CPU weights {0} + KV {1} + overhead {2} ≈ {3} GiB / system free {4} GiB',
   msg_occ_ctx_line: 'context {0} tok · full-offload cap ~{1} (KV {2})',
+  msg_occ_spill_line: 'The RAM-resident part is copied into the GPU for every generated step; that transfer sets the generation speed (estimate)',
   target_max_context: 'Max Context',
   target_balanced: 'Balanced',
   target_latency: 'Lowest Latency',
@@ -228,9 +229,6 @@ export const en: Dict = {
   act_oom_kv_quant: 'KV q8_0 (enables FA)',
   // Weight-placement line (service page command card, §5.6 item 2).
   // Numbers come from core's occupancy estimate; nothing unmeasured is stated here.
-  place_all_vram: 'About {0} GiB of weights fit entirely on the GPU ({1}); nothing is copied from RAM',
-  place_split: 'About {0} GiB on the GPU ({1}), {2} GiB left in system RAM — every generation step copies that RAM part back to the GPU, so the copy link sets your token rate (estimated)',
-  place_all_ram: 'All weights stay in system RAM (no layers on the GPU); the RAM-to-GPU copy sets your token rate (estimated)',
   // Relief advice for "won't fit" (overview status card permanent row, §5.6 item 3);
   // entries are emitted by core's recommendOffloadAdvice.
   msg_offload_advice: 'The weights exceed free VRAM; move the idle part to RAM:',
@@ -426,9 +424,6 @@ export const en: Dict = {
   // Preview trust: the preview is what the NEXT launch will use; the running service uses launch-time params
   cmd_stale_running: 'The preview uses the CURRENT parameters; the running service still uses the ones captured at launch — {0} differ, they apply after a restart',
   cmd_env_overrides: 'Engine-side env vars {0} override the defaults of parameters you left unset; those overrides never appear in the command',
-  cmd_props_ok: 'Read back and verified {0} value(s) against the engine — all match what we sent ({1})',
-  act_recheck_auto_tip: 'While this page is visible the launcher re-reads and verifies against the engine (/props) on its own, backing off when idle; click to get an answer right now',
-  cmd_props_pending: 'Not yet verified against the engine (/props)',
   cmd_props_mismatch: 'Engine read-back: {0} value(s) differ from what we sent ({1}) — /props is what is actually in effect',
   cmd_props_mismatch_env: 'Engine read-back: {0} value(s) differ from what we sent ({1}); {2} also detected — they most likely rewrote the engine defaults',
   cmd_baseline_drift: 'Engine build is older than the parameter baseline: running {0}, baseline verified against {1} — for that older engine the default basis of the non-readable parameters may not line up; re-cross-check the engine help',

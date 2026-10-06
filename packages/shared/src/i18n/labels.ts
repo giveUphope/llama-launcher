@@ -134,12 +134,12 @@ export const PARAM_HELP: Record<string, ParamI18nEntry> = {
   reasoning_budget_message: { zh: '思考预算耗尽时注入到结束思考标签前的提示语', en: 'Message injected before end-of-thinking tag when budget exhausted' },
 
   // ---------------- sampling ----------------
-  temperature: { zh: '采样温度；越高越随机', en: 'Sampling temperature; higher = more random' },
+  temperature: { zh: '采样温度（0 = 贪心解码；越高越随机）', en: 'Sampling temperature (0 = greedy decoding; higher = more random)' },
   top_k: { zh: 'Top-K 采样；0 = 禁用', en: 'Top-K sampling; 0 = disabled' },
   top_p: { zh: '核采样；1.0 = 禁用', en: 'Nucleus sampling; 1.0 = disabled' },
   min_p: { zh: 'Min-P 采样；0.0 = 禁用', en: 'Min-P sampling; 0.0 = disabled' },
   repeat_penalty: { zh: '惩罚重复 token 序列', en: 'Penalize repeated token sequences' },
-  presence_penalty: { zh: '存在惩罚 alpha', en: 'Presence penalty alpha' },
+  presence_penalty: { zh: '存在惩罚 alpha（0 = 关闭）', en: 'Presence penalty alpha (0 = disabled)' },
   seed: { zh: 'RNG 种子；-1 = 随机', en: 'RNG seed; -1 = random' },
 
   // ---------------- server ----------------
@@ -155,7 +155,7 @@ export const PARAM_HELP: Record<string, ParamI18nEntry> = {
   cors_credentials: { zh: '是否允许跨域携带凭据；来源为 * 时引擎会回显 Origin', en: 'Allow credentials cross-origin; with origins set to * the engine echoes Origin' },
   timeout: { zh: '服务器读写超时', en: 'Server read/write timeout' },
   cache_prompt: { zh: '启用提示缓存', en: 'Enable prompt caching' },
-  cache_reuse: { zh: '尝试从缓存重用的最小块大小', en: 'Min block size to reuse from cache' },
+  cache_reuse: { zh: '尝试从缓存重用的最小块大小（单位：token，按 32 对齐；0 = 关闭）', en: 'Min block size to reuse from the cached context (tokens, aligned to 32; 0 = disabled)' },
   context_shift: { zh: '无限生成时使用上下文移位', en: 'Use context shift for infinite generation' },
 
   // ---------------- model (special) ----------------
@@ -166,7 +166,7 @@ export const PARAM_HELP: Record<string, ParamI18nEntry> = {
   kv_unified_per_slot: { zh: '并行槽位上下文上限；不与上下文长度同用时共享 KV 池按此设置，0 = 不设置（保持原行为）', en: 'Context limit per parallel slot; when unset with ctx-size, shared KV pool is sized per this. 0 = unset' },
   mmproj_device: { zh: '多模态投影器所用设备；none = 不卸载，默认 auto（可用 llama-server --list-devices 查看设备名）', en: 'Device for multimodal projector; none = don\'t offload, default auto (see llama-server --list-devices)' },
   mmproj_offload: { zh: '将多模态投影器卸载到 GPU（默认启用）；取消勾选下发 --no-mmproj-offload，投影器保留在 CPU——节省显存或规避部分后端的投影器卸载兼容问题', en: 'Offload the multimodal projector to GPU (enabled by default); unchecking emits --no-mmproj-offload to keep the projector on CPU — saves VRAM or works around projector-offload issues on some backends' },
-  video_fps: { zh: '目标视频帧率', en: 'Target video frame rate' },
+  video_fps: { zh: '目标视频帧率（帧/秒；仅多模态视频输入用，默认取系统默认）', en: 'Target video frame rate (frames per second; multimodal video input only, defaults to the system value)' },
   video_timestamp_interval: { zh: '文本时间戳之间的毫秒间隔', en: 'Interval in ms between text timestamps' },
   video_ffmpeg_dir: { zh: '包含 ffmpeg 与 ffprobe 的目录；留空 = 在 PATH 中搜索', en: 'Dir containing ffmpeg and ffprobe; empty = search in PATH' },
   spec_synth_len: { zh: '目标平均合成接受长度（含目标 token，仅基准测试）', en: 'Target mean synthetic acceptance length incl. target token (benchmarking only)' },

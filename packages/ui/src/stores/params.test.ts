@@ -454,3 +454,30 @@ describe('网络常量派生与端口校验', () => {
     expect(isValidPort(Number(''))).toBe(false);
   });
 });
+
+describe('params store 换模型：伴随文件路径的智能处理（2026-10-06 用户标注）', () => {
+  it('旧模型目录里的 mmproj / 草稿模型被清掉并重探；手挑到别处的路径保留', async () => {
+    const params = useParamsStore();
+    const api = (globalThis as any).window.api;
+    const origMmproj = api.models.detectMmproj;
+    const probed: string[] = [];
+    api.models.detectMmproj = (p: string) => {
+      probed.push(p);
+      return Promise.resolve(p.includes('new') ? 'D:/Models/new/mmproj-b.gguf' : '');
+    };
+    try {
+      await params.reattachModelRuntime('D:/Models/old/a.gguf');
+      params.set('mmproj', 'D:/Models/old/mmproj-a.gguf'); // 与旧模型同目录 ⇒ 旧模型的伴随文件
+      params.set('spec_draft_model', 'E:/shared/draft.gguf'); // 别处 ⇒ 用户手挑
+      params.markBaseline(''); // 固化当前状态，免得 applyModel 弹「丢弃未保存改动」确认
+
+      await params.applyModel('D:/Models/new/b.gguf');
+
+      expect(probed, '换模型后必须为新模型重探 mmproj（说明旧值被清掉了）').toContain('D:/Models/new/b.gguf');
+      expect(params.values.mmproj).toBe('D:/Models/new/mmproj-b.gguf');
+      expect(params.values.spec_draft_model, '手挑到别处的路径不是残留，必须保留').toBe('E:/shared/draft.gguf');
+    } finally {
+      api.models.detectMmproj = origMmproj;
+    }
+  });
+});
