@@ -253,7 +253,14 @@ export class LlamaServerProcess extends EventEmitter {
   }
 
   isRunning(): boolean {
-    return this.proc !== null && this.proc.exitCode === null && !this.proc.killed;
+    // signalCode 判据为 Linux 修复（CI 实测）：类 Unix 的 killTree 走 process.kill(pid, SIGKILL)
+    // 直接系统调用（不经 ChildProcess.kill()），进程死于信号时 Node 语义是 exitCode 保持 null、
+    // signalCode 置信号名、killed 标志不置位——三个旧判据全部落空，死进程被谎报成「在跑」，
+    // Launcher.restart() 会给 exit 事件已发过的死进程挂 once('exit')，重启永久挂死。
+    // Windows 侥幸不踩：taskkill /F 的进程总带非零退出码（exitCode ≠ null）。
+    // signalCode 只在进程因信号退出时由 Node 置位（先于 'exit' 事件派发），存活进程恒为 null，
+    // 收到信号但未致死（如被处理器接住的 SIGTERM）不会置位，故此判据不误伤活着的服务。
+    return this.proc !== null && this.proc.exitCode === null && this.proc.signalCode === null && !this.proc.killed;
   }
 
   /**
