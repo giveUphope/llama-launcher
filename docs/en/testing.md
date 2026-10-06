@@ -6,7 +6,7 @@
 
 - **Framework**: Vitest 4 (`pnpm test` runs both the core and the ui package through turbo)
 
-- **Scale**: core 28 test files / **418** cases + ui **8** test files / **87** cases (`pnpm test` runs both packages through turbo)
+- **Scale**: core 28 test files / **442** cases + ui **10** test files / **100** cases (`pnpm test` runs both packages through turbo)
 
 - **Covered modules**:
 
@@ -47,12 +47,14 @@
 | ----------------------------------- | ------------------------------------------------------------------------ |
 | `src/stores/params.test.ts`         | Params store (dual-track values/baseline, dependency linkage `syncDependencies`, `clearSession` keeping the model, restoring the baseline) |
 | `src/stores/server.test.ts`         | server store (`apiUrl` bound to the real service state: the three states running/starting/stopped) |
+| `src/stores/hardware.test.ts`       | hardware store (VRAM/memory occupancy derivation: entry routing and unit conversion, "no devices detected ⇒ stay silent", data-fetch timing guarded by the keep-alive rules — background pages never knock the main process, `offloadRelief` relief-advice entries passed through) |
 | `src/composables/useModelPreset.test.ts` | Silent matching and application of smart presets (alias/filename candidates, no second confirmation in a dirty state) |
 | `src/composables/useAutoPresetName.test.ts` | Preset-name candidate generation (extension-stripped / directory-name variants) |
 | `src/composables/useUrlHistory.test.ts` | URL history records                                                       |
 | `src/dev/demo-mock.test.ts`         | Browser-mock command preview: default state emits the 4 baseline recommendations, sentinels stay out, custom args stay out of the built-in box, and the result is byte-equal to the `shared` emitter |
 | `src/testing/arco-theme.test.ts`       | Theme token alignment (HTML `data-theme` / body `arco-theme`)             |
 | `src/testing/status-tag.test.ts`       | Variant rendering of the `StatusTag` status label                         |
+| `src/components/models/LocalModelsPanel.test.ts` | Local-models panel (`rowMeta` per-row badge precomputation travels with the entry — language switching no longer takes the render path; health-check records survive sub-tab switches) |
 
 ## Manual smoke scripts (require a real engine/model)
 

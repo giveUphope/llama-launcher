@@ -22,19 +22,21 @@
 
 `Launcher` 类（extends `EventEmitter`），实现状态机：
 
-- **状态机**：`stopped → starting → running → stopped`
+- **状态机**：`stopped → starting → running → stopping → stopped`（`stopping` 是 2026-10-06 补上的一态：`stop()` **先出声再去杀**——没有它时界面在进程真死之前一直显示「运行中」，停止/重启按钮全程可点，连点重启会并发拉起第二个进程）
 
-- **`start(opts)`**：调用 `buildCommand` 构建命令 → 创建 `LlamaServerProcess` → 监听 `output` 事件，匹配到 "listening" 关键词后切换到 `running`。开始新一轮时清空上一轮的停止事实。
+- **`start(opts)`**：调用 `buildCommand` 构建命令 → 创建 `LlamaServerProcess` → 监听 `output` 事件，匹配到 "listening" 关键词后切换到 `running`（首次检出同时记下就绪时刻 `readyAt`，见下）。开始新一轮时清空上一轮的停止事实、就绪时刻与回读结论。
 
 - **通用 listening 检测**：匹配同时包含 `"listening"` 与（`"http"` 或 `"server"`）的行，兼容所有版本的 llama-server 输出格式。
 
-- **`stop()`**：调用 `proc.kill()`；`stop()`/`stopSync()`/`forceStop()` 都会先置 `stopRequested`，使随后的 exit 被记为「用户主动停」——Windows 下 `taskkill /F` 给出的退出码不是 0，只靠退出码分不出「用户停的」与「自己崩的」。
+- **`stop()`**：**先 `setStatus('stopping')` 再调用 `proc.kill()`**；`stop()`/`stopSync()`/`forceStop()` 都会先置 `stopRequested`，使随后的 exit 被记为「用户主动停」——Windows 下 `taskkill /F` 给出的退出码不是 0，只靠退出码分不出「用户停的」与「自己崩的」。
 
 - **停止事实 `ServerStopInfo`**：`Launcher` 在退出/失败时记录 `{ reason: 'exited' | 'spawn_failed' | 'stopped_by_user', code, signal, hadBeenReady, at }`，随 `status` 事件一起下发（`code` 里 `process.ts` 用于归一「被信号杀死」的 `-1` 会还原为 `null`）。界面据此把 `stopped` 细分为「已停止 / 启动失败 / 异常退出」——**渲染层不再从日志文字推断进程死活**：llama-server 正常运行期也会为拒绝一个越界请求打 `E srv  send_error: ... error: request ... exceeds the available context size` 这样的行，旧的「最近 80 行含 error 字样即判崩溃」会把活着的服务显示成「异常退出」（2026-09-25 移除）。
 
-- **`restart(opts)`**：先 `stop`，等 `exit` 事件后再 `start`，确保端口释放。
+- **`restart(opts)`**：先 `stop`，等 `exit` 事件后再 `start`，确保端口释放；运行中重启**只排队一次**（`restartArmed`），连点不会挂上两个 `once('exit')` 并发拉起第二个进程。
 
-- **`getStatus()`**：返回 `ServerInfo { status, pid, host, port, url, values, stop }`（`values` 为本次启动的参数快照，供服务页展示运行时详情；`stop` 与状态事件同源，`refreshStatus()` 不会拿到比事件旧的停止事实）。
+- **就绪时刻 `readyAt`**：本轮首次检出 listening 的 epoch ms（后续再打 listening 行不覆盖），随 `ServerInfo` 与 `status` 事件两路下发；`stopping` 期间仍有值（进程还在，时长还在走），本轮 exit 归零、新一轮 `start` 清空、迟到的旧句柄退出不得改写。界面「已运行时长」由它派生——渲染层只知道「自己什么时候看见 running」，服务已运行而用户第一次进概览页、或渲染层重载时那个时刻比真就绪晚得多，自记起点会让时长永远显示「—」或从进页面那刻起算（2026-10 实测缺陷）。
+
+- **`getStatus()`**：返回 `ServerInfo { status, pid, host, port, url, values, stop, envOverrides, propsCheck, readyAt }`（`values` 为本次启动的参数快照，供服务页展示运行时详情；`stop`/`propsCheck`/`readyAt` 均与状态事件同源，`refreshStatus()` 不会拿到比事件旧的事实；`envOverrides` 见 §4.11，`propsCheck` 见 §4.11）。
 
 ### 4.3 命令构建 (command-builder.ts)
 

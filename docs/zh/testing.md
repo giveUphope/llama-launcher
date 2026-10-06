@@ -6,7 +6,7 @@
 
 - **框架**：Vitest 4（`pnpm test` 经 turbo 一并运行 core 与 ui 两包）
 
-- **规模**：core 28 个测试文件 / **418** 个用例 + ui **8** 个测试文件 / **87** 个用例（`pnpm test` 经 turbo 一并运行两包）
+- **规模**：core 28 个测试文件 / **442** 个用例 + ui **10** 个测试文件 / **100** 个用例（`pnpm test` 经 turbo 一并运行两包）
 
 - **覆盖模块**：
 
@@ -47,12 +47,14 @@
 | ----------------------------------- | ------------------------------------------------------------------------ |
 | `src/stores/params.test.ts`         | 参数 store（双轨值/基线、依赖联动 `syncDependencies`、`clearSession` 保留模型、恢复基线）          |
 | `src/stores/server.test.ts`         | server store（`apiUrl` 与真实服务状态绑定：running/starting/stopped 三态）              |
+| `src/stores/hardware.test.ts`       | hardware store（显存/内存占用派生：条目分流与单位换算、「探不到设备就不出声」、取数时机守 keep-alive 铁律——后台页不敲主进程、`offloadRelief` 减负建议条目透传） |
 | `src/composables/useModelPreset.test.ts` | 智能预设静默匹配与应用（别名/文件名候选、脏态不二次确认）                                         |
 | `src/composables/useAutoPresetName.test.ts` | 预设名候选生成（去扩展名/目录名变体）                                                     |
 | `src/composables/useUrlHistory.test.ts` | URL 历史记录                                                                  |
 | `src/dev/demo-mock.test.ts`         | 浏览器 mock 的命令预览：初值态发出 4 个基线推荐值、哨兵不发射、扩展参数不进内置框、与 `shared` 发射实现逐字相等        |
 | `src/testing/arco-theme.test.ts`       | 主题 token 对齐（HTML `data-theme` / body `arco-theme`）                            |
 | `src/testing/status-tag.test.ts`       | `StatusTag` 状态标签变体渲染                                                         |
+| `src/components/models/LocalModelsPanel.test.ts` | 本地模型面板（`rowMeta` 行内徽章预计算随条目携带——语言切换不再走渲染路径；体检记录跨子标签保留）                     |
 
 ## 手动冒烟脚本（需真实引擎/模型）
 

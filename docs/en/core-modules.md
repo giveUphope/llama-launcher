@@ -22,19 +22,21 @@ The `LlamaServerProcess` class (extends `EventEmitter`), wrapping `child_process
 
 The `Launcher` class (extends `EventEmitter`), implementing a state machine:
 
-- **State machine**: `stopped → starting → running → stopped`
+- **State machine**: `stopped → starting → running → stopping → stopped` (`stopping` is the state added on 2026-10-06: `stop()` **announces it before killing** — without it the UI keeps showing "Running" until the process is really dead and the stop/restart buttons stay clickable the whole time, so double-clicking restart could spawn a second process)
 
-- **`start(opts)`**: calls `buildCommand` to assemble the command → creates a `LlamaServerProcess` → listens to the `output` event and switches to `running` once a "listening" keyword is matched. Starting a new round clears the stop fact recorded for the previous one.
+- **`start(opts)`**: calls `buildCommand` to assemble the command → creates a `LlamaServerProcess` → listens to the `output` event and switches to `running` once a "listening" keyword is matched (the first detection also records the readiness moment `readyAt`, see below). Starting a new round clears the previous round's stop fact, readiness moment, and read-back verdict.
 
 - **Generic listening detection**: matches lines containing both `"listening"` and (`"http"` or `"server"`), which stays compatible with the output format of every llama-server version.
 
-- **`stop()`**: calls `proc.kill()`; `stop()`/`stopSync()`/`forceStop()` all set `stopRequested` first, so the following exit is recorded as "stopped by the app" — on Windows `taskkill /F` reports a non-zero exit code, so the exit code alone cannot tell "the user stopped it" from "it crashed on its own".
+- **`stop()`**: **calls `setStatus('stopping')` first, then `proc.kill()`**; `stop()`/`stopSync()`/`forceStop()` all set `stopRequested` first, so the following exit is recorded as "stopped by the app" — on Windows `taskkill /F` reports a non-zero exit code, so the exit code alone cannot tell "the user stopped it" from "it crashed on its own".
 
 - **Stop fact `ServerStopInfo`**: on exit or failure `Launcher` records `{ reason: 'exited' | 'spawn_failed' | 'stopped_by_user', code, signal, hadBeenReady, at }` and sends it together with the `status` event (a `code` of `-1`, which `process.ts` uses to normalize "killed by signal", is turned back into `null`). The UI derives "Stopped / Failed / Crashed" from this — **the renderer no longer infers whether the process is alive from log text**: while serving normally llama-server still prints `E srv  send_error: ... error: request ... exceeds the available context size` to reject a single oversized request, and the old "any error keyword within the last 80 lines means crashed" rule displayed a live service as crashed (removed 2026-09-25).
 
-- **`restart(opts)`**: stops first, waits for the `exit` event, then starts, guaranteeing the port has been released.
+- **`restart(opts)`**: stops first, waits for the `exit` event, then starts, guaranteeing the port has been released; a restart while running **queues only once** (`restartArmed`), so double-clicking cannot hang two `once('exit')` handlers and spawn a second process concurrently.
 
-- **`getStatus()`**: returns `ServerInfo { status, pid, host, port, url, values, stop }` (`values` is the parameter snapshot taken for this launch, used by the Service page to show runtime details; `stop` comes from the same source as the status event, so `refreshStatus()` can never observe a stop fact older than the event).
+- **Readiness moment `readyAt`**: the epoch ms of this round's first "listening" detection (later listening lines do not overwrite it), delivered through both `ServerInfo` and the `status` event; it keeps its value during `stopping` (the process is still alive, so the clock keeps running), is zeroed when this round's process exits, cleared by a new round's `start`, and a late exit from an old process handle must not rewrite it. The UI derives "uptime" from it — the renderer only knows "when it itself saw running", so when the service is already running and the user opens the overview for the first time (or the renderer reloads), that moment is much later than the real readiness; self-recording the start made uptime show "—" forever or count from page entry (defect measured 2026-10).
+
+- **`getStatus()`**: returns `ServerInfo { status, pid, host, port, url, values, stop, envOverrides, propsCheck, readyAt }` (`values` is the parameter snapshot taken for this launch, used by the Service page to show runtime details; `stop`/`propsCheck`/`readyAt` come from the same source as the status event, so `refreshStatus()` can never observe facts older than the event; `envOverrides` and `propsCheck` are covered in §4.11).
 
 ### 4.3 Command building (command-builder.ts)
 
