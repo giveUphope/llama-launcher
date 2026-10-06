@@ -197,7 +197,9 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
   gap: 0;
   margin-top: 8px;
   min-height: 0;
-  flex: 1;
+  // 同 ModelsPage：骨架改成 flex 列后原来的 flex: 1 才会生效，收缩一档就是裁切长表单，
+  // 故只允许「撑满」不允许「压缩」（STYLE_TODO #82）。
+  flex: 1 0 auto;
 }
 
 /* 摘要状态行（检测中图标走 Arco IconLoading 自带旋转动画） */

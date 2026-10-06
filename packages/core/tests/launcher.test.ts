@@ -576,7 +576,7 @@ describe('Launcher - 就绪后 /props 回读对账', () => {
     total_slots: 4,
     model_path: 'D:\\m.gguf',
     model_alias: 'm',
-    default_generation_settings: { params: { seed: 4294967295, temperature: 0.8, top_k: 20, top_p: 0.95, min_p: 0.05, repeat_penalty: 1, presence_penalty: 0 } },
+    default_generation_settings: { params: { seed: 4294967295, temperature: 0.5, top_k: 20, top_p: 0.95, min_p: 0.05, repeat_penalty: 1, presence_penalty: 0 } },
   };
 
   it('回读完成后补发同状态事件并带上不一致项', async () => {
@@ -584,7 +584,10 @@ describe('Launcher - 就绪后 /props 回读对账', () => {
     const events: ServerStatusEvent[] = [];
     l.on('status', (e: ServerStatusEvent) => events.push(e));
 
-    l.start({ values: { model: 'D:/m.gguf', alias: 'm', temperature: 0.8, top_k: 40 }, settings: baseSettings });
+    // temperature 发的是 0.7（≠ 引擎缺省 0.8，真的上了命令行）而引擎回读 0.5 ⇒ 必须报；
+    // top_k 发的是 40 == 引擎缺省 ⇒ 命令行上没有它，回读到的 20 可能来自模型自带的
+    // general.sampling.top_k，无法归因 ⇒ 不许报（真机就是这个形状，见 shared 的 modelDerived）
+    l.start({ values: { model: 'D:/m.gguf', alias: 'm', temperature: 0.7, top_k: 40 }, settings: baseSettings });
     (l['proc'] as any)._triggerOutput('llama_server: listening on http://127.0.0.1:8080');
 
     // 首个 running 事件不带结果：回读是异步的，不阻塞状态迁移
@@ -595,11 +598,30 @@ describe('Launcher - 就绪后 /props 回读对账', () => {
     const last = events[2];
     expect(last.status).toBe('running'); // 同状态补发，不是新状态
     expect(last.propsCheck?.buildInfo).toBe('b11178-f9af9be21');
-    // 我们以为 top_k=40（等于引擎缺省基线所以没发射），引擎实际按 20 跑 → 必须现形
-    expect(last.propsCheck?.mismatched.map((m) => m.param)).toEqual(['top_k']);
+    // 发出去的 temperature 与回读不符 → 报；未发射的 top_k 既不报也不计成已核（成因见上面注释）
+    expect(last.propsCheck?.mismatched.map((m) => m.param)).toEqual(['temperature']);
     expect(last.propsCheck?.checked).toContain('temperature');
+    expect(last.propsCheck?.checked).not.toContain('top_k');
     expect(l.getStatus().propsCheck?.mismatched.length).toBe(1);
     l.stop();
+  });
+
+  it('LLAMA_ARG_* 覆写在回读里现形：同一条未发射的 top_k，设了通道才报', async () => {
+    // 这一条钉的是 Launcher 的透传链路（envOverrides → verifyEngineProps → checkEngineProps）：
+    // 只改 shared 忘了把名单传下去，假报会消失但 env 覆写也永远查不出来，本用例就会红
+    process.env.LLAMA_ARG_TOP_K = '20';
+    try {
+      const l = new Launcher({ propsFetcher: async () => ({ ok: true, json: propsFixture }) });
+      const events: ServerStatusEvent[] = [];
+      l.on('status', (e: ServerStatusEvent) => events.push(e));
+      l.start({ values: { model: 'D:/m.gguf', alias: 'm', temperature: 0.7, top_k: 40 }, settings: baseSettings });
+      (l['proc'] as any)._triggerOutput('llama_server: listening on http://127.0.0.1:8080');
+      await vi.waitFor(() => expect(events.length).toBe(3));
+      expect(events[2].propsCheck?.mismatched.map((m) => m.param).sort()).toEqual(['temperature', 'top_k']);
+      l.stop();
+    } finally {
+      delete process.env.LLAMA_ARG_TOP_K;
+    }
   });
 
   it('取不到 /props 只标 unreachable，不产生任何不一致', async () => {
@@ -651,6 +673,29 @@ describe('Launcher - 就绪后 /props 回读对账', () => {
     await vi.waitFor(() => expect(events.length).toBe(4));
     expect(events[3].status).toBe('running');
     expect(events[3].propsCheck?.mismatched.map((m) => m.param)).toEqual(['top_k']);
+    l.stop();
+  });
+
+  it('校验数变化也要补发：一条没错、但参与校验的项少了，界面的「已校验 N 项」不能留在旧值', async () => {
+    // 自动刷新上线后这是常态路径：把某个值改成/改回引擎缺省，那一项就在「已发射/未发射」之间来回，
+    // 校验数跟着变而 mismatched 始终是空。指纹里不比 checked 与 skipped 的话，徽章就显示过时数字。
+    const noUi = { ...propsFixture } as Record<string, unknown>;
+    delete noUi.ui;
+    let payload: unknown = propsFixture;
+    const l = new Launcher({ propsFetcher: async () => ({ ok: true, json: payload }) });
+    const events: ServerStatusEvent[] = [];
+    l.on('status', (e: ServerStatusEvent) => events.push(e));
+    l.start({ values: { model: 'D:/m.gguf', ui: true }, settings: baseSettings });
+    (l['proc'] as any)._triggerOutput('llama server is listening');
+    await vi.waitFor(() => expect(events.length).toBe(3));
+    expect(events[2].propsCheck?.checked).toContain('ui');
+    expect(events[2].propsCheck?.mismatched).toEqual([]);
+
+    payload = noUi; // 引擎不再回读这一项：它从 checked 挪到 skipped，仍然零不一致
+    l.recheckProps();
+    await vi.waitFor(() => expect(events.length).toBe(4));
+    expect(events[3].propsCheck?.mismatched).toEqual([]);
+    expect(events[3].propsCheck?.checked).not.toContain('ui');
     l.stop();
   });
 

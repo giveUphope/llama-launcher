@@ -4,7 +4,7 @@
 import { APP_VERSION, PARAMS, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, checkEngineProps, formatCommand, ENGINE_BASELINE_BUILD } from '@llama-launcher/shared';
 import type {
   AppSettings, ModelInfo, Preset, GgufReadResult,
-  ParsedModelUrl, OutputEntry, AppLogEntry,
+  ParsedModelUrl, OutputEntry, AppLogEntry, AppLogKind,
   ModelScopeSearchResult, ModelScopeFileListResult,
   DownloadProgressPayload, DownloadCompletePayload,
   TargetRecommendation,
@@ -119,6 +119,33 @@ const DEMO_APP_LOGS: AppLogEntry[] = [
   { kind: 'warn', data: 'Download paused: d1', ts: Date.now() - 18000 },
   { kind: 'info', data: 'Download resumed: d1', ts: Date.now() - 15000 },
 ];
+
+// ---- 应用日志实时推送（与真实侧同一契约：主进程逐条推 LOGS_ONLOG） ----
+const appLogCbs: Array<(entry: AppLogEntry) => void> = [];
+function pushAppLog(entry: AppLogEntry) {
+  for (const cb of appLogCbs) {
+    try { cb(entry); } catch { /* 单个订阅者出错不影响其他 */ }
+  }
+}
+
+/**
+ * 控制台钩子：`__mockPushAppLog(320)` 一次灌入 320 条应用日志，返回实际条数。
+ * 为什么要它：STYLE_TODO #82 的验收判据是「日志远多于一屏时控制台内部滚动生效」，
+ * 而上面的初始缓冲只有 5 条、真实推送节奏又不受控，取证时只能干等。
+ * 既有范式：globalThis.__mockExternalServer（见本文件 system.checkPort）。
+ */
+(globalThis as unknown as { __mockPushAppLog?: (n?: number) => number }).__mockPushAppLog = (n = 200) => {
+  const kinds: AppLogKind[] = ['info', 'success', 'warn', 'error'];
+  const now = Date.now();
+  for (let i = 0; i < n; i++) {
+    pushAppLog({
+      kind: kinds[i % kinds.length],
+      data: `demo app log #${i + 1} — streamed from mock push hook`,
+      ts: now + i,
+    });
+  }
+  return n;
+};
 
 // ---- 服务输出模拟（服务页控制台） ----
 const LLAMA_LINES: string[] = [
@@ -314,7 +341,9 @@ export function createDemoApi() {
     theme_mode: 'light',
     close_behavior: 'ask',
     sidebar_collapsed: false,
-    language: 'zh',
+    // 预览钩子：URL 带 ?lang=en 时以英文态启动（既有 ?demo= 同范式）。
+    // 布局类取证要中英各跑一轮 7 个页面，而 mock 的设置不落盘——界面切完语言一刷新就回中文。
+    language: (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lang') === 'en') ? 'en' : 'zh',
     last_tab: '/dashboard',
     download_max_concurrent: 3,
     hf_mirror_host: '',
@@ -592,7 +621,10 @@ export function createDemoApi() {
     logs: {
       list: () => Promise.resolve(DEMO_APP_LOGS),
       clear: () => Promise.resolve(true),
-      onLog: () => () => {},
+      onLog: (cb: (entry: AppLogEntry) => void) => {
+        appLogCbs.push(cb);
+        return () => { const i = appLogCbs.indexOf(cb); if (i >= 0) appLogCbs.splice(i, 1); };
+      },
     },
   } as never;
 }

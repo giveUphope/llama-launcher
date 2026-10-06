@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { recommendForTarget } from '../src/target-recommend.js';
-import type { GgufModelInfo } from '@llama-launcher/shared';
+import { recommendForTarget, recommendOffloadAdvice } from '../src/target-recommend.js';
+import { PARAMS } from '@llama-launcher/shared';
+import type { DeviceMemInfo, GgufModelInfo } from '@llama-launcher/shared';
+
+/** 参数表里真实存在的 key 集合：建议只准引用这些（§5.6 第 3 项的硬约束） */
+const PARAM_KEYS = new Set(PARAMS.map((p) => p.key));
 
 /** 混合架构模型（Qwen3.6-35B 形态：262K 训练上限、MTP 头、MoE、KV 极小） */
 const HYBRID: GgufModelInfo = {
@@ -109,5 +113,96 @@ describe('recommendForTarget', () => {
   it('no devices: no recommendations at all', () => {
     expect(recommendForTarget('balanced', HYBRID, FILE_HYBRID, null, SYS_FREE_MIB)).toEqual([]);
     expect(recommendForTarget('balanced', HYBRID, FILE_HYBRID, 0, SYS_FREE_MIB)).toEqual([]);
+  });
+});
+
+describe('recommendOffloadAdvice（显存装不下时的减负建议，§5.6 第 3 项）', () => {
+  /** 两块卡的探测结果（顺序即 `--list-devices` 原序，-ts 的份数按它写） */
+  const TWO_DEVICES: DeviceMemInfo[] = [
+    { id: 'CUDA0', name: 'NVIDIA GeForce RTX 3060', totalMiB: 12288, freeMiB: 11000 },
+    { id: 'Vulkan0', name: 'AMD Radeon RX 7900 XTX', totalMiB: 24560, freeMiB: 23749 },
+  ];
+
+  it('显存装得下 ⇒ 一条建议都不出（不制造噪音）', () => {
+    // 19968 + 1024 = 20992 ≤ 23749：稠密大模型放得进 24 GB 卡，无需减负
+    const recs = recommendOffloadAdvice({
+      info: DENSE, fileSizeBytes: FILE_DENSE, deviceFreeMiB: FREE_MIB, systemFreeMiB: SYS_FREE_MIB,
+    });
+    expect(recs).toEqual([]);
+  });
+
+  it('MoE 超出空闲显存 ⇒ 建议 -cmoe + -ngl 降档', () => {
+    // 10840 + 1024 > 8192 ⇒ 装不下；需挪内存 3672 MiB ≤ 21000 − 512 ⇒ 内存接得住
+    const recs = recommendOffloadAdvice({
+      info: HYBRID, fileSizeBytes: FILE_HYBRID, deviceFreeMiB: 8192, systemFreeMiB: SYS_FREE_MIB,
+    });
+    expect(recs.find((r) => r.key === 'cpu_moe')?.value).toBe(true);
+    // 每层 10840/41 ≈ 264 MiB，可用 8192 − 1024 = 7168 MiB ⇒ 27/41 层
+    const ngl = recs.find((r) => r.key === 'gpu_layers');
+    expect(ngl?.value).toBe(27);
+    expect(ngl?.reasonArgs).toEqual([27, 41]);
+    expect(recs.every((r) => r.offloadRelief === true)).toBe(true);
+  });
+
+  it('稠密模型超出 ⇒ 只降 -ngl，不建议 MoE 开关', () => {
+    const recs = recommendOffloadAdvice({
+      info: DENSE, fileSizeBytes: FILE_DENSE, deviceFreeMiB: 8192, systemFreeMiB: SYS_FREE_MIB,
+    });
+    expect(keys(recs)).toEqual(['gpu_layers']);
+    expect(recs[0].value).toBe(22); // (8192 − 1024) / (19968/64) = 22.97 → 22
+  });
+
+  it('内存也接不住溢出的那部分 ⇒ 不发声（减负开关救不了总容量不够）', () => {
+    const recs = recommendOffloadAdvice({
+      info: HYBRID, fileSizeBytes: FILE_HYBRID, deviceFreeMiB: 2000, systemFreeMiB: 4000,
+    });
+    expect(recs).toEqual([]);
+  });
+
+  it('可用内存未知 ⇒ 同样不发声（不劝人往没探到的内存里挪）', () => {
+    const recs = recommendOffloadAdvice({
+      info: HYBRID, fileSizeBytes: FILE_HYBRID, deviceFreeMiB: 8192, systemFreeMiB: null,
+    });
+    expect(recs).toEqual([]);
+  });
+
+  it('多于一块卡 ⇒ 追加 -dev / -ts；单卡不追加', () => {
+    const args = {
+      info: DENSE, fileSizeBytes: FILE_DENSE, deviceFreeMiB: 11000, systemFreeMiB: SYS_FREE_MIB,
+    };
+    const single = recommendOffloadAdvice({ ...args, devices: [TWO_DEVICES[0]] });
+    expect(keys(single)).not.toContain('device');
+    expect(keys(single)).not.toContain('tensor_split');
+
+    const multi = recommendOffloadAdvice({ ...args, devices: TWO_DEVICES });
+    // 空闲最多的是第二块（Vulkan0 23749 MiB），-ts 份数按入参顺序写
+    expect(multi.find((r) => r.key === 'device')?.value).toBe('Vulkan0');
+    expect(multi.find((r) => r.key === 'tensor_split')?.value).toBe('11,23');
+  });
+
+  it('不建议参数表里不存在的开关（含未验证取值的 override_tensor）', () => {
+    const recs = recommendOffloadAdvice({
+      info: HYBRID, fileSizeBytes: FILE_HYBRID, deviceFreeMiB: 8192, systemFreeMiB: SYS_FREE_MIB,
+      devices: TWO_DEVICES,
+    });
+    for (const r of recs) {
+      expect(PARAM_KEYS.has(r.key)).toBe(true);
+      expect(r.key).not.toBe('override_tensor');
+    }
+  });
+
+  it('无设备 / 文件不可读 ⇒ 空数组', () => {
+    const base = { info: HYBRID, systemFreeMiB: SYS_FREE_MIB };
+    expect(recommendOffloadAdvice({ ...base, fileSizeBytes: null, deviceFreeMiB: 8192 })).toEqual([]);
+    expect(recommendOffloadAdvice({ ...base, fileSizeBytes: FILE_HYBRID, deviceFreeMiB: null })).toEqual([]);
+    expect(recommendOffloadAdvice({ ...base, fileSizeBytes: FILE_HYBRID, deviceFreeMiB: 0 })).toEqual([]);
+  });
+
+  it('recommendForTarget 把减负条目并进同一份建议，且不与目标建议撞 key', () => {
+    // max-context（稠密）本身就会给一条 -ngl，减负那条应被去重而不是并列两条
+    const recs = recommendForTarget('max-context', DENSE, FILE_DENSE, 8192, SYS_FREE_MIB, TWO_DEVICES);
+    expect(recs.filter((r) => r.key === 'gpu_layers')).toHaveLength(1);
+    expect(recs.find((r) => r.key === 'tensor_split')?.offloadRelief).toBe(true);
+    expect(recs.filter((r) => r.offloadRelief).map((r) => r.key)).toEqual(['device', 'tensor_split']);
   });
 });

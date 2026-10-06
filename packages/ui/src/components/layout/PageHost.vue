@@ -41,5 +41,10 @@ watch(
 .page-host {
   min-width: 0;
   min-height: 0;
+  /* 传递确定高度：撑满 .app-content 给定的高度，并给页面根（PageFrame）提供弹性上下文。
+     缺这一环时 PageFrame 的 flex:1 落在一个高度由内容决定的块上，等于没写（STYLE_TODO #82）。 */
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
 }
 </style>

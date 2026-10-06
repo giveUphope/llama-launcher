@@ -13,11 +13,13 @@ import ToolTip from '@/components/common/ToolTip.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
+import { useHardwareStore } from '@/stores/hardware';
 import { useI18nStore } from '@/stores/i18n';
 
 const settings = useSettingsStore();
 const server = useServerStore();
 const params = useParamsStore();
+const hw = useHardwareStore();
 const i18n = useI18nStore();
 
 // 内置参数命令（只读展示，随参数实时自动生成）
@@ -86,14 +88,29 @@ const baselineDrift = computed(() => server.propsCheck?.baselineDrift ?? null);
 // 与概览页外部实例探测同一套形状；引擎参数只可能被外部改写，本机没有事件源，
 // 所以「可见 + 自适应退避」取代了此前「必须有人点一下」的纯按需。
 let releasePropsWatch: (() => void) | null = null;
+// 权重落位行的取数订阅：与回读同一套「本页可见才取数」，失活必须退掉（§7.1 铁律①）。
+let releaseHwWatch: (() => void) | null = null;
 onActivated(() => {
   releasePropsWatch?.();
   releasePropsWatch = server.enterPropsWatch();
+  releaseHwWatch?.();
+  releaseHwWatch = hw.enter();
 });
 onDeactivated(() => {
   releasePropsWatch?.();
   releasePropsWatch = null;
+  releaseHwWatch?.();
+  releaseHwWatch = null;
 });
+
+// ---- 权重落位（§5.6 第 2 项）：命令里那几个 -ngl / -cmoe / -dev 到底把模型放在哪儿 ----
+// 数字来自 core 的占用估算（estimateOccupancy），文案只说这两态之一：
+// 全在显卡（不涉及搬运）/ 显卡 + 内存分放（搬运决定出字速度）。没测过的量不写。
+const placementText = computed(() =>
+  hw.placement ? i18n.t(hw.placement.key, hw.placement.args) : '',
+);
+// 有内存侧权重 = 存在搬运开销，用橙（与回读不一致同一语义色），不是错误红
+const placementWarn = computed(() => hw.placement?.spilled === true);
 // 界面列出的 env 变量与不一致项同时出现时，才把两者说成有因果——只有 env 变量不构成归因，
 // 只有不一致也不该甩锅给环境（还可能是引擎版本漂移或我们基线填错）。
 const envBlame = computed(() => server.envOverrides.length > 0 && propsMismatch.value.length > 0);
@@ -169,6 +186,8 @@ onUnmounted(() => {
   // keep-alive 外的真实卸载（路由配置变更 / 测试挂载）也要退掉可见计数
   releasePropsWatch?.();
   releasePropsWatch = null;
+  releaseHwWatch?.();
+  releaseHwWatch = null;
 });
 </script>
 
@@ -207,6 +226,19 @@ onUnmounted(() => {
           <Icon class="cmd-status-icon" :name="statusWarn ? 'alert' : 'info'" :size="11" />
           <span class="cmd-status-text" :class="{ 'cmd-status-text--warn': statusWarn }" :title="statusText">
             {{ statusText }}
+          </span>
+        </div>
+        <!-- 权重落位常驻行（§5.6 第 2 项）：槽恒在、只换文案，取数未到/无设备时隐藏占位。
+             高度与上面状态行同档（两档 fs-sm 行高 18px × 2 = 36px），中英两态都不长高；
+             完整文案走 title（STYLE_TODO #81 既有范式，静态预留，不做测量回填）。 -->
+        <div class="cmd-placement" :class="{ 'is-active': !!placementText }">
+          <Icon class="cmd-status-icon" :name="placementWarn ? 'alert' : 'info'" :size="11" />
+          <span
+            class="cmd-status-text"
+            :class="{ 'cmd-status-text--warn': placementWarn }"
+            :title="placementText"
+          >
+            {{ placementText }}
           </span>
         </div>
       </div>
@@ -319,6 +351,20 @@ onUnmounted(() => {
   font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--color-text-3);
+}
+
+// 权重落位行：与状态行同一档预留（两行 × 18px = 36px），槽恒在、无数据时只隐藏不塌，
+// 因此「取数到达 / 换模型 / 无设备」三种切换都不改变卡片高度（STYLE_TODO #81）。
+.cmd-placement {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 36px;
+  visibility: hidden;
+
+  &.is-active {
+    visibility: visible;
+  }
 }
 
 // 警示语义：橙（与 ParamRow 的超限提示同一 token，不自造色值）

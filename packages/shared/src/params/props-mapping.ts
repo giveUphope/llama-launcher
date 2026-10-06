@@ -1,6 +1,6 @@
 import { MODEL_KEY, PARAMS } from './definitions.js';
 import { ENGINE_BASELINE_BUILD, engineDefaultOf, isSentinelValue, sameParamValue } from './engine-baseline.js';
-import type { PresetValues } from '../types/index.js';
+import type { ParamDef, PresetValues } from '../types/index.js';
 
 /**
  * 引擎回读校验：服务就绪后从 `GET /props` 读回**引擎实际生效值**，与启动器发出的值对账。
@@ -20,8 +20,16 @@ export interface PropsFieldMap {
   param: string;
   propsPath: string;
   kind: 'num' | 'bool' | 'seed' | 'path' | 'text';
-  /** 只有我们真的发了值才可比（如 -a 空值时引擎会自己派生别名，比对必假报） */
+  /** 只有我们真的发了值才可比（如 `-a` 空值时引擎自己派生别名，比对必假报） */
   onlyWhenSent?: boolean;
+  /**
+   * 「没发时引擎会拿**模型文件**里的推荐值顶上」这一类：GGUF 自带 `general.sampling.*` 时，
+   * 未发射的采样项回读到的就是模型给的数（真机实测见 PROPS_FIELD_MAP 里那一组六行）。
+   * 这时「回读 ≠ 我们的缺省」有两个合法来源——模型推荐值、`envChannel` 那条环境变量——
+   * 光看 /props 分不出是哪一个。所以只在**该 env 通道确实被设过**时才报不一致，
+   * 其余情况计为 skipped：不许在无法归因时谎报「参数没生效」，也不顺手把 env 覆写的检测一起废掉。
+   */
+  modelDerived?: { envChannel: string };
   /** 不在 PARAMS 表里的项（如 model 走 MODEL_KEY + `-m` 特例通道）在此补旗标，否则报不出人话 */
   flag?: string;
   /**
@@ -51,18 +59,59 @@ export const PROPS_FIELD_MAP: readonly PropsFieldMap[] = [
     // 引擎给的是每槽 ctx（见 PropsFieldMap.skipWhenProps 的真机实测），多槽下不比
     skipWhenProps: { path: 'total_slots', gt: 1 },
   },
-  { param: 'temperature', propsPath: 'default_generation_settings.params.temperature', kind: 'num' },
-  { param: 'top_k', propsPath: 'default_generation_settings.params.top_k', kind: 'num' },
-  { param: 'top_p', propsPath: 'default_generation_settings.params.top_p', kind: 'num' },
-  { param: 'min_p', propsPath: 'default_generation_settings.params.min_p', kind: 'num' },
-  { param: 'repeat_penalty', propsPath: 'default_generation_settings.params.repeat_penalty', kind: 'num' },
-  { param: 'presence_penalty', propsPath: 'default_generation_settings.params.presence_penalty', kind: 'num' },
+  // 这六行是「引擎可能按**模型文件**取值」的一类：GGUF 自带 general.sampling.* 时，我们没发 flag
+  // 它就用模型推荐值。真机实测（b11408 + Qwen3.8-27B-UD-Q2_K_XL，命令行未发 --temp/--top-k）回读
+  // temperature=1、top_k=20，而引擎缺省是 0.8/40 —— 加这段之前界面会假报「--temp 没生效」。
+  // 成员清单不是凭猜：就是 packages/core/src/gguf-meta.ts 里那六个源键（该模块据此生成「模型内置
+  // 建议」），改那边要同步这里。envChannel 逐字取自 docs/params/llama-server-help-out.txt 的
+  // `(env: LLAMA_ARG_*)` 标注——留着它是因为 env 覆写和模型推荐值在 /props 上长得一模一样，
+  // 只有主进程报上来的 envOverrides 命中该通道时才有资格判成不一致（否则一律 skip）。
+  { param: 'temperature', propsPath: 'default_generation_settings.params.temperature', kind: 'num', modelDerived: { envChannel: 'LLAMA_ARG_TEMPERATURE' } },
+  { param: 'top_k', propsPath: 'default_generation_settings.params.top_k', kind: 'num', modelDerived: { envChannel: 'LLAMA_ARG_TOP_K' } },
+  { param: 'top_p', propsPath: 'default_generation_settings.params.top_p', kind: 'num', modelDerived: { envChannel: 'LLAMA_ARG_TOP_P' } },
+  { param: 'min_p', propsPath: 'default_generation_settings.params.min_p', kind: 'num', modelDerived: { envChannel: 'LLAMA_ARG_MIN_P' } },
+  { param: 'repeat_penalty', propsPath: 'default_generation_settings.params.repeat_penalty', kind: 'num', modelDerived: { envChannel: 'LLAMA_ARG_REPEAT_PENALTY' } },
+  { param: 'presence_penalty', propsPath: 'default_generation_settings.params.presence_penalty', kind: 'num', modelDerived: { envChannel: 'LLAMA_ARG_PRESENCE_PENALTY' } },
+  // seed 不属于这一类：help 里这条**没有** env 通道（实测 `--seed` 行无 `(env: ...)` 标注），
+  // 模型文件也没有对应源键，所以未发射时回读到的必然是引擎缺省——留着它才能验「不发射时引擎做的是不是那个缺省值」
   { param: 'seed', propsPath: 'default_generation_settings.params.seed', kind: 'seed' },
   { param: 'ui', propsPath: 'ui', kind: 'bool' },
   { param: 'slots_endpoint', propsPath: 'endpoint_slots', kind: 'bool' },
   { param: 'metrics', propsPath: 'endpoint_metrics', kind: 'bool' },
+  // `--props` 与 `endpoint_props` 是同一个开关的两面（help: "enable changing global properties via POST /props"，
+  // 环境通道 LLAMA_ARG_ENDPOINT_PROPS 也叫这名字）。真机两态各抓过一次（b11408 + Qwen3.8-27B-UD-Q2_K_XL，
+  // `-c 4096`）：不发 --props ⇒ endpoint_props=false，发 --props ⇒ true。两次抓取的 **70 个叶路径键集完全相同**，
+  // 值只差 4 个：endpoint_props、seed 与 temperature（那轮我另发了 --seed/--temp）、media_marker（每次启动随机，不比对）
+  // ——没有别的字段被 --props 顺带改写，所以这项比对不受搭配影响，也不需 onlyWhenSent：
+  // 没发时引擎报 false，正是要拿来验 env 覆写（LLAMA_ARG_ENDPOINT_PROPS）的地方。
+  { param: 'props_endpoint', propsPath: 'endpoint_props', kind: 'bool' },
   { param: 'parallel', propsPath: 'total_slots', kind: 'num', onlyWhenSent: true },
 ];
+
+/**
+ * 评估后**故意不进**映射表的候选（每条都有真机反证，别再凭同名的键重新评估一遍）：
+ *
+ * - `reasoning_format` → `default_generation_settings.params.reasoning_format`：发 `--reasoning-format deepseek`
+ *   后 /props 仍回读 `"none"`（b11408 实测）。`params.reasoning_format` 是**每次请求**的 chat 参数默认值，
+ *   不是服务端 flag 的结果，与我们的取值不是一回事——塞进去就等于每次启动假报「--reasoning-format 没生效」。
+ * - `spec_type` → `default_generation_settings.params["speculative.types"]`：发 `--spec-type ngram-mod` 后仍回读
+ *   `"none"`（b11408 实测），同上。另注意该键是**字面含点号**的单个 JSON 键，现有 `readPropsPath` 按 `.` 下钻取不到，
+ *   真要支持得先改取键方式。
+ * - `chat_template` → 顶层 `chat_template`：/props 给的是**渲染用的模板原文**（数千字符），我们发的是模板名/路径，
+ *   量纲不同，无法相等比对。
+ * - `cors_credentials` 等 CORS 族 → `cors_proxy_enabled`：那是 webui 的 CORS 代理开关，与 `--cors-*` 无关。
+ * - `reasoning` / `reasoning_effort` → `reasoning_in_content` / `chat_template_caps.supports_reasoning_effort`：
+ *   前一个是引擎按模板+格式**派生**出的结果，后一个是模板能力声明，都不是我们发出的值。
+ * - `lazy_mode` → `is_sleeping`：运行期睡眠状态，不是配置值。
+ *
+ * 另有一条**本轮真机撞见的假报**（已修，见上面六行的 `modelDerived`）：GGUF 自带 `general.sampling.*`
+ * 时，引擎会在我们**没发**该 flag 的前提下用模型推荐值改写采样项。实测 b11408 + Qwen3.8-27B-UD-Q2_K_XL
+ * （命令行无 `--temp` / `--top-k`）回读 `temperature: 1`、`top_k: 20`、`top_p: 0.949999988079071`、
+ * `min_p: 0.05000000074505806`，而界面初值是引擎缺省 0.8 / 40；该模型头部实有键
+ * `general.sampling.temp` / `top_k` / `top_p` / `min_p` / `temperature`（直接扫 GGUF 元数据得到）。
+ * 今后再加采样类映射时，照那六行的写法标 `modelDerived: { envChannel }`，**不要**图省事写
+ * `onlyWhenSent`：后者会把「env 覆写在回读里现形」这个别处没有的能力一并跳掉。
+ */
 
 /** 数值容差：引擎内部按 float32 存采样值，0.95 回读是 0.949999988079071，不容差就天天假报 */
 export const PROPS_NUM_TOL = 1e-4;
@@ -128,7 +177,12 @@ function driftOf(buildInfo: string): PropsBaselineDrift | null {
   return { engineBuild: engine, baselineBuild: ENGINE_BASELINE_BUILD };
 }
 
-function readPath(obj: unknown, path: string): unknown {
+/**
+ * 按 `.` 下钻取 /props 字段。导出是给回归用例当尺子用（判「propsPath 有没有失效」必须用实现
+ * 同一个取数函数，测试另抄一份遍历就会和实现各说各话）；注意它按段切分，**字面含点号的单个键**
+ * （如 `speculative.types`）取不到——这正是映射表不收那条的理由之一。
+ */
+export function readPropsPath(obj: unknown, path: string): unknown {
   let cur = obj;
   for (const seg of path.split('.')) {
     if (cur === null || typeof cur !== 'object') return undefined;
@@ -165,11 +219,25 @@ function describe(v: unknown): string | number | boolean {
 }
 
 /**
+ * 「我们没发这一项」的三种形态：空串、声明的哨兵、等于引擎缺省基线。
+ * 与命令行发射规则同一对判据（isSentinelValue / sameParamValue / engineDefaultOf），
+ * 不许在这里另抄一份发射判定——那是本仓库明令禁止的「第二套实现」。
+ */
+function isNotSent(def: ParamDef | undefined, sent: unknown): boolean {
+  if (sent === '') return true;
+  if (def === undefined) return false;
+  return isSentinelValue(def, sent as string | number | boolean) || sameParamValue(sent, engineDefaultOf(def));
+}
+
+/**
  * 对账主函数（纯函数，不发网络请求）。
  * 判不一致的前提是「这一项我们真的能表达」：值等于引擎缺省基线而不发射的项仍要参与比对——
  * 它正是检验「不发射时引擎做的是不是那个缺省值」的地方，env 覆写也在这里现形。
+ * 唯一的例外是 `modelDerived` 那一类（模型文件也能顶掉缺省，两边长得一样），它们只在
+ * `envOverrides` 命中自己的 env 通道时才出声。
+ * @param envOverrides 主进程检出的 `LLAMA_ARG_*` 环境变量名（`Launcher.envOverrides` 已有这份数据）
  */
-export function checkEngineProps(props: unknown, values: PresetValues, checkedAt = 0): PropsCheck {
+export function checkEngineProps(props: unknown, values: PresetValues, checkedAt = 0, envOverrides: readonly string[] = []): PropsCheck {
   const checked: string[] = [];
   const mismatched: PropsMismatch[] = [];
   let skipped = 0;
@@ -194,23 +262,23 @@ export function checkEngineProps(props: unknown, values: PresetValues, checkedAt
     }
     // 回读侧事实决定不比（如多槽下 n_ctx 是每槽值，与发出的总量不同量纲）
     if (m.skipWhenProps) {
-      const gate = readPath(p, m.skipWhenProps.path);
+      const gate = readPropsPath(p, m.skipWhenProps.path);
       if (typeof gate === 'number' && gate > m.skipWhenProps.gt) {
         skipped++;
         continue;
       }
     }
-    if (m.onlyWhenSent) {
-      // 「没发」的三种形态：空串、声明的哨兵、等于引擎缺省基线（这三种下引擎会自己派生值）
-      const notSent =
-        sent === '' ||
-        (def !== undefined && (isSentinelValue(def, sent) || sameParamValue(sent, engineDefaultOf(def))));
-      if (notSent) {
-        skipped++;
-        continue;
-      }
+    // 「没发」的两种处置：onlyWhenSent 一律不比；modelDerived 只在它的 env 通道被设过时才比
+    // （没设过时回读值可能来自模型文件，与 env 覆写在 /props 上无法区分，此时出声就是谎报）
+    if (m.onlyWhenSent && isNotSent(def, sent)) {
+      skipped++;
+      continue;
     }
-    const actual = readPath(p, m.propsPath);
+    if (m.modelDerived && isNotSent(def, sent) && !envOverrides.includes(m.modelDerived.envChannel)) {
+      skipped++;
+      continue;
+    }
+    const actual = readPropsPath(p, m.propsPath);
     if (actual === undefined || actual === null) {
       skipped++;
       continue;

@@ -23,6 +23,8 @@ export async function verifyEngineProps(opts: {
   values: PresetValues;
   timeoutMs?: number;
   fetcher?: PropsFetcher;
+  /** 主进程检出的 `LLAMA_ARG_*` 名单，透传给对账函数（模型可派生的那几项要靠它归因） */
+  envOverrides?: readonly string[];
 }): Promise<PropsCheck> {
   const fetcher = opts.fetcher ?? defaultPropsFetcher;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -32,7 +34,7 @@ export async function verifyEngineProps(opts: {
   try {
     const res = await fetcher(`${opts.baseUrl.replace(/\/$/, '')}/props`, timeoutMs);
     if (!res.ok || res.json === null || typeof res.json !== 'object') return propsCheckUnavailable('unreachable', checkedAt);
-    return checkEngineProps(res.json, opts.values, checkedAt);
+    return checkEngineProps(res.json, opts.values, checkedAt, opts.envOverrides ?? []);
   } catch {
     // 服务已停/网络异常/JSON 解析失败都不该被读成"参数没生效"
     return propsCheckUnavailable('unreachable', checkedAt);

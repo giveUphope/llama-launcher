@@ -73,11 +73,6 @@ async function onRemoveModel(m: ModelInfo) {
   }
 }
 
-// 伴随文件标签徽章配色（mmproj / dflash / draft）
-function tagCls(tag: string): string {
-  return tag === 'mmproj' ? 'mmproj' : tag === 'dflash' ? 'dflash' : 'draft';
-}
-
 // 按搜索词过滤模型列表（大小写不敏感，匹配文件名）
 const filteredModels = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -271,18 +266,8 @@ function handleSelect(m: ModelInfo) {
   })();
 }
 
-// 伴随文件标签 → a-tag 配色
-function tagColor(t: string): string {
-  return t === 'mmproj' ? 'arcoblue' : t === 'dflash' ? 'green' : 'orange';
-}
-
-// 显存适配徽章 → a-tag 配色
-function fitColor(m: ModelInfo): string {
-  const v = fitOf(m)?.verdict;
-  return v === 'fit' ? 'green' : v === 'partial' ? 'orange' : 'red';
-}
-
 // ---- 显存适配徽章：批量估算每个模型文件的显存适配判定（fit/partial/no）+ 上下文上限 ----
+// fitMap 只存主进程返回的事实；徽章文本/配色/悬浮文案由下方 rowMeta 在数据落地时算一次。
 const fitMap = ref<Record<string, ModelFitResult>>({});
 
 watch(() => models.value.map((m) => m.path).join('|'), (joined) => {
@@ -295,35 +280,13 @@ watch(() => models.value.map((m) => m.path).join('|'), (joined) => {
 async function refreshFit(paths: string[]) {
   try {
     const res = await window.api.system.estimateModelFit(paths);
-    if (res && typeof res === 'object') fitMap.value = res;
+    if (res && typeof res === 'object') {
+      fitMap.value = res;
+      writeRowMeta();
+    }
   } catch {
-    // 浏览器预览/主进程异常：无徽章（静默降级）
+    // 浏览器预览/主进程异常：无 fit 徽章（静默降级）
   }
-}
-
-function fitOf(m: ModelInfo): ModelFitResult | undefined {
-  return fitMap.value[m.path];
-}
-
-function fitBadge(m: ModelInfo): string | null {
-  const v = fitOf(m)?.verdict;
-  if (v === 'fit') return `✓ ${i18n.t('fit_full')}`;
-  if (v === 'partial') return `△ ${i18n.t('fit_partial')}`;
-  if (v === 'no') return `✗ ${i18n.t('fit_no')}`;
-  return null;
-}
-
-function fitTitle(m: ModelInfo): string {
-  const f = fitOf(m);
-  if (!f) return '';
-  if (f.verdict === 'no') return i18n.t('msg_fit_no_tip');
-  if (f.verdict === 'partial') {
-    return i18n.t('msg_fit_partial_tip', [f.maxContext ? f.maxContext.toLocaleString() : '—']);
-  }
-  if (f.verdict === 'fit' && f.maxContext !== null) {
-    return i18n.t('msg_fit_full_tip', [f.maxContext.toLocaleString(), f.dtype]);
-  }
-  return '';
 }
 
 // ---- llama-bench 离线体检：单模型单作业，run 启动 + 主进程推送状态，结果徽章展示 ----
@@ -332,11 +295,15 @@ const benchJobs = ref<Record<string, LlamaBenchJobState>>({});
 const benchInFlight = new Set<string>();
 let unsubBench: (() => void) | null = null;
 
-/** 就地写单个 key：整体替换 benchJobs 会让每一行的 benchBadge 依赖全部失效，表格被整表重渲染 */
+/**
+ * 就地写单个 key（不整体替换）：整体替换会让每一行的 rowMeta 依赖全部失效、表格被整表重渲染。
+ * 徽章条目 rowMeta 同样按路径就地写（见 writeRowMetaFor），一次推送只改写那一行。
+ */
 function applyBenchState(st: LlamaBenchJobState | null) {
   if (!st) return;
   benchJobs.value[st.modelPath] = st;
   if (st.state !== 'running') benchInFlight.delete(st.modelPath);
+  writeRowMetaFor(st.modelPath);
 }
 
 function subscribeBench() {
@@ -398,7 +365,8 @@ async function onBench(m: ModelInfo) {
   try {
     const res = await window.api.system.benchLlamaRun(m.path);
     if (res.ok) {
-      benchJobs.value = { ...benchJobs.value, [m.path]: res.data };
+      // 走 applyBenchState 就地写单个路径（原先整体替换 benchJobs 会让整表重渲染）
+      applyBenchState(res.data);
       if (res.data.state === 'running') benchInFlight.add(m.path);
     } else {
       server.pushOutput({ kind: 'error', data: `[Bench] ${res.error}\n`, ts: Date.now() });
@@ -408,26 +376,116 @@ async function onBench(m: ModelInfo) {
   }
 }
 
-function benchBadge(m: ModelInfo): string | null {
-  const job = benchJobs.value[m.path];
-  if (!job) return null;
-  if (job.state === 'running') return i18n.t('bench_llama_running');
-  if (job.state === 'error') return i18n.t('bench_llama_failed');
-  const s = job.summary;
-  if (!s) return null;
-  const pp = s.ppTokS !== null ? Math.round(s.ppTokS).toLocaleString() : '—';
-  const tg = s.tgTokS !== null ? Math.round(s.tgTokS).toLocaleString() : '—';
-  return `pp ${pp} · tg ${tg}`;
+// ---- 行内徽章：派生值随条目携带（docs/zh/frontend.md §7.1 铁律②）----
+/**
+ * 徽章文本 / a-tag 配色 / 悬浮文案原先由模板在 v-for 里逐行调用 fitOf·fitColor·fitTitle·
+ * fitBadge·benchBadge·benchTitle 现算——mock 页 6 行表实测每次整表重渲染跑 32 次派生
+ * （fitOf 24 + benchBadge 7 + benchTitle 1），按同行开销外推 64 行的库约 340 次/渲染（未实测）。
+ * 现改为在任何渲染路径之外算一次，按模型路径存进 rowMeta，模板只做一次 O(1) 取值。
+ * 写入时机即数据落地时机：扫描完成 / fit 批量返回 / 体检记录回灌 / 体检状态推送 / 语言切换。
+ * 单行状态迁移沿用 applyBenchState 的「就地写单个 key」，不改写其余行的条目。
+ */
+interface RowBadge {
+  key: string;
+  text: string;
+  color: string;
+  /** undefined = 不渲染 title 属性（伴随文件标签本就无悬浮文案） */
+  title?: string;
+}
+interface RowMeta {
+  badges: RowBadge[];
+  /** 体检进行中 → 行内「体检」按钮禁用（原先模板直读 benchJobs，同样是逐行取值） */
+  benchRunning: boolean;
 }
 
-function benchTitle(m: ModelInfo): string {
-  const job = benchJobs.value[m.path];
-  if (!job) return '';
+const rowMeta = ref<Record<string, RowMeta>>({});
+
+/** path → ModelInfo 索引：仅在数据落地时随 writeRowMeta 重建，供单行回写取回标签 */
+let modelIndex = new Map<string, ModelInfo>();
+
+// 伴随文件标签（mmproj / dflash / draft）→ a-tag 配色
+function badgesForTags(m: ModelInfo): RowBadge[] {
+  return (m.tags ?? []).map((t) => ({
+    key: `tag:${t}`,
+    text: t,
+    color: t === 'mmproj' ? 'arcoblue' : t === 'dflash' ? 'green' : 'orange',
+  }));
+}
+
+function badgesForFit(f: ModelFitResult | undefined): RowBadge[] {
+  const v = f?.verdict;
+  if (!f || !v) return [];
+  if (v === 'no') return [{ key: 'fit', text: `✗ ${i18n.t('fit_no')}`, color: 'red', title: i18n.t('msg_fit_no_tip') }];
+  if (v === 'partial') {
+    return [{
+      key: 'fit',
+      text: `△ ${i18n.t('fit_partial')}`,
+      color: 'orange',
+      title: i18n.t('msg_fit_partial_tip', [f.maxContext ? f.maxContext.toLocaleString() : '—']),
+    }];
+  }
+  return [{
+    key: 'fit',
+    text: `✓ ${i18n.t('fit_full')}`,
+    color: 'green',
+    title: f.maxContext !== null ? i18n.t('msg_fit_full_tip', [f.maxContext.toLocaleString(), f.dtype]) : '',
+  }];
+}
+
+function benchTitleOf(job: LlamaBenchJobState): string {
   if (job.state === 'error') return job.error ?? '';
   const s = job.summary;
   if (!s) return '';
   return `${s.modelType ?? ''} · ${s.backend ?? ''} · ${new Date(s.testedAt).toLocaleString()}`;
 }
+
+function badgesForBench(job: LlamaBenchJobState | undefined): RowBadge[] {
+  if (!job) return [];
+  if (job.state === 'running') {
+    return [{ key: 'bench', text: i18n.t('bench_llama_running'), color: 'gray', title: benchTitleOf(job) }];
+  }
+  if (job.state === 'error') {
+    return [{ key: 'bench', text: i18n.t('bench_llama_failed'), color: 'gray', title: benchTitleOf(job) }];
+  }
+  const s = job.summary;
+  if (!s) return [];
+  const pp = s.ppTokS !== null ? Math.round(s.ppTokS).toLocaleString() : '—';
+  const tg = s.tgTokS !== null ? Math.round(s.tgTokS).toLocaleString() : '—';
+  return [{ key: 'bench', text: `pp ${pp} · tg ${tg}`, color: 'gray', title: benchTitleOf(job) }];
+}
+
+function buildRowMeta(m: ModelInfo): RowMeta {
+  const job = benchJobs.value[m.path];
+  return {
+    badges: [...badgesForTags(m), ...badgesForFit(fitMap.value[m.path]), ...badgesForBench(job)],
+    benchRunning: job?.state === 'running',
+  };
+}
+
+/** 整体重算并剪掉已不在库里的路径（扫描 / fit 批量 / 语言切换三个数据变更点） */
+function writeRowMeta() {
+  const ms = models.value;
+  modelIndex = new Map(ms.map((m) => [m.path, m]));
+  for (const p of Object.keys(rowMeta.value)) {
+    if (!modelIndex.has(p)) delete rowMeta.value[p];
+  }
+  for (const m of ms) rowMeta.value[m.path] = buildRowMeta(m);
+}
+
+/** 就地写单个路径的条目：一次体检推送只让那一行的徽章换文本 */
+function writeRowMetaFor(path: string) {
+  const m = modelIndex.get(path);
+  if (m) rowMeta.value[path] = buildRowMeta(m);
+}
+
+// 徽章文本取自 i18n.t()：预计算后语言切换不会走任何数据变更，必须显式整体重算，
+// 否则界面停在旧语言的徽章文案（改前是模板内联调用，切语言当场自动重算，不存在这个口子）
+watch(() => i18n.lang, () => writeRowMeta());
+
+// 每次扫描落地（models 整体替换）都重算一遍：上方那条 watch 只盯「路径集合变化」，而
+// 伴随文件标签（mmproj / dflash）会在路径集合不变时新增——改前模板直读 record.tags 当场就出，
+// 预计算后若不在这里跟进，那枚标签要等到下一次体检推送才显示。
+watch(models, () => writeRowMeta());
 </script>
 
 <template>
@@ -482,16 +540,12 @@ function benchTitle(m: ModelInfo): string {
               </span>
               <div class="model-name-row" :title="record.path">{{ record.name }}</div>
             </div>
-            <!-- 伴随文件标签 + 显存适配 + 体检结果合并同一行：徽章排容器恒渲染（内部各徽章仍 v-if），
-                 min-height 预留一行，fit 批量结果 / 体检记录回灌时行高不再从 1 行变 2 行 -->
+            <!-- 伴随文件标签 + 显存适配 + 体检结果合并同一行：徽章排容器恒渲染（内部各徽章由
+                 派生条目决定有无），min-height 预留一行，fit 批量结果 / 体检记录回灌时行高不再
+                 从 1 行变 2 行。徽章文本不在此现算——见脚本末 rowMeta（§7.1 铁律②） -->
             <div class="model-tags">
-              <a-tag v-for="t in record.tags ?? []" :key="t" size="small" :color="tagColor(t)">{{ t }}</a-tag>
-              <a-tag v-if="fitOf(record)?.verdict" size="small" :color="fitColor(record)" :title="fitTitle(record)">
-                {{ fitBadge(record) }}
-              </a-tag>
-              <a-tag v-if="benchBadge(record)" size="small" color="gray" :title="benchTitle(record)">
-                {{ benchBadge(record) }}
-              </a-tag>
+              <a-tag v-for="b in rowMeta[record.path]?.badges" :key="b.key"
+                     size="small" :color="b.color" :title="b.title">{{ b.text }}</a-tag>
             </div>
           </template>
           <template #actions="{ record }">
@@ -502,7 +556,7 @@ function benchTitle(m: ModelInfo): string {
                 {{ i18n.t('act_dir') }}
               </a-button>
               <a-button size="small" class="row-action" :title="i18n.t('bench_llama_title')"
-                        :disabled="benchJobs[record.path]?.state === 'running'" @click.stop="onBench(record)">
+                        :disabled="rowMeta[record.path]?.benchRunning" @click.stop="onBench(record)">
                 <template #icon><Icon name="bench" :size="11" /></template>
                 {{ i18n.t('act_bench') }}
               </a-button>

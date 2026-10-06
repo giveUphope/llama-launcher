@@ -226,6 +226,17 @@ export const zh = {
   msg_oom_detected: '检测到显存不足特征，可尝试以下调整：',
   act_oom_halve_ctx: '上下文减半',
   act_oom_kv_quant: 'KV 量化 q8_0（自动开 FA）',
+  // 权重落位说明（服务页命令预览卡，§5.6 第 2 项）：数字来自 core 的占用估算，未估算的一律不写
+  place_all_vram: '权重约 {0} GiB 全部在显卡（{1}），不涉及内存搬运',
+  place_split: '约 {0} GiB 在显卡（{1}）、{2} GiB 留在内存——内存那部分每生成一步都要搬进显卡，出字速度由这条搬运决定（估算）',
+  place_all_ram: '权重全部留在内存（显卡不放层），出字速度由内存搬运决定（估算）',
+  // 装不下时的减负建议（概览页状态卡常驻行，§5.6 第 3 项）：条目由 core recommendOffloadAdvice 下发
+  msg_offload_advice: '权重超出空闲显存，可把闲置部分放内存：',
+  offload_rec_cmoe: '所有 MoE 专家权重留在内存，显卡只算当下要用的专家',
+  offload_rec_ngl: '显卡只装得下 {0}/{1} 层，其余层的权重放内存',
+  offload_rec_device: '只让引擎用空闲显存最多的 {0}，别把权重摊到装不下的卡上',
+  offload_rec_split: '按各卡空闲显存把权重分摊成 {0}，合计容量才装得下',
+  act_apply_relief: '应用 {0} = {1}',
   msg_preset_model_mismatch_title: '名称与模型不一致',
   msg_preset_model_mismatch: '预设名「{0}」与当前选中模型「{1}」不对应（预设「应用」会连带切换模型，之后保存将以当前模型作为绑定）。保存后该预设的模型绑定为「{1}」，与名称不再对应。是否继续保存？',
   msg_url_copied: '地址已复制到剪贴板',

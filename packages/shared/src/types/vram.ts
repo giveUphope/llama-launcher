@@ -31,6 +31,14 @@ export interface TargetRecommendation {
   reasonKey: string;
   /** 理由模板的 `{0}`/`{1}` 实参，只允许数值或枚举串（不得是已翻译文案） */
   reasonArgs?: (string | number)[];
+  /**
+   * 「显存装不下时的减负建议」标记（docs/zh/params-system.md §5.6 第 3 项）。
+   * 条目与性能目标建议同格式、同一条 `system:estimateVram` 通道下发，但语义不同：
+   * 目标建议回答「按目标怎么调最快」，这类回答「权重放不下显存，把闲置部分挪到内存」。
+   * 判据与内容都由 core `recommendOffloadAdvice` 产出，渲染端**只按本标记分流展示**，
+   * 不再自己算一遍「装不下吗」（第二套判据就是第二套实现）。
+   */
+  offloadRelief?: boolean;
 }
 
 /** 单侧硬件资源占用估算（显存侧 = 最大空闲设备；内存侧 = 系统 RAM） */

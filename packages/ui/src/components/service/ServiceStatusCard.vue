@@ -11,11 +11,13 @@ import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
+import { useHardwareStore } from '@/stores/hardware';
 import { useI18nStore } from '@/stores/i18n';
-import { MODEL_KEY, modelBaseName, formatDuration, DEFAULT_PORT } from '@llama-launcher/shared';
+import { MODEL_KEY, modelBaseName, formatDuration, DEFAULT_PORT, PARAMS } from '@llama-launcher/shared';
 
 const server = useServerStore();
 const params = useParamsStore();
+const hw = useHardwareStore();
 const i18n = useI18nStore();
 const router = useRouter();
 
@@ -150,6 +152,18 @@ function stopDurationTimer() {
 // 同样在「真的看」（服务页那份见 CommandPreviewCard）。节拍与退避全在 store 里，
 // 本页只负责进/出计数——失活必须退掉，否则后台页会继续敲端口（§7.1 铁律①）。
 let releasePropsWatch: (() => void) | null = null;
+// 落位/减负建议的取数订阅：与回读同一套「本页真的可见才取数」，失活必须退掉（§7.1 铁律①），
+// 否则概览页停在后台时仍会跟着参数改动去敲主进程的估算。
+let releaseHwWatch: (() => void) | null = null;
+
+function enterHwWatch() {
+  releaseHwWatch?.();
+  releaseHwWatch = hw.enter();
+}
+function leaveHwWatch() {
+  releaseHwWatch?.();
+  releaseHwWatch = null;
+}
 
 onActivated(() => {
   pageActive = true;
@@ -157,6 +171,7 @@ onActivated(() => {
   // 之后按「结论连续不变就 ×2^n 退避」续探；核心侧自己不排定时器）
   releasePropsWatch?.();
   releasePropsWatch = server.enterPropsWatch();
+  enterHwWatch();
   if (isRunning.value) startDurationTimer();
   // 外部实例探测：激活立即探一次，之后按退避续探（失活/卸载即停）
   externalIdleSteps = 0;
@@ -167,6 +182,7 @@ onDeactivated(() => {
   pageActive = false;
   releasePropsWatch?.();
   releasePropsWatch = null;
+  leaveHwWatch();
   stopDurationTimer();
   if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
 });
@@ -175,6 +191,7 @@ onUnmounted(() => {
   pageActive = false;
   releasePropsWatch?.();
   releasePropsWatch = null;
+  leaveHwWatch();
   stopDurationTimer();
   if (externalTimer) { clearTimeout(externalTimer); externalTimer = null; }
 });
@@ -233,6 +250,65 @@ function onOomKvQuant() {
   params.set('flash_attn', 'on');
   params.set('cache_type_k', 'q8_0');
   params.set('cache_type_v', 'q8_0');
+}
+
+// ---- 「装不下」减负建议（docs/zh/params-system.md §5.6 第 3 项）----
+// 与上面 OOM 归因的区别：那条要等进程真的报错才出声（扫日志判出的，用户已经白等一次启动），
+// 这条在选完模型的当下就出声。判据一条都不在这里重复——「超出空闲显存吗」只写在 core 的
+// recommendOffloadAdvice 里，条目随 system:estimateVram 下发并带 offloadRelief 标记，
+// 本卡只按标记分流（第二套判据就是第二套实现，core 改了界面不会跟着改）。
+interface ReliefLine {
+  /** v-for 稳定键：同一参数同一取值即同一条建议 */
+  id: string;
+  /** 按钮上的参数名用 flag 原文（-cmoe / -ngl / -dev / -ts）：业务标识不翻译，
+   *  且与命令预览框里的写法一致，用户点完能在预览里对上号 */
+  flag: string;
+  action: string;
+  reason: string;
+  key: string;
+  value: string | number | boolean;
+}
+
+/**
+ * 建议取值在按钮上的写法：勾选类参数（`-cmoe`）没有「值」可看，画一个勾；
+ * 其余（-ngl 的层数、-dev 的设备名、-ts 的比例串）按原样显示，与命令预览框一致。
+ * 纯符号/原文，不产文案（数据层不产文案这条纪律同样适用于渲染端的派生）。
+ */
+function formatReliefValue(v: string | number | boolean): string {
+  if (typeof v === 'boolean') return v ? '✓' : '✗';
+  return String(v);
+}
+// §7.1 铁律②：文案与 flag 在数据到位时算一次并随条目携带，不放在 v-for 的函数调用里
+const reliefLines = computed<ReliefLine[]>(() =>
+  hw.relief.map((r) => {
+    const flag = PARAMS.find((p) => p.key === r.key)?.flag ?? r.key;
+    return {
+      id: `${r.key}=${String(r.value)}`,
+      flag,
+      key: r.key,
+      value: r.value,
+      action: i18n.t('act_apply_relief', [flag, formatReliefValue(r.value)]),
+      reason: i18n.t(r.reasonKey, r.reasonArgs ?? []),
+    };
+  }),
+);
+/**
+ * 常驻槽只有一档 28px，行内按钮再多就得换行（一换行卡片就长高，STYLE_TODO #81 正在防这个），
+ * 所以**最多上两个**：core 的出单顺序就是杠杆的强弱顺序（-cmoe → -ngl → -dev → -ts），
+ * 排在后面的那条并没有丢——同一批条目也在 `recommendations` 里，参数页的性能目标建议区全量可见。
+ */
+const reliefShown = computed(() => reliefLines.value.slice(0, 2));
+/**
+ * 没取到估算 / core 判定放得下 ⇒ 一条都不显示（不猜、不把「没量过」写成「没问题」）。
+ * 服务正在跑时也闭嘴：引擎已经把这份模型装载起来了，此刻喊「装不下」是自相矛盾——
+ * 真炸了有上面那条 OOM 归因接管（判据来自 core 下发的停止事实，不在这里猜）。
+ */
+const reliefActive = computed(
+  () => reliefShown.value.length > 0 && server.status !== 'running' && !oomDetected.value,
+);
+
+function onApplyRelief(key: string, value: string | number | boolean) {
+  params.set(key, value);
 }
 </script>
 
@@ -329,12 +405,28 @@ function onOomKvQuant() {
           </span>
         </div>
       </div>
-      <!-- OOM 归因建议（输出尾部命中显存不足特征时追加，给出可执行缓解动作） -->
-      <div class="oom-row" :class="{ 'is-active': oomDetected }">
+      <!-- 常驻一档（28px）内两种出声，互斥不并列，所以行高不随内容变：
+           ① OOM 归因（进程已报错，扫输出尾部判出）——上下文减半 / KV 量化；
+           ② 减负建议（还没跑就看出装不下，判据在 core recommendOffloadAdvice）——
+              条目来自下发数据，本行只按 offloadRelief 分流，最多两个按钮 + 单行省略，
+              理由走原生 title（同 §7.5「截断值保留原生 title」，不再叠 ToolTip 包一层壳）。 -->
+      <div class="oom-row" :class="{ 'is-active': oomDetected || reliefActive }">
         <div v-if="oomDetected" class="oom-hint">
           <span class="oom-text">{{ i18n.t('msg_oom_detected') }}</span>
           <a-button size="mini" @click="onOomHalveCtx">{{ i18n.t('act_oom_halve_ctx') }}</a-button>
           <a-button size="mini" @click="onOomKvQuant">{{ i18n.t('act_oom_kv_quant') }}</a-button>
+        </div>
+        <div v-else-if="reliefActive" class="oom-hint">
+          <span class="oom-text" :title="i18n.t('msg_offload_advice')">{{ i18n.t('msg_offload_advice') }}</span>
+          <a-button
+            v-for="line in reliefShown"
+            :key="line.id"
+            size="mini"
+            :title="line.reason"
+            @click="onApplyRelief(line.key, line.value)"
+          >
+            {{ line.action }}
+          </a-button>
         </div>
       </div>
     </div>
@@ -468,17 +560,30 @@ function onOomKvQuant() {
   color: rgb(var(--danger-6));
 }
 
-// OOM 归因建议行：紧随失败 banner 的次级提示 + 行内缓解按钮
+// OOM 归因建议行 / 减负建议行：紧随失败 banner 的次级提示 + 行内动作按钮
 // （行高由 .oom-row 的常驻槽负责，这里只管内容呈现）
+// ⚠ 单行硬约束：槽只预留一档 28px，所以这一行**不许换行**——换行就是卡片长高，
+// #81 登记的正是这个。文案变长（尤其中转英）时省略号收住、完整内容走原生 title，
+// 按钮 flex: 0 0 auto 保证按钮永远完整可见（动作比描述文字更重要）。
 .oom-hint {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 
   .oom-text {
     color: var(--color-text-2);
     font-size: var(--fs-base);
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :deep(.arco-btn) {
+    flex: 0 0 auto;
   }
 }
 </style>

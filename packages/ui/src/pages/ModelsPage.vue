@@ -66,6 +66,9 @@ function setTab(key: TabKey) {
   gap: 0;
   margin-top: 8px;
   min-height: 0;
-  flex: 1;
+  // flex: 1 在 PageFrame 还不是弹性列时是死规则（STYLE_TODO #82）。骨架改成 flex 列后它会
+  // 突然生效：模型表比可视区高时，本盒被压到可视高、里面的面板再被压一档 = 内容裁切。
+  // 故写 1 0 auto：短内容时撑满剩余高度（与原意一致），长内容时保持自然高、交给 PageFrame 滚动。
+  flex: 1 0 auto;
 }
 </style>

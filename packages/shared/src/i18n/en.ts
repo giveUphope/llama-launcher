@@ -226,6 +226,19 @@ export const en: Dict = {
   msg_oom_detected: 'Out-of-memory signature detected. Try:',
   act_oom_halve_ctx: 'Halve context',
   act_oom_kv_quant: 'KV q8_0 (enables FA)',
+  // Weight-placement line (service page command card, §5.6 item 2).
+  // Numbers come from core's occupancy estimate; nothing unmeasured is stated here.
+  place_all_vram: 'About {0} GiB of weights fit entirely on the GPU ({1}); nothing is copied from RAM',
+  place_split: 'About {0} GiB on the GPU ({1}), {2} GiB left in system RAM — every generation step copies that RAM part back to the GPU, so the copy link sets your token rate (estimated)',
+  place_all_ram: 'All weights stay in system RAM (no layers on the GPU); the RAM-to-GPU copy sets your token rate (estimated)',
+  // Relief advice for "won't fit" (overview status card permanent row, §5.6 item 3);
+  // entries are emitted by core's recommendOffloadAdvice.
+  msg_offload_advice: 'The weights exceed free VRAM; move the idle part to RAM:',
+  offload_rec_cmoe: 'Keep every MoE expert weight in RAM so the GPU only computes the experts in use',
+  offload_rec_ngl: 'Only {0}/{1} layers fit in VRAM; keep the rest of the weights in RAM',
+  offload_rec_device: 'Let the engine use only {0} (most free VRAM) instead of spreading weights over a card that cannot hold them',
+  offload_rec_split: 'Split the weights across the cards as {0} so their combined capacity holds the model',
+  act_apply_relief: 'Apply {0} = {1}',
   msg_preset_model_mismatch_title: 'Name / Model Mismatch',
   msg_preset_model_mismatch: 'Preset name "{0}" does not match the currently selected model "{1}" (applying a preset also switches the active model; saving now binds the current one). The preset will be bound to "{1}", diverging from its name. Save anyway?',
   msg_url_copied: 'Address copied to clipboard',

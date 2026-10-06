@@ -285,12 +285,23 @@ export class Launcher extends EventEmitter {
       baseUrl: `http://${viewHost}:${this.port}`,
       values,
       fetcher: this.propsFetcher,
+      // 对账要能归因：模型文件自带的 general.sampling.* 与 LLAMA_ARG_* 覆写在 /props 上长得一样，
+      // 只有这份名单命中时才允许把那几项判成不一致（见 shared 的 PropsFieldMap.modelDerived）
+      envOverrides: this.envOverrides,
     }).then((check) => {
       this.clearPropsInFlight(seq);
       if (seq !== this.runSeq || this.status !== 'running') return;
-      const changed = JSON.stringify(check.mismatched) !== JSON.stringify(this.lastPropsCheck?.mismatched)
-        || check.error !== this.lastPropsCheck?.error
-        || JSON.stringify(check.baselineDrift) !== JSON.stringify(this.lastPropsCheck?.baselineDrift);
+      // 结论指纹只比「结论本身」，不比 checkedAt（新鲜度戳每轮都变，比了就等于每轮都补发事件）。
+      // checked / skipped 必须一起比：界面显示的是「已回读校验 N 项」，而 N 会随参数进出可比集合变化
+      // ——把温度从缺省改成自定义值，那一行就从「没发射」变成「已发射」⇒ 校验数 +1。只比 mismatched
+      // 的话这种变化无人报警，徽章就陈旧了（宁可多发一条，也不许界面显示过时数字）。
+      const prev = this.lastPropsCheck;
+      const changed = !prev
+        || JSON.stringify(check.mismatched) !== JSON.stringify(prev.mismatched)
+        || JSON.stringify(check.checked) !== JSON.stringify(prev.checked)
+        || check.skipped !== prev.skipped
+        || check.error !== prev.error
+        || JSON.stringify(check.baselineDrift) !== JSON.stringify(prev.baselineDrift);
       this.lastPropsCheck = check;
       if (changed) this.setStatus('running');
     }).catch(() => {
