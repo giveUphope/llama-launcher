@@ -338,6 +338,73 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：`scrollToBottom` 改为 `pageActive` 门控 + `scrollScheduled` rAF 合帧（同帧多条只滚一次），`onActivated` 补滚、`onDeactivated` 置 false，写法逐行对齐 `LogsPage` / `ServicePage`；顺带删掉不再需要的 `nextTick` 导入。
 - **修复效果验证**：`grep -n "scrollHeight" packages/ui/src/pages/*.vue` 三处命中都带 `pageActive` 门控；切到别的页触发问题列表变化，DevTools Performance 录制里概览页不应再出现 layout 任务。
 
+## 2026-10-07 前端样式审查（Design Review）批次
+
+这一批来自一次覆盖「UI / 动效 / 交互反馈 / 可访问性」的专项审查。取证方式：插件自带的 `audit-*.mjs` 在本机缺 `node_modules`（fast-glob 与 yaml 未装）跑不起来、axe 未安装，因此全部结论出自自写 Playwright 探针在真渲染 DOM 上取数（10 轮），标注为「实测（浏览器口径）」。
+
+### 84. 侧栏 7 项一级导航对键盘与读屏完全不可达，且是两个页面的唯一入口 — 🟢 已修复（2026-10-07）
+
+- **位置**：`packages/ui/src/components/layout/Sidebar.vue:35-42`（`a-menu` 与 `a-menu-item v-for`）。
+- **描述**：Arco 2.58 的 `a-menu-item` 渲染成无 `tabindex`、无 `role`、无任何键盘处理的 DIV（`es/menu/item.js` 里 grep keydown 与 role 为 0 命中，也没有 `href` / `to` prop）。实测从文档头连按 40 次 Tab 一次都落不到导航项、对菜单项调 `el.focus()` 被拒绝，无障碍树里 7 项显示为纯 StaticText；而 `grep router.push` 显示 `/params` 与 `/settings` 除侧栏外没有任何入口——纯键盘用户进不去参数设置与应用设置。
+- **修复**：`a-menu` 上补 `role="navigation"` + `aria-label`（新键 `a11y_main_nav`），每个 `a-menu-item` 补 `role="link"`、`tabindex="0"`、`:aria-current="item.to===route.path ? 'page' : undefined"` 与 Enter / Space → 走既有 `navigate()`；另补 `:deep(.arco-menu-item:focus-visible)` 焦点环（Arco 只给 `.arco-menu` 根与菜单内的 `a` 画焦点样式，实测补了 tabindex 后自身零差分）。
+- **修复效果验证**：Tab 30 次命中 **7/7** 导航项、Enter 后 hash 正确、`aria-current` 只出现在当前页；内置浏览器无障碍树从 `StaticText ×7` 变成 `navigation "主导航" > link ×7`。判据入库见 `e2e/web/a11y.spec.ts`。
+
+### 85. 三个弹窗没有对话框语义，焦点既不进入也不被困住 — 🟢 已修复（2026-10-07）
+
+- **位置**：`components/common/FileBrowserModal.vue:148`、`CloseDialog.vue:41`、`ConfirmModal.vue:16`。
+- **描述**：实测打开后容器 `role=∅ aria-modal=∅ aria-label=∅`、`activeElement=BODY`，随后 Tab 12 次有 8 次落在弹窗背后（背景页面照样可操作）。库层事实：`grep -rl aria-modal node_modules/@arco-design/web-vue/es` **0 命中**，`a-modal` 无 autoFocus、无焦点陷阱、无焦点归还——所以只能我方补，不能当「库的问题」放下。
+- **修复**：三个容器声明 `role="dialog"` + `aria-modal="true"` + `aria-labelledby`（`ConfirmModal` 从 `:title` prop 改为带 id 的 `#title` 插槽），焦点管理收进新建的 `composables/useDialogFocus.ts`（打开移入首个可聚焦控件、Tab 与 Shift+Tab 在弹窗内循环、关闭归还触发器；监听随 visible 开关配对，不用 `onUnmounted`）。
+- **修复效果验证**：可见弹窗（DOM 里同时存在 3 个 dialog 节点，必须按 `getClientRects()` 过滤，否则取到关闭态会得出假结论）实测 `aria-modal=true`、名称解析为「选择模型目录」、打开瞬间焦点在弹窗内、Tab 16 次 **16/16 在弹窗内**、Esc 关闭且焦点回到触发按钮「更改」。
+
+### 86. 参数页 69 个控件与标签零程序性关联，图标按钮无名称 — 🟢 已修复（2026-10-07）
+
+- **位置**：`components/params/ParamRow.vue:124-129` 分发的六类控件、`components/settings/*.vue` 的输入与下拉、`Sidebar.vue:45` 折叠钮、`FileBrowserModal.vue:168`、`ParamsPage.vue` 展开/收起钮。
+- **描述**：实测参数页 `.arco-form-item` 69 个 **linked 0 / unlinked 69**，设置页 3 个同样 0 关联——Arco `form-item` 的 props 表里**没有 `for`**，永远不写 `label[for]`，读屏只能念「edit, blank」。另有 4 处仅图标按钮无可用名称（折叠钮在同仓库已有 `aria-label` 先例：`TopBar.vue:230` 的三个 win-btn）。
+- **修复**：六类控件统一补 `aria-label`（值取 `i18n.paramLabel(p.key)`），一处规则覆盖 69 行；关键机制是 `a-input` / `a-input-number` 为 `inheritAttrs:false`，直接写 `aria-label` 进不了真 `input`，必须走 `:input-attrs`；`a-select` / `a-switch` / `a-button` 直接写即可。图标按钮复用现有键（`sidebar_collapse` / `sidebar_expand` / `picker_up` / `act_expand_all` / `act_collapse_all` / `msg_clear_param`），未新增 i18n 键。
+- **修复效果验证**：参数页「可见且可 Tab 聚焦」的无名称控件 **83 → 0**（中英两态同数），设置页两面板归 0；参数行几何零回归（标签列宽恒 124、控件左缘取值集合改前后逐字节相同）。残留 22 个 `a-input-number` 步进按钮是 Arco 自绘且 `tabindex="-1"`（鼠标专用、无属性钩子），判为不修并在此登记。`style-audit` 第 16b 条把「仅 `#icon` 无 `aria-label`」钉成静态门禁。**登记之后又继续做掉的部分**：复核时另有 18 处「Arco 把名称留在外层、真正可聚焦的内层节点没名」（13 只滑杆句柄 + 5 只 Select 内层 input）被登记为残留，本轮由新建的 `directives/innerAriaLabel.ts` 收口补名（指令必须挂在单根宿主 `a-form-item` 上——Vue 对多根组件的自定义指令静默整体跳过，实测挂 `<a-select>` 毫无痕迹），加上设置页 2 只路径框走 `:input-attrs`、参数页 2 只仅图标钮补 `aria-label`，最终实测参数页 121 只、设置页 28 只可 Tab 控件**无名称数为 0**（中英一致），`e2e/web/a11y.spec.ts` 的残留登记表已清空为 `[]`。
+
+### 87. 「引擎获取指引」浮层只能鼠标悬停打开 — 🟢 已修复（2026-10-07）
+
+- **位置**：`components/settings/GeneralPanel.vue:191`（触发器）与 `:244-256`（`Teleport` 浮层）。
+- **描述**：触发器是 `<span class="card-help-icon" @mouseenter>`，实测 `tabindex=null role=null`、`el.focus()` 无效。浮层形态本身是 §7.5.6 明确豁免的（全站仅剩两处自建浮层），**豁免的是形态，不是键盘入口**——而这段文字恰是新用户最需要的那段（怎么去下载 llama.cpp）。
+- **修复**：触发器改以 `a-button type="text" size="mini"` 为基座（`.card-help-icon` 的 4px 内距 / pill 圆角 / hover 变色用 class 覆盖保留，实测 21×21 与取色逐项相同、标题区像素零差异），补 `aria-label`（新键 `a11y_exe_help_toggle`）/ `aria-expanded` / `aria-haspopup` / 条件 `aria-controls`，Enter 开 Esc 关并把焦点移进浮层，hover 的 300ms / 150ms 定时器保留为加速径；`z-index: 9999` → `var(--z-overlay)`；并补 `onDeactivated` 关掉浮层（`Teleport` 到 body 的内容不随 keep-alive 页面隐藏）。
+- **修复效果验证**：第 29 次 Tab 可达、Enter 展开且 `aria-controls` 解析到真实节点、Esc 收起后节点离开 DOM；切页后 `.exe-help-panel` 不在 DOM。
+
+### 88. 文字对比度系统性不达标（浅色 24.5% / 深色 38.0% 的取样节点） — 🟢 已修复（2026-10-07）
+
+- **位置**：`theme.scss`（状态栏钉色、新增角色档）、`ConsolePanel.vue`、`TopBar.vue`、`DownloadCard.vue`、`LocalModelsPanel.vue`、`ModelMetaCard.vue`、`ParamSummaryCard.vue`、`ServiceStatusCard.vue`、`CommandPreviewCard.vue`、`TrashCleanCard.vue`、`PresetsPanel.vue`、`AboutPanel.vue`、`SettingsPage` 三面板、`ParamsPage.vue`。
+- **描述**：`§7.5.8` 写着「文字对比度 ≥4.5:1」，但实现直接用了 Arco 的语义色——实测 `--color-text-3` 压白底只有 **3.24**、压 `--color-fill-2` **2.92**（Arco 把这一档设计给占位符与禁用态），状态色 `*-6` 作文字 warning **2.57** / danger **3.71**，状态栏钉色 `green-6` 压 `green-1` **2.63**，控制台 INFO 蓝压恒深底 **3.11**，深色主题 accent 文字压卡片底 **4.2**。首轮取样：浅色 322 个可见文本节点 **79 个**不达标（24.5%），深色 129 个 **49 个**（38.0%）。
+- **修复**：见 [frontend.md §7.5.1](../frontend.md)「文字角色色档」「实底强调色按钮三件配对」「恒深底钉字面量」三条——新增 `--fg-hint` / `--fg-accent` / `--fg-warning-text` / `--fg-danger-text` / `--btn-fill*` / `--console-accent` / `--fg-on-tag-success` / `--log-kind-*`，并把 §7.5.2 那句「文字对比度按 Arco 默认令牌体系（双主题 AA）」改写成被实测否证后的正确陈述。**层级改由字号、字重与大小写承担，颜色只承担可读性**，这是与旧「色板即层级」体系的根本区别。过程中自己造过一次回归：新加的 `.arco-btn-text` 规则把状态栏蓝铬面上的文字按钮从白字带走（14 个节点从 4.51 掉到 2.7），已用 `.statusbar .arco-btn-text { color: inherit }` 修回并写进文档。
+- **修复效果验证**：同一把尺子复测（本轮取样额外切到「自定义参数」页签，故分母变大）——**深色 152 个节点 0 处不达标**；浅色 433 个节点残留 15 处，**全部**是同一条已登记的装饰例外（芯片里的 `=` 分隔符）。另有两类豁免按规则写明：禁用态（WCAG 豁免，交回 Arco 自己发灰）与 placeholder。
+
+### 89. 控制台自动滚动三份复制实现，且已经抄漂 — 🟢 已修复（2026-10-07）
+
+- **位置**：`pages/LogsPage.vue:79-127`、`pages/ServicePage.vue:38-88`、`pages/DashboardPage.vue:35-62`。
+- **描述**：`DashboardPage.vue:33` 的注释自己写着「写法照抄 LogsPage / ServicePage」；#83 就是这类重复的真实代价（同族三处只补了两处）。实测两份 `.console` 已漂移到不同取值：服务页 `padding 8px 10px` / `line-height 19.5px` / 高 **320px 写死**，日志页 `padding 8px 12px` / `line-height 20.15px` / **512px 弹性**；两页的「有新日志」胶囊也是两个长相（日志页有边框 + 2s 脉冲，服务页无边框无动画）。
+- **修复**：新建 `composables/useAutoScroll.ts`（`pageActive` 门控、rAF 合帧、停用撤帧、`dist < 60` 阈值全站唯一定义，日志页原先的 80 已统一）与 `components/common/ConsolePanel.vue`（统一外壳、胶囊与级别色；**本体不写高度**，弹性档由页面给 `.console-fill`、定高档给 `.console-fixed`；行渲染仍归各页默认插槽）。概览页迷你列表只接 composable 不接面板，没有为它发明第三种控制台。
+- **修复效果验证**：两页面板 17 项计算值逐项相等、胶囊 21 项计算值逐项相等，高度仍分别保持 320 与弹性；`grep -rn "scrollScheduled|dist < 60|scrollTop = el.scrollHeight" packages/ui/src` 三个模式全部只出现在 `useAutoScroll.ts` 一个文件；既有 `e2e/web/logs-scroll.spec.ts` 的判据（含删除实验）逐条复刻复量未转红。
+
+### 90. 动效规范自相矛盾：唯一的时长档表达不了「持续提示」，于是漏出字面值 — 🟢 已修复（2026-10-07）
+
+- **位置**：`components/common/Card.vue:74`、`pages/LogsPage.vue:291`（现移入 `ConsolePanel.vue`）、`components/layout/PageHost.vue:7-27`。
+- **描述**：`--dur-*` 只有 `fast(0.16s)` 与 `med(0.2s)` 两档，没有任何一档能表达「状态还在延续」的常驻动效，于是 Card 顺手拍了 `0.15s`（与 token 的 0.16s 同语义两个值）、日志页拍了 `2s ease-in-out infinite`——而 §7.5.8 那条「动画只动 transform/opacity 且 ≤0.3s」是无条件的，2s 无限循环直接不符。第 8 条门禁只在 transition 碰到布局属性时才要求 token，所以两处都没被抓到。
+- **修复**：时长拆成「交互反馈（fast / med，≤0.3s）」与「环境提示（新增 `--dur-ambient: 2s`，允许 infinite）」两类并写进 §7.5.7；Card 换 `var(--dur-fast) var(--ease-smooth)`；胶囊换 `var(--dur-ambient) var(--ease-smooth)`；`PageHost` 的 90ms WAAPI 淡入改成 CSS 关键帧（交替 `is-fade-a` / `is-fade-b` 强制重播），reduced-motion 退回 `reset.scss` 一条全局规则，消灭 setup 期 `matchMedia` 快照这条第二机制（它此前在系统偏好中途变化时不生效）。**没有改用 `<transition>` 组件**——#40 记过 KeepAlive 下钩子可能永不触发导致双页同框。
+- **修复效果验证**：chevron 计算时长 0.15s → 0.16s、胶囊 2s，`reducedMotion: reduce` 上下文里两者都算成 `1e-05s`；首帧无动画、切页抓到 `CSSAnimation duration 160`；`style-audit` 新增第 14 条（字面时长与 `infinite`）与第 15 条（裸 `z-index`）并做删除实验：Card 退回 `0.15s` ⇒ 14 转红，层级退回裸 `2` ⇒ 15 计数 1→2。
+
+### 91. `style-audit` 的扫描盲区与空转的 allowList — 🟢 已修复（2026-10-07）
+
+- **位置**：`scripts/style-audit.cjs:19`（`SCAN_DIRS`）、`render()` 的 `allowListed` 形参（此前从无调用方传值）。
+- **描述**：第 12 条禁止覆写 Arco 内部态类，但 `SCAN_DIRS` 只有 `components` 与 `pages`——唯一真正覆写的 `theme.scss`（状态栏钉色 5 行，STYLE_TODO #59 的有据例外）正好在扫描范围外，「有理由的例外」与「门禁盲区」在文件上长得一模一样。同时 `render()` 的 `allowListed` 参数一直是死代码。另抓到尺子自身的一个假阳性：`isComment()` 只认行首的 `//`、`*`、`/*`，块注释的**续行**不被认出，于是注释里写的「box-shadow: none、outline-style: none」被当成代码命中第 6 条。
+- **修复**：`SCAN_DIRS` 纳入 `packages/ui/src/styles`，token 本体层按定义只豁免第 1/2/3/9/10 条（色板、字号、行高正是在此定义），第 17 条专门审计这一层的 Arco 内部态类覆写，并要求 `ARCO_STATE_ALLOW` 登记表**逐条给 marker 与 expect 行数**（数量对不上就红，登记表本身也不会腐烂）；`readLines()` 先把块注释正文抹成空格（保留行号与列位）再交给各条检查。
+- **修复效果验证**：`node scripts/style-audit.cjs` 17 条全绿、扫描 45 个文件；删除实验三组——把 `expect` 写成 0 ⇒ 第 17 条红、层级退回裸值 ⇒ 第 15 条计数增加、动效退回字面值 ⇒ 第 14 条红。
+
+### 92. 无标题层级、`main` 地标重复、状态变化不播报 — 🔴 未修复（2026-10-07 登记）
+
+- **位置**：`components/layout/AppLayout.vue:14` 与 `components/common/PageFrame.vue`（两层都是 `a-layout-content`）、七个页面的标题区、`components/service/ServiceStatusCard.vue` 的状态徽章。
+- **描述**：实测 7 个页面里只有概览有 1 个 `<h2>`，其余 **0 个标题**——读屏用户无法按标题跳转（WCAG 2.4.6）；`document.querySelectorAll('main,[role=main]')` 每页返回 **2 个**（内置浏览器无障碍树里直接可见 `main > main`），地标重复会让「跳到主内容」落点含糊；`[aria-live]` / `[role=status]` 全站仅 1 处（失败横幅），服务从 `starting→running` 或翻成「启动失败」时**没有任何播报**，界面只换个颜色。
+- **修复**：未做。建议路线——① `PageFrame` 的内层加 `role="none"`（或改用 `a-layout-content` 之外的普通容器）保住唯一 `main`；② 每页页标题渲染成 `<h1>`（视觉不变，class 保留），卡片小节标题用 `<h2>`；③ 状态徽章所在行挂 `aria-live="polite"`，复用 `ServerStatusEvent` 现有数据，**不新开 IPC 通道**。三条都要配 e2e 断言（`main` 数 == 1、每页 `h1` 数 == 1、状态变化后 live 区文本更新），否则改完仍会漂回去。
+- **修复效果验证**：待做；本轮只登记，不动结构（避免与同轮的颜色与浮层改动混在一起，也避免半措施）。
+
 
 
 ## 🟢 已修复索引
@@ -346,6 +413,14 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 91 | `style-audit` 扫描盲区与空转的 allowList：`SCAN_DIRS` 纳入 `styles/`（token 本体层只豁免第 1/2/3/9/10 条）、新增第 17 条按 marker 加 expect 行数登记内部态类覆写、`readLines()` 抹平块注释正文修掉尺子自身的假阳性；17 条全绿并配三组删除实验 | 2026-10-07 |
+| 90 | 动效规范自相矛盾：拆「交互反馈 fast/med ≤0.3s」与「环境提示 `--dur-ambient` 可 infinite」两档，Card 的 0.15s 与胶囊的 2s 字面值收进 token，`PageHost` 的 WAAPI 淡入改 CSS 关键帧（消灭 setup 期 `matchMedia` 快照），新增门禁第 14、15 条 | 2026-10-07 |
+| 89 | 控制台自动滚动三份复制实现且已漂（padding、line-height、定高对弹性、两种胶囊）：抽 `useAutoScroll.ts` 与 `ConsolePanel.vue`，阈值 `dist < 60` 全站唯一，面板本体不写高度，行渲染仍归各页 | 2026-10-07 |
+| 88 | 文字对比度系统性不达标（浅色 79/322、深色 49/129）：新增 `--fg-*` 角色档、实底按钮「底、悬停底、字」三件配对、恒深底钉字面量，§7.5.2 那句被实测否证的 AA 陈述改写；复测深色 0 处、浅色残留 15 处全是已登记的装饰 `=` | 2026-10-07 |
+| 87 | 引擎获取指引浮层只能鼠标悬停：触发器改 `a-button` 基座并补 `aria-label`、`aria-expanded`、`aria-haspopup`、`aria-controls`，Enter 开 Esc 关，`z-index` 走 `--z-overlay`，`onDeactivated` 关掉 Teleport 残留浮层；标题区像素与改前零差异 | 2026-10-07 |
+| 86 | 参数页 69 个控件与标签零程序性关联（Arco `form-item` 无 `for`）加 4 处图标按钮无名：六类控件统一 `aria-label`（`a-input` 系必须走 `:input-attrs`），未新增 i18n 键；可 Tab 的无名称控件 83 降到 0，参数行几何零回归 | 2026-10-07 |
+| 85 | 三个弹窗无对话框语义、焦点不进入也不被困住（Arco 全包 0 处 `aria-modal`）：容器补 `role="dialog"`、`aria-modal`、`aria-labelledby`，新建 `useDialogFocus.ts` 管移入、循环与归还；实测 Tab 16 次全在弹窗内、Esc 后焦点回触发器 | 2026-10-07 |
+| 84 | 侧栏 7 项导航对键盘与读屏完全不可达，而 `/params` 与 `/settings` 只有这一个入口（Arco `a-menu-item` 无 tabindex 无 role）：补 `role="link"`、`tabindex`、`aria-current`、Enter 与 Space 走既有 `navigate()`，加 `navigation` 地标与焦点环；实测 Tab 30 次命中 7/7 | 2026-10-07 |
 | 82 | 页面骨架三层缺「确定高度 + 弹性上下文」：`.app-content` / `.page-host` / `.page-frame` 补齐 flex 列与 `flex: 1 1 0%`，PageFrame 由 `min-height: 100%` 改为内部滚动并给直接子项显式 `flex-shrink: 0`，两处原本失效的 `flex: 1` 收成 `1 0 auto`；实测 400 条日志下 `.console` 恒 539px、`scrollHeight 6602 > clientHeight 537`、`scrollTop` 停在 6065、7 页双语横向溢出 0，新增 `e2e/web/logs-scroll.spec.ts` 10 条含删除实验 | 2026-10-06 |
 | 83 | `DashboardPage` 读 `scrollHeight` 未做 `pageActive` 门控（同族 `LogsPage` / `ServicePage` 都有，唯独概览没有，keep-alive 停用期仍强制布局）→ 补门控 + rAF 合帧，写法对齐同族 | 2026-10-06 |
 | 81 | 布局跳变总账 11 处：`v-if` 元素无默认占位、数据到位才插正常流（顶栏模型按钮簇与模型名宽、状态栏 PID/URL/复制反馈、模型内置信息卡、命令预览 5 条提示行、模型表行内徽章排、下载卡解析链与任务区、`ParamRow` 依赖警示槽、设置页三态标签与引擎胶囊、清理按钮换文案）→ 全部改静态预留（常驻槽 / `min-height` / `visibility` / 绝对定位），参数网格最小轨 418→434，新增 `cmd_props_pending` 与 `msg_no_download_tasks` 双语键；实测 64 行三类槽宽度唯一、6 行模型行高恒 66px（徽章 1/2/2/3 不影响） | 2026-10-06 |

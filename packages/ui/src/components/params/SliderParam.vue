@@ -4,6 +4,7 @@ import type { ParamDef } from '@llama-launcher/shared';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 import ToolTip from '@/components/common/ToolTip.vue';
+import { vInnerAriaLabel } from '@/directives/innerAriaLabel';
 
 const props = defineProps<{ p: ParamDef }>();
 const params = useParamsStore();
@@ -30,11 +31,12 @@ const tip = computed(() => {
 </script>
 
 <template>
-  <a-form-item :label="label" class="param-control">
+  <a-form-item :label="label" class="param-control" v-inner-aria-label="label">
     <template #label><ToolTip :text="tip"><span>{{ label }}</span></ToolTip></template>
     <a-space class="slider-control">
-      <a-slider v-model="model" :min="min" :max="max" :step="step" />
-      <a-input-number v-model="model" size="small" hide-button :min="min" :max="max" :step="step" :precision="isFloat ? 2 : 0" />
+      <!-- Arco Slider 不透传 $attrs 给内部 role=slider 手柄，.arco-slider 是当前可达的最外层；数字框走 input-attrs 才进得到真 input -->
+      <a-slider v-model="model" :min="min" :max="max" :step="step" :aria-label="label" />
+      <a-input-number v-model="model" size="small" hide-button :min="min" :max="max" :step="step" :precision="isFloat ? 2 : 0" :input-attrs="{ 'aria-label': label }" />
     </a-space>
   </a-form-item>
 </template>

@@ -205,19 +205,19 @@ async function onOpenWeb() {
         </a-button>
       </ToolTip>
       <ToolTip :text="i18n.t('stop')">
-        <a-button type="outline" status="danger" :disabled="!isRunning" @click="onStop">
+        <a-button class="tb-stop" type="outline" status="danger" :disabled="!isRunning" @click="onStop">
           <template #icon><Icon name="stop" :size="14" /></template>
           {{ i18n.t('stop') }}
         </a-button>
       </ToolTip>
       <ToolTip :text="i18n.t('restart')">
-        <a-button type="outline" status="warning" :disabled="!isRunning" @click="onRestart">
+        <a-button class="tb-restart" type="outline" status="warning" :disabled="!isRunning" @click="onRestart">
           <template #icon><Icon name="refresh" :size="14" /></template>
           {{ i18n.t('restart') }}
         </a-button>
       </ToolTip>
       <ToolTip :text="i18n.t('open_web')">
-        <a-button type="text" :disabled="!server.canOpenWeb" @click="onOpenWeb">
+        <a-button class="tb-openweb" type="text" :disabled="!server.canOpenWeb" @click="onOpenWeb">
           <template #icon><Icon name="external" :size="14" /></template>
           {{ i18n.t('open_web') }}
         </a-button>
@@ -296,6 +296,12 @@ async function onOpenWeb() {
   -webkit-app-region: no-drag;
 }
 
+// 服务操作按钮的文字取角色色（Arco 的 danger-6 / orange-6 / primary-6 作文字实测 3.71 / 2.57 / 4.2，
+// 不达 §7.5.8 的 4.5）：只改文字取值，描边与圆角仍由 Arco 原样承载，禁用态保留 Arco 的禁用观感
+.topbar .tb-stop:not([disabled]) { color: var(--fg-danger-text); }
+.topbar .tb-restart:not([disabled]) { color: var(--fg-warning-text); }
+.topbar .tb-openweb:not([disabled]) { color: var(--fg-accent); }
+
 // 窗口控制按钮簇：a-button type=text 基座 + 窗口铬覆盖（46×52 贴边热区、
 // 无边框窗口角落用小圆角、关闭钮红色 hover）；尺寸/配色覆盖压过 Arco 默认
 .window-controls {
@@ -371,7 +377,7 @@ async function onOpenWeb() {
 }
 .dd-item.active {
   background: color-mix(in srgb, rgb(var(--primary-6)) 14%, transparent);
-  color: rgb(var(--primary-6));
+  color: var(--fg-accent);
 }
 .dropdown-name {
   flex: 1;
@@ -382,7 +388,7 @@ async function onOpenWeb() {
   font-family: var(--font-mono);
 }
 .dropdown-size {
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   font-size: var(--fs-sm);
   flex-shrink: 0;
 }

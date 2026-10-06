@@ -545,7 +545,7 @@ watch(models, () => writeRowMeta());
                  从 1 行变 2 行。徽章文本不在此现算——见脚本末 rowMeta（§7.1 铁律②） -->
             <div class="model-tags">
               <a-tag v-for="b in rowMeta[record.path]?.badges" :key="b.key"
-                     size="small" :color="b.color" :title="b.title">{{ b.text }}</a-tag>
+                     size="small" :color="b.color" :class="`badge-${b.color}`" :title="b.title">{{ b.text }}</a-tag>
             </div>
           </template>
           <template #actions="{ record }">
@@ -560,7 +560,7 @@ watch(models, () => writeRowMeta());
                 <template #icon><Icon name="bench" :size="11" /></template>
                 {{ i18n.t('act_bench') }}
               </a-button>
-              <a-button size="small" class="row-action" status="danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(record)">
+              <a-button size="small" class="row-action row-danger" status="danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(record)">
                 <template #icon><Icon name="trash" :size="11" /></template>
                 {{ i18n.t('btn_remove_model') }}
               </a-button>
@@ -643,7 +643,7 @@ watch(models, () => writeRowMeta());
 
   :deep(.arco-statistic-title) {
     font-size: var(--fs-xs);
-    color: var(--color-text-3);
+    color: var(--fg-hint);
     line-height: 1.3;
     margin: 0 6px 0 0; // title 与 value 间距 6px（图标-文本间距统一刻度）
   }
@@ -673,7 +673,7 @@ watch(models, () => writeRowMeta());
 // 常驻定宽槽：宽度按双语最宽计数态（「999 / 999」mono）预留，空态留同宽空白
 .search-count {
   font-size: var(--fs-sm);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   font-family: var(--font-mono);
   flex: 0 0 76px;
   text-align: right;
@@ -701,6 +701,12 @@ watch(models, () => writeRowMeta());
   gap: 6px;
 }
 
+/* 行内「移除」danger 按钮文字取角色色（Arco danger-6 作文字压 red-1 底实测 3.25，不达 §7.5.8 的
+   4.5）；底与边仍由 Arco 承载，禁用态保留 Arco 观感 */
+.row-actions .row-danger:not([disabled]) {
+  color: var(--fg-danger-text);
+}
+
 /* 模型名 + 伴随文件标签 */
 .model-name-cell {
   display: inline-flex;
@@ -720,7 +726,7 @@ watch(models, () => writeRowMeta());
 }
 
 .selected-icon {
-  color: rgb(var(--primary-6));
+  color: var(--fg-accent);
   flex-shrink: 0;
 }
 
@@ -741,6 +747,15 @@ watch(models, () => writeRowMeta());
   min-height: 20px;
   // 标签恒单行：超出时整行省略（名称列已有 min-width 保底）
   overflow: hidden;
+
+  /* 徽章文字取角色色：Arco 预设色（gray/arcoblue/orange/red）作文字压同族浅底实测
+     2.63~4.2，不达 §7.5.8 的 4.5。只换文字取值，底与边仍由 a-tag 预设承载。
+     green 族保留 Arco 原值——theme.scss 未定义 --fg-success-text，本文件不自造 token，
+     已登记为待主控补档（详见收尾报告） */
+  .badge-gray { color: var(--fg-hint); }
+  .badge-arcoblue { color: var(--fg-accent); }
+  .badge-orange { color: var(--fg-warning-text); }
+  .badge-red { color: var(--fg-danger-text); }
 }
 
 /* 常驻卡体：min-height 预留一档（单行状态文案 + 上下内距），四态切换不改卡体高度 */
@@ -755,11 +770,11 @@ watch(models, () => writeRowMeta());
 .model-info-state {
   padding: 12px;
   font-size: var(--fs-md);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   text-align: center;
 
   &.error {
-    color: rgb(var(--danger-6));
+    color: var(--fg-danger-text);
   }
 }
 
@@ -781,10 +796,11 @@ watch(models, () => writeRowMeta());
 }
 
 .chip-key {
-  color: rgb(var(--primary-6));
+  color: var(--fg-accent);
   font-weight: 600;
 }
 
+// 装饰符号：信息由 key/val 两段承载，等号本身不携带内容，保留 text-3 不并入 --fg-hint
 .chip-eq {
   color: var(--color-text-3);
 }

@@ -26,7 +26,8 @@ const tip = computed(() => {
       <ToolTip :text="tip"><span>{{ label }}</span></ToolTip>
     </template>
     <a-space>
-      <a-switch v-model="model" type="round" />
+      <!-- 参数行的 checkbox 档位实际由 a-switch 承载（root 即 button[role=switch]，名称直接落这一层） -->
+      <a-switch v-model="model" type="round" :aria-label="label" />
       <a-typography-text type="secondary">
         {{ p.default ? i18n.t('default_on') : i18n.t('default_off') }}
       </a-typography-text>

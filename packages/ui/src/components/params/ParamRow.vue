@@ -173,6 +173,7 @@ function onClear() {
           size="mini"
           shape="circle"
           status="warning"
+          :aria-label="`${i18n.paramLabel(p.key)} ${i18n.t('msg_clear_param')}`"
           @click="onClear"
         >
           <Icon name="close" :size="12" />

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, ref, watch } from 'vue';
+import { computed } from 'vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Card from '@/components/common/Card.vue';
+import ConsolePanel from '@/components/common/ConsolePanel.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
 import { useServerStore, type ConsoleTone } from '@/stores/server';
@@ -28,62 +29,13 @@ const TONE_CLASS: Record<ConsoleTone, string> = {
   plain: 'kind-default',
 };
 
-const consoleEl = ref<HTMLElement | null>(null);
 const renderedLimit = 1000;
 const renderedOutputs = computed(() => {
   const outs = server.outputs;
   return outs.length > renderedLimit ? outs.slice(-renderedLimit) : outs;
 });
 
-const autoScroll = ref(true);
-const hasNewLogs = ref(false);
-// keep-alive 下本页停用后仍会收到日志推送：滚动会强制布局，停用时不再滚动（回来时补滚到底）
-const pageActive = ref(true);
-
-// 多条日志同帧到达时只滚一次：直接读 scrollHeight 是强制同步布局，
-// 原实现每条日志一次 nextTick + 赋值，刷屏启动阶段（数百行）代价叠加
-let scrollScheduled = false;
-function scheduleScrollToBottom() {
-  if (scrollScheduled) return;
-  scrollScheduled = true;
-  requestAnimationFrame(() => {
-    scrollScheduled = false;
-    const el = consoleEl.value;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-    autoScroll.value = true;
-    hasNewLogs.value = false;
-  });
-}
-
-watch(
-  () => server.outputs.length,
-  () => {
-    if (!pageActive.value) {
-      hasNewLogs.value = true;
-      return;
-    }
-    if (autoScroll.value) {
-      scheduleScrollToBottom();
-    } else {
-      hasNewLogs.value = true;
-    }
-  },
-);
-
-onActivated(() => {
-  pageActive.value = true;
-  scheduleScrollToBottom();
-});
-onDeactivated(() => { pageActive.value = false; });
-
-function onScroll() {
-  if (!consoleEl.value) return;
-  const el = consoleEl.value;
-  const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-  autoScroll.value = dist < 60;
-  if (autoScroll.value) hasNewLogs.value = false;
-}
+// 滚动（停用门控 / rAF 合帧 / 「有新日志」判定）一律由 ConsolePanel 内的 useAutoScroll 承担
 
 function onClearConsole() { server.clearOutputs(); }
 
@@ -118,99 +70,42 @@ const logCount = computed(() => server.outputs.length);
           </a-button>
         </ToolTip>
         <ToolTip :text="i18n.t('clear_console')">
-          <a-button size="small" status="danger" @click="onClearConsole">
+          <a-button size="small" class="clear-console" status="danger" @click="onClearConsole">
             <template #icon><Icon name="trash" :size="12" /></template>
             {{ i18n.t('clear_console') }}
           </a-button>
         </ToolTip>
         <span class="log-count">{{ logCount }} {{ i18n.t('col_lines') }}</span>
       </template>
-      <div class="console-wrap">
-        <!-- 有新日志胶囊：a-button 基座（点击回到底部），浮在日志框内右下角。
-             此前它渲染在日志框上方的正常流里，出现即把整块往下顶一档（用户看到的
-             「框高度跳变」）；改成绝对定位后布局零变化，只在需要时盖住一行内容。 -->
-        <div v-if="hasNewLogs" class="console-jump">
-          <a-button class="new-logs" type="text" size="mini" @click="scheduleScrollToBottom()">
-            <Icon name="chevron_down" :size="12" />
-            <span>{{ i18n.t('msg_new_logs') }}</span>
-          </a-button>
-        </div>
-        <div
-          ref="consoleEl"
-          class="console"
-          @scroll="onScroll"
-        >
-          <span v-for="line in renderedOutputs" :key="line.id" :class="['output-line', TONE_CLASS[line.tone]]">{{ line.data }}</span>
-        </div>
-      </div>
+      <!-- 控制台定高 320px（卡片体内不参与弹性）：高度由外层 class 给，面板本体不写 -->
+      <ConsolePanel class="console-fixed" :count="server.outputs.length">
+        <span v-for="line in renderedOutputs" :key="line.id" :class="['output-line', TONE_CLASS[line.tone]]">{{ line.data }}</span>
+      </ConsolePanel>
     </Card>
   </PageFrame>
 </template>
 
 <style scoped lang="scss">
-/* 控制台 */
-/* 日志框容器：给「有新日志」胶囊当绝对定位参照。胶囊浮在框内右下角，
-   不参与布局——它此前渲染在框上方的正常流里，出现即把整块顶下一档（框高度跳变）。 */
-.console-wrap {
-  position: relative;
-}
-
-.console-jump {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  z-index: 2;
-  font-size: var(--fs-sm);
-}
-
-/* 有新日志胶囊：浮在日志内容之上，底色以 --console-bg 打底保证压住文字仍可读
-   （Arco 玻璃拟态与 backdrop-filter 全站禁用，这里用不透明混色而不是模糊） */
-.new-logs {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  background: color-mix(in srgb, rgb(var(--primary-6)) 22%, var(--console-bg));
-  color: rgb(var(--primary-6));
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-  height: auto;
-
-  &:hover {
-    background: color-mix(in srgb, rgb(var(--primary-6)) 32%, var(--console-bg));
-    color: rgb(var(--primary-6));
-  }
+.console-fixed {
+  height: 320px;
 }
 
 .log-count {
   font-family: var(--font-mono);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   font-size: var(--fs-sm);
 }
 
-.console {
-  background: var(--console-bg);
-  color: var(--console-fg);
-  border: 1px solid var(--color-border-2);
-  border-radius: var(--radius-row);
-  height: 320px;
-  overflow: auto;
-  padding: 8px 10px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-base);
-  line-height: 1.5;
-  user-select: text;
-  -webkit-user-select: text;
-  cursor: text;
+/* 卡片头「清空控制台」danger 按钮文字取角色色（Arco danger-6 作文字压 red-1 底实测 3.25，
+   不达 §7.5.8 的 4.5）；底与边仍由 Arco 承载，禁用态保留 Arco 观感 */
+.arco-card-header .clear-console:not([disabled]) {
+  color: var(--fg-danger-text);
+}
 
-  .output-line {
-    white-space: pre-wrap;
-    word-break: break-all;
-    display: block;
-    &.kind-error { color: rgb(var(--danger-6)); }
-    &.kind-warn { color: rgb(var(--orange-6)); }
-    &.kind-success { color: rgb(var(--success-6)); }
-    &.kind-info { color: rgb(var(--arcoblue-6)); }
-  }
+/* 后端原始输出一行一段；级别色由 ConsolePanel 打在行上（.kind-* → --log-kind-*），这里只留排版 */
+.output-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+  display: block;
 }
 </style>

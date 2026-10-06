@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import type { ParamDef } from '@llama-launcher/shared';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
+import { vInnerAriaLabel } from '@/directives/innerAriaLabel';
 import ToolTip from '@/components/common/ToolTip.vue';
 
 const props = defineProps<{ p: ParamDef }>();
@@ -25,13 +26,15 @@ function optionLabel(option: string, index: number) {
 </script>
 
 <template>
-  <a-form-item :label="label" class="param-control">
+  <a-form-item :label="label" class="param-control" v-inner-aria-label="label">
     <template #label>
       <ToolTip :text="tip"><span>{{ label }}</span></ToolTip>
     </template>
+    <!-- a-select 的普通属性由 Arco 落到 .arco-select-view 宿主（内层 arco-select-view-input 是库自用节点，不写名称） -->
     <a-select
       size="small"
       v-model="model"
+      :aria-label="label"
       :allow-search="Boolean(p.editable)"
       :allow-create="Boolean(p.editable)"
       :placeholder="options.length ? optionLabel(options[0], 0) : '—'"

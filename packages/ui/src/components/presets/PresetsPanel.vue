@@ -208,7 +208,7 @@ onActivated(() => { void onRefreshList(); });
                   :content="i18n.t('msg_preset_delete', [p.name])"
                   @ok="onDeletePreset(p.name)"
                 >
-                  <a-button size="small" status="danger" class="row-action" :title="i18n.t('preset_delete')">
+                  <a-button size="small" status="danger" class="row-action row-danger" :title="i18n.t('preset_delete')">
                     <template #icon><Icon name="trash" :size="11" /></template>
                     {{ i18n.t('preset_delete') }}
                   </a-button>
@@ -251,7 +251,7 @@ onActivated(() => { void onRefreshList(); });
 // 列表卡右上角操作提示：次级弱化文案（双击应用 / 同名保存即覆盖）
 .list-hint {
   font-size: var(--fs-sm);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
 }
 
 .applied-msg {
@@ -341,6 +341,12 @@ onActivated(() => { void onRefreshList(); });
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* 行内「删除」danger 按钮文字取角色色（Arco danger-6 作文字压 red-1 底实测 3.25，不达 §7.5.8 的
+   4.5）；底与边仍由 Arco 承载，禁用态保留 Arco 观感 */
+.col-actions .row-danger:not([disabled]) {
+  color: var(--fg-danger-text);
 }
 
 .empty {

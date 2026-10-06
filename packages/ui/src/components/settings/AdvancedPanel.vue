@@ -4,6 +4,7 @@ import { computed } from 'vue';
 import Card from '@/components/common/Card.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useI18nStore } from '@/stores/i18n';
+import { vInnerAriaLabel } from '@/directives/innerAriaLabel';
 import {
   DOWNLOAD_CONCURRENCY_DEFAULT,
   DOWNLOAD_CONCURRENCY_OPTIONS,
@@ -38,12 +39,13 @@ const concurrentOptions = DOWNLOAD_CONCURRENCY_OPTIONS;
             :wrapper-col-style="{ flex: '1 1 0', minWidth: '0' }">
       <a-form-item :label="i18n.t('lbl_hf_mirror')">
         <a-input v-model="hfMirrorHost" class="path-input" size="small"
+                 :input-attrs="{ 'aria-label': i18n.t('lbl_hf_mirror') }"
                  :placeholder="i18n.t('lbl_hf_mirror_placeholder')"
                  :title="i18n.t('lbl_hf_mirror_hint')" />
       </a-form-item>
-      <a-form-item :label="i18n.t('lbl_max_concurrent')">
+      <a-form-item :label="i18n.t('lbl_max_concurrent')" v-inner-aria-label="i18n.t('lbl_max_concurrent')">
         <div class="select-row">
-          <a-select class="fc-select" :model-value="maxConcurrent" :style="{ width: '80px' }"
+          <a-select class="fc-select" :model-value="maxConcurrent" :aria-label="i18n.t('lbl_max_concurrent')" :style="{ width: '80px' }"
                     @change="(v) => (maxConcurrent = v as number)">
             <a-option v-for="n in concurrentOptions" :key="n" :value="n">{{ n }}</a-option>
           </a-select>

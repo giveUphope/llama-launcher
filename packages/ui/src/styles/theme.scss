@@ -43,9 +43,20 @@
   --primary-fg: #fff;
   --dur-fast: 0.16s;
   --dur-med: 0.2s;
+  /* 环境/注意力提示档（区别于交互反馈档）：这类动效的本质是「持续表示状态还在延续」，
+     一次性的 fast/med 表达不了它，所以它不受「交互反馈 ≤0.3s」约束，但必须
+     只动 transform/opacity，且由 reset.scss 的 prefers-reduced-motion 统一关停。 */
+  --dur-ambient: 2s;
   --ease-smooth: ease;
   --ease-jelly: ease;
   --shadow-dropdown: 0 4px 12px rgb(0 0 0 / 12%);
+  /* 层级刻度（取代散落的 2 / 20 / 9999 孤值）：
+     chrome = 页面内常驻装饰（状态栏、控制台胶囊）；raised = 覆盖内容的框架（WebUI iframe 之上）；
+     overlay = 必须压过 Arco popup 动态计数器的悬浮面板（引擎帮助面板），
+     Arco 的 popup z-index 由运行时计数器发号（千位级），故这里刻意取到万位。 */
+  --z-chrome: 2;
+  --z-raised: 20;
+  --z-overlay: 9999;
 }
 
 :root[data-theme='dark'] {
@@ -57,6 +68,53 @@ body {
   // 选中行/选中项底色（三处选中态同源：模型表格/DownloadCard/文件浏览器）。
   // 必须定义在 body 上：Arco 色板变量挂载于 body，:root 层取不到 primary-*
   --row-selected-bg: rgb(var(--primary-1));
+  /* 文字角色色（承担 AA 的最低档，层级由字号/字重/大小写承担，不由颜色深浅承担）：
+     实测浅色主题下 Arco 的 --color-text-3 压在白底只有 3.24:1、压在 fill-2 只有 2.92:1，
+     承载信息时会读不到；故凡是「用户要读的内容」一律取本组角色色，text-3 降级为
+     只用于纯装饰符号与占位符。取值按同底实测比值反推：
+     fg-hint 7.10 / fg-accent 5.19 / fg-warning-text 6.05 / fg-danger-text 5.43（压白底）。 */
+  --fg-hint: var(--color-text-2);
+  --fg-accent: rgb(var(--primary-6));
+  --fg-warning-text: rgb(var(--orange-8));
+  --fg-danger-text: rgb(var(--red-7));
+  /* 实底强调色按钮的「底 / 悬停底 / 字」三件配对。为什么必须我方定：实测 Arco 自带的实底主
+     按钮六个状态里四个过不了本仓库规定的 4.5:1——浅色静置 5.19 达标但**悬停降到 3.65**
+     （Arco 浅色悬停取更亮的 primary-5），深色静置 3.74、悬停 4.34、聚焦 3.74 全不过。
+     色板里不存在「亮底 + 白字」的全状态达标档，只能换配对方向：浅色「白字压深底」并且
+     悬停再压深一档，深色「深字压亮底」并且悬停再提亮一档（两主题的悬停都是「更强调」方向）。
+     逐档实测（白字 / 深字两向各取达标者）：
+       primary 浅 6→7 = 5.19 / 7.70，深 7→8 配深字 = 6.14 / 8.49
+       orange  浅 8→9 = 6.05 / 9.53，深 6→7 配深字 = 7.41 / 9.09
+       red     浅 7→8 = 5.43 / 7.95，深 6→7 配深字 = 5.50 / 7.05
+     不采用「整档覆写 --primary-6」：实测深色下有 66 处元素的最终颜色等于它（描边按钮边框、
+     选中行、链接、聚焦环…），换一档等于换整个深色强调体系，波及面与这条缺陷不成比例。 */
+  --btn-fill: rgb(var(--primary-6));
+  --btn-fill-hover: rgb(var(--primary-7));
+  --btn-fill-fg: var(--primary-fg);
+  --btn-warning-fill: rgb(var(--orange-8));
+  --btn-warning-fill-hover: rgb(var(--orange-9));
+  --btn-warning-fg: var(--primary-fg);
+  --btn-danger-fill: rgb(var(--red-7));
+  --btn-danger-fill-hover: rgb(var(--red-8));
+  --btn-danger-fg: var(--primary-fg);
+  /* 控制台级别色（恒深底 #1d2129，两主题同值——控制台是不变的面，颜色也必须是不变的）。
+     **必须写字面量，不能写 rgb(var(--arcoblue-4))**：Arco 的色板变量在深色下整档翻面
+     （实测 --arcoblue-4 由 106,161,255 变 29,77,210），翻面后压在同一 #1d2129 底上实测
+     info 只剩 2.34、error 3.06，比改前更差。下值即浅色档的色板值，压 #1d2129 实测：
+     info 6.26 / error 6.85 / warn 6.29 / success 5.81（旧取值 arcoblue-6 只有 3.11、
+     danger-6 只有 4.35，均不达本仓库 §7.5.8 规定的 4.5）。 */
+  --log-kind-info: rgb(106, 161, 255);
+  --log-kind-error: rgb(249, 137, 129);
+  --log-kind-warn: rgb(255, 125, 0);
+  --log-kind-success: rgb(0, 180, 42);
+  /* 恒深底上的强调色（控制台「有新日志」胶囊的文字与描边）。原先取 rgb(var(--primary-6))：
+     压 #1d2129 实测浅色只有 3.11、深色 4.26，两主题都不达标。与 --log-kind-* 同理必须
+     钉字面量（深色下色板整档翻面），值取浅色档的 primary-4，压该底实测 6.26。
+     注意这里存的是**三元组**（消费方写 rgb(var(--console-accent))），沿用 Arco 色板变量的形态。 */
+  --console-accent: 106, 161, 255;
+  /* a-tag 预设绿对的绿字压绿底实测只有 2.63（浅色），取达标的 green-8 档（4.84）；
+     深色那对本身在失败清单之外，按 Arco 深色档原值钉住，避免色板翻面把它一起带走。 */
+  --fg-on-tag-success: rgb(0, 128, 38);
 }
 
 body[arco-theme='dark'] {
@@ -64,16 +122,38 @@ body[arco-theme='dark'] {
   // 深色下 primary-1 是比底色更暗的近黑藏青（0,13,77），整行铺满观感过重；
   // 改 primary-6 半透明蓝染（亮于底面，且与 hover 白 4% 明显区分）
   --row-selected-bg: rgba(var(--primary-6), 0.2);
+  /* 深色主题的强调色文字要上调一档：primary-6 压卡片底 #232324 实测 4.2（不达标），
+     primary-7 为 5.98；warning/danger 反过来——深底上浅色档才是达标档，
+     orange-6 实测 7.21、red-6 实测 5.36（浅色主题里它们压白底只有 2.57/3.71）。 */
+  --fg-accent: rgb(var(--primary-7));
+  --fg-warning-text: rgb(var(--orange-6));
+  --fg-danger-text: rgb(var(--red-6));
+  /* 深色主题：底取 Arco 深色档（该档在深卡片上本身达标），字改深字压浅底；悬停更亮一档 */
+  --btn-fill: rgb(var(--primary-7));
+  --btn-fill-hover: rgb(var(--primary-8));
+  --btn-fill-fg: #1d2129;
+  --btn-warning-fill: rgb(var(--orange-6));
+  --btn-warning-fill-hover: rgb(var(--orange-7));
+  --btn-warning-fg: #1d2129;
+  --btn-danger-fill: rgb(var(--red-6));
+  --btn-danger-fill-hover: rgb(var(--red-7));
+  --btn-danger-fg: #1d2129;
+  /* 深色主题下 Arco 的绿字（39,195,70）压深绿底本身达标，按原值钉住即可 */
+  --fg-on-tag-success: rgb(39, 195, 70);
 }
 
 /* 状态栏为恒定品牌蓝铬面（业务例外，不随主题切换）：Arco 标签预设芯片却随主题取值，
    深色取值叠蓝条对比不足（gray：rgba(146,146,147,.2) 底 + #929293 字 ≈ 1.4:1，不可读）——
-   芯片统一按 Arco light 色板固定呈现（浅底深字，下值实测自浅色预设），双主题观感一致且可读；
-   gray 文字用 text-2（#4e5969）而非 gray-6，蓝铬面上对比 5.5:1 达 AA */
+   芯片统一按 Arco light 色板固定呈现（浅底深字），双主题观感一致且可读。
+   **同理必须写字面量**：写成 rgb(var(--green-8)) 在深色下会连底色一起翻档（实测翻成
+   0,77,28 深绿底），「钉死浅色」这件事在结构上就没了。
+   文字档按「压在同族浅底上 ≥4.5」反选，不再各取 *-6（实测 green-6 压 green-1 只有
+   2.63、red-6 压 red-1 只有 3.52、orange-6 压 orange-1 只有 3.48）：
+   gray 6.74 / green 4.84 / orange 5.68 / red 4.76 / arcoblue 4.62 */
 .statusbar .arco-tag.arco-tag-checked.arco-tag-gray { background-color: #f2f3f5; color: #4e5969; }
-.statusbar .arco-tag.arco-tag-checked.arco-tag-green { background-color: #e8ffea; color: #00b42a; }
-.statusbar .arco-tag.arco-tag-checked.arco-tag-orange { background-color: #fff7e8; color: #ff7d00; }
-.statusbar .arco-tag.arco-tag-checked.arco-tag-red { background-color: #ffece8; color: #f53f3f; }
+.statusbar .arco-tag.arco-tag-checked.arco-tag-green { background-color: #e8ffea; color: #008026; }
+.statusbar .arco-tag.arco-tag-checked.arco-tag-orange { background-color: #fff7e8; color: #a64500; }
+.statusbar .arco-tag.arco-tag-checked.arco-tag-red { background-color: #ffece8; color: #cb272d; }
 .statusbar .arco-tag.arco-tag-checked.arco-tag-arcoblue { background-color: #e8f3ff; color: #165dff; }
 
 /* Arco 表单下拉（fc-select）：设置面板控件高对齐 28px（Arco 默认 medium 32px，见 §7.5） */
@@ -108,3 +188,51 @@ body[arco-theme='dark'] {
   text-align: right;
   white-space: nowrap; // 标签单行：防长标签（如「HuggingFace 镜像源」）在定宽列内错误折行
 }
+
+/* 实底强调色按钮取上面那组「底 / 悬停底 / 字」配对（§7.5.1 有实测比值）。
+   排除 outline 与 text 两种形态——它们不铺底，文字色由角色色档管；
+   用属性选择器 [disabled] 而非 Arco 的 .arco-btn-disabled，既避免依赖库内部类名，
+   也让禁用态继续由 Arco 自己发灰（禁用文字豁免 AA）。 */
+.arco-btn.arco-btn-primary:not(.arco-btn-outline):not(.arco-btn-text):not([disabled]) {
+  background-color: var(--btn-fill);
+  color: var(--btn-fill-fg);
+}
+.arco-btn.arco-btn-primary:not(.arco-btn-outline):not(.arco-btn-text):not([disabled]):hover {
+  background-color: var(--btn-fill-hover);
+}
+.arco-btn.arco-btn-primary.arco-btn-status-warning:not(.arco-btn-outline):not(.arco-btn-text):not([disabled]) {
+  background-color: var(--btn-warning-fill);
+  color: var(--btn-warning-fg);
+}
+.arco-btn.arco-btn-primary.arco-btn-status-warning:not(.arco-btn-outline):not(.arco-btn-text):not([disabled]):hover {
+  background-color: var(--btn-warning-fill-hover);
+}
+.arco-btn.arco-btn-primary.arco-btn-status-danger:not(.arco-btn-outline):not(.arco-btn-text):not([disabled]) {
+  background-color: var(--btn-danger-fill);
+  color: var(--btn-danger-fg);
+}
+.arco-btn.arco-btn-primary.arco-btn-status-danger:not(.arco-btn-outline):not(.arco-btn-text):not([disabled]):hover {
+  background-color: var(--btn-danger-fill-hover);
+}
+
+/* Arco 的 .arco-btn-text 自带 color: rgb(var(--primary-6))（实测命中该元素的取色规则只有
+   这一条），等于全站文字按钮都是强调蓝字：浅色压卡片底 5.19 达标，深色只有 4.2 不达标。
+   改指角色档后浅色仍是 primary-6（观感零变化），深色走 primary-7（5.98）。
+   带 status 的按钮由 Arco 自己的双类规则管（特异度更高），不受这条影响；
+   禁用态整体豁免 AA 并交回 Arco 自己发灰，故用属性选择器排除。 */
+.arco-btn-text:not([disabled]) { color: var(--fg-accent); }
+
+/* 侧栏选中项同理：Arco 给选中态铺 primary-6 文字，深色 4.2 → 取角色档（浅色值不变）。
+   这一行含 Arco 内部态类名，已在 scripts/style-audit.cjs 的 ARCO_STATE_ALLOW 里按行登记。 */
+.sidebar .arco-menu-selected .arco-menu-item-inner { color: var(--fg-accent); }
+
+/* a-tag 预设色对的文字档（绿对不达标已实测；蓝对在深色下同样偏低，一并走角色档，
+   浅色取色与 Arco 原值同为 primary-6，观感不变） */
+/* 选择器必须比 Arco 多一级（这里加 body 元素）：组件样式由 unplugin-vue-components
+   运行时注入、顺序在本文件之后，同特异度会被它压掉——§7.5.6 记过同一件事（页签 gap 那次）。 */
+body .arco-tag.arco-tag-checked.arco-tag-green { color: var(--fg-on-tag-success); }
+body .arco-tag.arco-tag-checked.arco-tag-arcoblue { color: var(--fg-accent); }
+
+/* 状态栏是不随主题切换的蓝铬面，其上的文字按钮必须继承铬面白字（实测白字压 #007acc
+   = 4.51 勉强达 AA），不能被上面那条强调色规则带走。 */
+.statusbar .arco-btn-text:not([disabled]) { color: inherit; }

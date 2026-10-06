@@ -2,10 +2,11 @@
 // 阶段三：设置页「常规」分组 —— 模型目录、llama 后端（引擎目录）+ 引擎检测、关闭窗口行为。
 // 设计稿 §14.10 / 补充指南 §14.10：模型目录提供「打开目录」；
 // 原独立「llama.cpp」标签（LlamaPanel）已整合为本卡片内的引擎目录行。
-import { computed, ref, watch, onMounted, onActivated, onDeactivated, onUnmounted } from 'vue';
+import { computed, ref, watch, nextTick, getCurrentInstance, onMounted, onActivated, onDeactivated, onUnmounted } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
+import { vInnerAriaLabel } from '@/directives/innerAriaLabel';
 import { useSettingsStore } from '@/stores/settings';
 import { useI18nStore } from '@/stores/i18n';
 import { pickDir } from '@/composables/useFilePicker';
@@ -113,7 +114,10 @@ async function onOpenLlamaReleases() {
 
 // 悬浮帮助面板（引擎获取指引）
 const helpVisible = ref(false);
-const helpIconRef = ref<HTMLElement | null>(null);
+// 触发器已改为 a-button：模板 ref 拿到的是组件实例，浮层定位要的是它的根 <button>
+const helpIconRef = ref<{ $el?: HTMLElement } | null>(null);
+const helpPanelRef = ref<HTMLElement | null>(null);
+const helpPanelId = `exe-help-panel-${getCurrentInstance()?.uid ?? 0}`;
 const helpPanelStyle = ref<Record<string, string>>({});
 let helpShowTimer: ReturnType<typeof setTimeout> | null = null;
 let helpHideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -122,9 +126,14 @@ const helpSteps = computed(() =>
   i18n.t('msg_exe_help_steps').split('\n').map((text, i) => ({ num: i + 1, text })),
 );
 
+function getHelpIconEl(): HTMLElement | null {
+  return helpIconRef.value?.$el ?? null;
+}
+
 function updateHelpPanelPosition() {
-  if (!helpIconRef.value) return;
-  const rect = helpIconRef.value.getBoundingClientRect();
+  const el = getHelpIconEl();
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
   const width = 320;
   const left = Math.min(rect.right, window.innerWidth - width - 8);
   helpPanelStyle.value = {
@@ -133,6 +142,10 @@ function updateHelpPanelPosition() {
     left: `${Math.max(8, left)}px`,
     width: `${width}px`,
   };
+}
+function clearHelpTimers() {
+  if (helpShowTimer) { clearTimeout(helpShowTimer); helpShowTimer = null; }
+  if (helpHideTimer) { clearTimeout(helpHideTimer); helpHideTimer = null; }
 }
 function showHelp() {
   if (helpHideTimer) { clearTimeout(helpHideTimer); helpHideTimer = null; }
@@ -148,6 +161,32 @@ function hideHelp() {
   if (helpHideTimer) clearTimeout(helpHideTimer);
   helpHideTimer = setTimeout(() => { helpHideTimer = null; helpVisible.value = false; }, 150);
 }
+// 键盘入口：hover 的定时器行为原样保留，键盘走「立即开/立即关」——按键不该等 300ms 悬停延迟。
+// 打开后把焦点移进浮层，浮层是 Teleport 到 body 的独立片段，不移入就 Tab 不进去它唯一的动作按钮。
+function openHelpByKeyboard() {
+  clearHelpTimers();
+  updateHelpPanelPosition();
+  helpVisible.value = true;
+  void nextTick(() => helpPanelRef.value?.focus());
+}
+function closeHelpByKeyboard() {
+  clearHelpTimers();
+  const focusInsidePanel = !!helpPanelRef.value && helpPanelRef.value.contains(document.activeElement);
+  helpVisible.value = false;
+  if (focusInsidePanel || document.activeElement === document.body) getHelpIconEl()?.focus();
+}
+function onHelpActivate() {
+  if (helpVisible.value) closeHelpByKeyboard();
+  else openHelpByKeyboard();
+}
+function onHelpGlobalKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') closeHelpByKeyboard();
+}
+// Esc 监听随浮层开关配对：只在浮层真的打开期间驻留
+watch(helpVisible, (visible) => {
+  if (visible) document.addEventListener('keydown', onHelpGlobalKeydown);
+  else document.removeEventListener('keydown', onHelpGlobalKeydown);
+});
 function onHelpReposition() {
   if (helpVisible.value) updateHelpPanelPosition();
 }
@@ -170,11 +209,14 @@ onActivated(() => {
 });
 onDeactivated(() => {
   stopHelpTracking();
+  // 浮层 Teleport 到 body，不随 keep-alive 页面一起隐藏：切走页面时必须就地关掉
+  clearHelpTimers();
+  helpVisible.value = false;
 });
 onUnmounted(() => {
   if (detectTimer) { clearTimeout(detectTimer); detectTimer = null; }
-  if (helpShowTimer) clearTimeout(helpShowTimer);
-  if (helpHideTimer) clearTimeout(helpHideTimer);
+  clearHelpTimers();
+  document.removeEventListener('keydown', onHelpGlobalKeydown);
   stopHelpTracking();
 });
 
@@ -188,9 +230,24 @@ const closeBehavior = computed<CloseBehavior>({
 <template>
   <Card title-key="nav_settings_general">
     <template #title-extra>
-      <span ref="helpIconRef" class="card-help-icon" @mouseenter="showHelp" @mouseleave="hideHelp">
+      <!-- a-button 基座（type=text size=mini）+ class 覆盖保留原 .card-help-icon 视觉；
+           原生 button 的 Enter/Space 已由 @click 承接，无需另写 keydown 分支（写了反而与
+           浏览器自带的 click 叠加成「开→立刻关」） -->
+      <a-button
+        ref="helpIconRef"
+        class="card-help-icon"
+        type="text"
+        size="mini"
+        :aria-label="i18n.t('a11y_exe_help_toggle')"
+        :aria-expanded="helpVisible ? 'true' : 'false'"
+        aria-haspopup="true"
+        :aria-controls="helpVisible ? helpPanelId : undefined"
+        @mouseenter="showHelp"
+        @mouseleave="hideHelp"
+        @click="onHelpActivate"
+      >
         <Icon name="info" :size="13" />
-      </span>
+      </a-button>
     </template>
 
     <a-form :model="{}" layout="horizontal" label-align="right"
@@ -198,7 +255,7 @@ const closeBehavior = computed<CloseBehavior>({
             :wrapper-col-style="{ flex: '1 1 0', minWidth: '0' }">
       <a-form-item :label="i18n.t('lbl_dir_path')">
         <div class="path-row">
-          <a-input v-model="modelsDir" class="path-input" size="small" />
+          <a-input v-model="modelsDir" class="path-input" size="small" :input-attrs="{ 'aria-label': i18n.t('lbl_dir_path') }" />
           <a-button size="small" @click="onBrowseModelDir">
             <template #icon><Icon name="folder" :size="12" /></template>
             {{ i18n.t('btn_change_dir') }}
@@ -214,7 +271,7 @@ const closeBehavior = computed<CloseBehavior>({
 
       <a-form-item :label="i18n.t('lbl_exe_dir')">
         <div class="path-row">
-          <a-input v-model="llamaDir" class="path-input" size="small" />
+          <a-input v-model="llamaDir" class="path-input" size="small" :input-attrs="{ 'aria-label': i18n.t('lbl_exe_dir') }" />
           <a-button size="small" @click="onBrowseExeDir">
             <template #icon><Icon name="folder" :size="12" /></template>
             {{ i18n.t('btn_change_dir') }}
@@ -232,8 +289,9 @@ const closeBehavior = computed<CloseBehavior>({
         </div>
       </a-form-item>
 
-      <a-form-item :label="i18n.t('lbl_close_behavior')">
-        <a-select class="fc-select" v-model="closeBehavior" :style="{ width: '160px' }">
+      <a-form-item :label="i18n.t('lbl_close_behavior')" v-inner-aria-label="i18n.t('lbl_close_behavior')">
+        <a-select class="fc-select" v-model="closeBehavior" :style="{ width: '160px' }"
+                  :aria-label="i18n.t('lbl_close_behavior')">
           <a-option value="ask">{{ i18n.t('opt_close_ask') }}</a-option>
           <a-option value="exit">{{ i18n.t('opt_close_exit') }}</a-option>
           <a-option value="tray">{{ i18n.t('opt_close_tray') }}</a-option>
@@ -242,8 +300,8 @@ const closeBehavior = computed<CloseBehavior>({
     </a-form>
 
     <Teleport to="body">
-      <div v-if="helpVisible" class="exe-help-panel" :style="helpPanelStyle"
-           @mouseenter="showHelp" @mouseleave="hideHelp">
+      <div v-if="helpVisible" :id="helpPanelId" ref="helpPanelRef" tabindex="-1" class="exe-help-panel"
+           :style="helpPanelStyle" @mouseenter="showHelp" @mouseleave="hideHelp">
         <div v-for="step in helpSteps" :key="step.num" class="exe-help-step">
           <span class="exe-help-step-num">{{ step.num }}</span>
           <span class="exe-help-step-text">{{ step.text }}</span>
@@ -306,28 +364,34 @@ const closeBehavior = computed<CloseBehavior>({
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
-  &.idle, &.detecting { color: var(--color-text-3); background: var(--color-fill-3); }
+  &.idle, &.detecting { color: var(--fg-hint); background: var(--color-fill-3); }
   &.ok { color: rgb(var(--success-6)); background: color-mix(in srgb, rgb(var(--success-6)) 14%, transparent); }
-  &.missing { color: rgb(var(--danger-6)); background: color-mix(in srgb, rgb(var(--danger-6)) 14%, transparent); }
-  &.not_found { color: rgb(var(--orange-6)); background: color-mix(in srgb, rgb(var(--orange-6)) 14%, transparent); }
+  &.missing { color: var(--fg-danger-text); background: color-mix(in srgb, rgb(var(--danger-6)) 14%, transparent); }
+  &.not_found { color: var(--fg-warning-text); background: color-mix(in srgb, rgb(var(--orange-6)) 14%, transparent); }
 }
 /* 检测中图标走 Arco IconLoading 自带旋转动画（不再自定义 spin） */
 
 .card-help-icon {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   margin-left: 4px;
+  // a-button 基座下仍按原自绘 span 的几何出图：21×21、4px 内距、pill 圆角、hover 变色
+  // （Arco 按钮自带 1px 透明边框，不去掉会比原 21px 宽出 2px）
+  height: 21px;
+  min-width: 21px;
   padding: 4px;
+  border: none;
   color: var(--color-text-3);
   cursor: help;
   border-radius: var(--radius-pill);
-  &:hover { color: rgb(var(--primary-6)); background: var(--color-fill-3); }
+  &:hover { color: var(--fg-accent); background: var(--color-fill-3); }
 }
 </style>
 
 <style lang="scss">
 .exe-help-panel {
-  z-index: 9999;
+  z-index: var(--z-overlay);
   padding: 10px 12px;
   border-radius: var(--radius-row);
   // 实底浮层（STYLE_TODO #41 / §7.5.6）：可读性优先，不用半透明玻璃 + backdrop-filter

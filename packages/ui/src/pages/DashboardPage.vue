@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Icon from '@/components/common/Icon.vue';
 import ServiceStatusCard from '@/components/service/ServiceStatusCard.vue';
 import { useAppLogStore } from '@/stores/appLog';
+import { useAutoScroll } from '@/composables/useAutoScroll';
 import { useI18nStore } from '@/stores/i18n';
 import type { AppLogEntry } from '@llama-launcher/shared';
 
@@ -29,37 +30,11 @@ function lineClass(entry: AppLogEntry): string {
 }
 
 // ---- 控制台滚动（迷你问题列表） ----
-// §7.1 铁律③：读 scrollHeight 是强制同步布局。本页 keep-alive 停用时不再滚动
-// （回到本页时补滚到底），写法照抄 LogsPage / ServicePage 的同一套 pageActive 门控 +
-// rAF 合帧（STYLE_TODO #83：此前唯独本页没门控，停用后问题列表一变仍在后台强制布局）。
+// 这一份列表只需要「停用不滚动 + 回页时补滚到底」：没有「有新日志」胶囊，也没有手动跟随开关，
+// 所以接 useAutoScroll 而不套 ConsolePanel（行渲染与日志页/服务页都不同）
 const consoleEl = ref<HTMLElement | null>(null);
-const pageActive = ref(true);
+useAutoScroll(consoleEl, { count: () => recentIssues.value.length, pill: false });
 
-// 同帧多条问题只滚一次
-let scrollScheduled = false;
-function scheduleScrollToBottom() {
-  if (scrollScheduled) return;
-  scrollScheduled = true;
-  requestAnimationFrame(() => {
-    scrollScheduled = false;
-    const el = consoleEl.value;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  });
-}
-
-watch(
-  () => recentIssues.value.length,
-  () => {
-    if (!pageActive.value) return;
-    scheduleScrollToBottom();
-  },
-);
-onActivated(() => {
-  pageActive.value = true;
-  scheduleScrollToBottom();
-});
-onDeactivated(() => { pageActive.value = false; });
 onMounted(() => { appLog.subscribe(); });
 </script>
 
@@ -153,10 +128,11 @@ onMounted(() => { appLog.subscribe(); });
     white-space: pre-wrap;
     word-break: break-all;
     color: var(--console-fg);
-    &.kind-error { color: rgb(var(--danger-6)); }
-    &.kind-warn { color: rgb(var(--orange-6)); }
-    &.kind-success { color: rgb(var(--success-6)); }
-    &.kind-info { color: rgb(var(--arcoblue-6)); }
+    // 级别色走 --log-kind-*（同一底上的达标档，见 theme.scss），与控制台面板同一套取值
+    &.kind-error { color: var(--log-kind-error); }
+    &.kind-warn { color: var(--log-kind-warn); }
+    &.kind-success { color: var(--log-kind-success); }
+    &.kind-info { color: var(--log-kind-info); }
   }
 
   .empty-text {

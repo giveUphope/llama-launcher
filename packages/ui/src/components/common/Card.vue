@@ -71,7 +71,7 @@ function toggle() {
 
 /* 箭头旋转而非换字形：与侧栏分组、参数分区的展开指示同一套动效语义 */
 .section-card__chevron {
-  transition: transform 0.15s ease;
+  transition: transform var(--dur-fast) var(--ease-smooth);
 }
 .section-card__chevron.is-open {
   transform: rotate(90deg);

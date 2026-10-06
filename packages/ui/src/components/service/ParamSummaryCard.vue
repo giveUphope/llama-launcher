@@ -104,7 +104,7 @@ const activeParamCount = computed(() => {
 <style scoped lang="scss">
 .summary-hint {
   font-size: var(--fs-base);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   margin-bottom: 10px;
 }
 .summary-groups {
@@ -149,7 +149,7 @@ const activeParamCount = computed(() => {
 }
 // key 列定宽档：中英标签长短不一时（英文更长）按较长那态预留，key 自身省略
 .chip-key {
-  color: rgb(var(--primary-6));
+  color: var(--fg-accent);
   font-weight: 600;
   flex: 0 0 auto;
   max-width: 160px;
@@ -157,6 +157,7 @@ const activeParamCount = computed(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+// 装饰符号：信息由 key/val 两段承载，等号本身不携带内容，保留 text-3 不并入 --fg-hint
 .chip-eq { color: var(--color-text-3); flex: 0 0 auto; }
 // 值区：单行省略 + 静态 max-width（绝对路径 / --host 多址串等长值都在此收敛），
 // 完整值走原生 title，行结构固定不再因值变长而换行

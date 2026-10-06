@@ -149,6 +149,12 @@ onUnmounted(() => {
   }
 }
 
+/* 铬面文字统一继承 .statusbar 已有的白字：a-typography-text 自带 --color-text-1，
+   浅色主题下是深字压蓝底（实测 3.58 不达标）。这里只把颜色取值改回 inherit，不新增字面量 */
+.statusbar :deep(.arco-typography) {
+  color: inherit;
+}
+
 /* 复制反馈胶囊浮在宿主胶囊右下角，不参与 flex 正常流（STYLE_TODO #81 档 1）：
    原先它 v-if 插在 .pill-copy 内，点一次复制「出现 → 1.2s 后消失」让胶囊宽度跳两回、
    同行状态栏元素跟着重排两次。同一修法已在 ServicePage「有新日志」胶囊验证过
@@ -159,7 +165,7 @@ onUnmounted(() => {
   position: absolute;
   right: 2px;
   bottom: 0;
-  z-index: 2;
+  z-index: var(--z-chrome);
   pointer-events: none;
 }
 </style>

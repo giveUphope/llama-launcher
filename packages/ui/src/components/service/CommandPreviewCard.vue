@@ -272,7 +272,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: var(--fs-sm);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
 }
 
 // 常驻状态行槽（原五条 v-if 提示行的替代物）：槽恒在，只换文案。
@@ -298,11 +298,11 @@ onUnmounted(() => {
   overflow: hidden;
   font-size: var(--fs-sm);
   line-height: 1.5;
-  color: var(--color-text-3);
+  color: var(--fg-hint);
 }
 
 // 警示语义：橙（与 ParamRow 的超限提示同一 token，不自造色值）
 .cmd-status-text--warn {
-  color: rgb(var(--orange-6));
+  color: var(--fg-warning-text);
 }
 </style>

@@ -448,7 +448,7 @@ function onApplyRelief(key: string, value: string | number | boolean) {
   margin: -6px 0 10px;
   min-height: 36px;
   font-size: var(--fs-sm);
-  color: rgb(var(--orange-6));
+  color: var(--fg-warning-text);
   visibility: hidden; // 未触发：保留占位但不显示，位置不动
 
   &.is-active {
@@ -512,9 +512,9 @@ function onApplyRelief(key: string, value: string | number | boolean) {
   vertical-align: bottom;
 }
 
-// 值缺省占位（未运行/无值）：次级灰
+// 值缺省占位（未运行/无值）：次级档角色色——「未选择模型」是读得到的信息，不是纯装饰
 .empty-val {
-  color: var(--color-text-3);
+  color: var(--fg-hint);
 }
 
 // 快捷操作行：a-space（gap 8px，§7.5.5）
@@ -548,7 +548,7 @@ function onApplyRelief(key: string, value: string | number | boolean) {
 }
 
 /* 失败提示 div（icon + 文案）：flex 居中 + 图标间距 6px + 内边距保持
-   banner 高 ≈ slot 预留 30px（防跳动）；文字深红达 AA（见 style-audit #53），兼容浅/深主题 */
+   banner 高 ≈ slot 预留 30px（防跳动）；文字取 danger 角色色（style-audit #53），兼容浅/深主题 */
 .failure-banner {
   display: inline-flex;
   align-items: center;
@@ -557,7 +557,7 @@ function onApplyRelief(key: string, value: string | number | boolean) {
   border-radius: var(--radius-pill);
   font-size: var(--fs-base);
   font-weight: 600;
-  color: rgb(var(--danger-6));
+  color: var(--fg-danger-text);
 }
 
 // OOM 归因建议行 / 减负建议行：紧随失败 banner 的次级提示 + 行内动作按钮

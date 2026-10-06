@@ -35,7 +35,8 @@ const error = computed<string>(() => {
     <template #label><ToolTip :text="tip"><span>{{ label }}</span></ToolTip></template>
     <!-- 不带 allow-clear：Arco 的清除 ✕ 只在 hover 时现形，会与行级「还原默认」✕ 同时出现
          （一行两个 ✕），且它写入空串而非参数默认值（host 清空即报错），语义也是错的 -->
-    <a-input v-model="model" size="small" />
+    <!-- aria-label 须经 input-attrs 才落到真 input（普通属性会留在 .arco-input-wrapper 上） -->
+    <a-input v-model="model" size="small" :input-attrs="{ 'aria-label': label }" />
   </a-form-item>
 </template>
 

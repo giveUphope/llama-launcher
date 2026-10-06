@@ -47,7 +47,7 @@ const frameSrc = computed(() => (running.value && everVisited.value ? webUrl.val
 .webui-frame {
   position: absolute;
   inset: 0;
-  z-index: 20; /* 覆盖内容区上层的页面内容 */
+  z-index: var(--z-raised); /* 覆盖内容区上层的页面内容 */
   display: flex;
   flex-direction: column;
   background: var(--color-bg-1);

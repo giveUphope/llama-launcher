@@ -2,8 +2,9 @@
 // 应用日志页：展示应用自身生命周期/操作日志（服务启停、下载、错误等）。
 // 区别于「服务」页控制台——控制台保留后端 llama-server 原始输出（server store）。
 // 数据源：主进程 app-log 缓冲（logs:list 拉取 + logs:onlog 实时推送）。
-import { computed, onActivated, onDeactivated, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import PageFrame from '@/components/common/PageFrame.vue';
+import ConsolePanel from '@/components/common/ConsolePanel.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
 import { useAppLogStore, APP_LOG_MAX_LINES } from '@/stores/appLog';
@@ -75,59 +76,12 @@ function onClear() {
   appLog.clear();
 }
 
-// ---- 自动滚动 ----
-const consoleEl = ref<HTMLElement | null>(null);
-const autoScroll = ref(true);
-const hasNewLogs = ref(false);
-// keep-alive 下本页停用时不再滚动（回来时补滚到底），避免后台每行都强制布局
-const pageActive = ref(true);
-
-// 同帧多条日志只滚一次：读 scrollHeight 是强制同步布局
-let scrollScheduled = false;
-function scheduleScrollToBottom() {
-  if (scrollScheduled) return;
-  scrollScheduled = true;
-  requestAnimationFrame(() => {
-    scrollScheduled = false;
-    const el = consoleEl.value;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-    autoScroll.value = true;
-    hasNewLogs.value = false;
-  });
-}
-
-// 单一滚动源：原实现同时 watch entries.length 与 filteredEntries.length，
-// 同一条日志到达会触发两次 nextTick + 两次 scrollHeight 读取
-watch(
-  () => appLog.entries.length,
-  () => {
-    if (!pageActive.value) {
-      hasNewLogs.value = true;
-      return;
-    }
-    if (autoScroll.value) scheduleScrollToBottom();
-    else hasNewLogs.value = true;
-  },
-);
-
+// ---- 生命周期 ----
+// 滚动（停用门控 / rAF 合帧 / 「有新日志」判定）一律由 ConsolePanel 内的 useAutoScroll 承担
 onMounted(() => appLog.subscribe());
-onActivated(() => {
-  pageActive.value = true;
-  scheduleScrollToBottom();
-});
-onDeactivated(() => { pageActive.value = false; });
 
 // 语言切换只需重算已缓存行的时间串（store 内一次遍历）
 watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, { immediate: true });
-
-function onScroll() {
-  if (!consoleEl.value) return;
-  const el = consoleEl.value;
-  const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-  autoScroll.value = dist < 80;
-  if (autoScroll.value) hasNewLogs.value = false;
-}
 </script>
 
 <template>
@@ -167,7 +121,7 @@ function onScroll() {
           </a-button>
         </ToolTip>
         <ToolTip :text="i18n.t('clear_console')">
-          <a-button size="small" status="danger" @click="onClear">
+          <a-button size="small" class="clear-console" status="danger" @click="onClear">
             <template #icon><Icon name="trash" :size="12" /></template>
             {{ i18n.t('clear_console') }}
           </a-button>
@@ -181,18 +135,8 @@ function onScroll() {
         <Icon name="info" :size="11" />
         <span>{{ i18n.t('msg_app_logs_hint') }}</span>
       </div>
-      <!-- 有新日志胶囊：a-button 基座（点击回到底部），仅在有提示时渲染。
-           绝对定位浮在日志框内右下角——此前它在正常流里，出现即把日志框往下顶一档
-           （框高度跳变），与服务页同一处缺陷，两边一起改不留例外。 -->
-      <a-button v-if="hasNewLogs" class="new-logs-bar" type="text" size="mini" @click="scheduleScrollToBottom()">
-        <Icon name="chevron_down" :size="12" />
-        <span>{{ i18n.t('msg_new_logs') }}</span>
-      </a-button>
-      <div
-        ref="consoleEl"
-        class="console"
-        @scroll="onScroll"
-      >
+      <!-- count 取 entries 而非 filteredEntries 的长度：两个都监听过，同一条日志会触发两次滚动 -->
+      <ConsolePanel class="console-fill" :count="appLog.entries.length">
         <div v-if="displayEntries.length === 0" class="empty-log">
           <Icon name="empty" :size="32" class="empty-icon" />
           <span>{{ i18n.t('msg_empty_no_logs') }}</span>
@@ -206,7 +150,7 @@ function onScroll() {
           <span class="log-kind">{{ entry.kind.toUpperCase() }}</span>
           <span class="log-text">{{ entry.data }}</span>
         </div>
-      </div>
+      </ConsolePanel>
       <div class="scroll-hint-bar">
         <!-- 自动滚动状态文案已移除（b8c1d59：暂停态由「有新日志」胶囊传达），仅保留行数 -->
         <span class="show-limit">{{ Math.min(filteredCount, renderLimit) }} / {{ filteredCount }} {{ i18n.t('col_lines') }}</span>
@@ -255,7 +199,6 @@ function onScroll() {
 
 /* 内容区 */
 .console-wrap {
-  position: relative; // 给「有新日志」胶囊当定位参照（胶囊浮在日志框内，不参与布局）
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -268,52 +211,13 @@ function onScroll() {
   align-items: center;
   gap: 6px;
   font-size: var(--fs-sm);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
 }
 
-/* 有新日志胶囊：a-button 基座，仅提示时渲染（不再常驻占位，控制台顶部无空白条） */
-.new-logs-bar {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  background: color-mix(in srgb, rgb(var(--primary-6)) 22%, var(--console-bg));
-  color: rgb(var(--primary-6));
-  border: 1px solid rgb(var(--primary-6));
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-sm);
-  height: auto;
-  font-weight: 600;
-  animation: pulse-glow 2s ease-in-out infinite;
-
-  &:hover {
-    background: color-mix(in srgb, rgb(var(--primary-6)) 26%, transparent);
-  }
-}
-
-@keyframes pulse-glow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
-}
-
-.console {
-  flex: 1;
-  background: var(--console-bg);
-  color: var(--console-fg);
-  border: 1px solid var(--color-border-2);
-  border-radius: var(--radius-row);
-  overflow: auto;
-  padding: 8px 12px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-base);
-  line-height: 1.55;
-  user-select: text;
-  -webkit-user-select: text;
-  cursor: text;
+/* 面板高度：日志页要撑满剩余可视高（骨架链给的是确定高度 + 弹性列，缺这一环等于没写，
+   STYLE_TODO #82），服务页则是定高——同一个面板两种给法，都由外层这一层决定 */
+.console-fill {
+  flex: 1 1 0%;
   min-height: 0;
 }
 
@@ -323,14 +227,6 @@ function onScroll() {
   gap: 6px;
   white-space: pre-wrap;
   word-break: break-all;
-
-  &.kind-error .log-kind { color: rgb(var(--danger-6)); }
-  &.kind-error .log-text { color: rgb(var(--danger-6)); }
-  &.kind-warn .log-kind { color: rgb(var(--orange-6)); }
-  &.kind-warn .log-text { color: rgb(var(--orange-6)); }
-  &.kind-success .log-kind { color: rgb(var(--success-6)); }
-  &.kind-success .log-text { color: rgb(var(--success-6)); }
-  &.kind-info .log-kind { color: rgb(var(--arcoblue-6)); }
 }
 
 .log-ts {
@@ -340,9 +236,9 @@ function onScroll() {
   min-width: 64px;
 }
 
+/* 级别标签与正文不写 color：级别色由 ConsolePanel 打在行上，这里只留排版 */
 .log-kind {
   flex-shrink: 0;
-  color: var(--color-text-2);
   font-size: var(--fs-sm);
   font-weight: 600;
   min-width: 52px;
@@ -351,6 +247,10 @@ function onScroll() {
 .log-text {
   flex: 1;
   min-width: 0;
+}
+
+/* info 行只给级别标签着色，正文保持控制台前景色（error/warn/success 整行着色） */
+.log-line.kind-info .log-text {
   color: var(--console-fg);
 }
 
@@ -374,12 +274,18 @@ function onScroll() {
   align-items: center;
   justify-content: flex-end; // 自动滚动提示已移除，行数保持右侧
   font-size: var(--fs-sm);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   padding: 4px;
 }
 
 .show-limit {
   font-family: var(--font-mono);
-  color: var(--color-text-3); // 原 opacity 0.7 叠 --fg-muted 偏淡，改纯色达 AA
+  color: var(--fg-hint);
+}
+
+/* 行内「清空控制台」danger 按钮文字取角色色（Arco danger-6 作文字压 red-1 底实测 3.25，
+   不达 §7.5.8 的 4.5）；底与边仍由 Arco 承载，禁用态保留 Arco 观感 */
+.filter-row .clear-console:not([disabled]) {
+  color: var(--fg-danger-text);
 }
 </style>

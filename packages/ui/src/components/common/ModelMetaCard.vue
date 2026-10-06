@@ -121,7 +121,7 @@ function formatValue(v: unknown): string {
 
 .meta-model-name {
   font-family: var(--font-mono);
-  color: rgb(var(--primary-6));
+  color: var(--fg-accent);
   font-size: var(--fs-md);
   font-weight: 600;
   flex: 1;
@@ -132,7 +132,7 @@ function formatValue(v: unknown): string {
 
 // 读取中的占位文案：次级灰，与骨架槽同一口径（不宣称已读到任何信息）
 .meta-pending {
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   font-size: var(--fs-sm);
 }
 
@@ -160,10 +160,11 @@ function formatValue(v: unknown): string {
 }
 
 .chip-key {
-  color: rgb(var(--primary-6));
+  color: var(--fg-accent);
   font-weight: 600;
 }
 
+// 装饰符号：信息由 key/val 两段承载，等号本身不携带内容，保留 text-3 不并入 --fg-hint
 .chip-eq {
   color: var(--color-text-3);
 }

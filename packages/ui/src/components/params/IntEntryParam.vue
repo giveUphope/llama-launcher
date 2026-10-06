@@ -24,7 +24,8 @@ const tip = computed(() => {
   <a-form-item :label="label" class="param-control">
     <template #label><ToolTip :text="tip"><span>{{ label }}</span></ToolTip></template>
     <a-space>
-      <a-input-number v-model="model" size="small" :min="p.min" :max="p.max" :precision="0" />
+      <!-- aria-label 须经 input-attrs 才落到真 input（Arco Input 的普通属性会留在 .arco-input-wrapper） -->
+      <a-input-number v-model="model" size="small" :min="p.min" :max="p.max" :precision="0" :input-attrs="{ 'aria-label': label }" />
       <a-typography-text v-if="showAutoHint" type="secondary" class="auto-hint">{{ i18n.t('auto') }}</a-typography-text>
     </a-space>
   </a-form-item>

@@ -50,6 +50,8 @@ export const en: Dict = {
   win_maximize: 'Maximize',
   win_restore: 'Restore',
   win_close: 'Close',
+  a11y_main_nav: 'Main navigation',
+  a11y_exe_help_toggle: 'Show how to get the engine',
   // 系统托盘菜单
   tray_show: 'Show Main Window',
   tray_quit: 'Quit',

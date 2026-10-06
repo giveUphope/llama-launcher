@@ -2,15 +2,18 @@
 // 关闭窗口应用内弹窗：替代 Electron 原生 dialog（app-exit.ts 发送 WINDOW_SHOW_CLOSE_DIALOG 请求）。
 // 两种模式：ask（close_behavior=ask 首次询问，含"记住选择"复选框）/ exit-confirm（模型服务运行中退出二次确认）。
 // 已迁移到 Arco Modal：遮罩/动画/居中由 a-modal 承载，移除自定义 backdrop/panel。
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import Icon from '@/components/common/Icon.vue';
 import { useI18nStore } from '@/stores/i18n';
+import { useDialogFocus } from '@/composables/useDialogFocus';
 import type { CloseDialogRequest, CloseDialogResult } from '@llama-launcher/shared';
 
 const i18n = useI18nStore();
 
 const request = ref<CloseDialogRequest | null>(null);
 const remember = ref(false);
+const visible = computed(() => !!request.value);
+const { titleId } = useDialogFocus({ visible, containerClass: 'fc-close-dialog' });
 
 function onShow(req: CloseDialogRequest) {
   request.value = req;
@@ -40,7 +43,11 @@ const isAsk = () => request.value?.mode === 'ask';
 <template>
   <a-modal
     class="fc-close-dialog"
-    :visible="!!request"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    :aria-labelledby="titleId"
+    :visible="visible"
     :modal-style="{ width: '400px' }"
     :mask-closable="true"
     :esc-to-close="true"
@@ -48,7 +55,7 @@ const isAsk = () => request.value?.mode === 'ask';
     @cancel="onMaskClose"
   >
     <template #title>
-      <span class="fc-dialog-title">
+      <span class="fc-dialog-title" :id="titleId">
         <Icon :name="isAsk() ? 'info' : 'alert'" :size="16" :class="isAsk() ? 'fc-ico-info' : 'fc-ico-warn'" />
         <span>{{ isAsk() ? i18n.t('lbl_close_title') : i18n.t('dlg_close_service_title') }}</span>
       </span>
@@ -62,7 +69,7 @@ const isAsk = () => request.value?.mode === 'ask';
     <template #footer>
       <a-button v-if="isAsk()" @click="respond('tray')">{{ i18n.t('btn_close_tray') }}</a-button>
       <a-button v-else @click="respond('cancel')">{{ i18n.t('dlg_cancel') }}</a-button>
-      <a-button type="primary" :status="isAsk() ? undefined : 'warning'" @click="respond('exit')">
+      <a-button type="primary" :class="isAsk() ? '' : 'cd-exit-warning'" :status="isAsk() ? undefined : 'warning'" @click="respond('exit')">
         {{ i18n.t('btn_close_exit') }}
       </a-button>
     </template>
@@ -75,7 +82,7 @@ const isAsk = () => request.value?.mode === 'ask';
   align-items: center;
   gap: 8px;
 }
-.fc-ico-info { color: rgb(var(--primary-6)); }
+.fc-ico-info { color: var(--fg-accent); }
 .fc-ico-warn { color: rgb(var(--orange-6)); }
 .fc-dialog-msg {
   margin: 0;
@@ -84,5 +91,13 @@ const isAsk = () => request.value?.mode === 'ask';
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--color-text-2);
+}
+
+/* 「退出应用」（服务运行中的二次确认）是实底 warning 按钮：Arco 的白字压 orange-6 实测
+   浅色 2.57 / 深色 2.18，故底与字一起换成 theme.scss 的配对 token；ask 态的同一枚按钮是
+   primary 蓝底，不带本类，不受影响。尺寸与圆角不动 */
+.cd-exit-warning:not([disabled]) {
+  background-color: var(--btn-warning-fill);
+  color: var(--btn-warning-fg);
 }
 </style>

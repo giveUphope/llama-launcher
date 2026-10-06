@@ -29,13 +29,13 @@ async function onOpenUrl(url: string) {
     </div>
     <a-descriptions class="about-desc" :column="1" size="small" :align="{ label: 'right' }">
       <a-descriptions-item :label="i18n.t('msg_about_repo')">
-        <a-button type="text" size="small" @click="onOpenUrl(APP_REPO_URL)">
+        <a-button type="text" size="small" class="about-link" @click="onOpenUrl(APP_REPO_URL)">
           <template #icon><Icon name="external" :size="12" /></template>
           <span>{{ APP_REPO_URL }}</span>
         </a-button>
       </a-descriptions-item>
       <a-descriptions-item :label="i18n.t('msg_about_releases')">
-        <a-button type="text" size="small" @click="onOpenUrl(LLAMA_CPP_RELEASES_URL)">
+        <a-button type="text" size="small" class="about-link" @click="onOpenUrl(LLAMA_CPP_RELEASES_URL)">
           <template #icon><Icon name="external" :size="12" /></template>
           <span>{{ LLAMA_CPP_RELEASES_URL }}</span>
         </a-button>
@@ -70,6 +70,18 @@ async function onOpenUrl(url: string) {
 .about-app-version {
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
+}
+
+// 字段标签与 TopBar/状态栏的 Arco text 按钮同问题：Arco 默认取值压卡片底实测 3.24（浅色）/
+// 4.2（深色），承载信息的文字一律改角色色
+.about-desc {
+  :deep(.arco-descriptions-item-label) {
+    color: var(--fg-hint);
+  }
+}
+
+.about-link:not([disabled]) {
+  color: var(--fg-accent);
 }
 </style>

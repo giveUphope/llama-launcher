@@ -4,6 +4,7 @@ import { computed } from 'vue';
 import Card from '@/components/common/Card.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useI18nStore } from '@/stores/i18n';
+import { vInnerAriaLabel } from '@/directives/innerAriaLabel';
 import type { ThemeMode, Language } from '@llama-launcher/shared';
 
 const settings = useSettingsStore();
@@ -32,14 +33,19 @@ const language = computed<Language>({
             :label-col-style="{ flex: '0 0 110px', minWidth: '0', marginRight: '8px', paddingRight: '0' }"
             :wrapper-col-style="{ flex: '1 1 0', minWidth: '0' }">
       <a-form-item :label="i18n.t('lbl_theme_mode')">
-        <a-radio-group type="button" size="small" :model-value="themeMode" @change="(v: any) => (themeMode = v)">
-          <a-radio v-for="opt in THEME_OPTIONS" :key="opt.value" :value="opt.value">
+        <a-radio-group class="theme-radio-group" type="button" size="small" :model-value="themeMode" @change="(v: any) => (themeMode = v)">
+          <a-radio
+            v-for="opt in THEME_OPTIONS"
+            :key="opt.value"
+            :value="opt.value"
+            :class="{ 'theme-radio-on': themeMode === opt.value }"
+          >
             {{ i18n.t(opt.labelKey) }}
           </a-radio>
         </a-radio-group>
       </a-form-item>
-      <a-form-item :label="i18n.t('lbl_language')">
-        <a-select class="fc-select" v-model="language" :style="{ width: '140px' }">
+      <a-form-item :label="i18n.t('lbl_language')" v-inner-aria-label="i18n.t('lbl_language')">
+        <a-select class="fc-select" v-model="language" :aria-label="i18n.t('lbl_language')" :style="{ width: '140px' }">
           <a-option value="zh">{{ i18n.t('opt_lang_zh') }}</a-option>
           <a-option value="en">{{ i18n.t('opt_lang_en') }}</a-option>
         </a-select>
@@ -47,3 +53,12 @@ const language = computed<Language>({
     </a-form>
   </Card>
 </template>
+
+<style scoped lang="scss">
+/* 段式单选「选中项」的文字：Arco 取 primary-6，深色下压卡片底实测 4.2，不达 §7.5.8 的 4.5。
+   由组件自身的选中态挂私有类（不覆写 Arco 的 .arco-radio-checked 内部态类），只换文字取值，
+   选中底色与边框仍由 Arco 承载 */
+.theme-radio-group .theme-radio-on :deep(.arco-radio-button-content) {
+  color: var(--fg-accent);
+}
+</style>

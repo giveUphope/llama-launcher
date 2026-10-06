@@ -4,12 +4,15 @@ import { useI18nStore } from '@/stores/i18n';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
 import { useFilePickerQueue, type PickerRequest } from '@/composables/useFilePicker';
+import { useDialogFocus } from '@/composables/useDialogFocus';
 import type { FsDirResult } from '@/env';
 
 const i18n = useI18nStore();
 const { queue, resolve } = useFilePickerQueue();
 
 const current = computed<PickerRequest | null>(() => queue.value[0] ?? null);
+const visible = computed(() => !!current.value);
+const { titleId } = useDialogFocus({ visible, containerClass: 'fc-file-browser' });
 
 const dir = ref<string>('');
 const entries = ref<FsDirResult['entries']>([]);
@@ -147,18 +150,22 @@ function cancel() {
 <template>
   <a-modal
     class="fc-file-browser"
-    :visible="!!current"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    :aria-labelledby="titleId"
+    :visible="visible"
     :modal-style="{ width: '560px' }"
     :mask-closable="true"
     :esc-to-close="true"
     :closable="true"
     @cancel="cancel"
   >
-    <template #title>{{ current?.title }}</template>
+    <template #title><span :id="titleId">{{ current?.title }}</span></template>
 
     <div class="fb-toolbar">
       <ToolTip :text="i18n.t('picker_up')">
-        <a-button size="small" :disabled="!parent" @click="onUp">
+        <a-button size="small" :disabled="!parent" :aria-label="i18n.t('picker_up')" @click="onUp">
           <template #icon><Icon name="folder_open" :size="13" /></template>
         </a-button>
       </ToolTip>
@@ -272,14 +279,14 @@ function cancel() {
 .fb-empty {
   padding: 24px 14px;
   text-align: center;
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   font-size: var(--fs-base);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
 }
-.fb-error { color: rgb(var(--danger-6)); }
+.fb-error { color: var(--fg-danger-text); }
 
 .fb-save-row {
   display: flex;
@@ -296,6 +303,6 @@ function cancel() {
 .fb-hint {
   margin-right: auto;
   font-size: var(--fs-sm);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
 }
 </style>

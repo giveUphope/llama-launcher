@@ -319,12 +319,12 @@ async function onClearSession() {
         <!-- 分区折叠总控（仅自定义参数页签有分区概念）-->
         <template v-if="activeTab === 'custom'">
           <ToolTip :text="i18n.t('act_expand_all')">
-            <a-button size="small" :disabled="allOpen" @click="expandAll">
+            <a-button size="small" :disabled="allOpen" :aria-label="i18n.t('act_expand_all')" @click="expandAll">
               <template #icon><Icon name="chevron_down" :size="12" /></template>
             </a-button>
           </ToolTip>
           <ToolTip :text="i18n.t('act_collapse_all')">
-            <a-button size="small" :disabled="openSections.length === 0" @click="collapseAll">
+            <a-button size="small" :disabled="openSections.length === 0" :aria-label="i18n.t('act_collapse_all')" @click="collapseAll">
               <template #icon><Icon name="chevron_right" :size="12" /></template>
             </a-button>
           </ToolTip>
@@ -363,7 +363,7 @@ async function onClearSession() {
           @update:expanded="onToggleSection(sub.key, $event)"
         >
           <template v-if="sectionChangedCount[sub.key]" #actions>
-            <a-tag size="small" color="orange">{{ i18n.t('subcat_changed_n', [String(sectionChangedCount[sub.key])]) }}</a-tag>
+            <a-tag size="small" color="orange" class="subcat-changed">{{ i18n.t('subcat_changed_n', [String(sectionChangedCount[sub.key])]) }}</a-tag>
           </template>
           <div class="param-grid">
             <ParamRow v-for="p in sub.params" :key="p.key" :p="p" />
@@ -413,7 +413,7 @@ async function onClearSession() {
 
   :deep(.arco-statistic-title) {
     font-size: var(--fs-xs);
-    color: var(--color-text-3);
+    color: var(--fg-hint);
     line-height: 1.3;
     margin: 0 6px 0 0; // title 与 value 间距 6px
   }
@@ -430,9 +430,9 @@ async function onClearSession() {
     min-width: 2ch;
   }
 
-  // 已调整参数 > 0：数值警示橙（与行容器的 warn 描边同色系）
+  // 已调整参数 > 0：数值警示橙（与行容器的 warn 描边同一角色色 token，压 fill-2 实测 6.05）
   &.warn :deep(.arco-statistic-value) {
-    color: rgb(var(--orange-6));
+    color: var(--fg-warning-text);
   }
 }
 
@@ -465,6 +465,12 @@ async function onClearSession() {
 
 .param-card {
   margin-bottom: 0;
+}
+
+/* 分区「N 项已改」计数标签：Arco orange-6 作文字压 orange-1 底实测 2.41（浅色）/ 4.2（深色），
+   不达 §7.5.8 的 4.5，文字改角色色；底与边仍由 a-tag 预设承载 */
+.param-card .subcat-changed {
+  color: var(--fg-warning-text);
 }
 
 .param-grid {
@@ -519,7 +525,7 @@ async function onClearSession() {
 }
 
 .target-menu .target-item.active .arco-dropdown-option-content {
-  color: rgb(var(--primary-6));
+  color: var(--fg-accent);
   font-weight: 600;
 }
 
@@ -553,7 +559,8 @@ async function onClearSession() {
   cursor: help;
 }
 
-.target-menu .chip-key { color: rgb(var(--primary-6)); font-weight: 600; }
+.target-menu .chip-key { color: var(--fg-accent); font-weight: 600; }
+/* 装饰符号：信息由 key/val 两段承载，等号本身不携带内容，保留 text-3 不并入 --fg-hint */
 .target-menu .chip-eq { color: var(--color-text-3); }
 .target-menu .chip-val { color: var(--color-text-1); }
 
@@ -561,7 +568,7 @@ async function onClearSession() {
   margin-top: 4px;
   padding: 8px 4px 4px;
   border-top: 1px solid var(--color-border-2);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   font-size: var(--fs-base);
   // 与 .target-recs 同档定高：有无建议两种内容形状下弹层高度一致
   min-height: 64px;

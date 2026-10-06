@@ -1,34 +1,29 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
-const hostEl = ref<HTMLElement | null>(null);
-const reducedMotion =
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // 页面切换不使用 <transition>（leave/enter 交接窗口在 KeepAlive + 快速导航下
 // 会短暂双页同框——旧页未卸载时新页已插入，用户可见"闪出其他页面内容"）。
 // 改为结构化方案：keep-alive 直接替换组件（单激活实例，结构上无双页），
-// 路由变化后对内容区整体做一次轻微淡入作为切换反馈。
-// 动画用 WAAPI 由代码控制（reduced-motion 下跳过），无事件依赖。
+// 路由变化后给内容区一次轻微淡入作为切换反馈。
+// 淡入是 CSS 动画而不是 WAAPI：reduced-motion 由 reset.scss 的全局规则统一关停，
+// 不需要在 setup 期读一次 matchMedia 快照（快照在系统偏好中途变化时就失效了）。
+// 两个同名关键帧来回切换是重启 CSS 动画的唯一无事件写法——同一 tick 里摘掉
+// 再加回同一个类不会重播，而 animation-name 变化必定重跑一遍。
+// 初值 null（不挂淡入类）：首帧不淡入，与原 WAAPI 实现一致（它只在路由 watch 回调里跑）
+const fadeAlt = ref<boolean | null>(null);
 watch(
   () => route.fullPath,
-  async () => {
-    await nextTick();
-    const el = hostEl.value;
-    if (!el || reducedMotion) return;
-    el.animate(
-      [{ opacity: 0.55 }, { opacity: 1 }],
-      { duration: 90, easing: 'cubic-bezier(0.33, 1, 0.68, 1)' },
-    );
+  () => {
+    fadeAlt.value = !fadeAlt.value;
   },
 );
 </script>
 
 <template>
-  <div ref="hostEl" class="page-host">
+  <div class="page-host" :class="{ 'is-fade-a': fadeAlt === true, 'is-fade-b': fadeAlt === false }">
     <router-view v-slot="{ Component }">
       <keep-alive>
         <component :is="Component" />
@@ -46,5 +41,30 @@ watch(
   flex: 1 1 0%;
   display: flex;
   flex-direction: column;
+}
+
+/* 只动 opacity，不碰布局属性 */
+.is-fade-a {
+  animation: page-fade-a var(--dur-fast) var(--ease-smooth);
+}
+.is-fade-b {
+  animation: page-fade-b var(--dur-fast) var(--ease-smooth);
+}
+
+@keyframes page-fade-a {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes page-fade-b {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
 }
 </style>

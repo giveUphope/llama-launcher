@@ -48,6 +48,8 @@ export const zh = {
   win_maximize: '最大化',
   win_restore: '还原',
   win_close: '关闭',
+  a11y_main_nav: '主导航',
+  a11y_exe_help_toggle: '查看引擎获取指引',
   // 系统托盘菜单
   tray_show: '显示主窗口',
   tray_quit: '退出',

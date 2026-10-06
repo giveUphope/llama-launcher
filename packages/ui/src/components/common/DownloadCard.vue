@@ -587,12 +587,12 @@ const STATUS_TEXT_KEY: Record<string, string> = {
   canceled: 'status_canceled',
 };
 const STATUS_COLOR: Record<string, string> = {
-  queued: 'var(--color-text-3)',
-  downloading: 'rgb(var(--primary-6))',
-  paused: 'rgb(var(--orange-6))',
+  queued: 'var(--fg-hint)',
+  downloading: 'var(--fg-accent)',
+  paused: 'var(--fg-warning-text)',
   completed: 'rgb(var(--success-6))',
-  error: 'rgb(var(--danger-6))',
-  canceled: 'var(--color-text-3)',
+  error: 'var(--fg-danger-text)',
+  canceled: 'var(--fg-hint)',
 };
 
 function statusText(status: string): string {
@@ -954,6 +954,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
               <a-button
                 v-if="t.status === 'downloading' || t.status === 'queued' || t.status === 'paused' || t.status === 'error'"
                 size="small"
+                class="task-cancel"
                 status="danger"
                 @click="onCancelDownload(t.id)"
               >
@@ -1065,21 +1066,21 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 /* 错误/提示消息 */
 .error-msg {
-  color: rgb(var(--danger-6)); // 浅色主题深红达 AA（原亮 --danger 仅 3.8:1）
+  color: var(--fg-danger-text);
   font-size: var(--fs-base);
   padding: 4px 0;
   white-space: pre-line;
 }
 
 .warn-msg {
-  color: rgb(var(--orange-6)); // 浅色主题深琥珀达 AA（原亮 --warn 仅 2.2:1 看不清）
+  color: var(--fg-warning-text);
   font-size: var(--fs-base);
   padding: 4px 0;
 }
 
 .loading-msg,
 .empty-msg {
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   font-size: var(--fs-base);
   padding: 8px 0;
   text-align: center;
@@ -1100,7 +1101,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 .info-file {
   font-family: var(--font-mono);
-  color: rgb(var(--primary-6));
+  color: var(--fg-accent);
 }
 
 /* 卡片内小节标题（「模型文件」「下载任务」等行头：标题在左、操作在右）：
@@ -1191,7 +1192,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   display: flex;
   gap: 12px;
   font-size: var(--fs-sm);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
 }
 
 /* 分页控件 */
@@ -1342,7 +1343,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   &.cat-gguf { color: var(--badge-cat-gguf); background: color-mix(in srgb, var(--badge-cat-gguf) 14%, transparent); }
   &.cat-safetensors { color: var(--badge-cat-safetensors); background: color-mix(in srgb, var(--badge-cat-safetensors) 14%, transparent); }
   &.cat-bin { color: var(--badge-cat-bin); background: color-mix(in srgb, var(--badge-cat-bin) 14%, transparent); }
-  &.cat-other { color: var(--color-text-3); background: var(--color-fill-3); }
+  &.cat-other { color: var(--fg-hint); background: var(--color-fill-3); }
 }
 
 /* 量化徽标：按 family 着色，便于区分 K-quants / I-quants / FP / INT 系列 */
@@ -1367,7 +1368,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .file-size {
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   font-size: var(--fs-sm);
   flex-shrink: 0;
 }
@@ -1462,7 +1463,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   align-items: center;
   gap: 6px;
   font-size: var(--fs-xs);
-  color: var(--color-text-3);
+  color: var(--fg-hint);
 }
 
 .task-progress-bar {
@@ -1493,7 +1494,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .task-speed {
-  color: rgb(var(--primary-6));
+  color: var(--fg-accent);
   font-family: var(--font-mono);
 }
 
@@ -1503,7 +1504,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
 }
 
 .task-error {
-  color: rgb(var(--danger-6));
+  color: var(--fg-danger-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1515,6 +1516,12 @@ function quantTooltip(q: QuantizationInfo | null): string {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* 行内「取消」danger 按钮文字取角色色（Arco danger-6 作文字压 red-1 底实测 3.25 不达 4.5），
+   底与边仍由 Arco 承载；禁用态保留 Arco 观感 */
+.task-actions .task-cancel:not([disabled]) {
+  color: var(--fg-danger-text);
 }
 </style>
 
@@ -1530,7 +1537,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   padding: 4px 10px 6px;
   font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--color-text-3);
+  color: var(--fg-hint);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   user-select: none;
