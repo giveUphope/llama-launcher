@@ -96,12 +96,6 @@ const logCount = computed(() => server.outputs.length);
   font-size: var(--fs-sm);
 }
 
-/* 卡片头「清空控制台」danger 按钮文字取角色色（Arco danger-6 作文字压 red-1 底实测 3.25，
-   不达 §7.5.8 的 4.5）；底与边仍由 Arco 承载，禁用态保留 Arco 观感 */
-.arco-card-header .clear-console:not([disabled]) {
-  color: var(--fg-danger-text);
-}
-
 /* 后端原始输出一行一段；级别色由 ConsolePanel 打在行上（.kind-* → --log-kind-*），这里只留排版 */
 .output-line {
   white-space: pre-wrap;

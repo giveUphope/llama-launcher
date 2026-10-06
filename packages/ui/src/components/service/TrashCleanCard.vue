@@ -126,12 +126,6 @@ async function onCleanTrash() {
   min-width: 142px;
 }
 
-/* 描边 warning 按钮文字取角色色（Arco orange-6 作文字压白底实测 2.57，不达 §7.5.8 的 4.5）；
-   底与边仍由 Arco 承载，禁用态保留 Arco 观感 */
-.trash-detect-btn:not([disabled]) {
-  color: var(--fg-warning-text);
-}
-
 .trash-hint {
   display: inline-flex;
   align-items: center;

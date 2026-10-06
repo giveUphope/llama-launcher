@@ -282,10 +282,4 @@ watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, 
   font-family: var(--font-mono);
   color: var(--fg-hint);
 }
-
-/* 行内「清空控制台」danger 按钮文字取角色色（Arco danger-6 作文字压 red-1 底实测 3.25，
-   不达 §7.5.8 的 4.5）；底与边仍由 Arco 承载，禁用态保留 Arco 观感 */
-.filter-row .clear-console:not([disabled]) {
-  color: var(--fg-danger-text);
-}
 </style>

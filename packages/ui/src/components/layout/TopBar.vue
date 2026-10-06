@@ -296,11 +296,11 @@ async function onOpenWeb() {
   -webkit-app-region: no-drag;
 }
 
-// 服务操作按钮的文字取角色色（Arco 的 danger-6 / orange-6 / primary-6 作文字实测 3.71 / 2.57 / 4.2，
-// 不达 §7.5.8 的 4.5）：只改文字取值，描边与圆角仍由 Arco 原样承载，禁用态保留 Arco 的禁用观感
-.topbar .tb-stop:not([disabled]) { color: var(--fg-danger-text); }
-.topbar .tb-restart:not([disabled]) { color: var(--fg-warning-text); }
-.topbar .tb-openweb:not([disabled]) { color: var(--fg-accent); }
+// 服务操作按钮（启动/停止/重启/打开 Web UI）不写任何配色：type + status 让 Arco 自己取
+// danger-6 / warning-6 / primary-6，hover 走 -5、active 走 -7、禁用走 light-3，全部由库算。
+// 达标靠 theme.scss 里换这些**色阶变量**（浅色 danger-6 203,39,45 = 5.43 压白、
+// warning-6 166,69,0 = 6.05、深色 Arco 原档本就达标），而不是覆写按钮的 color 声明——
+// 覆写还会连带冻结 hover/active 的文字色（描边变深、文字不变，实测两者分叉）。
 
 // 窗口控制按钮簇：a-button type=text 基座 + 窗口铬覆盖（46×52 贴边热区、
 // 无边框窗口角落用小圆角、关闭钮红色 hover）；尺寸/配色覆盖压过 Arco 默认

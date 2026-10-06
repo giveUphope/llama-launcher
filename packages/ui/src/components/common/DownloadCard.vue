@@ -1517,12 +1517,6 @@ function quantTooltip(q: QuantizationInfo | null): string {
   align-items: center;
   gap: 6px;
 }
-
-/* 行内「取消」danger 按钮文字取角色色（Arco danger-6 作文字压 red-1 底实测 3.25 不达 4.5），
-   底与边仍由 Arco 承载；禁用态保留 Arco 观感 */
-.task-actions .task-cancel:not([disabled]) {
-  color: var(--fg-danger-text);
-}
 </style>
 
 <!-- URL 历史下拉样式：popup 由 a-dropdown 传送到 body，需非 scoped 样式；

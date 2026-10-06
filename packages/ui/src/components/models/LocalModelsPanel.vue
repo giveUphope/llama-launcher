@@ -643,7 +643,6 @@ watch(models, () => writeRowMeta());
 
   :deep(.arco-statistic-title) {
     font-size: var(--fs-xs);
-    color: var(--fg-hint);
     line-height: 1.3;
     margin: 0 6px 0 0; // title 与 value 间距 6px（图标-文本间距统一刻度）
   }
@@ -651,7 +650,6 @@ watch(models, () => writeRowMeta());
   :deep(.arco-statistic-value) {
     font-size: var(--fs-lg);
     font-weight: 700;
-    color: var(--color-text-1);
     font-family: var(--font-mono);
     line-height: 1.3;
   }
@@ -699,12 +697,6 @@ watch(models, () => writeRowMeta());
   display: flex;
   justify-content: flex-end;
   gap: 6px;
-}
-
-/* 行内「移除」danger 按钮文字取角色色（Arco danger-6 作文字压 red-1 底实测 3.25，不达 §7.5.8 的
-   4.5）；底与边仍由 Arco 承载，禁用态保留 Arco 观感 */
-.row-actions .row-danger:not([disabled]) {
-  color: var(--fg-danger-text);
 }
 
 /* 模型名 + 伴随文件标签 */

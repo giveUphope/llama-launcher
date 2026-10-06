@@ -2,8 +2,8 @@
 /**
  * style-audit.cjs — UI 风格一致性审计脚本（一键复跑）
  *
- * 固化 docs/zh/style/STYLE_TODO.md「审计方法」的 10 条检查，输出 ✅/❌ 清单；
- * 有任何不一致项时以非零码退出（便于接入 CI / pre-commit）。
+ * 固化 docs/zh/style/STYLE_TODO.md「审计方法」的各条检查（条数以输出清单为准，避免声明与
+ * 实现两处维护），输出 ✅/❌ 清单；有任何不一致项时以非零码退出（便于接入 CI / pre-commit）。
  *
  * 用法：node scripts/style-audit.cjs   （或 pnpm style:audit）
  *
@@ -418,6 +418,123 @@ const STATE_UNREG = [];
   }
 }
 
+// ---------- 18. a-button 的配色只能由 type/status 决定（禁 scoped 覆写 color/background/border） ----------
+// 成因（2026-10-07 实测）：Arco 的描边状态按钮 `.arco-btn-outline.arco-btn-status-danger` 把
+// color 与 border-color 用**同一族变量**（基色 -6、hover -5、active -7），而组件 scoped 规则因带
+// [data-v-] 属性特异度高于库的 0,3,0，覆写 color 会把文字**冻在基色**上——实测 hover 时描边
+// rgb(161,21,30)、文字仍是 rgb(203,39,45)，两个方向分叉，状态反馈就此失真。
+// 浅色达标靠 theme.scss 换 --danger-6/-5/-7 与 --warning-6/-5/-7 这些**Arco 自己读的变量**，
+// 一行声明都不必多写；所以这里的命中要么删掉，要么带理由登记进 BTN_COLOR_ALLOW。
+const BTN_COLOR_ALLOW = [
+  { file: 'packages/ui/src/components/layout/TopBar.vue', marker: '.win-btn', expect: 2,
+    why: '窗口铬：无边框窗口的贴边按钮取中性字色与 fill-3 悬停底（AGENTS.md 允许 win-btn 专属覆盖）' },
+  { file: 'packages/ui/src/components/layout/TopBar.vue', marker: '.win-close', expect: 1,
+    why: '窗口铬：关闭钮红色实底 + 白字是平台约定，Arco 无窗口控制组件' },
+  { file: 'packages/ui/src/components/common/ConsolePanel.vue', marker: '.new-logs-bar', expect: 2,
+    why: '恒深控制台底上的胶囊：Arco 色阶在深色主题会翻档，这里必须钉 --console-accent 字面三元组（§7.5.1）' },
+  { file: 'packages/ui/src/components/layout/StatusBar.vue', marker: '.pill-copy', expect: 2,
+    why: '状态栏铬：color 交回 inherit 以继承业务语义条的白字，否则 Arco 会涂强调蓝' },
+  { file: 'packages/ui/src/components/settings/GeneralPanel.vue', marker: '.card-help-icon', expect: 1,
+    why: '帮助图标是弱化辅助 affordance，取 text-3 而非强调色（同族图标色，不是状态色）' },
+];
+const CSS_COLOR_PROP = /^(color|background|background-color|border|border-color|border-top-color|border-right-color|border-bottom-color|border-left-color|border|box-shadow|fill)$/;
+
+/** 模板里挂在 <a-button> 上的 class 集合（这些 class 的选择器若声明配色即命中本条） */
+function buttonClasses(text) {
+  const set = new Set();
+  const start = text.indexOf('<template>');
+  if (start < 0) return set;
+  const tpl = text.slice(start);
+  for (const m of tpl.matchAll(/<a-button\b((?:[^>"']|"[^"]*"|'[^']*')*?)>/g)) {
+    const cm = m[1].match(/\s(?:::?class|class)="([^"]*)"/);
+    if (!cm) continue;
+    for (const raw of cm[1].split(/[\s'`"{}[\]():,.]+/)) {
+      if (/^[a-z][\w-]*$/i.test(raw)) set.add(raw);
+    }
+  }
+  return set;
+}
+
+/** 把 style 块展平成 {selector, line, props:[配色属性]}，支持单行规则与 SCSS 嵌套。
+ *  readLines 已抹掉块注释并把 CRLF 归一，这里只管结构与声明。 */
+function colorRules(cssLines, baseLine) {
+  const rules = [];
+  const stack = []; // {sel, line, props}
+  let pending = null; // 跨行声明累积
+  for (let i = 0; i < cssLines.length; i++) {
+    const ln = cssLines[i].replace(/\/\/.*$/, '');
+    if (!ln.trim()) continue;
+    const single = ln.match(/^\s*([^{};]+)\{([^{}]*)\}\s*$/);
+    if (single) {
+      const props = single[2].split(';').map((s) => s.match(/^\s*([a-z-]+)\s*:/)).filter(Boolean)
+        .map((m) => m[1]).filter((p) => CSS_COLOR_PROP.test(p));
+      if (props.length) rules.push({ selector: single[1].trim(), line: baseLine + i, props });
+      continue;
+    }
+    if (/\{\s*$/.test(ln)) {
+      stack.push({ sel: ln.replace(/\{[\s\S]*$/, '').trim(), line: baseLine + i, props: [] });
+      continue;
+    }
+    if (/^\s*\}/.test(ln)) {
+      const frame = stack.pop();
+      if (frame && frame.props.length) {
+        const sel = stack.map((s) => s.sel).concat(frame.sel).join(' ').replace(/&/g, '').replace(/\s+:/, ':').trim();
+        rules.push({ selector: sel, line: frame.line, props: frame.props });
+      }
+      continue;
+    }
+    const dm = ln.match(/^\s*([a-z-]+)\s*:\s*(.*)$/);
+    if (dm) {
+      const top = stack[stack.length - 1];
+      const done = /;\s*$/.test(ln);
+      if (done && top && CSS_COLOR_PROP.test(dm[1])) top.props.push(dm[1]);
+      pending = done ? null : { prop: dm[1] };
+      continue;
+    }
+    if (pending && /;\s*$/.test(ln)) pending = null;
+  }
+  return rules;
+}
+
+const a18 = new Audit();
+{
+  const counted = new Map();
+  for (const f of files) {
+    if (!f.endsWith('.vue') && !f.endsWith('.scss')) continue;
+    const relFile = path.relative(ROOT, f).split(path.sep).join('/');
+    const lines = readLines(f);
+    const text = lines.join('\n');
+    const btnClasses = buttonClasses(text);
+    // 逐个 style 块扫描（非 scoped 块同样要扫：弹层样式也挂在 a-button 上覆写配色）
+    let cursor = 0;
+    while (cursor < lines.length) {
+      const openIdx = lines.findIndex((ln, i) => i >= cursor && /^\s*<style\b/.test(ln));
+      if (openIdx < 0) break;
+      let closeIdx = openIdx + 1;
+      while (closeIdx < lines.length && !/^\s*<\/style>/.test(lines[closeIdx])) closeIdx++;
+      for (const r of colorRules(lines.slice(openIdx + 1, closeIdx), openIdx + 1)) {
+        const hitsBtn = /\.arco-btn[\w-]*/.test(r.selector) ||
+          [...btnClasses].some((c) => new RegExp(`\\.${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(r.selector));
+        if (!hitsBtn) continue;
+        const allow = BTN_COLOR_ALLOW.find((a) => a.file === relFile && r.selector.includes(a.marker));
+        if (allow) {
+          counted.set(allow, (counted.get(allow) || 0) + 1);
+          continue;
+        }
+        a18.add(f, r.line, `${r.selector} { ${r.props.join('; ')} }`);
+      }
+      cursor = closeIdx + 1;
+    }
+  }
+  // 登记表自证：登记数与实际命中数必须相等（同 16a / 17 的纪律）
+  for (const a of BTN_COLOR_ALLOW) {
+    const got = counted.get(a) || 0;
+    if (got !== a.expect) {
+      a18.add(path.join(ROOT, a.file), 0, `例外登记数不符：「${a.marker}」期望 ${a.expect} 处，实测 ${got} 处（理由：${a.why}）`);
+    }
+  }
+}
+
 // ---------- 输出 ----------
 const out = [
   render('1. 组件内裸颜色（token 禁令）', a1.items),
@@ -440,12 +557,13 @@ const out = [
   render('16b. 仅图标的 a-button 必须有 aria-label', a16b.items),
   render('16c. a-modal 必须有 role="dialog" + aria-modal', a16c.items),
   render('17. token 层的 Arco 内部态类覆写逐条登记（含行数核对）', STATE_UNREG.map((t) => ({ file: '—', line: 0, text: t }))),
+  render('18. a-button 配色不覆写（type/status + 色阶变量，例外带理由登记）', a18.items),
   `\n扫描 ${files.length} 个文件 · 规范依据 docs/zh/frontend.md §7.5`,
 ];
 
 console.log(out.join('\n'));
 
 const failed =
-  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c]
+  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18]
     .some((a) => a.items.length > 0) || STATE_UNREG.length > 0;
 process.exit(failed ? 1 : 0);

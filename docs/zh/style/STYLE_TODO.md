@@ -15,7 +15,7 @@
 node scripts/style-audit.cjs      # 或 pnpm style:audit
 ```
 
-13 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
+18 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
 
 1. 组件内裸颜色（token 禁令；`#fff`/`#1a1a1a` 仅限彩色按钮文字）
 2. 组件内裸字号（应走 `--fs-*`）
@@ -30,6 +30,11 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 11. 非 scoped 样式块（`<style>` 无 `scoped`）的顶层选择器必须含至少一个组件私有类——禁止只由 Arco 全局类名构成，防 popup 传送 body 后全局命中他处（§7.5.6）
 12. 不覆写 Arco 内部态类（`.arco-*-checked` / `-active` / `-selected` / `-disabled` / `-current` / `-dragging` / `-expanded`）——随 Arco 版本升级易碎，选中态改用 Arco 自带态或 `color` prop
 13. `a-progress` 的 `:percent` 必须传 **0–1 比值**——Arco `line.js` 按 `width: percent * 100 %` 渲染，传百分数（含 `* 100` 或 `Pct` 命名）会把进度条钉满，实测即「下载进度条与实际进度不一致」（#71）
+14. 动效声明走 `var(--dur-*)`——字面时长与 `infinite` 禁令（`--dur-ambient` 那档持续提示除外，见 §7.5.7 / #90）
+15. 层级走 `var(--z-*)`——`0` / `1` / `auto` 与元素内相对层放行（#90）
+16. 键盘可达与命名三条：**16a** 点击只挂 Arco 组件（非原生可点元素禁令）、**16b** 只有 `#icon` 的 `a-button` 必须有 `aria-label`（tooltip 不算名称）、**16c** `a-modal` 必须自带 `role="dialog"` + `aria-modal`（Arco 2.58 三样都不给，见 #84–#86）
+17. token 本体层（`styles/`）的 Arco 内部态类覆写逐条登记：`ARCO_STATE_ALLOW` 按 marker + **expect 行数**核对，登记数与实际命中数不符即红（#91）
+18. `a-button` 的配色不覆写：选择器命中「挂在 `<a-button>` 上的 class」或 `.arco-btn*` 且声明 `color` / `background` / `border` / `box-shadow` 即报，例外必须进 `BTN_COLOR_ALLOW` 带 `why` 与 `expect` 条数登记（成因＝scoped 规则 `[data-v-*]` 特异度冻结 hover 文字色，见 §7.5.1 / #93）
 
 ***
 
@@ -407,12 +412,23 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 
 
+### 93. 顶栏等十处按钮的 `color` 覆写把 hover 文字色冻住了（用户批注「现在这些按钮配色是否符合 arco 原生」）— 🟢 已修复（2026-10-07）
+
+- **位置**：`components/layout/TopBar.vue`（停止／重启／打开 Web UI 三条）、`pages/LogsPage.vue` 与 `pages/ServicePage.vue`（清空控制台）、`components/models/LocalModelsPanel.vue` 与 `components/presets/PresetsPanel.vue`（行内删除）、`components/common/DownloadCard.vue`（任务取消）、`components/service/TrashCleanCard.vue`（扫描按钮）、`components/settings/AboutPanel.vue`（仓库链接）——共 10 条 `color:` 覆写；另 `LocalModelsPanel.vue` 与 `pages/ParamsPage.vue` 各两条把 Arco `a-statistic` 的原生取值又抄了一遍。
+- **描述**：这 10 条是上一轮「角色色档」留下的——当时 Arco 的 `danger-6` 直接作文字只有 3.71，不达标，所以补覆写。后来达标改由**换 Arco 自己读的色阶变量**实现（`--danger-6/5/7`、`--warning-6/5/7` 已在 `body` 上换档），这 10 条的取值就等于库自己算出来的颜色，但它们并没有因此变得无害：scoped 规则编译后带 `[data-v-*]` 属性，特异度 (0,4,0) 高于 Arco 的 `.arco-btn-outline.arco-btn-status-danger:hover` (0,3,0)，于是**悬停时只有描边变深、文字被冻在基色**。真机实测（内置浏览器 `#/logs` 顶栏，鼠标真悬停）：浅色悬停描边 `rgb(161,21,30)` 而文字仍是 `rgb(203,39,45)`；深色悬停描边 `rgb(245,78,78)` 而文字仍是 `rgb(247,105,101)`。静置态两者相等，所以截图上看不出来，只有悬停那一刻状态反馈是假的。
+- **修复**：① 10 条覆写全删（默认态颜色零变化），hover／active 的文字色交回 Arco 按 `-5`／`-7` 档走；② 4 条 `a-statistic` 复述声明删除（逐条对照 `node_modules/@arco-design/web-vue/es/statistic/style/index.css`：`title` 原生即 `--color-text-2`、`value` 原生即 `--color-text-1`，与 `--fg-hint`／`text-1` 同值，属纯复述）；③ 新增门禁第 18 条 `BTN_COLOR_ALLOW`，把「按钮配色不覆写」做成可判对象——选择器命中挂在 `<a-button>` 上的 class 或 `.arco-btn*` 且声明 `color`／`background`／`border`／`box-shadow` 即报，例外必须带 `why` 与 `expect` 条数登记。④ **保留边界按「Arco 是否已把该值算出来」划，不按口味划**：按钮侧留 8 条（窗口铬 win-btn 2 + win-close 1、恒深底控制台胶囊 2、状态栏 `color: inherit` 2、弱化帮助图标 1）；Arco 节点上的非按钮覆写留 23 条（下载卡分页/推荐徽标/来源徽标/下拉分组标题/历史图标 5、侧栏焦点环 1、状态栏 `a-typography` 继承 1、模型下拉当前项 2、表格选中行 2 + 表头次级灰 1、命令预览恒深底 4、两处 `a-descriptions` 标签由原生 `text-3` 提到 `text-2` 达标 2、主题单选选中字色 1、参数页警示/占位统计值 + 变更标签 + 当前目标项 4）；`theme.scss` 状态栏 5 行钉色另由第 17 条登记。这些的共同点是 Arco 没有对应状态（当前模型、变更标记、恒深底）或原生取值不达 AA，删掉会改观感或改可读性，因此登记而不是删除。
+- **修复效果验证**：`node scripts/style-audit.cjs` 18 条全绿（45 文件）。真机复测（文字＝描边才算原生）：浅色静置 203,39,45 对 203,39,45、浅色悬停 161,21,30 对 161,21,30、深色静置 247,105,101 对 247,105,101、深色悬停 245,78,78 对 245,78,78，「打开 Web UI」浅 22,93,255／深 104,159,255 均由 Arco 自己算出。**删除实验两组**：把一条覆写原样贴回 `TopBar.vue` ⇒ 第 18 条报出该选择器；把 `BTN_COLOR_ALLOW` 里 `.win-btn` 的 `expect` 由 2 写成 3 ⇒ 第 18 条报「例外登记数不符」且退出码 1（两组还原后转绿）。静态清点（scoped 配色规则覆写 Arco 节点）命中由 50 降到 36，减少的 14 条＝10 覆写 + 4 复述。既有 `e2e/web/narrow-viewport.spec.ts` 与 `semantics.spec.ts` 对 `.tb-stop` 只钉几何与可达性、未钉颜色，复跑未转红。规范落点：[frontend.md §7.5.1](../frontend.md)（新增「连只改文字色也不能写」一条）与 §7.5.8 新检查项。
+
+
+
+
 ## 🟢 已修复索引
 
 完整的问题描述 / 修复方案 / 验证证据见 [已修复归档](../../archive/style-todo-resolved.md)（只读留档）；修复后的规范落点见 [frontend.md §7.5](../frontend.md)。
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 93 | 十处按钮的 `color` 覆写冻结了 hover 文字色（scoped `[data-v-*]` 特异度 (0,4,0) 压过 Arco 的 `:hover` (0,3,0)，实测浅色悬停描边 161,21,30 而文字仍 203,39,45）：10 条覆写与 4 条 `a-statistic` 复述声明全删，hover／active 交回库按 `-5`／`-7` 档算，默认态颜色零变化；新增门禁第 18 条 `BTN_COLOR_ALLOW`（8 条按钮侧例外带理由与条数登记，另 23 条非按钮 Arco 节点覆写在 #93 里逐族登记），两组删除实验（贴回一条 ⇒ 红、`expect` 改 3 ⇒ 红且退出码 1） | 2026-10-07 |
 | 92 | 无标题层级／`main` 地标重复／状态变化不播报：`PageFrame` 由 `a-layout-content` 改普通 `div`（全站只剩外壳那一个 `main`，不用 `role="none"` 遮罩）、`PageHost` 单点渲染 sr-only `<h1>`（文本取 `features` 注册表页名，与侧栏同源）、卡片小节标题改真 `<h2>`（`margin: 0; font: inherit` 继承 Arco 卡片头 16px／500）、概览状态行 `a-space` 透传 `aria-live="polite"` 不新包元素；新增 `e2e/web/semantics.spec.ts` 8 条含 6 组删除实验，六页骨架几何改前后逐项相等 | 2026-10-07 |
 | 91 | `style-audit` 扫描盲区与空转的 allowList：`SCAN_DIRS` 纳入 `styles/`（token 本体层只豁免第 1/2/3/9/10 条）、新增第 17 条按 marker 加 expect 行数登记内部态类覆写、`readLines()` 抹平块注释正文修掉尺子自身的假阳性；17 条全绿并配三组删除实验 | 2026-10-07 |
 | 90 | 动效规范自相矛盾：拆「交互反馈 fast/med ≤0.3s」与「环境提示 `--dur-ambient` 可 infinite」两档，Card 的 0.15s 与胶囊的 2s 字面值收进 token，`PageHost` 的 WAAPI 淡入改 CSS 关键帧（消灭 setup 期 `matchMedia` 快照），新增门禁第 14、15 条 | 2026-10-07 |

@@ -343,12 +343,6 @@ onActivated(() => { void onRefreshList(); });
   gap: 6px;
 }
 
-/* 行内「删除」danger 按钮文字取角色色（Arco danger-6 作文字压 red-1 底实测 3.25，不达 §7.5.8 的
-   4.5）；底与边仍由 Arco 承载，禁用态保留 Arco 观感 */
-.col-actions .row-danger:not([disabled]) {
-  color: var(--fg-danger-text);
-}
-
 .empty {
   padding: 20px;
 }

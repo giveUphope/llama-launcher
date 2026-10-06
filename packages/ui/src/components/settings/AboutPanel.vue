@@ -80,8 +80,4 @@ async function onOpenUrl(url: string) {
     color: var(--fg-hint);
   }
 }
-
-.about-link:not([disabled]) {
-  color: var(--fg-accent);
-}
 </style>

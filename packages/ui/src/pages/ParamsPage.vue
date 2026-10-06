@@ -413,7 +413,6 @@ async function onClearSession() {
 
   :deep(.arco-statistic-title) {
     font-size: var(--fs-xs);
-    color: var(--fg-hint);
     line-height: 1.3;
     margin: 0 6px 0 0; // title 与 value 间距 6px
   }
@@ -421,7 +420,6 @@ async function onClearSession() {
   :deep(.arco-statistic-value) {
     font-size: var(--fs-lg);
     font-weight: 700;
-    color: var(--color-text-1);
     font-family: var(--font-mono);
     line-height: 1.3;
     // 「已调整」0 → 12 → 64 的位数变化会撑宽统计块、把后面的分隔线与相邻 stat 顶开：
