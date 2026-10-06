@@ -8,6 +8,7 @@ import type {
   ModelScopeSearchResult, ModelScopeFileListResult,
   DownloadProgressPayload, DownloadCompletePayload,
   TargetRecommendation,
+  DeviceMemInfo, HardwareOccupancy, OccupancySide, PerfTarget, VramEstimateResult,
   ServerStatus, ServerStatusEvent, ServerStopInfo,
   PresetValues, PropsCheck,
 } from '@llama-launcher/shared';
@@ -147,6 +148,229 @@ function pushAppLog(entry: AppLogEntry) {
   return n;
 };
 
+// ---- 权重落位 / 减负建议演示现场（docs/zh/params-system.md §5.6 第 2、3 项）----
+/**
+ * 为什么要有这一段：这两行是本轮新加的呈现，mock 造不出对应数据形态就等于**没人目测过**，
+ * e2e 也没有判据可钉（真后端只在「权重真的超出空闲显存」时才发减负条目，本机那块 24 GB 卡
+ * 跑演示模型全都装得下，现场演示不出来）。
+ *
+ * 每个现场都是**手抄的 core 快照**，字段严格取 `shared/src/types/vram.ts` 的 VramEstimateResult
+ * （用 `satisfies` 钉住，字段名/形状与后端不一致时 vue-tsc 直接报错——本仓库有过 mock 自造字段
+ *  导致徽章样式全失配的先例，别再犯第二遍）。
+ * 数字按 core `estimateOccupancy` / `recommendOffloadAdvice` 的算式在纸面算好后写死，**不在 mock 里
+ * 重算**：占用模型与「装不下该改哪个参数」这条判据一旦在 mock 里有第二份，core 改了 mock 不动，
+ * 目测与 e2e 验的就不是真实行为。
+ *
+ * 切换方式（两条，等价）：
+ *   - URL 参数：`/?hw=all-vram|split|all-ram|relief|relief-off|silent`（整页重载，e2e 用这条）
+ *   - 控制台钩子：`__mockVramScene('relief')`，返回切换后的现场名。改完**不会立刻**刷新界面——
+ *     hardware store 只在页面重新可见时取数（§7.1 铁律①），切到别的页再切回来即可看到新现场。
+ *     既有范式：globalThis.__mockExternalServer / __mockPushAppLog。
+ *
+ * 快照口径：会话 `-ctk q8_0` / `-c 4096`（KV = 2×64 层×8 头×128 维×1 B/token = 131072 B/token
+ * ⇒ 4096 token 正好 512 MiB）。**改滑块不会让这几行联动**——mock 是静态快照，真实侧才会跟着
+ * 会话值重算；目测只需看形状与几何，数值联动由 core 侧单测负责。
+ */
+type HwScene = 'all-vram' | 'split' | 'all-ram' | 'relief' | 'relief-off' | 'silent';
+
+const HW_SCENES: readonly HwScene[] = ['all-vram', 'split', 'all-ram', 'relief', 'relief-off', 'silent'];
+
+/**
+ * 默认现场取 split：落位行「有权重落在内存侧」这一态才是本轮特性的主场景，
+ * 默认就该看得见，而不是只在带参 URL 上出现（silent 留给几何判据当「无声」参照）。
+ */
+const DEFAULT_HW_SCENE: HwScene = 'split';
+
+const isHwScene = (v: unknown): v is HwScene =>
+  typeof v === 'string' && (HW_SCENES as readonly string[]).includes(v);
+
+function initialHwScene(): HwScene {
+  try {
+    const raw = new URLSearchParams(window.location.search).get('hw');
+    return isHwScene(raw) ? raw : DEFAULT_HW_SCENE;
+  } catch {
+    return DEFAULT_HW_SCENE;
+  }
+}
+
+let hwScene: HwScene = initialHwScene();
+
+(globalThis as unknown as { __mockVramScene?: (scene?: string) => string }).__mockVramScene = (scene) => {
+  if (scene === undefined) return hwScene;
+  if (!isHwScene(scene)) {
+    // i18n-ignore 控制台诊断，不进界面
+    console.warn(`[demo-mock] unknown hw scene "${String(scene)}", expected one of: ${HW_SCENES.join(' | ')}`);
+    return hwScene;
+  }
+  hwScene = scene;
+  return hwScene;
+};
+
+/** 减负/落位两行在服务 running 时按设计闭嘴（ServiceStatusCard 的 reliefActive 闸门），
+ *  「还没跑就看出装不下」这一现场必须把服务初始化为已停止才演示得出来。 */
+const hwSceneNeedsStoppedServer = (scene: HwScene): boolean => scene === 'relief' || scene === 'relief-off';
+
+/** 本机 `llama-server --list-devices` 实测值（不要改成「好看的整数」，徽章/落位文案都取这里的名字） */
+const HW_VULKAN0: DeviceMemInfo = { id: 'Vulkan0', name: 'AMD Radeon RX 7900 XTX', totalMiB: 24560, freeMiB: 21975 };
+const HW_VULKAN1: DeviceMemInfo = { id: 'Vulkan1', name: 'AMD Radeon(TM) Graphics', totalMiB: 16225, freeMiB: 15413 };
+const HW_DEVICES_SINGLE: DeviceMemInfo[] = [HW_VULKAN0];
+const HW_DEVICES_DUAL: DeviceMemInfo[] = [HW_VULKAN0, HW_VULKAN1];
+
+/** 系统内存侧（演示机 32 GiB / 可用约 21 GiB） */
+const HW_RAM_TOTAL_MIB = 32768;
+const HW_RAM_FREE_MIB = 21000;
+/** core vram-estimate 的同名常量，只为让快照的 totalMiB 与 fits 自洽（不参与任何判据推导） */
+const HW_COMPUTE_RESERVE_MIB = 1024;
+const HW_RAM_OVERHEAD_MIB = 512;
+
+/** 单侧占用：totalMiB/fits 由已给的三项相加得出，与 core OccupancySide 同形 */
+function hwSide(weightsMiB: number, kvMiB: number, reserveMiB: number, capacityMiB: number, availableMiB: number): OccupancySide {
+  const totalMiB = weightsMiB + kvMiB + reserveMiB;
+  return { weightsMiB, kvMiB, reserveMiB, totalMiB, capacityMiB, availableMiB, fits: totalMiB <= availableMiB };
+}
+
+/** 双侧占用：offloadLayers/totalLayers 只作展示回填，权重与 KV 的分配数已按 core 口径算好写死 */
+function hwOccupancy(
+  vram: OccupancySide,
+  ram: OccupancySide,
+  contextTokens: number,
+  offloadLayers: number,
+  totalLayers: number,
+  maxContext: number,
+): HardwareOccupancy {
+  return { vram, ram, contextTokens, offloadLayers, totalLayers, maxContext };
+}
+
+/**
+ * core recommendOffloadAdvice 在 relief 现场会发的四条（出单顺序即杠杆强弱：-cmoe → -ngl → -dev → -ts；
+ * 状态卡只放前两条，档位所限，见 ServiceStatusCard reliefShown）。
+ * 数值来源：演示的这份 27 GiB 权重在 21975 MiB 空闲显存上放不下
+ *   -ngl 48  = floor((21975 − 1024) / (27648 / 64))（每层 432 MiB）
+ *   -ts 21,15 = 两块卡空闲显存各取整 GiB（round(21975/1024)=21、round(15413/1024)=15）
+ */
+const HW_RELIEF_RECS: TargetRecommendation[] = [
+  { key: 'cpu_moe', value: true, reasonKey: 'offload_rec_cmoe', offloadRelief: true },
+  { key: 'gpu_layers', value: 48, reasonKey: 'offload_rec_ngl', reasonArgs: [48, 64], offloadRelief: true },
+  { key: 'device', value: 'Vulkan0', reasonKey: 'offload_rec_device', reasonArgs: ['Vulkan0'], offloadRelief: true },
+  { key: 'tensor_split', value: '21,15', reasonKey: 'offload_rec_split', reasonArgs: ['21,15'], offloadRelief: true },
+];
+
+interface HwSceneData {
+  devices: DeviceMemInfo[];
+  weightsMiB: number | null;
+  kvLayers: number | null;
+  kvBytesPerToken: number | null;
+  maxContext: number | null;
+  fullOffloadFits: boolean | null;
+  occupancy: HardwareOccupancy | null;
+  /** 减负条目：relief 发、relief-off **故意不发**（这条现场专门用来验「core 没发条目时界面必须闭嘴」） */
+  relief: TargetRecommendation[];
+  probeError: string | null;
+}
+
+/**
+ * 现场速查（权重 MiB / 卸载层 / 显存侧 权重·KV·合计·空闲·装得下 / 内存侧 权重·KV·合计）：
+ *   all-vram   19931.79  64/64  19931.79 · 512 · 21467.79 · 21975 · 是   |   0 · 0 · 512
+ *   split      19931.79  40/64  12457.37 · 320 · 13801.37 · 21975 · 是   |   7474.42 · 192 · 8178.42
+ *   all-ram    19931.79   0/64  0 · 0 · 1024 · 21975 · 是                |   19931.79 · 512 · 20955.79
+ *   relief     27648     48/64  20736 · 384 · 22144 · 21975 · **否**     |   6912 · 128 · 7552
+ *   relief-off 与 relief 完全同形，只是 recommendations 里没有 offloadRelief 条目
+ *   silent     没探到设备（occupancy null、无任何建议），两行都必须闭嘴
+ *
+ * relief 为什么换一份 27 GiB 的权重：演示目录里最大的文件是 19.5 GiB，在这块 24 GB 卡上**装得下**，
+ * 造不出「装不下」的现场。KV 沿用同一份 64 层配置（这两行只消费权重与卸载层）。
+ */
+const HW_SCENE_DATA: Record<HwScene, HwSceneData> = {
+  'all-vram': {
+    devices: HW_DEVICES_SINGLE,
+    weightsMiB: 19931.79,
+    kvLayers: 64,
+    kvBytesPerToken: 131072,
+    maxContext: 8192,
+    fullOffloadFits: true,
+    occupancy: hwOccupancy(
+      hwSide(19931.79, 512, HW_COMPUTE_RESERVE_MIB, HW_VULKAN0.totalMiB, HW_VULKAN0.freeMiB),
+      hwSide(0, 0, HW_RAM_OVERHEAD_MIB, HW_RAM_TOTAL_MIB, HW_RAM_FREE_MIB),
+      4096, 64, 64, 8192,
+    ),
+    relief: [],
+    probeError: null,
+  },
+  split: {
+    devices: HW_DEVICES_SINGLE,
+    weightsMiB: 19931.79,
+    kvLayers: 64,
+    kvBytesPerToken: 131072,
+    maxContext: 8192,
+    fullOffloadFits: true,
+    occupancy: hwOccupancy(
+      hwSide(12457.37, 320, HW_COMPUTE_RESERVE_MIB, HW_VULKAN0.totalMiB, HW_VULKAN0.freeMiB),
+      hwSide(7474.42, 192, HW_RAM_OVERHEAD_MIB, HW_RAM_TOTAL_MIB, HW_RAM_FREE_MIB),
+      4096, 40, 64, 8192,
+    ),
+    relief: [],
+    probeError: null,
+  },
+  'all-ram': {
+    devices: HW_DEVICES_SINGLE,
+    weightsMiB: 19931.79,
+    kvLayers: 64,
+    kvBytesPerToken: 131072,
+    maxContext: 8192,
+    fullOffloadFits: true,
+    occupancy: hwOccupancy(
+      hwSide(0, 0, HW_COMPUTE_RESERVE_MIB, HW_VULKAN0.totalMiB, HW_VULKAN0.freeMiB),
+      hwSide(19931.79, 512, HW_RAM_OVERHEAD_MIB, HW_RAM_TOTAL_MIB, HW_RAM_FREE_MIB),
+      4096, 0, 64, 8192,
+    ),
+    relief: [],
+    probeError: null,
+  },
+  relief: {
+    devices: HW_DEVICES_DUAL,
+    weightsMiB: 27648,
+    kvLayers: 64,
+    kvBytesPerToken: 131072,
+    maxContext: 0,
+    fullOffloadFits: false,
+    occupancy: hwOccupancy(
+      hwSide(20736, 384, HW_COMPUTE_RESERVE_MIB, HW_VULKAN0.totalMiB, HW_VULKAN0.freeMiB),
+      hwSide(6912, 128, HW_RAM_OVERHEAD_MIB, HW_RAM_TOTAL_MIB, HW_RAM_FREE_MIB),
+      4096, 48, 64, 0,
+    ),
+    relief: HW_RELIEF_RECS,
+    probeError: null,
+  },
+  'relief-off': {
+    devices: HW_DEVICES_DUAL,
+    weightsMiB: 27648,
+    kvLayers: 64,
+    kvBytesPerToken: 131072,
+    maxContext: 0,
+    fullOffloadFits: false,
+    occupancy: hwOccupancy(
+      hwSide(20736, 384, HW_COMPUTE_RESERVE_MIB, HW_VULKAN0.totalMiB, HW_VULKAN0.freeMiB),
+      hwSide(6912, 128, HW_RAM_OVERHEAD_MIB, HW_RAM_TOTAL_MIB, HW_RAM_FREE_MIB),
+      4096, 48, 64, 0,
+    ),
+    // 与 relief 唯一差别就在这条空数组：占用照样是「显存装不下」的形状。
+    // 界面若在这里还能冒出建议按钮，说明它在自己算「装不下」（第二套判据）。
+    relief: [],
+    probeError: null,
+  },
+  silent: {
+    devices: [],
+    weightsMiB: null,
+    kvLayers: null,
+    kvBytesPerToken: null,
+    maxContext: null,
+    fullOffloadFits: null,
+    occupancy: null,
+    relief: [],
+    probeError: 'llama-server --list-devices returned no compute devices',
+  },
+};
+
 // ---- 服务输出模拟（服务页控制台） ----
 const LLAMA_LINES: string[] = [
   'ggml_cuda_init: found 1 CUDA device: NVIDIA GeForce RTX 4090',
@@ -166,11 +390,15 @@ export function createDemoApi() {
   const serverOutputs: OutputEntry[] = [];
   const outputCbs: Array<(entries: OutputEntry[]) => void> = [];
   const statusCbs: Array<(e: ServerStatusEvent) => void> = [];
-  let serverStatus: ServerStatus = 'running';
+  // 初始状态跟随 hw 现场：relief / relief-off 演示的是「还没跑就看出装不下」，
+  // 而减负行在服务 running 时按设计闭嘴（引擎已把这份模型装起来了，此刻喊装不下自相矛盾），
+  // 所以这两个现场必须从「已停止」起步，否则概览卡上看不到那行——详见 HW 现场一节。
+  const demoInitialStatus: ServerStatus = hwSceneNeedsStoppedServer(hwScene) ? 'stopped' : 'running';
+  let serverStatus: ServerStatus = demoInitialStatus;
   // 与 core 同语义的「本轮就绪时刻」：首次 running 记下、进程真死才归零（stopping 保留）。
   // mock 不给这个字段的话，演示页的运行时长永远是 0，界面上看不出这条修复。
-  // 初值取 42 秒前，纯演示数据。
-  let readyAtMs: number | null = Date.now() - 42_000;
+  // 初值取 42 秒前，纯演示数据；停止态现场没有就绪时刻可给（给了就是谎报运行时长）。
+  let readyAtMs: number | null = demoInitialStatus === 'running' ? Date.now() - 42_000 : null;
   // 与 core Launcher 同形状：状态与「停止事实」合成一条事件下发（渲染层据此区分 stopped/failed/crashed）
   let lastStop: ServerStopInfo | null = null;
   function emitStatus(s: ServerStatus, stop: ServerStopInfo | null = null): void {
@@ -400,7 +628,7 @@ export function createDemoApi() {
         const snap = runningValuesSnapshot ? { ...runningValuesSnapshot } : null;
         // 演示路径用「预览卡刚传进来的当前值」当在跑的值；真实快照语义不动
         const check = demoPropsCheck(snap ?? lastSeenValues);
-        return Promise.resolve({ status: serverStatus, pid: 23508, host: '127.0.0.1', port: 8080, url: serverStatus === 'running' ? 'http://127.0.0.1:8080' : '', readyAt: readyAtMs, values: snap, stop: lastStop, envOverrides: demoEnvOverrides(check), propsCheck: check });
+        return Promise.resolve({ status: serverStatus, pid: serverStatus === 'running' || serverStatus === 'starting' ? 23508 : null, host: '127.0.0.1', port: 8080, url: serverStatus === 'running' ? 'http://127.0.0.1:8080' : '', readyAt: readyAtMs, values: snap, stop: lastStop, envOverrides: demoEnvOverrides(check), propsCheck: check });
       },
       // 与真实侧同一发射规则：apps/desktop 的 SERVER_PREVIEW 走 core 的 previewCommand，
       // 那里只多一层 exe 存在性校验（浏览器没有文件系统），argv 本身两边共用 shared 的实现。
@@ -457,12 +685,13 @@ export function createDemoApi() {
       cleanTrash: () => Promise.resolve({ cleanedCount: 0, freedBytes: 0 } as never),
       listDir: () => Promise.resolve({ path: null, parent: null, entries: [], exists: true }),
       mkdir: () => Promise.resolve(true),
-      // 显存估算演示数据：7900 XTX 空闲 23.2GB，权重 19.5GB；演示会话 ctx 32768（f16 KV ≈ 8 GiB）
-      // → 显存总占用 28.5 GiB 超出空闲 → fits false（演示超限警示场景）；
-      // occupancy 与 core estimateOccupancy 输出同构；目标建议与 core solveMaxContext 规则同构
-      //（无固定封顶：ctx = 各目标 dtype 下显存(+内存联合)预算内的无 OOM 最大值）
+      /**
+       * 显存/落位估算演示：返回 HW_SCENE_DATA[hwScene] 那份 core 快照（现场切换见本节开头的说明）。
+       * 目标建议部分仍按 target 四档给（参数页的目标选择器要用），减负条目只在 relief 现场发，
+       * 并沿用 core 的去重规则——同 key 已有目标建议时不再补一条（`-ngl` 是重灾区）。
+       */
       estimateVram: (_modelPath: string, dtype?: string, target?: string, _occ?: { ngl?: string; ctxSize?: number }) => {
-        const t = target ?? 'balanced';
+        const t = (target ?? 'balanced') as PerfTarget;
         const kv: Record<string, string> = { 'max-context': 'q8_0', balanced: 'q8_0', latency: 'f16', memory: 'q4_0' };
         // max-context：联合显存+内存预算（部分卸载 ngl 59/64 换上下文）推到训练上限；其余全卸载预算
         const ctx: Record<string, number> = { 'max-context': 32768, balanced: 20480, latency: 10240, memory: 32768 };
@@ -476,37 +705,29 @@ export function createDemoApi() {
         if (t === 'max-context') {
           recs.push({ key: 'gpu_layers', value: 59, reasonKey: 'target_rec_layers', reasonArgs: [59, 64] });
         }
+        const scene = HW_SCENE_DATA[hwScene];
+        for (const relief of scene.relief) {
+          if (!recs.some((r) => r.key === relief.key)) recs.push(relief);
+        }
         return Promise.resolve({
-          devices: [{ id: 'Vulkan0', name: 'AMD Radeon RX 7900 XTX', totalMiB: 24560, freeMiB: 23749 }],
-          weightsMiB: 19968,
-          kvLayers: 64,
-          kvBytesPerToken: 139264,
-          maxContext: 20480,
-          fullOffloadFits: true,
+          devices: scene.devices,
+          weightsMiB: scene.weightsMiB,
+          kvLayers: scene.kvLayers,
+          kvBytesPerToken: scene.kvBytesPerToken,
+          maxContext: scene.maxContext,
+          fullOffloadFits: scene.fullOffloadFits,
           dtype: dtype ?? 'q8_0',
           target: t,
           recommendations: recs,
-          occupancy: {
-            vram: {
-              weightsMiB: 19968, kvMiB: 8192, reserveMiB: 1024, totalMiB: 29184,
-              capacityMiB: 24560, availableMiB: 23749, fits: false,
-            },
-            ram: {
-              weightsMiB: 0, kvMiB: 0, reserveMiB: 512, totalMiB: 512,
-              capacityMiB: 32768, availableMiB: 21000, fits: true,
-            },
-            contextTokens: 32768,
-            offloadLayers: 64,
-            totalLayers: 64,
-            maxContext: 20480,
-          },
-        });
+          occupancy: scene.occupancy,
+          probeError: scene.probeError,
+        } satisfies VramEstimateResult);
       },
       // 显存适配徽章演示：19.5GB 主模型 → fit；>24GB（总显存）→ no
       estimateModelFit: (paths: string[], dtype?: string) => {
         const out: Record<string, { verdict: 'fit' | 'partial' | 'no' | null; maxContext: number | null; weightsMiB: number | null; dtype: string }> = {};
         for (const p of paths) {
-          out[p] = { verdict: 'fit', maxContext: 20480, weightsMiB: 19968, dtype: dtype ?? 'q8_0' };
+          out[p] = { verdict: 'fit', maxContext: 8192, weightsMiB: 19931.79, dtype: dtype ?? 'q8_0' };
         }
         return Promise.resolve(out);
       },

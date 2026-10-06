@@ -416,7 +416,7 @@ function onApplyRelief(key: string, value: string | number | boolean) {
           <a-button size="mini" @click="onOomHalveCtx">{{ i18n.t('act_oom_halve_ctx') }}</a-button>
           <a-button size="mini" @click="onOomKvQuant">{{ i18n.t('act_oom_kv_quant') }}</a-button>
         </div>
-        <div v-else-if="reliefActive" class="oom-hint">
+        <div v-else-if="reliefActive" class="oom-hint oom-hint--relief">
           <span class="oom-text" :title="i18n.t('msg_offload_advice')">{{ i18n.t('msg_offload_advice') }}</span>
           <a-button
             v-for="line in reliefShown"
