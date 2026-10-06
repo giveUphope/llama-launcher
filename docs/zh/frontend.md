@@ -65,13 +65,13 @@
 
 | 组件 | 用途 |
 |------|------|
-| `PageFrame` | 基于 Arco `LayoutContent` 的统一页面容器 |
+| `PageFrame` | 统一页面容器，**普通 `div`**（2026-10-07 起不再基于 Arco `LayoutContent`）：`a-layout-content` 渲染成 `<main>`，而外壳 `.app-content` 已是全站唯一的那一个地标，套两层就是 `main > main`（模型页把 PageFrame 套了两层，改前实测三个 main）；Arco 那一层只给 `flex: 1`，容器自己写全 `flex: 1 1 0%`，摘掉不缺任何东西——#82 的三层骨架链一字未动（STYLE_TODO #92） |
 | `ConsolePanel` | 控制台面板（2026-10-07 单点实现，日志页与服务页共用，取代此前两页各写一份且已漂移的外壳）：外层 `.console-frame`（`position: relative` + flex 列，**本体不写高度**——弹性档由页面给 `.console-fill`、定高档给 `.console-fixed`）+ 滚动盒 `.console`（`padding: 8px 12px`、`line-height: 1.55`、`--font-mono`、`--fs-base`、恒深底 `--console-bg`）+ 统一「有新日志」胶囊（`a-button` text/mini 基座、带边框、`pulse-glow var(--dur-ambient)` 只动 opacity、`z-index: var(--z-chrome)`）+ 级别色取 `--log-kind-*`；滚动行为由 `useAutoScroll` 承担，**行渲染仍归各页默认插槽**（日志页三段式与服务页单段不强行合并模板） |
-| `Card` | 基于 Arco `Card` 的标题、内容与 actions 容器 |
+| `Card` | 基于 Arco `Card` 的标题、内容与 actions 容器：卡片小节标题渲染成真的 `<h2>`（非折叠卡 `<h2>` 承载文字，折叠卡是 `<h2>` 包 `a-button` 的手风琴写法），字号字重行高继承 Arco 卡片头自己的声明，不另造一档（STYLE_TODO #92，见 §7.5.7） |
 | `Icon` | Arco 图标适配器，维持业务图标名称映射 |
 | `ToolTip` | Arco `Tooltip` 适配器 |
 | `StatusTag` | 状态标签（状态点 + 文字，ok/warn/error/idle/loading 变体） |
-| `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签 / 当前模型 / API 地址（boxed 值盒 `a-descriptions` + 复制按钮；地址下方常驻**端点暴露提示** `sec_open_endpoint_hint`，仅在「未设 API key 且 `--cors-origins` 为 `*`」时出现——引擎只在启动日志打一行 security 告警，滚过就没人再看见）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ **OOM 归因与缓解动作**（`status === 'error'` 且 server store 入队时标记到 `oomDetected`（扫最近 300 行）才出现，两个动作钮：「上下文减半」`onOomHalveCtx` 取当前 `-c`（为 0 时按模型训练上限折算）的一半、按 1024 粒度、下限 4096；「KV 量化」`onOomKvQuant` 同时置 `-fa on` + `cache_type_k/v = q8_0`（量化 KV 依赖 Flash Attention）；估算模型答「能开多大」，此处答「失败了怎么救」）/ 快捷操作（打开 Web UI·管理模型） |
+| `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签（状态行 `a-space` 自身透传 `aria-live="polite"`，启动中 / 运行中 / 未运行 / 启动失败 / 异常退出 每一变都对读屏出声，见 §7.5.7）/ 当前模型 / API 地址（boxed 值盒 `a-descriptions` + 复制按钮；地址下方常驻**端点暴露提示** `sec_open_endpoint_hint`，仅在「未设 API key 且 `--cors-origins` 为 `*`」时出现——引擎只在启动日志打一行 security 告警，滚过就没人再看见）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ **OOM 归因与缓解动作**（`status === 'error'` 且 server store 入队时标记到 `oomDetected`（扫最近 300 行）才出现，两个动作钮：「上下文减半」`onOomHalveCtx` 取当前 `-c`（为 0 时按模型训练上限折算）的一半、按 1024 粒度、下限 4096；「KV 量化」`onOomKvQuant` 同时置 `-fa on` + `cache_type_k/v = q8_0`（量化 KV 依赖 Flash Attention）；估算模型答「能开多大」，此处答「失败了怎么救」）/ 快捷操作（打开 Web UI·管理模型） |
 | `AppLogo` | 应用 Logo 统一组件（见 §7.5.7） |
 | `ModelMetaCard` | 模型元数据展示（A 类识别摘要 + B/D 类详情**常驻完整展示**，dashed 次级分隔；无收起/展开开关） |
 | `DownloadCard` | 下载功能卡片（`mode: 'library' \| 'tasks'` 双模式：URL 解析/搜索/文件选择/任务列表；推荐文件只作徽标/高亮/排序提示、**不自动勾选**，下载由用户主动勾选触发；提交下载走 `enqueueFiles`：Store 去重 + 本地同名检测 + 后端 ID 回填；URL 会话历史存 `useUrlHistory` 模块级单例，跨子标签 `v-if` 重建保留） |
@@ -215,6 +215,7 @@
 - **模型别名派生**（2026-08-29）：`set(MODEL_KEY)` 时自动派生 `alias` 参数 = 模型文件名去 `.gguf` 后缀（`modelBaseName`，shared），命令构建自动携带 `-a/--alias`（API 侧模型名不带扩展名）；换模型跟随更新、预设携带模型但未存别名时补派生；界面「当前模型」显示（概览状态卡/状态栏）别名优先，回退为去后缀文件名。
 - **应用 Logo 统一**（2026-08-29，见 STYLE_TODO #29）：所有出现位置使用 `AppLogo` 组件（`components/common/AppLogo.vue`，`size` prop 指定边长）——同一 svg 资源（`assets/app-icon.svg`，与打包/任务栏图标同源）、统一胶囊圆角（`--radius-pill`）；出现位置：TopBar（20px）、设置-关于品牌头（40px + 应用名 + 版本）、浏览器标签 favicon（index.html `link rel="icon"` 同源）。新增 Logo 出现位置时必须复用该组件，禁止直接 `import app-icon.svg` 或 `<img>` 散写。
 - **API 地址语义收敛到 server store 单一来源**（2026-08-31）：界面一切「API 地址」展示/复制只取 `server.apiUrl`，**禁止页面各自从 `server.url`/`host`/`port` 就地派生**。store 内 `apiUrl` 与真实服务状态绑定——`running` 返回 `url`（为空时回退 `http://host:port`）、`starting` 返回推导地址、`stopped` 返回**空串**。原因：`onStatus` 事件只更新 `status` 不刷新 `url`，停止后 `server.url` 仍残留上次启动的地址，页面直接读 `url` 会显示已失效的旧 URL。显示层对空值统一以占位符（`—`/`status_stopped`）呈现，标签位与复制按钮常驻（无值时 `disabled`），保证运行前后行结构零跳动。当前消费方：概览服务状态卡（`ServiceStatusCard`）、状态栏（URL 可点复制，停止后整条消失）、WebUiFrame（iframe src，保留自身 `running` 门控作双保险）。新增任何 API 地址展示点必须复用 `server.apiUrl`。
+- **文档语义骨架（2026-10-07，STYLE_TODO #92）**：① **全站只有一个 `main` 地标**——`AppLayout` 的 `.app-content` 就是它，页面根 `PageFrame` 必须是普通 `div`（Arco 的 `a-layout-content` 渲染成 `<main>`，再套一层就是 `main > main`，模型页嵌套两层时实测三个；给内层加 `role="none"` 只是遮罩，不解决「地标到底哪个是真」，故删层而不遮层）。② **每页恰好一个 `<h1>`**，由 `PageHost` 单点渲染：元素用 Arco `a-typography-title :heading="1"`，文本取 `features` 注册表里该路由的 `nav.labelKey`（与侧栏页名同源，七页不再各写一份标题，新增页结构上漏不掉）。页名本来就只出现在侧栏，页面里没有一个可见大字标题，所以这是一个 **sr-only 标题**——`position: absolute` + 1×1 + `overflow: hidden` + `clip-path: inset(50%)`（就地写在 `PageHost.vue`，`theme.scss` 不为此开全局工具类）；**不得用 `display:none` / `visibility:hidden`**，那样读屏也一并读不到。它挂在 `.page-host` **外面**而不是里面：`.page-host > *` 是四份 e2e 共用的「异步页面组件已挂载」就绪门禁，标题（同步渲染）插进去会让门禁第一次就命中它而空转。③ **卡片小节标题是 `<h2>`**（`Card.vue` 单点）：非折叠卡 `<h2>` 承载标题文字，折叠卡用 `<h2>` 包 `a-button`（WAI-ARIA APG 手风琴写法——标题包按钮；反过来把 `role="heading"` 塞进按钮会吃掉按钮语义）。字号字重行高**继承 Arco 卡片头自己的声明**（`margin: 0; font: inherit`，实测 16px / 500 / 1.5715），不另造一档标题字号（Arco `a-typography-title` 的 h2 档是 32px，用在卡片头就是改版）；改前后 5 页 22 张卡片的 header / title / 首个内容盒逐项同几何。④ **状态变化要出声**：概览状态卡的状态行 `a-space` 直接透传 `aria-live="polite"`（Arco Space 没关 `inheritAttrs`，属性落进它渲染的那个 `div`），**不新包元素**——判据要求 live 根与状态行是同一个节点，包一层就是第二套几何（卡片高度与槽位常驻是 #81/#82 的硬判据）。「启动失败 / 异常退出」这两态的文字已由 `ServerStatusEvent.stop` 带下来，播报只是同一条状态文字发生变化，**不新开 IPC 通道、不在渲染层新增定时器**。判据与删除实验：`e2e/web/semantics.spec.ts`。
 - **禁止**：组件内 `style="color:#..."` 内联色值（动态状态色如 StatusBar 状态点除外）；非 token 的裸 `rgba(...)` 阴影/背景；逐行/逐列表项 backdrop-filter。
 
 #### 7.5.8 一致性检查清单（改动 UI 前对照）
@@ -234,4 +235,6 @@
 - [ ] 动画只动 transform/opacity，时长按类别取 token（交互反馈 `--dur-fast`/`--dur-med` 且 ≤0.3s；环境提示 `--dur-ambient`），`prefers-reduced-motion` 下由 `reset.scss` 统一关闭
 - [ ] **键盘可达与命名**：每个页面都有键盘入口（侧栏 `a-menu-item` 带 `role="link"` + `tabindex` + `aria-current`，因为 Arco 不给）；只有图标的按钮必须 `aria-label`；表单控件必须 `aria-label`（`a-form-item` 不写 `label[for]`）；判据是「可见可交互控件里无可读名称的数量 == 0」而不是「看起来能点」
 - [ ] **对话框语义**：任何弹窗容器带 `role="dialog"` + `aria-modal="true"` + 可读名称，打开时焦点移入、Tab 只在弹窗内循环、关闭时归还触发器（`useDialogFocus`），Arco 2.58 不提供这些
+- [ ] **语义骨架**：全站唯一 `main`（页面根 `PageFrame` 是普通 `div`，不是第二层 `a-layout-content`）；每页恰好一个 `<h1>`（页名只在侧栏出现时走 sr-only 写法，由 `PageHost` 单点渲染，文本与 `features` 注册表同源）；卡片小节标题是 `<h2>`（字号继承 Arco 卡片头，不另造一档）——判据与删除实验见 `e2e/web/semantics.spec.ts`，规范见 §7.5.7
+- [ ] **状态出声**：会随事件翻面的状态行挂 `aria-live="polite"`，且 live 根**就是那一行本身**（属性透传给 Arco 组件，不新包元素改几何）；不为播报新开 IPC 通道或渲染层定时器
 - [ ] 深色/浅色主题都检查一遍（`html[data-theme]` + `body[arco-theme]`；控制台/命令预览恒定深色面）

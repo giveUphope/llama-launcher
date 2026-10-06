@@ -314,8 +314,12 @@ function onApplyRelief(key: string, value: string | number | boolean) {
 
 <template>
   <Card title-key="card_service_status">
-    <!-- 运行状态：a-tag 独立行（检测到外部 llama-server 时并排展示外部实例徽章） -->
-    <a-space :size="8" class="status-row">
+    <!-- 运行状态：a-tag 独立行（检测到外部 llama-server 时并排展示外部实例徽章）。
+         aria-live 走 a-space 的属性透传（Arco Space 未声明 inheritAttrs:false，落到它渲染的那个
+         div 上），不新包元素——包一层就改几何，卡片高度与槽位常驻是 #81/#82 的硬判据。
+         播报只由「状态文字变了」触发：starting→running、以及核心随 status 事件下发的停止事实
+         翻成「启动失败 / 异常退出」时，界面过去只换颜色，读屏用户看不出发生了什么（#92）。 -->
+    <a-space :size="8" class="status-row" aria-live="polite">
       <StatusTag :status="statusInfo.status" :label="statusInfo.label" />
       <ToolTip v-if="server.external" :text="externalHint">
         <a-tag color="arcoblue">{{ externalTagLabel }}</a-tag>

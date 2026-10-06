@@ -410,7 +410,19 @@ export function createDemoApi() {
   }
   /** 主动停止的停止事实（用户点停止/重启）——渲染层据此保持「已停止」而非「异常退出」 */
   function userStopInfo(hadBeenReady = true): ServerStopInfo {
-    return { reason: 'stopped_by_user', code: null, signal: null, hadBeenReady, at: Date.now() };
+    // `globalThis.__mockStopReason` 把这条事实换成失败态（取值同 ServerStopInfo.reason）：
+    // 顶栏「停止」只给得出 stopped_by_user，而 #92 的播报判据要验的是「启动失败 / 异常退出」
+    // 这两态怎么出声——真实侧只有核心进程真死时才发得出，浏览器 mock 造不出来。
+    // 不设＝保持原有语义，既有用例不受影响。
+    const forced = (globalThis as unknown as { __mockStopReason?: ServerStopInfo['reason'] }).__mockStopReason;
+    return {
+      reason: forced ?? 'stopped_by_user',
+      // exited 走「曾就绪后自己退出且退出码非 0」，与 core 的异常退出同一形状
+      code: forced === 'exited' ? 1 : null,
+      signal: null,
+      hadBeenReady: forced === 'spawn_failed' ? false : hadBeenReady,
+      at: Date.now(),
+    };
   }
   let outputIdx = -1;
   let outputTimer: ReturnType<typeof setInterval> | null = null;
@@ -679,7 +691,13 @@ export function createDemoApi() {
       ),
       killProcess: () => Promise.resolve({ ok: true }),
       findFreePort: () => Promise.resolve(8081),
-      fileExists: () => Promise.resolve(false),
+      // 引擎文件是否存在：默认 false（设置页的「路径不存在」三态与既有判据都靠这个默认值）。
+      // 顶栏「启动」走 useStartServer 的异步校验，false 时永远起不来——播报判据要看
+      // starting→running 这一程，故留一个开关：`globalThis.__mockEngineFileExists = true`。
+      // 既有范式：globalThis.__mockExternalServer（同为本文件的 system.checkPort）。
+      fileExists: () => Promise.resolve(
+        (globalThis as unknown as { __mockEngineFileExists?: boolean }).__mockEngineFileExists === true,
+      ),
       findLlamaExe: () => Promise.resolve(`${ENGINE_DIR}/llama-server.exe`),
       detectTrash: () => Promise.resolve({ trashCount: 0, trashFiles: [], detectDurationMs: 12 } as never),
       cleanTrash: () => Promise.resolve({ cleanedCount: 0, freedBytes: 0 } as never),

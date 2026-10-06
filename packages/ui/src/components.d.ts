@@ -55,6 +55,7 @@ declare module 'vue' {
     ATextarea: typeof import('@arco-design/web-vue')['Textarea']
     ATooltip: typeof import('@arco-design/web-vue')['Tooltip']
     ATypographyText: typeof import('@arco-design/web-vue')['TypographyText']
+    ATypographyTitle: typeof import('@arco-design/web-vue')['TypographyTitle']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

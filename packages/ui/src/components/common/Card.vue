@@ -24,22 +24,19 @@ function toggle() {
   <a-card class="section-card" :bordered="true" :class="{ 'section-card--collapsed': props.collapsible && !isOpen }">
     <template v-if="titleKey || $slots.actions" #title>
       <!-- 折叠态的卡片头即切换钮：用 a-button 承载（全站按钮基座），标题文字与箭头同处一个
-           可点击区域，不做「整行 div 挂 click」那种自定义交互控件 -->
-      <a-button
-        v-if="props.collapsible"
-        class="section-card__toggle"
-        type="text"
-        size="medium"
-        :aria-expanded="isOpen"
-        @click="toggle"
-      >
-        <template #icon>
-          <Icon class="section-card__chevron" :class="{ 'is-open': isOpen }" name="chevron_right" :size="12" />
-        </template>
-        {{ title }}
-      </a-button>
+           可点击区域，不做「整行 div 挂 click」那种自定义交互控件。
+           钮外套真 <h2>（WAI-ARIA APG 手风琴的写法：标题包按钮，不是把 heading 角色塞进按钮——
+           那会吃掉按钮语义），读屏按 H 键能在各卡片小节之间跳转（STYLE_TODO #92） -->
+      <h2 v-if="props.collapsible" class="section-card__title">
+        <a-button class="section-card__toggle" type="text" size="medium" :aria-expanded="isOpen" @click="toggle">
+          <template #icon>
+            <Icon class="section-card__chevron" :class="{ 'is-open': isOpen }" name="chevron_right" :size="12" />
+          </template>
+          {{ title }}
+        </a-button>
+      </h2>
       <a-space v-else>
-        <span v-if="titleKey">{{ title }}</span>
+        <h2 v-if="titleKey" class="section-card__title">{{ title }}</h2>
         <slot name="title-extra" />
       </a-space>
     </template>
@@ -57,6 +54,15 @@ function toggle() {
 <style scoped>
 .section-card {
   margin-bottom: 16px;
+}
+
+/* 卡片小节标题就是这一区的 <h2>（每页唯一的 <h1> 由 PageHost 给，STYLE_TODO #92）。
+   字号/字重/行高一律继承 Arco 卡片头自己那一条声明（`.arco-card-header-title` 实测 16px / 500 /
+   1.5715），不另造一档标题字号；UA 给 h2 的上下外边距（0.83em）与 bold 必须归零与继承，
+   否则卡片头会比改前高出一档（卡片高度是 #81/#82 的硬判据）。 */
+.section-card__title {
+  margin: 0;
+  font: inherit;
 }
 
 /* 折叠时收起卡片体（Arco 仍会渲染带内距的 body，留白会露出一条空档） */

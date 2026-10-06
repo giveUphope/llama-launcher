@@ -1,7 +1,10 @@
 <template>
-  <a-layout-content class="page-frame">
+  <!-- 页面根必须是普通 DIV：Arco 的 a-layout-content 渲染成 <main>，而外壳 `.app-content`
+       已经是那唯一的一个 main（读屏「跳到主内容」的落点）。这里再用一次就是 main > main
+       （模型页把 PageFrame 套了两层，改前实测那里是三个 main），地标重复等于把落点讲糊。 -->
+  <div class="page-frame">
     <slot />
-  </a-layout-content>
+  </div>
 </template>
 
 <style scoped>
@@ -17,6 +20,9 @@
  *      .console-wrap 自带 flex: 1）用自己的规则覆盖本行即可（属性级联按具体性取胜）。
  * 代价提示：flex 容器不合并相邻外边距，页内子项的 margin 由「取最大值」变成「相加」，改这里必须
  * 逐页复量间距（STYLE_TODO #82 验收判据 3）。
+ *   ④ 本盒由 a-layout-content 改为普通 div（STYLE_TODO #92 的唯一 main）：Arco 给这一层的声明
+ *      只有 `flex: 1`，本盒自己写的 `flex: 1 1 0%` 本来就覆盖它，摘掉那层壳不缺任何东西，
+ *      ① 的高度解析链一字未动。
  */
 .page-frame {
   display: flex;
