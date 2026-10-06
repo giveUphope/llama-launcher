@@ -392,10 +392,6 @@ for (const a of CLICK_ALLOW) {
 // 行数与文件都钉死在这里，多一行、少一行、换文件都要显式改本清单（STYLE_TODO #59 的成因）。
 const ARCO_STATE_ALLOW = [
   { file: 'packages/ui/src/styles/theme.scss', marker: 'statusbar .arco-tag', expect: 5 },
-  { file: 'packages/ui/src/styles/theme.scss', marker: 'arco-menu-selected', expect: 1 },
-  // 预设色对的文字档：Arco 的规则是 .arco-tag.arco-tag-checked.arco-tag-<色>（三级类），
-  // 不带 -checked 就压不过它——与上面状态栏钉色同一成因。
-  { file: 'packages/ui/src/styles/theme.scss', marker: 'body .arco-tag.arco-tag-checked', expect: 2 },
 ];
 const STATE_UNREG = [];
 {

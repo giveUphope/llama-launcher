@@ -69,7 +69,7 @@ const isAsk = () => request.value?.mode === 'ask';
     <template #footer>
       <a-button v-if="isAsk()" @click="respond('tray')">{{ i18n.t('btn_close_tray') }}</a-button>
       <a-button v-else @click="respond('cancel')">{{ i18n.t('dlg_cancel') }}</a-button>
-      <a-button type="primary" :class="isAsk() ? '' : 'cd-exit-warning'" :status="isAsk() ? undefined : 'warning'" @click="respond('exit')">
+      <a-button type="primary" :status="isAsk() ? undefined : 'warning'" @click="respond('exit')">
         {{ i18n.t('btn_close_exit') }}
       </a-button>
     </template>
@@ -91,13 +91,5 @@ const isAsk = () => request.value?.mode === 'ask';
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--color-text-2);
-}
-
-/* 「退出应用」（服务运行中的二次确认）是实底 warning 按钮：Arco 的白字压 orange-6 实测
-   浅色 2.57 / 深色 2.18，故底与字一起换成 theme.scss 的配对 token；ask 态的同一枚按钮是
-   primary 蓝底，不带本类，不受影响。尺寸与圆角不动 */
-.cd-exit-warning:not([disabled]) {
-  background-color: var(--btn-warning-fill);
-  color: var(--btn-warning-fg);
 }
 </style>

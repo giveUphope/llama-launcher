@@ -13,15 +13,6 @@ const { titleId } = useDialogFocus({ visible, containerClass: 'fc-confirm-modal'
 function buttonStatus(variant?: ConfirmVariant | 'primary' | 'danger' | 'warning' | 'ghost') {
   return variant === 'danger' ? 'danger' : variant === 'warning' ? 'warning' : undefined;
 }
-
-// 实底强调色按钮的「底 + 字」配对：Arco 的 solid danger/warning 是「白字压 danger-6 / orange-6」，
-// 实测浅色 3.71 / 2.57、深色更低，都不达 §7.5.8 的 4.5，故改用 theme.scss 的配对 token
-// （浅色取更深一档底配白字，深色改浅底配深字）。尺寸、圆角、边框仍由 Arco 承载。
-function solidFillClass(variant?: ConfirmVariant | 'primary' | 'danger' | 'warning' | 'ghost') {
-  if (variant === 'danger') return 'solid-danger';
-  if (variant === 'warning') return 'solid-warning';
-  return '';
-}
 </script>
 
 <template>
@@ -48,7 +39,6 @@ function solidFillClass(variant?: ConfirmVariant | 'primary' | 'danger' | 'warni
           <a-button
             v-for="action in current.actions"
             :key="action.key"
-            :class="solidFillClass(action.variant)"
             :type="action.variant === 'ghost' ? 'secondary' : 'primary'"
             :status="buttonStatus(action.variant)"
             @click="resolve(current.id, action.key)"
@@ -60,7 +50,6 @@ function solidFillClass(variant?: ConfirmVariant | 'primary' | 'danger' | 'warni
           </a-button>
           <a-button
             type="primary"
-            :class="solidFillClass(current.variant)"
             :status="buttonStatus(current.variant)"
             @click="resolve(current.id, true)"
           >
@@ -85,17 +74,5 @@ function solidFillClass(variant?: ConfirmVariant | 'primary' | 'danger' | 'warni
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 20px;
-}
-
-/* 实底 danger / warning 按钮的「底 + 字」配对取 theme.scss 的角色 token（配对值见其注释）；
-   :not([disabled]) 保留 Arco 的禁用观感，边框/尺寸/圆角不覆写 */
-.confirm-actions .solid-warning:not([disabled]) {
-  background-color: var(--btn-warning-fill);
-  color: var(--btn-warning-fg);
-}
-
-.confirm-actions .solid-danger:not([disabled]) {
-  background-color: var(--btn-danger-fill);
-  color: var(--btn-danger-fg);
 }
 </style>

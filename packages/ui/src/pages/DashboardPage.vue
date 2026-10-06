@@ -116,6 +116,10 @@ onMounted(() => { appLog.subscribe(); });
   overflow: auto;
   padding: 6px 10px;
   background: var(--console-bg);
+  /* 恒深底必须同时给前景色：四条 kind 之外的行（如下载事件转写）此前继承 body 文字，
+     浅色主题下 #1d2129 压在 #1d2129 上=看不见（实测该节点 fg 与 bg 完全相同）。
+     与 ConsolePanel 同一套：底色与前景色成对声明，不靠调用方记得补级别色。 */
+  color: var(--console-fg);
   border: 1px solid var(--color-border-2);
   border-radius: var(--radius-row);
   font-family: var(--font-mono);
