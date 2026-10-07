@@ -182,7 +182,10 @@ async function onOpenWeb() {
           </a-button>
         </ToolTip>
         <template #content>
-          <a-doption class="dd-manage" @click="onSelectModel('')">{{ i18n.t('lbl_manage_models') }}…</a-doption>
+          <a-doption class="dd-manage" @click="onSelectModel('')">
+            <Icon name="models" :size="12" class="dd-icon" />
+            {{ i18n.t('lbl_manage_models') }}…
+          </a-doption>
           <a-divider class="dd-divider" />
           <a-doption
             v-for="m in models"
@@ -191,6 +194,7 @@ async function onOpenWeb() {
             :class="{ active: m.path === params.values.model }"
             @click="onSelectModel(m.path)"
           >
+            <Icon name="file" :size="12" class="dd-icon" />
             <span class="dropdown-name">{{ m.name }}</span>
             <span class="dropdown-size">{{ m.size_str }}</span>
           </a-doption>
@@ -388,5 +392,11 @@ async function onOpenWeb() {
   color: var(--fg-hint);
   font-size: var(--fs-sm);
   flex-shrink: 0;
+}
+
+/* 条目图标（#109 同族对齐）：与 URL 历史下拉同约定——弱化色、不收缩 */
+.dd-icon {
+  flex-shrink: 0;
+  color: var(--color-text-3);
 }
 </style>

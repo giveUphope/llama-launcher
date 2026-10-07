@@ -471,6 +471,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：提示行本体换 `a-tag closable`（warn=orange / info=gray 官方预设色对，`size="small"` + `nowrap`，图标走 `#icon` 槽），自绘行布局 / 角色色 / 忽略钮全删；忽略指纹逻辑不变（`@close` → 长句全文入 `settings.engine_hint_dismissed`，新消息照常出现）；`btn_dismiss_hint` 键失去读者删除（官方钮的 `aria-label="Close"` 为库内硬编码，非本地化——接受，官方组件行为）。对比度注记：预设对取代 #99 的角色档，是「文字进了官方组件」后采用官方配对，同 StatusTag 先例。
 - **修复效果验证**：drift 演示场景实测 tag 314px 官方 `arco-tag-orange` 预设类生效、关闭钮 `role="button"` + `aria-label="Close"` 就位、点关后指纹入库且标签消失；`pnpm style:audit` 全绿、`pnpm e2e:web` 81 条全绿。
 
+### 109. 模型下拉条目补齐图标：与 URL 历史下拉同族对齐 — 🟢 已修复（2026-10-08）
+
+- **位置**：`packages/ui/src/components/layout/TopBar.vue`（模型下拉的「管理模型…」动作项与 6 个模型条目）。
+- **描述**：用户批注「其他下拉栏存在的图标缺失了」。全站下拉的条目图标约定由 URL 历史下拉确立（每条目前置一枚弱化色图标：link、11px、text-3、不收缩），而模型下拉的「管理模型…」与全部模型条目均无图标——同族组件形态分裂。
+- **修复**：① 「管理模型…」前置 `models` 图标（12px，语义 = 指向模型管理页，与侧栏 Models 入口同字形）；② 每个模型条目前置 `file` 图标（12px，语义 = gguf 模型文件）；③ 着色 / 收缩约定照搬 URL 历史下拉（`.dd-icon { flex-shrink: 0; color: var(--color-text-3) }`——弱化色不与正文争抢）。
+- **修复效果验证**：`pnpm style:audit` 22/22、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿；drift 场景实测 7 枚图标全部渲染（text-3 弱化色）、管理项与模型行同构。
+
 ### 108. 模型下拉顶部动作项回归普通 option 形态：斜体灰自绘层级样式删除 — 🟢 已修复（2026-10-08）
 
 - **位置**：`packages/ui/src/components/layout/TopBar.vue`（模型下拉顶部「管理模型…」动作项）、`scripts/style-audit.cjs`（`ARCO_COLOR_ALLOW` 删 `.dd-manage` 死登记）。
@@ -553,6 +560,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
 | 100 | 引擎提示行本体对齐官方组件（用户批注「审查提示样式是否符合arco官方档」）：#99 后提示行仍剩行布局 / 角色色 / 忽略钮三处自绘——官方 `a-alert` 是横幅（width:100%、14px、8/15 内距硬编码）与行内形态冲突，评估后不采纳；换 `a-tag closable`（warn=orange / info=gray 官方预设 + 官方关闭钮内建 role="button"/aria-label + `#icon` 槽 + `nowrap`），自绘行布局 / 角色色 / 忽略钮全删，忽略指纹逻辑不变（@close 入库）；`btn_dismiss_hint` 键失去读者删除（官方钮 aria-label="Close" 为库内硬编码） | 2026-10-08 |
+| 109 | 模型下拉条目补齐图标（用户批注「其他下拉栏存在的图标缺失了」）：全站下拉的条目图标约定由 URL 历史下拉确立（每条前置弱化色图标），模型下拉全部条目无图标——「管理模型…」前置 `models`（12px，指向模型管理页）、模型行前置 `file`（12px，gguf 文件），着色 / 收缩约定照搬（`.dd-icon`：text-3 弱化、不收缩） | 2026-10-08 |
 | 108 | 模型下拉顶部动作项回归普通 option 形态（用户批注「优化下拉栏顶部（非菜单）的样式，目前实现和其他下拉栏样式存在明显差异」）：「管理模型…」动作项的手绘斜体灰形态（自绘层级区分）删除，回归普通 option（正体 + 官方文字色），与同面板模型条目及全站下拉（URL 历史下拉 = dgroup 组标题 + 普通选项）一致；层级区分由既有分隔线承担；`ARCO_COLOR_ALLOW` 删 `.dd-manage` 死登记 | 2026-10-08 |
 | 107 | 日志页卡片化（用户批注「优化卡片化，按arco官方档实现」）：概览卡片化后日志页是全站最后一个内容裸页面——整页内容（筛选行 / 提示条 / 控制台 / 计数条）包进官方 `Card` **无标题卡**（页级 h1「日志」已存在，加卡标题即与 h1 重复）；弹性链逐环打通（page-frame → 卡 → 卡体 → console-wrap → console-fill，每环 min-height: 0），卡片撑满页面剩余高、控制台填充卡体（实测卡高 786、consoleFills） | 2026-10-08 |
 | 106 | 概览应用操作日志换官方 Card 基座（用户批注「参考其他卡片样式进行优化，注意前端范式」，点名自绘 `.q-section` 裸标题区与同页官方 Card 状态卡的形态分裂）：换 `Card title-key="card_dash_applog"`（标题 h2 / 卡片头 / 边框 / 体边距 / 卡间 16px 全交回库），`.q-section`/`.q-header`/`.q-title`/`.card + .q-section` 四组自绘样式删除；恒深控制台与错误跳转钮原样保留在卡体内（useAutoScroll 定高小窗机制不变） | 2026-10-08 |
