@@ -2,6 +2,7 @@
 // 模型页（2 子标签壳）：本地模型 / 模型库。
 // 下载任务不再单列页签——模型库（DownloadCard library 模式）已内置任务区，
 // 含进度/暂停/恢复/清除等完整能力。旧路由 /download 保留并指向模型库 tab。
+import type { IconName } from '@/components/common/icon-map';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PageFrame from '@/components/common/PageFrame.vue';
@@ -16,8 +17,8 @@ const i18n = useI18nStore();
 
 type TabKey = 'local' | 'library';
 
-const TABS: Array<{ key: TabKey; icon: string; labelKey: string }> = [
-  { key: 'local', icon: 'folder_open', labelKey: 'nav_models_local' },
+const TABS: Array<{ key: TabKey; icon: IconName; labelKey: string }> = [
+  { key: 'local', icon: 'folder', labelKey: 'nav_models_local' },
   { key: 'library', icon: 'search', labelKey: 'nav_models_library' },
 ];
 

@@ -890,7 +890,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
                 size="small"
                 @click="onOpenModelsDir"
               >
-                <template #icon><Icon name="folder_open" :size="12" /></template>
+                <template #icon><Icon name="folder" :size="12" /></template>
                 {{ i18n.t('btn_open_dir') }}
               </a-button>
             </ToolTip>
@@ -966,7 +966,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
                 @click="onOpenDir(t)"
                 :title="i18n.t('btn_open_dir')"
               >
-                <template #icon><Icon name="folder_open" :size="12" /></template>
+                <template #icon><Icon name="folder" :size="12" /></template>
                 {{ i18n.t('btn_open_dir') }}
               </a-button>
             </div>

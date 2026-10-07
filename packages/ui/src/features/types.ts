@@ -1,9 +1,10 @@
 // 功能注册表类型（注册表化重构：各功能以声明式条目接入，未来插件可扩展）。
+import type { IconName } from '@/components/common/icon-map';
 import type { RouteRecordRaw } from 'vue-router';
 
 /** 侧栏导航项（由功能模块声明，注册表按 order 排序渲染）。 */
 export interface NavItem {
-  icon: string;
+  icon: IconName;
   labelKey: string;
   to: string;
   order: number;

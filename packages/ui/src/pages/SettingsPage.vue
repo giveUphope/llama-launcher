@@ -3,6 +3,7 @@
 // 设计稿 §14.10 / 补充指南 §14.10。
 // 实现方式：各 panel 为独立组件，SettingsPage 只负责 tab 切换与子标签状态同步。
 // 原「llama.cpp」标签已整合进「常规」卡片（GeneralPanel 引擎目录行）。
+import type { IconName } from '@/components/common/icon-map';
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PageFrame from '@/components/common/PageFrame.vue';
@@ -16,7 +17,7 @@ import { useSettingsStore } from '@/stores/settings';
 
 type TabKey = 'general' | 'appearance' | 'advanced' | 'about';
 
-const TABS: Array<{ key: TabKey; icon: string; labelKey: string }> = [
+const TABS: Array<{ key: TabKey; icon: IconName; labelKey: string }> = [
   { key: 'general', icon: 'settings', labelKey: 'nav_settings_general' },
   { key: 'appearance', icon: 'theme', labelKey: 'nav_settings_appearance' },
   { key: 'advanced', icon: 'params', labelKey: 'nav_settings_advanced' },
@@ -92,7 +93,7 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
          其他页签不显示无关状态（idle 未设置 / missing 路径不存在 文案分离，避免自相矛盾） -->
     <div v-if="activeTab === 'general'" class="status-summary">
       <div class="summary-item">
-        <Icon name="save" :size="14" />
+        <Icon name="check_circle" :size="14" />
         <span class="summary-label">{{ i18n.t('lbl_settings_hint') }}</span>
       </div>
       <div class="summary-divider"></div>

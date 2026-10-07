@@ -15,7 +15,7 @@
 node scripts/style-audit.cjs      # 或 pnpm style:audit
 ```
 
-20 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
+21 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
 
 1. 组件内裸颜色（token 禁令；`#fff`/`#1a1a1a` 仅限彩色按钮文字）
 2. 组件内裸字号（应走 `--fs-*`）
@@ -37,6 +37,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 18. `a-button` 的配色不覆写：选择器命中「挂在 `<a-button>` 上的 class」或 `.arco-btn*` 且声明 `color` / `background` / `border` / `box-shadow` 即报，例外必须进 `BTN_COLOR_ALLOW` 带 `why` 与 `expect` 条数登记（成因＝scoped 规则 `[data-v-*]` 特异度冻结 hover 文字色，见 §7.5.1 / #93）
 19. 浅色（顶层选择器恰为 `body` 的块）不得给 Arco 状态色阶赋字面值——`--danger-6: var(--red-6)` 这类间接层是组件的取色点，换档会连带重绘 alert / 表单校验 / tag / progress / switch 等一切读它的组件，而深色下又因 `body[arco-theme='dark']` 特异度更高而不生效（见 §7.5.1 / #95）
 20. 给 Arco 内部节点写配色必须逐条登记：选择器含 `.arco-*` 或命中挂在 Arco 组件类上的 class、且声明 `color` / `background` / `border` / `box-shadow` 即报（按钮侧归第 18 条、token 本体层归第 17 条），例外进 `ARCO_COLOR_ALLOW` 带 `why` 与 `expect` 条数（17 条登记共 23 处，见 #96）
+21. 图标语义表必须一对一且有读者（`components/common/icon-map.ts`）：一个 Arco 字形挂多个语义名即报（历史缺陷：`folder` 与 `folder_open` 同为纯文件夹，「上一级」与「打开目录」长得一样），语义名在 `ui/src` 里没有读者也即报（连带 import 一起删）；名字写错另有 `IconName` 类型在 `vue-tsc` 阶段拦（见 #97）
 
 ***
 
@@ -454,12 +455,23 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 
 
+### 97. 全局图标语义审查：「上一级」长得和「打开目录」一样（一名一图被打破），并把图标名收进类型 — 🟢 已修复（2026-10-07）
+
+- **位置**：`packages/ui/src/components/common/Icon.vue`（字形表已抽出为同目录 `icon-map.ts`）、`components/common/FileBrowserModal.vue:166`（`picker_up`）、`pages/ModelsPage.vue:20`（页签图标）、`components/presets/PresetsPanel.vue:203`（应用预设）、`pages/SettingsPage.vue:95`（「更改即时保存」提示）、`features/types.ts` 与四处 `icon: string` 声明、`scripts/style-audit.cjs`（新增第 21 条）。
+- **描述**：用户批注「全局图标审查，是否还有类似的语义偏差图标」，指的是文件浏览器的「上一级」按钮——它用 `folder_open`，而 `folder_open` 与 `folder` **映射到同一个 Arco 字形**（纯文件夹），于是「上一级」「打开目录」「更改目录」三件事共用一个图形，用户批注的那个 28×28 按钮看着就是「又一个文件夹」。全量对账（把每个 `<Icon>` 与它承载的动作文案配到一行：104 处使用 / 28 个字形）另查出四类：① **应用预设借用 `play`**——同一个三角形既表示「启动 llama-server」又表示「把预设应用到参数」，是两个动作；② **设置页「更改即时保存」用软盘 `save`**——软盘暗示「要点它保存」，而这句话的意思是不需要点；③ **`clock` 零读者**——#74 起 bench 已改用烧杯，名字与 import 都还在，等于每个进包的人都要白读一个永不使用的字形；④ **最严重的一类是静默**：`Icon.vue` 的取值是 `icons[name] ?? IconQuestionCircle`，名字不存在就画一个问号，**没有任何报警**。真机扫七页实测命中一处：模型页「本地模型」页签的 `icon: 'folder_open'`——它写在 `TABS` 数组里、由 `:name="t.icon"` 动态绑定，我删掉 `folder_open` 别名的同一刻它就成了问号，而 `vue-tsc`、`pnpm lint`、81 条 e2e 全都没响。
+- **修复**：① 新增 `chevron_up: IconUp`（Arco `icon-up`，与已用的 `icon-down/left/right` 同族），「上一级」改用它；四处「打开目录」归到 `folder`；`folder_open` 别名删除。② 应用预设改 `check`。③ 「更改即时保存」改 `check_circle`，`save` 失去最后读者后连同 import 一起删。④ 删 `clock` 与 `IconClockCircle` import。⑤ **把「靠人记」换成「靠编译器和门禁」**：字形表从 `Icon.vue` 抽成 `components/common/icon-map.ts`，`export type IconName = keyof typeof icons`，`Icon.vue` 的 `name` prop 与六处 `icon: string`（`features/types.ts` 的导航表、模型/参数/设置三页的 `TABS`、日志页 `LEVELS`、GeneralPanel 的状态徽章）全部收紧成 `IconName`——错名从此在 `vue-tsc` 阶段就是类型错误，运行期问号只剩动态拼串这一种可能（兜底仍在）。⑥ 新增门禁第 21 条：一个字形挂多个名字即报、语义名零读者即报，并且**自证解析规模**（只解析到 <20 条就报「解析器与文件形状脱节」，防止门禁自己空转）。
+- **修复效果验证**：真机逐处复测字形 class：上一级 = `arco-icon-up`、应用预设 = `arco-icon-check`、设置页提示 = `arco-icon-check-circle`、打开目录 = `arco-icon-folder`；七页 `.arco-icon-question-circle` 计数 **0**（改前模型页 1 处，即上面那条静默退化）。`vue-tsc --noEmit` 在 `IconName` 收紧后仍干净（说明全站无错名）。**删除实验两组**：把 `folder_open: IconFolder` 贴回映射表 ⇒ 第 21 条同时报「一个字形挂了 2 个语义名」与「语义名 folder_open 零读者」并退出码 1；把检查里 `entries.length < 20` 的自证门槛当回归用——第一版解析器只匹配到 9 条（`^\s*` 锚点漏掉一行多条的写法），**门槛立刻把它抓了出来**，否则这条门禁会以「零命中=绿」的假象上线。**另记一次自己的取证失误**：我第一版图标对账脚本用 shell 内嵌 node 跑，正则里的引号被吞，得出「41 个名字全部零读者、无一复用」的**双假结论**（真值是 1 零读者 + 1 复用）；改写成落盘文件后才对上——这条已按仓库惯例记在这里。`pnpm style:audit` 21/21、`pnpm test` core 442 + ui 100、`pnpm e2e:web` 81 条、`pnpm lint` 全绿。规范落点：§7.5.8「图标语义对账」一条 + §7.4 组件表 `Icon` 行改写。
+
+
+
+
 ## 🟢 已修复索引
 
 完整的问题描述 / 修复方案 / 验证证据见 [已修复归档](../../archive/style-todo-resolved.md)（只读留档）；修复后的规范落点见 [frontend.md §7.5](../frontend.md)。
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 97 | 全局图标语义审查（用户批注「全局图标审查，是否还有类似的语义偏差图标」）：`folder_open` 与 `folder` 同为纯文件夹导致「上一级」长得和「打开目录」一样——上一级改 `chevron_up`（Arco icon-up）、四处「打开目录」归 `folder`、别名 `folder_open` 删除；「应用预设」不再借用启动服务的 `play` 而用 `check`；设置页「更改即时保存」不再用暗示手动保存的软盘 `save` 而用 `check_circle`；删零读者的 `clock`；字形表抽成 `icon-map.ts` 并导出 `IconName` 类型（六处 `icon: string` 收紧，错名在 vue-tsc 即红——真机实测模型页页签曾静默退化成问号图标）；新增门禁第 21 条（一名一图 + 每名有读者，删除实验：贴回 `folder_open` ⇒ 两条同时红） | 2026-10-07 |
 | 96 | 自建浮层归零：引擎获取指引从「Teleport + getBoundingClientRect + 300/150ms 定时器 + 自带 z-index/阴影/入场动画」改挂 `a-popover`（悬停开关与延迟、定位、视口避让、点击外部关闭、hover-stay、表面与层级全交回库；只留库没给的 Esc 关闭与焦点移入/归还），脚本约 90 行降到约 35 行，新增 `e2e/web/help-popover.spec.ts` 3 条用真指针与真键盘钉四条通道（合成 mouseleave 曾给出「离开不关」的假结论）；圆角三别名改指官方档 `var(--border-radius-medium)`；删四个零读者 token（`--dur-med` / `--ease-jelly` / `--shadow-dropdown` / `--z-overlay`）并同步中英规范 14 处声明（批量脚本逐条断言恰好命中 1 次）；新增门禁第 20 条 `ARCO_COLOR_ALLOW`（17 条登记共 23 处带理由，删除实验：改错一个 marker ⇒ 同时报未登记命中与登记数不符）；七项官方能力评估后不采纳并逐条给库层证据（`a-list` 分页 / `a-collapse` / `a-scrollbar` / `a-back-top` / `a-input-search` / `a-link` / `labelAttrs`） | 2026-10-07 |
 | 95 | 浅色零换档：删掉 `body` 上的 `--danger-6/5/7`、`--warning-6/5/7`、`--green-6` 与深色块里的 `--green-6` 复述（库的状态色是间接层 `--danger-6: var(--red-6)`，换档连带重绘 125 个元素，而深色下因特异度从未生效——这就是「深色可接受、浅色不像库」的成因），角色档改直接取色板档 `red-7` 5.43 / `orange-8` 6.05 保 AA；四处官方 API 收口＝`ToolTip` 走 `content-class` 与 `position`／`disabled`、三个弹窗删六条与默认值相同的声明、`FileBrowserModal` 改用 `a-list` 的 `:loading` 与 `#empty`、`innerAriaLabel` 注释按实测收窄；两条评估后不采纳并写明理由（`a-list` 内建分页在 `list.js:212` 主动 omit 掉 `current`／`pageSize` 会丢受控能力；`labelAttrs` 不构成 label 关联，实测 69 个 `<label>` 零个带 `for`）；新增门禁第 19 条 + 删除实验（贴回 `--danger-6` ⇒ 点名并退 1） | 2026-10-07 |
 | 94 | Arco 官方用法审查：库自带 i18n 从未配置 ⇒ 英文界面浮层按钮「取消／确定」与表空态「暂无数据」都是中文（`stores/i18n.ts` 注册英文包 + `useLocale` 并同步 `html[lang]`）；`a-result :sub-title` 应为 `subtitle`（Web UI 未运行那一行提示从来没渲染过）、`a-menu :collapse` 应为 `collapsed`、`a-input-group compact` 在 2.58 无此 prop 亦无同名类；收回代理「状态栏 5 行 `.arco-tag-checked` 是死规则」的错报（`tag.js:85` 对非 checkable 返回 true，实测 4.84 生效）；新增 `e2e/web/arco-locale.spec.ts` 2 条含中文态正对照与摘掉 `useLocale` 的删除实验 | 2026-10-07 |

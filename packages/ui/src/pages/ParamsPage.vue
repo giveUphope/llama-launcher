@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { IconName } from '@/components/common/icon-map';
 import { computed, onMounted, onUnmounted, ref, watch, type Component } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { PARAMS, MODEL_KEY } from '@llama-launcher/shared';
@@ -18,7 +19,7 @@ import { useI18nStore } from '@/stores/i18n';
 // 参数预设（PresetsPanel）由 KeepAlive 缓存，切页不丢状态。
 type TabKey = 'custom' | 'presets';
 
-const TABS: Array<{ key: TabKey; icon: string; labelKey: string }> = [
+const TABS: Array<{ key: TabKey; icon: IconName; labelKey: string }> = [
   { key: 'presets', icon: 'presets', labelKey: 'nav_params_presets' },
   { key: 'custom', icon: 'params', labelKey: 'nav_params_custom' },
 ];

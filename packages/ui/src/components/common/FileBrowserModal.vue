@@ -163,7 +163,7 @@ function cancel() {
     <div class="fb-toolbar">
       <ToolTip :text="i18n.t('picker_up')">
         <a-button size="small" :disabled="!parent" :aria-label="i18n.t('picker_up')" @click="onUp">
-          <template #icon><Icon name="folder_open" :size="13" /></template>
+          <template #icon><Icon name="chevron_up" :size="13" /></template>
         </a-button>
       </ToolTip>
       <a-input

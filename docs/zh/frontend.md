@@ -68,7 +68,7 @@
 | `PageFrame` | 统一页面容器，**普通 `div`**（2026-10-07 起不再基于 Arco `LayoutContent`）：`a-layout-content` 渲染成 `<main>`，而外壳 `.app-content` 已是全站唯一的那一个地标，套两层就是 `main > main`（模型页把 PageFrame 套了两层，改前实测三个 main）；Arco 那一层只给 `flex: 1`，容器自己写全 `flex: 1 1 0%`，摘掉不缺任何东西——#82 的三层骨架链一字未动（STYLE_TODO #92） |
 | `ConsolePanel` | 控制台面板（2026-10-07 单点实现，日志页与服务页共用，取代此前两页各写一份且已漂移的外壳）：外层 `.console-frame`（`position: relative` + flex 列，**本体不写高度**——弹性档由页面给 `.console-fill`、定高档给 `.console-fixed`）+ 滚动盒 `.console`（`padding: 8px 12px`、`line-height: 1.55`、`--font-mono`、`--fs-base`、恒深底 `--console-bg`）+ 统一「有新日志」胶囊（`a-button` text/mini 基座、带边框、`pulse-glow var(--dur-ambient)` 只动 opacity、`z-index: var(--z-chrome)`）+ 级别色取 `--log-kind-*`；滚动行为由 `useAutoScroll` 承担，**行渲染仍归各页默认插槽**（日志页三段式与服务页单段不强行合并模板） |
 | `Card` | 基于 Arco `Card` 的标题、内容与 actions 容器：卡片小节标题渲染成真的 `<h2>`（非折叠卡 `<h2>` 承载文字，折叠卡是 `<h2>` 包 `a-button` 的手风琴写法），字号字重行高继承 Arco 卡片头自己的声明，不另造一档（STYLE_TODO #92，见 §7.5.7） |
-| `Icon` | Arco 图标适配器，维持业务图标名称映射 |
+| `Icon` | Arco 图标适配器：语义名 → Arco 官方字形的**一对一表**（`components/common/icon-map.ts`），并导出 `IconName` 类型——写错名字或引用已删的名字在 `vue-tsc` 阶段就红（此前是运行期静默退化成问号图标）。「一名一图、每个名字都要有读者」由 `style-audit` 第 21 条守 |
 | `ToolTip` | Arco `Tooltip` 适配器 |
 | `StatusTag` | 状态标签（状态点 + 文字，ok/warn/error/idle/loading 变体） |
 | `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签（状态行 `a-space` 自身透传 `aria-live="polite"`，启动中 / 运行中 / 未运行 / 启动失败 / 异常退出 每一变都对读屏出声，见 §7.5.7）/ 当前模型 / API 地址（boxed 值盒 `a-descriptions` + 复制按钮；地址下方常驻**端点暴露提示** `sec_open_endpoint_hint`，仅在「未设 API key 且 `--cors-origins` 为 `*`」时出现——引擎只在启动日志打一行 security 告警，滚过就没人再看见）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ **OOM 归因与缓解动作**（`status === 'error'` 且 server store 入队时标记到 `oomDetected`（扫最近 300 行）才出现，两个动作钮：「上下文减半」`onOomHalveCtx` 取当前 `-c`（为 0 时按模型训练上限折算）的一半、按 1024 粒度、下限 4096；「KV 量化」`onOomKvQuant` 同时置 `-fa on` + `cache_type_k/v = q8_0`（量化 KV 依赖 Flash Attention）；估算模型答「能开多大」，此处答「失败了怎么救」）/ 快捷操作（打开 Web UI·管理模型） |
@@ -241,4 +241,5 @@
 - [ ] **语义骨架**：全站唯一 `main`（页面根 `PageFrame` 是普通 `div`，不是第二层 `a-layout-content`）；每页恰好一个 `<h1>`（页名只在侧栏出现时走 sr-only 写法，由 `PageHost` 单点渲染，文本与 `features` 注册表同源）；卡片小节标题是 `<h2>`（字号继承 Arco 卡片头，不另造一档）——判据与删除实验见 `e2e/web/semantics.spec.ts`，规范见 §7.5.7
 - [ ] **状态出声**：会随事件翻面的状态行挂 `aria-live="polite"`，且 live 根**就是那一行本身**（属性透传给 Arco 组件，不新包元素改几何）；不为播报新开 IPC 通道或渲染层定时器
 - [ ] **库自带文案跟随界面语言**：Arco 有独立的一套 i18n（默认 `zh-CN`），切语言时必须同步调 `useLocale()` 并把 `html[lang]` 一起改——唯一落点是 `stores/i18n.ts`；判据见 `e2e/web/arco-locale.spec.ts`（英文态七页零中文残留 + 中文态正对照）
+- [ ] **图标语义对账**：一个 Arco 字形只挂一个语义名（历史上 `folder` 与 `folder_open` 都是纯文件夹，结果「上一级」和「打开目录」长得一样），字形必须与动作语义一致；名字写错或引用已删的名字由 `IconName` 类型在 `vue-tsc` 阶段拦下，一名一图与零读者由门禁第 21 条拦下，不靠人记
 - [ ] 深色/浅色主题都检查一遍（`html[data-theme]` + `body[arco-theme]`；控制台/命令预览恒定深色面）

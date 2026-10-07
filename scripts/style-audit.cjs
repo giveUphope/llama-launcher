@@ -654,6 +654,50 @@ const a20 = new Audit();
   }
 }
 
+// ---------- 21. 图标语义表必须一对一且有读者（Icon.vue 自己写的规则，交给门禁守） ----------
+// 成因（2026-10-07 用户批注）：`folder` 与 `folder_open` 都映射到 Arco 的 IconFolder，
+// 于是文件浏览器的「上一级」和「打开目录」长得一模一样——语义名骗人，字形没有区分它。
+// 同一条路上还有零读者的名字（clock 被 bench 取代后仍留着，连带一个进包的字形）。
+// 两条判据都不该靠人记：① 一个字形只准挂一个语义名；② 每个语义名必须在 ui/src 里有读者。
+const a21 = new Audit();
+{
+  const iconFile = path.join(ROOT, 'packages/ui/src/components/common/icon-map.ts');
+  if (!fs.existsSync(iconFile)) {
+    a21.add(path.join(ROOT, 'scripts/style-audit.cjs'), 0, '读不到 icon-map.ts：本条会空转，必须先修脚本');
+  } else {
+    const src = fs.readFileSync(iconFile, 'utf8');
+    // 一行里常写好几条映射，不能用 ^\s* 锚定；先把对象字面量切出来再全局匹配
+    const body = src.slice(src.indexOf('export const icons'), src.indexOf('} as const'));
+    const entries = [...body.matchAll(/([a-z_]+):\s*(Icon[A-Za-z]+),/g)].map((m) => ({ name: m[1], glyph: m[2] }));
+    if (entries.length < 20) {
+      a21.add(iconFile, 0, `只解析到 ${entries.length} 条映射（实际约 40 条）：解析器与文件形状脱节，本条判据不可信`);
+    }
+    // 读者扫描的作用域必须是整个 ui/src（含 features/ 的导航表、composables/ 等），
+    // 不能复用本脚本的 SCAN_DIRS——那三个目录不含 features/，会把 dashboard 误判成零读者。
+    const readers = [];
+    (function walkUi(dir) {
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, ent.name);
+        if (ent.isDirectory()) walkUi(p);
+        else if (/\.(vue|ts)$/.test(ent.name) && p !== iconFile) readers.push(p);
+      }
+    })(path.join(ROOT, 'packages/ui/src'));
+    const others = readers.map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+    const byGlyph = new Map();
+    for (const e of entries) byGlyph.set(e.glyph, [...(byGlyph.get(e.glyph) || []), e.name]);
+    for (const [glyph, names] of byGlyph) {
+      if (names.length > 1) {
+        a21.add(iconFile, 0, `一个字形挂了 ${names.length} 个语义名：${glyph} = ${names.join(' + ')}（同形即同义，用户看不出差别）`);
+      }
+    }
+    for (const e of entries) {
+      if (!others.includes(`'${e.name}'`) && !others.includes(`"${e.name}"`)) {
+        a21.add(iconFile, 0, `语义名「${e.name}」零读者：ui/src 里没有任何调用点，名字与 ${e.glyph} 的 import 都应删除`);
+      }
+    }
+  }
+}
+
 // ---------- 输出 ----------
 const out = [
   render('1. 组件内裸颜色（token 禁令）', a1.items),
@@ -679,12 +723,13 @@ const out = [
   render('18. a-button 配色不覆写（type/status + 色阶变量，例外带理由登记）', a18.items),
   render('19. 浅色（body 块）不换 Arco 状态色阶，避免连带重绘组件', a19.items),
   render('20. 给 Arco 内部节点写配色必须逐条登记（按钮侧归第 18 条）', a20.items),
+  render('21. 图标语义表一对一且有读者（icon-map.ts）', a21.items),
   `\n扫描 ${files.length} 个文件 · 规范依据 docs/zh/frontend.md §7.5`,
 ];
 
 console.log(out.join('\n'));
 
 const failed =
-  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19, a20]
+  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19, a20, a21]
     .some((a) => a.items.length > 0) || STATE_UNREG.length > 0;
 process.exit(failed ? 1 : 0);

@@ -2,6 +2,7 @@
 // 阶段三：设置页「常规」分组 —— 模型目录、llama 后端（引擎目录）+ 引擎检测、关闭窗口行为。
 // 设计稿 §14.10 / 补充指南 §14.10：模型目录提供「打开目录」；
 // 原独立「llama.cpp」标签（LlamaPanel）已整合为本卡片内的引擎目录行。
+import type { IconName } from '@/components/common/icon-map';
 import { computed, ref, watch, nextTick, getCurrentInstance, onDeactivated, onUnmounted } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
@@ -82,7 +83,7 @@ watch(llamaDir, () => {
   detectTimer = setTimeout(() => { detectTimer = null; void detectExe(); }, 400);
 }, { immediate: true });
 
-const exeBadge = computed<{ icon: string; cls: string; tip: string; label: string; spin?: boolean } | null>(() => {
+const exeBadge = computed<{ icon: IconName; cls: string; tip: string; label: string; spin?: boolean } | null>(() => {
   switch (exeStatus.value) {
     case 'idle':
       return { icon: 'info', cls: 'idle', tip: i18n.t('msg_no_exe_hint'), label: i18n.t('lbl_exe_state_idle') };
@@ -230,7 +231,7 @@ const closeBehavior = computed<CloseBehavior>({
           </a-button>
           <ToolTip :text="i18n.t('btn_open_dir')">
             <a-button size="small" :disabled="!modelsDir" @click="onOpenModelDir">
-              <template #icon><Icon name="folder_open" :size="12" /></template>
+              <template #icon><Icon name="folder" :size="12" /></template>
               {{ i18n.t('btn_open_dir') }}
             </a-button>
           </ToolTip>

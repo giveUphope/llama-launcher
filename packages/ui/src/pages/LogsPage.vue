@@ -2,6 +2,7 @@
 // 应用日志页：展示应用自身生命周期/操作日志（服务启停、下载、错误等）。
 // 区别于「服务」页控制台——控制台保留后端 llama-server 原始输出（server store）。
 // 数据源：主进程 app-log 缓冲（logs:list 拉取 + logs:onlog 实时推送）。
+import type { IconName } from '@/components/common/icon-map';
 import { computed, onMounted, ref, watch } from 'vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import ConsolePanel from '@/components/common/ConsolePanel.vue';
@@ -28,7 +29,7 @@ watch(searchQuery, (q) => {
 });
 const levelFilter = ref<AppLogKind | 'all'>('all');
 
-const LEVELS: Array<{ key: AppLogKind | 'all'; label: string; icon: string }> = [
+const LEVELS: Array<{ key: AppLogKind | 'all'; label: string; icon: IconName }> = [
   { key: 'all', label: i18n.t('lbl_all'), icon: 'info' },
   { key: 'info', label: 'INFO', icon: 'info' },
   { key: 'success', label: 'SUCCESS', icon: 'check' },

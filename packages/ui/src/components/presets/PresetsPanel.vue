@@ -200,7 +200,7 @@ onActivated(() => { void onRefreshList(); });
               <span class="col-model" :title="modelLabel(p)">{{ modelLabel(p) }}</span>
               <span class="col-actions">
                 <a-button size="small" type="primary" class="row-action" :title="i18n.t('preset_apply')" @click="onApplyPreset(p.name)">
-                  <template #icon><Icon name="play" :size="11" /></template>
+                  <template #icon><Icon name="check" :size="11" /></template>
                   {{ i18n.t('preset_apply') }}
                 </a-button>
                 <a-popconfirm

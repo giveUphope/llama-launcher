@@ -552,7 +552,7 @@ watch(models, () => writeRowMeta());
             <!-- 行操作：文本内联小按钮（§7.5.5 禁止纯图标操作按钮，预设面板同款范式） -->
             <div class="row-actions">
               <a-button size="small" class="row-action" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(record)">
-                <template #icon><Icon name="folder_open" :size="11" /></template>
+                <template #icon><Icon name="folder" :size="11" /></template>
                 {{ i18n.t('act_dir') }}
               </a-button>
               <a-button size="small" class="row-action" :title="i18n.t('bench_llama_title')"
