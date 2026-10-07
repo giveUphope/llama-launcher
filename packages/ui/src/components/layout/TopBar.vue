@@ -178,7 +178,9 @@ async function onOpenWeb() {
           <a-button class="tb-model" :disabled="!hasModels">
             <template #icon><Icon name="models" :size="14" /></template>
             <span class="model-name">{{ currentModelName || i18n.t('lbl_select_model') }}</span>
-            <template #suffix><Icon name="chevron_down" :size="12" /></template>
+            <!-- a-button 只有 icon/default 两个槽：suffix 槽是死槽，内容被静默丢弃
+                 （箭头此前从未渲染过——「下拉栏缺图标」连续几轮的真因）。尾箭头进默认槽，间距自理 -->
+            <Icon name="chevron_down" :size="12" class="tb-caret" />
           </a-button>
         </ToolTip>
         <template #content>
@@ -339,6 +341,10 @@ async function onOpenWeb() {
 .tb-model {
   :deep(.arco-btn-content) {
     min-width: 0;
+  }
+  // 尾箭头间距镜像官方前导图标 margin（size-medium 为 8px），保持同一节奏
+  .tb-caret {
+    margin-left: 8px;
   }
 }
 

@@ -283,7 +283,8 @@ async function onClearSession() {
           <a-button size="small">
             <template #icon><Icon name="presets" :size="11" /></template>
             {{ i18n.t('lbl_perf_target') }}: {{ targetLabel }}
-            <template #suffix><Icon name="chevron_down" :size="11" /></template>
+            <!-- 同 TopBar：a-button 无 #suffix 槽（死槽内容被静默丢弃），尾箭头必须进默认槽 -->
+            <Icon name="chevron_down" :size="11" class="target-caret" />
           </a-button>
         </ToolTip>
         <template #content>
@@ -442,6 +443,11 @@ async function onClearSession() {
 .stat-divider.arco-divider-vertical {
   height: 22px;
   margin: 0;
+}
+
+// 性能目标按钮尾箭头：间距镜像官方前导图标 margin（size-small 为 6px）
+.target-caret {
+  margin-left: 6px;
 }
 
 .status-right {

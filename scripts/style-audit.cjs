@@ -732,6 +732,38 @@ const a22 = new Audit();
   }
 }
 
+// ---------- 23. a-button 不得使用 #suffix 槽（a-button 只有 icon/default 两个槽，死槽内容被静默丢弃） ----------
+// 实案（2026-10-07）：TopBar 模型下拉与参数页性能目标按钮的下拉箭头写在 <template #suffix> 里，
+// Vue 对组件未声明的槽静默丢弃、无警告无渲染——用户连报数轮「下拉栏缺图标」的真因。
+// 合法宿主（a-input / a-statistic / a-select 等官方声明了 suffix 槽的组件）不在本条范围；
+// 尾图标请进默认槽、间距自理（对齐官方前导图标 margin 节奏：medium 8px / small 6px）。
+const a23 = new Audit();
+{
+  let blocks = 0;
+  for (const f of files) {
+    if (!f.endsWith('.vue')) continue;
+    const text = readLines(f).join('\n');
+    const start = text.indexOf('<template>');
+    if (start < 0) continue;
+    const body = text.slice(start);
+    // 属性串允许跨行（同 16b 的模式）；非贪婪配对到最近的 </a-button>
+    for (const m of body.matchAll(/<a-button\b((?:[^>"']|"[^"]*"|'[^']*')*?)>([\s\S]*?)<\/a-button>/g)) {
+      blocks++;
+      // 块内 HTML 注释不参与判定（成因注释就写在按钮里，字面 #suffix 会自咬）
+      const inner = m[2].replace(/<!--[\s\S]*?-->/g, '');
+      if (/#[Ss]uffix|v-slot:suffix/.test(inner)) {
+        const line = text.slice(0, start + m.index).split('\n').length;
+        a23.add(f, line, '<a-button> 使用了不存在的 #suffix 槽（只有 icon/default），内容被静默丢弃——尾图标进默认槽');
+      }
+    }
+  }
+  // 自证解析规模：a-button 开标签全站 67 处（2026-10-07 实测），解析到过少说明模板形状
+  // 变了或尺子失灵，「零命中」不再等于「干净」
+  if (blocks < 30) {
+    a23.add(path.join(ROOT, 'scripts/style-audit.cjs'), 0, `只解析到 ${blocks} 个 <a-button> 块（实测 67）：解析器与文件形状脱节，本条判据不可信`);
+  }
+}
+
 // ---------- 输出 ----------
 const out = [
   render('1. 组件内裸颜色（token 禁令）', a1.items),
@@ -759,12 +791,13 @@ const out = [
   render('20. 给 Arco 内部节点写配色必须逐条登记（按钮侧归第 18 条）', a20.items),
   render('21. 图标语义表一对一且有读者（icon-map.ts）', a21.items),
   render('22. 控制台 token 家族（--log-kind-* / --console-*）有定义且有读者', a22.items),
+  render('23. a-button 无 #suffix 死槽（只有 icon/default，尾图标进默认槽）', a23.items),
   `\n扫描 ${files.length} 个文件 · 规范依据 docs/zh/frontend.md §7.5`,
 ];
 
 console.log(out.join('\n'));
 
 const failed =
-  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19, a20, a21, a22]
+  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19, a20, a21, a22, a23]
     .some((a) => a.items.length > 0) || STATE_UNREG.length > 0;
 process.exit(failed ? 1 : 0);
