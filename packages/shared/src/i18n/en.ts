@@ -8,7 +8,6 @@ export const en: Dict = {
   open_web: 'Open Web UI',
   clear_console: 'Clear Console',
   copy_cmd: 'Copy Cmd',
-  btn_dismiss_hint: 'Dismiss this hint',
   hint_stale_running_s: '{0} parameter(s) differ from the running service; they apply after a restart',
   hint_props_mismatch_s: 'Engine read-back: {0} value(s) differ from what was sent: {1}',
   hint_props_mismatch_env_s: 'Engine read-back: {0} differ ({1}); likely rewritten by {2}',

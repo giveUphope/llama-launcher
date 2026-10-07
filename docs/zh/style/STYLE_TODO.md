@@ -464,6 +464,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复效果验证**：真机逐处复测字形 class：上一级 = `arco-icon-up`、应用预设 = `arco-icon-check`、设置页提示 = `arco-icon-check-circle`、打开目录 = `arco-icon-folder`；七页 `.arco-icon-question-circle` 计数 **0**（改前模型页 1 处，即上面那条静默退化）。`vue-tsc --noEmit` 在 `IconName` 收紧后仍干净（说明全站无错名）。**删除实验两组**：把 `folder_open: IconFolder` 贴回映射表 ⇒ 第 21 条同时报「一个字形挂了 2 个语义名」与「语义名 folder_open 零读者」并退出码 1；把检查里 `entries.length < 20` 的自证门槛当回归用——第一版解析器只匹配到 9 条（`^\s*` 锚点漏掉一行多条的写法），**门槛立刻把它抓了出来**，否则这条门禁会以「零命中=绿」的假象上线。**另记一次自己的取证失误**：我第一版图标对账脚本用 shell 内嵌 node 跑，正则里的引号被吞，得出「41 个名字全部零读者、无一复用」的**双假结论**（真值是 1 零读者 + 1 复用）；改写成落盘文件后才对上——这条已按仓库惯例记在这里。`pnpm style:audit` 21/21、`pnpm test` core 442 + ui 100、`pnpm e2e:web` 81 条、`pnpm lint` 全绿。规范落点：§7.5.8「图标语义对账」一条 + §7.4 组件表 `Icon` 行改写。
 
 
+### 100. 引擎提示行本体对齐官方组件：自绘警示行换 a-tag closable — 🟢 已修复（2026-10-08）
+
+- **位置**：`packages/ui/src/components/settings/GeneralPanel.vue`（引擎提示行本体）。
+- **描述**：用户再次批注「审查提示样式是否符合arco官方档」。#99 后提示行仍剩三处自绘：行布局（flex + 图标 + 文字）、警示色（`--fg-warning-text` 角色档）、忽略钮（a-button ×）。官方对「可关闭提示」的原生答案是 `a-alert`（type / show-icon / closable），实测其结构是横幅——`width: 100%`、14px 字号、`8px 15px` 内距全部硬编码，塞进引擎目录行尾必须覆写内部样式并推翻用户已定的行内形态，**评估后不采纳**（库层证据：三条硬编码与行内场景直接冲突）；内联兼容的官方组件是 `a-tag closable`（官方关闭钮内建 `role="button"` + `aria-label`，与相邻状态胶囊同族）。
+- **修复**：提示行本体换 `a-tag closable`（warn=orange / info=gray 官方预设色对，`size="small"` + `nowrap`，图标走 `#icon` 槽），自绘行布局 / 角色色 / 忽略钮全删；忽略指纹逻辑不变（`@close` → 长句全文入 `settings.engine_hint_dismissed`，新消息照常出现）；`btn_dismiss_hint` 键失去读者删除（官方钮的 `aria-label="Close"` 为库内硬编码，非本地化——接受，官方组件行为）。对比度注记：预设对取代 #99 的角色档，是「文字进了官方组件」后采用官方配对，同 StatusTag 先例。
+- **修复效果验证**：drift 演示场景实测 tag 314px 官方 `arco-tag-orange` 预设类生效、关闭钮 `role="button"` + `aria-label="Close"` 就位、点关后指纹入库且标签消失；`pnpm style:audit` 全绿、`pnpm e2e:web` 81 条全绿。
+
 ### 99. 设置页两个提示样式对齐 Arco 官方组件：状态胶囊换 a-tag 预设色、提示长文案换 a-tooltip — 🟢 已修复（2026-10-08）
 
 - **位置**：`packages/ui/src/components/settings/GeneralPanel.vue`（引擎状态胶囊、引擎提示）。
@@ -487,6 +494,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 100 | 引擎提示行本体对齐官方组件（用户批注「审查提示样式是否符合arco官方档」）：#99 后提示行仍剩行布局 / 角色色 / 忽略钮三处自绘——官方 `a-alert` 是横幅（width:100%、14px、8/15 内距硬编码）与行内形态冲突，评估后不采纳；换 `a-tag closable`（warn=orange / info=gray 官方预设 + 官方关闭钮内建 role="button"/aria-label + `#icon` 槽 + `nowrap`），自绘行布局 / 角色色 / 忽略钮全删，忽略指纹逻辑不变（@close 入库）；`btn_dismiss_hint` 键失去读者删除（官方钮 aria-label="Close" 为库内硬编码） | 2026-10-08 |
 | 98 | 三处日志出口收敛为两处（用户批注「控制台输出出口与当前日志出口应调整到日志界面，只需要输出推理框架日志即可」＋选定档 B）：日志页改为推理框架控制台（`server` store 的原始输出 + 入队时算好的 `tone` 着色 + 同值域级别筛选 + 搜索 / 复制 / 清空），服务页删掉整个控制台卡片只剩三卡，概览「最近问题」改为「应用操作日志」（最近 24 行全级别、时间 / 级别 / 正文三列、出现 error 时给去向按钮）；i18n 删 4 键增 2 键（395/395）；`logs-scroll.spec.ts` 灌流钩子改指 `__mockPushConsole`，`scrollTop` 那条等值断言放宽为「非 0 且不小于首读」（本页现在有 2.5s 一行的正常输出流，等值会把「有输出流」判成回归；删除实验仍咬得红） | 2026-10-07 |
 | 99 | 设置页两个提示样式对齐 Arco 官方组件（用户批注「两个提示样式需要先确认是否符合 arco 官方最佳实践」）：引擎状态胶囊是自绘 chip（图标 + 彩字 + 14% 浅色底 + pill 圆角）＝官方 `a-tag` 预设色的平行实现——换 `a-tag`（color 预设 gray/arcoblue/green/red + `size="small"` + `nowrap`，检测态用官方 `loading` prop 替换自绘 spin，图标走 `#icon` 槽），自绘配色样式全删（第 20 条零登记面）；引擎提示的原生 `title` 换 `ToolTip`（a-tooltip 封装），省略链随包裹层适配；橙色保留 `--fg-warning-text` 角色档（官方 `type="warning"` 是裸 warning-6，压白 2.57:1 不达 4.5 纪律） | 2026-10-08 |
 | 97 | 全局图标语义审查（用户批注「全局图标审查，是否还有类似的语义偏差图标」）：`folder_open` 与 `folder` 同为纯文件夹导致「上一级」长得和「打开目录」一样——上一级改 `chevron_up`（Arco icon-up）、四处「打开目录」归 `folder`、别名 `folder_open` 删除；「应用预设」不再借用启动服务的 `play` 而用 `check`；设置页「更改即时保存」不再用暗示手动保存的软盘 `save` 而用 `check_circle`；删零读者的 `clock`；字形表抽成 `icon-map.ts` 并导出 `IconName` 类型（六处 `icon: string` 收紧，错名在 vue-tsc 即红——真机实测模型页页签曾静默退化成问号图标）；新增门禁第 21 条（一名一图 + 每名有读者，删除实验：贴回 `folder_open` ⇒ 两条同时红） | 2026-10-07 |

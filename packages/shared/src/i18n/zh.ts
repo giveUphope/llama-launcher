@@ -6,7 +6,6 @@ export const zh = {
   open_web: '打开 Web UI',
   clear_console: '清空控制台',
   copy_cmd: '复制命令',
-  btn_dismiss_hint: '忽略此提示',
   hint_stale_running_s: '当前参数与运行中的服务有 {0} 项不同，重启后生效',
   hint_props_mismatch_s: '引擎回读 {0} 项与发出的值不一致：{1}',
   hint_props_mismatch_env_s: '引擎回读 {0} 项不一致（{1}），疑为 {2} 改写缺省值',

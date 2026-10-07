@@ -375,26 +375,24 @@ onActivated(() => {
             </span>
 
           <!-- 引擎提示（2026-10-07 自服务页命令预览卡迁入）：参数不一致 / /props 回读 /
-               env 覆写 / 基线漂移，有事才出声。形态（2026-10-08 用户复核）：行内追加在
-               本行尾部——可见短句直接可见、完整长句走 title；窄窗口经 flex-wrap 折行仍
-               贴着本行；点「忽略」按条持久化，新出现的消息照常显示 -->
-          <div v-if="engineHintVisible" class="engine-hint">
-            <Icon :name="engineHintWarn ? 'alert' : 'info'" :size="12" />
+               env 覆写 / 基线漂移，有事才出声。形态三轮收敛（2026-10-08 用户再次要求对齐
+               官方档）：行内追加在引擎目录行尾，本体 = a-tag closable（官方关闭钮内建
+               role="button" + aria-label，官方 orange/gray 预设色对），短句直接可见、
+               完整长句走 ToolTip；点官方关闭钮按条持久化，新出现的消息照常显示 -->
+          <a-tag
+            v-if="engineHintVisible"
+            class="engine-hint-tag"
+            :color="engineHintWarn ? 'orange' : 'gray'"
+            size="small"
+            closable
+            nowrap
+            @close="onDismissEngineHint"
+          >
+            <template #icon><Icon :name="engineHintWarn ? 'alert' : 'info'" :size="12" /></template>
             <ToolTip :text="engineHintTitle">
               <span class="engine-hint-text">{{ engineHintText }}</span>
             </ToolTip>
-            <ToolTip :text="i18n.t('btn_dismiss_hint')">
-              <a-button
-                class="engine-hint-close"
-                size="mini"
-                type="text"
-                :aria-label="i18n.t('btn_dismiss_hint')"
-                @click="onDismissEngineHint"
-              >
-                <template #icon><Icon name="close" :size="12" /></template>
-              </a-button>
-            </ToolTip>
-          </div>
+          </a-tag>
         </div>
       </a-form-item>
 
@@ -501,29 +499,12 @@ onActivated(() => {
   flex-grow: 0;
 }
 
-/* 引擎提示：行内追加在引擎目录行尾部（path-row 末位子节点，与输入框 / 更改 / 状态胶囊
-   同一行，窄窗口随 flex-wrap 折行仍贴着本行）。橙走 --fg-warning-text（与 ParamRow 超限
-   提示同一 token，压页面底已实测达标）。可见短句直接显示、完整长句走 title——「可忽略
-   提示」是行尾的一枚紧凑附注，不是一行公告（2026-10-08 用户复核批注）。
-   420 上限同折行判据：内容超限时省略号兜底，title 承载全文 */
-.engine-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1 1 200px;
-  min-width: 0;
-  max-width: 420px;
-  font-size: var(--fs-sm);
-  color: var(--fg-warning-text);
-}
-
-.engine-hint > .icon {
-  flex: 0 0 auto;
-}
-
-/* 文字包在 ToolTip（a-tooltip）的 .tooltip-host 里：host 是 flex 子节点须允许收缩，
-   内层 span 转块级才能接上省略号链（flex 子节点自动块状化的前提随包裹层消失） */
-.engine-hint > .tooltip-host {
+/* 引擎提示：a-tag closable 官方组件（2026-10-08 三轮对齐的定稿——官方关闭钮内建
+   role="button" + aria-label="Close"，配色走官方 orange/gray 预设对，同 StatusTag 先例；
+   此前自绘的行布局 / 角色色 / 忽略钮全部删除）。tag 在引擎目录行尾弹性收缩：
+   min-width 0，超宽时内部 ToolTip host（自带 min-width 0）带动内层 span 省略号，
+   完整长句走 ToolTip */
+.engine-hint-tag {
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -535,10 +516,5 @@ onActivated(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.engine-hint-close {
-  flex: 0 0 auto;
-  color: var(--fg-hint);
 }
 </style>
