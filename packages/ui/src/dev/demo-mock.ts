@@ -456,6 +456,15 @@ export function createDemoApi() {
     ...Object.fromEntries(PARAMS.map((p) => [p.key, p.default])),
   };
 
+  // 漂移演示构建号：从基线常量派生（减 1），不硬编码第二份构建号——re-pin 时这里跟着走。
+  // 漂移判定是方向性的（2026-10-06 起）：只在「引擎比基线旧」时出声；此前随手写的 b99999
+  // 比基线大，本场景在现行规则下永远静默（baselineDrift 恒 null），直到 2026-10-07 迁移
+  // 引擎提示时实测才发现。取不到数值时退回与基线同构建（等于不演示漂移，不误报）。
+  const driftDemoBuildInfo = () => {
+    const n = Number(ENGINE_BASELINE_BUILD.slice(1));
+    return Number.isFinite(n) ? `b${n - 1}-demo` : `${ENGINE_BASELINE_BUILD}-demo`;
+  };
+
   function demoPropsCheck(values: PresetValues | null): PropsCheck | null {
     if (demoMode !== 'props-mismatch' && demoMode !== 'props-drift' && demoMode !== 'props-ok') return null;
     // 用预览卡刚传来的当前值（与真实界面一致）；没拿到过时退回默认值基线。
@@ -465,7 +474,7 @@ export function createDemoApi() {
     return checkEngineProps(
       {
         // props-ok 的构建号必须等于当前基线，否则每次 re-pin 后演示页会自己显示成「基线漂移」
-        build_info: demoMode === 'props-drift' ? 'b99999-demo' : `${ENGINE_BASELINE_BUILD}-demo`,
+        build_info: demoMode === 'props-drift' ? driftDemoBuildInfo() : `${ENGINE_BASELINE_BUILD}-demo`,
         ui: v.ui !== false,
         endpoint_slots: true,
         endpoint_metrics: false,

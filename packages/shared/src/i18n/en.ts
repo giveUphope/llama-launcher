@@ -8,6 +8,7 @@ export const en: Dict = {
   open_web: 'Open Web UI',
   clear_console: 'Clear Console',
   copy_cmd: 'Copy Cmd',
+  btn_dismiss_hint: 'Dismiss this hint',
   copy_url: 'Copy URL',
   copy_model: 'Copy Model',
   copy_console: 'Copy Output',

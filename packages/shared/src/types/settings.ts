@@ -51,4 +51,11 @@ export interface AppSettings {
   session_values?: PresetValues | null;
   /** 参数会话基线：会话加载的预设（名称 + 应用时刻快照）；null = 无预设基线（出厂默认） */
   session_baseline?: SessionBaseline | null;
+  /**
+   * 引擎提示的已忽略条目（设置页引擎行下方的可忽略提示，2026-10-07 自服务页命令预览卡迁入）：
+   * 点「忽略」把当前行里每条消息的全文存入；被忽略的条目保持安静，**新出现的消息照常显示**
+   * ——按条忽略而非按整行，是因为「N 项不同」的计数随参数编辑逐次变化，整行指纹会被
+   * 每次编辑绕过。写入方裁剪到最近 50 条防无界增长。缺失 = 从未忽略。
+   */
+  engine_hint_dismissed?: string[];
 }

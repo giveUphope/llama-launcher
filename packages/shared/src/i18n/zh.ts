@@ -6,6 +6,7 @@ export const zh = {
   open_web: '打开 Web UI',
   clear_console: '清空控制台',
   copy_cmd: '复制命令',
+  btn_dismiss_hint: '忽略此提示',
   copy_url: '复制地址',
   copy_model: '复制模型名',
   copy_console: '复制输出',

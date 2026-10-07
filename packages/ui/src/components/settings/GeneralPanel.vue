@@ -3,12 +3,14 @@
 // 设计稿 §14.10 / 补充指南 §14.10：模型目录提供「打开目录」；
 // 原独立「llama.cpp」标签（LlamaPanel）已整合为本卡片内的引擎目录行。
 import type { IconName } from '@/components/common/icon-map';
-import { computed, ref, watch, nextTick, getCurrentInstance, onDeactivated, onUnmounted } from 'vue';
+import { computed, ref, watch, nextTick, getCurrentInstance, onActivated, onDeactivated, onUnmounted } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
 import { vInnerAriaLabel } from '@/directives/innerAriaLabel';
 import { useSettingsStore } from '@/stores/settings';
+import { useServerStore } from '@/stores/server';
+import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 import { pickDir } from '@/composables/useFilePicker';
 import { LLAMA_CPP_RELEASES_URL } from '@llama-launcher/shared';
@@ -159,6 +161,9 @@ watch(helpVisible, (visible) => {
 onDeactivated(() => {
   // 浮层挂在 body 上，不随 keep-alive 页面一起隐藏：切走页面时必须就地关掉
   helpVisible.value = false;
+  // /props 复检的可见计数随面板退场（展示在哪就在哪看，后台页不计数就不敲端口）
+  releasePropsWatch?.();
+  releasePropsWatch = null;
 });
 onUnmounted(() => {
   if (detectTimer) { clearTimeout(detectTimer); detectTimer = null; }
@@ -169,6 +174,90 @@ onUnmounted(() => {
 const closeBehavior = computed<CloseBehavior>({
   get: () => settings.settings?.close_behavior ?? 'ask',
   set: (v) => { if (settings.settings) { settings.settings.close_behavior = v; void settings.save(); } },
+});
+
+// ---- 引擎提示（2026-10-07 自服务页命令预览卡迁入，用户决定：提示归设置页引擎行）----
+// 四类消息：参数与运行中服务不一致 / /props 回读不一致 / env 覆写 / 引擎构建旧于基线。
+// 「只在有事要说时出声」口径不变——一致或未回读一行不出（2026-10-06 用户标注）。
+// 可忽略（按条）：点「忽略」把当前行里每条消息全文存进 settings.engine_hint_dismissed，
+// 被忽略的条目保持安静、新出现的消息照常显示——不按整行忽略，因为「N 项不同」的计数
+// 随参数编辑逐次变化，整行指纹会被每次编辑绕过（实测教训）。写入裁剪到最近 50 条。
+// 回读自动刷新的可见计数也挂在这里：展示在哪就在哪看。挂接是「本面板真的可见」计数的
+// 进入 / 退出（keep-alive 下 onUnmounted 不执行，必须配对 onActivated/onDeactivated，
+// §7.1 铁律①）；store 侧节拍只在 running 时排表、结论连续不变就 ×2^n 退避到封顶，
+// 与概览页外部实例探测同一套形状。
+const server = useServerStore();
+const params = useParamsStore();
+
+const staleCount = computed(() => {
+  if (server.status !== 'running' && server.status !== 'starting') return 0;
+  return params.countDiffers(server.runningValues);
+});
+const propsMismatch = computed(() => server.propsCheck?.mismatched ?? []);
+const mismatchList = computed(() => propsMismatch.value.map((m) => `${m.flag}: ${m.sent} ≠ ${m.actual}`).join(', '));
+const baselineDrift = computed(() => server.propsCheck?.baselineDrift ?? null);
+// env 变量与不一致项同时出现才构成归因——只有 env 变量不甩锅给环境（还可能是引擎漂移或基线填错）
+const envBlame = computed(() => server.envOverrides.length > 0 && propsMismatch.value.length > 0);
+
+interface EngineHintPart {
+  text: string;
+  warn: boolean;
+}
+const engineHintParts = computed<EngineHintPart[]>(() => {
+  const parts: EngineHintPart[] = [];
+  const envList = server.envOverrides.join(', ');
+  if (staleCount.value) {
+    parts.push({ warn: true, text: i18n.t('cmd_stale_running', [String(staleCount.value)]) });
+  }
+  if (propsMismatch.value.length) {
+    parts.push(
+      envBlame.value
+        ? {
+            warn: true,
+            text: i18n.t('cmd_props_mismatch_env', [
+              String(propsMismatch.value.length),
+              mismatchList.value,
+              envList,
+            ]),
+          }
+        : {
+            warn: true,
+            text: i18n.t('cmd_props_mismatch', [String(propsMismatch.value.length), mismatchList.value]),
+          },
+    );
+  }
+  // env 覆写单独说明：不一致那句已经带上同一批变量时不再重复列一遍
+  if (server.envOverrides.length && !envBlame.value) {
+    parts.push({ warn: true, text: i18n.t('cmd_env_overrides', [envList]) });
+  }
+  const drift = baselineDrift.value;
+  if (drift) {
+    parts.push({ warn: true, text: i18n.t('cmd_baseline_drift', [drift.engineBuild, drift.baselineBuild]) });
+  }
+  return parts;
+});
+const dismissedHints = computed(() => new Set(settings.settings?.engine_hint_dismissed ?? []));
+// 被忽略的条目不进渲染行：剩下的才是这条提示此刻要说的话
+const visibleHintParts = computed(() => engineHintParts.value.filter((p) => !dismissedHints.value.has(p.text)));
+const engineHintText = computed(() => visibleHintParts.value.map((p) => p.text).join(' · '));
+const engineHintWarn = computed(() => visibleHintParts.value[0]?.warn ?? false);
+const engineHintVisible = computed(() => visibleHintParts.value.length > 0);
+
+const HINT_DISMISS_CAP = 50;
+function onDismissEngineHint() {
+  if (!settings.settings || !visibleHintParts.value.length) return;
+  const next = new Set(dismissedHints.value);
+  for (const p of visibleHintParts.value) next.add(p.text);
+  const list = [...next];
+  settings.settings.engine_hint_dismissed = list.slice(-HINT_DISMISS_CAP);
+  void settings.save();
+}
+
+// /props 复检的可见性挂接：本面板是结论的展示点之一（另一个是概览状态卡）
+let releasePropsWatch: (() => void) | null = null;
+onActivated(() => {
+  releasePropsWatch?.();
+  releasePropsWatch = server.enterPropsWatch();
 });
 </script>
 
@@ -257,6 +346,24 @@ const closeBehavior = computed<CloseBehavior>({
           </span>
         </div>
       </a-form-item>
+
+      <!-- 引擎提示（2026-10-07 自服务页命令预览卡迁入）：参数不一致 / /props 回读 /
+           env 覆写 / 基线漂移，有事才出声；「忽略」按条持久化，新出现的消息照常显示 -->
+      <div v-if="engineHintVisible" class="engine-hint">
+        <Icon :name="engineHintWarn ? 'alert' : 'info'" :size="12" />
+        <span class="engine-hint-text" :title="engineHintText">{{ engineHintText }}</span>
+        <ToolTip :text="i18n.t('btn_dismiss_hint')">
+          <a-button
+            class="engine-hint-close"
+            size="mini"
+            type="text"
+            :aria-label="i18n.t('btn_dismiss_hint')"
+            @click="onDismissEngineHint"
+          >
+            <template #icon><Icon name="close" :size="12" /></template>
+          </a-button>
+        </ToolTip>
+      </div>
 
       <a-form-item :label="i18n.t('lbl_close_behavior')" v-inner-aria-label="i18n.t('lbl_close_behavior')">
         <a-select class="fc-select" v-model="closeBehavior" :style="{ width: '160px' }"
@@ -377,5 +484,32 @@ const closeBehavior = computed<CloseBehavior>({
   flex: 1;
   min-width: 0;
   word-break: break-word;
+}
+
+/* 引擎提示（自服务页命令预览卡迁入）：橙走 --fg-warning-text（与 ParamRow 超限提示同一
+   token，压页面底已实测达标），文字可换行；「忽略」钉在行尾不随文案长短移动 */
+.engine-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: -10px 0 4px;
+  font-size: var(--fs-sm);
+  color: var(--fg-warning-text);
+}
+
+.engine-hint > .icon {
+  flex: 0 0 auto;
+  margin-top: 3px; // 与首行文字基线对齐
+}
+
+.engine-hint-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.engine-hint-close {
+  flex: 0 0 auto;
+  color: var(--fg-hint);
 }
 </style>

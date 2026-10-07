@@ -27,7 +27,7 @@ const { hasNewLogs, scrollToBottom, onScroll } = useAutoScroll(consoleEl, {
       class="new-logs-bar"
       type="text"
       size="mini"
-      @click="scrollToBottom()"
+      @click="scrollToBottom(true)"
     >
       <Icon name="chevron_down" :size="12" />
       <span>{{ i18n.t('msg_new_logs') }}</span>

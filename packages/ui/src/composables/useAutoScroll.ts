@@ -25,13 +25,23 @@ export function useAutoScroll(
   let scrollScheduled = false;
   let scrollFrame = 0;
 
-  function scrollToBottom() {
-    if (scrollScheduled) return;
+  /** force = 显式请求（胶囊点击 / 页面重回可见）：即便用户已拨离底部也执行；
+   *  默认（日志到达的自动滚动）则尊重排队期间的用户滚动——见帧内守卫 */
+  function scrollToBottom(force = false) {
+    if (scrollScheduled) {
+      if (!force) return;
+      cancelPendingScroll();
+    }
     scrollScheduled = true;
+    const isForced = force;
     scrollFrame = requestAnimationFrame(() => {
       scrollScheduled = false;
       const el = containerRef.value;
       if (!el) return;
+      // 排队期间用户可能已把滚动条拨走（scroll 事件把 autoScroll 置假）：此刻尊重用户位置，
+      // 不再强行拨底——否则排队帧会把用户刚拨到的位置覆盖掉，「有新日志」状态也随之丢失
+      // （e2e logs-scroll 胶囊用例的间歇失败即此竞态：拨 0 恰好落在排队帧之前）。
+      if (!autoScroll.value && !isForced) return;
       el.scrollTop = el.scrollHeight;
       autoScroll.value = true;
       hasNewLogs.value = false;
@@ -67,7 +77,7 @@ export function useAutoScroll(
 
   onActivated(() => {
     pageActive.value = true;
-    scrollToBottom();
+    scrollToBottom(true);
   });
   onDeactivated(() => {
     pageActive.value = false;
