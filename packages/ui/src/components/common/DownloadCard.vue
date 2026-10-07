@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
+import StatusTag from '@/components/common/StatusTag.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useDownloadStore } from '@/stores/download';
@@ -586,22 +587,19 @@ const STATUS_TEXT_KEY: Record<string, string> = {
   error: 'status_error',
   canceled: 'status_canceled',
 };
-const STATUS_COLOR: Record<string, string> = {
-  queued: 'var(--fg-hint)',
-  downloading: 'var(--fg-accent)',
-  paused: 'var(--fg-warning-text)',
-  completed: 'rgb(var(--success-6))',
-  error: 'var(--fg-danger-text)',
-  canceled: 'var(--fg-hint)',
-};
+/** 下载状态 → StatusTag 五档（ok/warn/error/loading/其他→gray）：语义直接映射官方预设，
+ *  下行中 = loading（arcoblue + 官方转圈），替换原先的语义色文字（#103） */
+function downloadStatusToTag(status: string): string {
+  if (status === 'downloading') return 'loading';
+  if (status === 'paused') return 'warn';
+  if (status === 'completed') return 'ok';
+  if (status === 'error') return 'error';
+  return 'queued';
+}
 
 function statusText(status: string): string {
   const key = STATUS_TEXT_KEY[status];
   return key ? i18n.t(key) : status;
-}
-
-function statusColor(status: string): string {
-  return STATUS_COLOR[status] ?? 'var(--color-text-1)';
 }
 
 // 文件类别徽标文本（category 缺失时回退「其他」，避免 cat_undefined 裸键）
@@ -925,9 +923,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
                 />
               </div>
               <div class="task-stats">
-                <span class="task-status" :style="{ color: statusColor(t.status) }">
-                  {{ statusText(t.status) }}
-                </span>
+                <StatusTag :status="downloadStatusToTag(t.status)" :label="statusText(t.status)" />
                 <span class="task-size">{{ formatDownloaded(t) }}</span>
                 <span v-if="t.status === 'downloading'" class="task-speed">{{ formatSpeed(t.speed) }}</span>
                 <span v-if="t.status === 'downloading'" class="task-eta">{{ i18n.t('lbl_eta') }} {{ formatEta(t) }}</span>
@@ -1483,9 +1479,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
   font-size: var(--fs-sm);
 }
 
-.task-status {
-  font-weight: 600;
-}
+// （.task-status 语义色文字已随 StatusTag 迁移删除，#103）
 
 .task-size {
   color: var(--color-text-2);

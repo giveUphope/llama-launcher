@@ -173,9 +173,9 @@ onActivated(() => { void onRefreshList(); });
       <template #actions>
         <span class="list-hint">{{ i18n.t('preset_dblclick_hint') }}</span>
       </template>
-      <!-- 应用提示：仅在有提示时渲染（原常驻占位槽会在卡片体顶部留下永久空白，
-           2026-09-07 移除；提示为用户操作后的瞬时反馈，出现时列表下移可接受） -->
-      <div v-if="appliedMsg" class="applied-msg">{{ appliedMsg }}</div>
+      <!-- 应用提示：仅在有提示时渲染（瞬时反馈，出现时列表下移可接受）。
+           2026-10-08 本体换 a-alert 官方成功横幅（自绘的底色 / 描边 / 文字色删除） -->
+      <a-alert v-if="appliedMsg" type="success" class="applied-msg">{{ appliedMsg }}</a-alert>
       <div class="list-wrap">
         <!-- #81 ③：取数未回之前渲染一行加载占位（Arco a-spin），不再抢跑显示「暂无预设」 -->
         <div v-if="!presetsLoaded" class="list-loading">
@@ -259,14 +259,9 @@ onActivated(() => { void onRefreshList(); });
   color: var(--fg-hint);
 }
 
+/* 应用提示：a-alert 官方 success 横幅承载（配色 / 圆角 / 内距全交回库），此处只留节奏 */
 .applied-msg {
   margin-bottom: 8px;
-  padding: 6px 10px;
-  border-radius: var(--radius-row);
-  background: color-mix(in srgb, rgb(var(--success-6)) 12%, transparent);
-  border: 1px solid rgb(var(--success-6));
-  color: rgb(var(--success-6)); // 文字用深绿达 AA；底/边保留亮 --success 语义
-  font-size: var(--fs-base);
 }
 
 .list-wrap {

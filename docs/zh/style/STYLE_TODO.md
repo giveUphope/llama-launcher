@@ -471,6 +471,14 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：提示行本体换 `a-tag closable`（warn=orange / info=gray 官方预设色对，`size="small"` + `nowrap`，图标走 `#icon` 槽），自绘行布局 / 角色色 / 忽略钮全删；忽略指纹逻辑不变（`@close` → 长句全文入 `settings.engine_hint_dismissed`，新消息照常出现）；`btn_dismiss_hint` 键失去读者删除（官方钮的 `aria-label="Close"` 为库内硬编码，非本地化——接受，官方组件行为）。对比度注记：预设对取代 #99 的角色档，是「文字进了官方组件」后采用官方配对，同 StatusTag 先例。
 - **修复效果验证**：drift 演示场景实测 tag 314px 官方 `arco-tag-orange` 预设类生效、关闭钮 `role="button"` + `aria-label="Close"` 就位、点关后指纹入库且标签消失；`pnpm style:audit` 全绿、`pnpm e2e:web` 81 条全绿。
 
+### 103. 同族清扫第二轮：下载任务状态文字换 StatusTag、预设应用提示换 a-alert — 🟢 已修复（2026-10-08）
+
+- **位置**：`packages/ui/src/components/common/DownloadCard.vue`（任务行状态文字）、`packages/ui/src/components/presets/PresetsPanel.vue`（应用提示）。
+- **描述**：用户批注「进一步审查是否还有类似的自绘组件」。全站语义色扫描后两处真平行：① 下载任务行的状态文字（`STATUS_COLOR` 映射五档语义色 + 内联 `:style` 上色）——与 ServiceStatusCard 的 StatusTag 完全同族；② 预设应用提示（自绘 success 底/边/字色盒）——官方 `a-alert` 的完整平行实现。
+- **修复**：① 任务状态换 `StatusTag`（本仓自己的 a-tag 预设封装）：queued=gray / downloading=loading（arcoblue + 官方转圈）/ paused=warn / completed=ok / error=error，`STATUS_COLOR` 映射与 `statusColor()` 删除；② 应用提示换 `a-alert type="success"`（官方成功横幅，配色 / 圆角 / 内距交回库）。
+- **评估后保留（非平行，记边界）**：`FileBrowserModal .fb-error`（a-list `#empty` 官方槽内的空态错误文字）、ParamsPage 显存估算超限警示（数据值警示非状态芯片）、LocalModelsPanel `badge-orange/red`（a-tag 上的对比度修正，#53 一脉）、TopBar 关闭钮红 hover（窗口铬豁免）、中性灰提示行（`.scope-hint` / `.trash-hint` / `.cmd-hint`——灰是文字样式不是状态芯片，#102 已划界）。
+- **修复效果验证**：`pnpm style:audit` 22/22（期间规则 1 把注释里的「#103」当十六进制色捕获——错误positive源自审计的 hex 正则，措辞避开后通过）、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿、ui 测试 103 全绿；a-alert 横幅 drift 场景实测（官方绿 + 图标 + 文案）；StatusTag 形态由 ServiceStatusCard 同组件背书。
+
 ### 102. 状态卡警示族对齐官方组件：端点提示 / 失败横幅 / OOM 归因行换 a-tag 预设色 — 🟢 已修复（2026-10-08）
 
 - **位置**：`packages/ui/src/components/service/ServiceStatusCard.vue`（端点暴露提示、失败横幅、OOM 归因 / 减负行）、`packages/ui/src/components/service/TrashCleanCard.vue`（清理结果 / 空态 / 检测失败行）。
@@ -509,6 +517,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
 | 100 | 引擎提示行本体对齐官方组件（用户批注「审查提示样式是否符合arco官方档」）：#99 后提示行仍剩行布局 / 角色色 / 忽略钮三处自绘——官方 `a-alert` 是横幅（width:100%、14px、8/15 内距硬编码）与行内形态冲突，评估后不采纳；换 `a-tag closable`（warn=orange / info=gray 官方预设 + 官方关闭钮内建 role="button"/aria-label + `#icon` 槽 + `nowrap`），自绘行布局 / 角色色 / 忽略钮全删，忽略指纹逻辑不变（@close 入库）；`btn_dismiss_hint` 键失去读者删除（官方钮 aria-label="Close" 为库内硬编码） | 2026-10-08 |
+| 103 | 同族清扫第二轮（用户批注「进一步审查是否还有类似的自绘组件」）：下载任务行状态文字（`STATUS_COLOR` 五档语义色 + 内联上色）换 `StatusTag`（queued=gray / downloading=loading+官方转圈 / paused=warn / completed=ok / error=error）；预设应用提示（自绘 success 底/边/字色盒）换 `a-alert type="success"`。评估后保留并记边界：`fb-error` 空态错误文字（a-list #empty 官方槽内）、ParamsPage 显存超限警示（数据值警示）、`badge-orange/red`（tag 对比度修正）、TopBar 关闭钮红 hover（窗口铬豁免）、中性灰提示行（文字样式非状态芯片）。审计插曲：规则 1 把注释里的「#103」当十六进制色捕获，措辞避开 | 2026-10-08 |
 | 102 | 状态卡警示族对齐官方组件（用户批注「仍存在样式残留，为什么还有额外的组件使用非arco官方档」，点名概览端点暴露提示）：端点提示 / 失败横幅 / OOM 归因与减负文案 / 清理卡状态行全部换 `a-tag` 官方预设色（orange / red / gray / green；失败保留 `role="alert"`），自绘配色删除；#81 防跳槽位原样保留（tag 24px 在 36/30/28px 档内，e2e 判据不改自明）。**库层新知识**：Arco Tag 把默认插槽包进 `.arco-tag-text`（flex 项、无 min-width: 0、min-content 撑住不收缩），长文案 tag 窄视口必然溢出（英文态 1024 实测 +118.7px，被窄视口 e2e 抓获）——解法 = 调用方 `:deep(.arco-tag-text)` 放开收缩（`min-width: 0; flex: 1; display: flex`） | 2026-10-08 |
 | 101 | 撤销「截断值保留原生 title」边界：剩余 28 处原生 `title` 全部迁 ToolTip（用户裁定观感一致性优先，推翻 §7.5 原 ②③ 类的「勿顺手改」）：ServiceStatusCard 6 处、SettingsPage 摘要 2 处（条件悬浮走 `:disabled`）、ParamsPage 建议 chip、AdvancedPanel 输入框、ParamSummaryCard 摘要 chip（嵌套 ToolTip：键名区=flag、值区=完整值）、PresetsPanel 3 处、LocalModelsPanel 6 处、DownloadCard 7 处；热路径顾虑实测解除（a-tooltip trigger 惰性挂载、弹层仅悬停时创建）；现存 `:title=` 仅 3 处组件 prop + 1 iframe title，`<ToolTip` 62 处 / 20 文件 | 2026-10-08 |
 | 98 | 三处日志出口收敛为两处（用户批注「控制台输出出口与当前日志出口应调整到日志界面，只需要输出推理框架日志即可」＋选定档 B）：日志页改为推理框架控制台（`server` store 的原始输出 + 入队时算好的 `tone` 着色 + 同值域级别筛选 + 搜索 / 复制 / 清空），服务页删掉整个控制台卡片只剩三卡，概览「最近问题」改为「应用操作日志」（最近 24 行全级别、时间 / 级别 / 正文三列、出现 error 时给去向按钮）；i18n 删 4 键增 2 键（395/395）；`logs-scroll.spec.ts` 灌流钩子改指 `__mockPushConsole`，`scrollTop` 那条等值断言放宽为「非 0 且不小于首读」（本页现在有 2.5s 一行的正常输出流，等值会把「有输出流」判成回归；删除实验仍咬得红） | 2026-10-07 |
