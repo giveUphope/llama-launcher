@@ -16,6 +16,10 @@ function buttonStatus(variant?: ConfirmVariant | 'primary' | 'danger' | 'warning
 </script>
 
 <template>
+  <!-- 关闭通道按设计只有两条：Esc 与点遮罩，且两者都是 Arco 默认值（escToClose /
+       maskClosable 默认 true，见 es/modal/modal.vue_vue_type_script_lang.js），所以不再
+       重复声明。closable=false 配 footer=false 是有意去掉 ✕ 与按钮区——二次确认的出口
+       只有「取消」这一条语义，多一个 ✕ 反而像第三种答案。 -->
   <a-modal
     class="fc-confirm-modal"
     role="dialog"
@@ -23,8 +27,6 @@ function buttonStatus(variant?: ConfirmVariant | 'primary' | 'danger' | 'warning
     tabindex="-1"
     :aria-labelledby="titleId"
     :visible="visible"
-    :mask-closable="true"
-    :esc-to-close="true"
     :closable="false"
     :footer="false"
     @cancel="current && resolve(current.id, current.actions?.length ? '' : false)"

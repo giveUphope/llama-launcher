@@ -423,7 +423,8 @@ const STATE_UNREG = [];
 // color 与 border-color 用**同一族变量**（基色 -6、hover -5、active -7），而组件 scoped 规则因带
 // [data-v-] 属性特异度高于库的 0,3,0，覆写 color 会把文字**冻在基色**上——实测 hover 时描边
 // rgb(161,21,30)、文字仍是 rgb(203,39,45)，两个方向分叉，状态反馈就此失真。
-// 浅色达标靠 theme.scss 换 --danger-6/-5/-7 与 --warning-6/-5/-7 这些**Arco 自己读的变量**，
+// 浅色达标不再靠改库的取值（那会连带重绘所有读这几档的组件，2026-10-07 按用户要求回退），
+// 所以这里也没有「换档」的余地：命中要么删掉，要么带理由登记进 BTN_COLOR_ALLOW。
 // 一行声明都不必多写；所以这里的命中要么删掉，要么带理由登记进 BTN_COLOR_ALLOW。
 const BTN_COLOR_ALLOW = [
   { file: 'packages/ui/src/components/layout/TopBar.vue', marker: '.win-btn', expect: 2,
@@ -535,6 +536,35 @@ const a18 = new Audit();
   }
 }
 
+// ---------- 19. 浅色不得换 Arco 的状态色阶（body 块内禁赋值） ----------
+// 成因（2026-10-07 实测）：Arco 的状态色是间接层（--danger-6: var(--red-6)），组件读的就是
+// -6 槽。在 body 上换档会连带重绘 alert / 表单校验 / tag / badge / progress / switch 等一切
+// 读它的组件（浅色 125 个元素受影响），而深色下 Arco 的 body[arco-theme='dark']（0,1,1）
+// 特异度更高、我们的 body（0,0,1）根本压不住它——于是变成「浅色被改、深色是原档」的不对称。
+// 深色允许（用户明确「还可以接受」），所以判据只看**顶层选择器恰为 body** 的那一层。
+const LIGHT_STATE_RE = /^\s*(--(?:danger|warning|success|red|orange|green|gold|lime|cyan|blue|purple|pinkPurple|magenta)\s*-\d+)\s*:\s*\d/;
+const a19 = new Audit();
+{
+  for (const f of files) {
+    if (!isTokenLayer(f)) continue;
+    const relFile = path.relative(ROOT, f).split(path.sep).join('/');
+    let topSelector = '';
+    let depth = 0;
+    readLines(f).forEach((ln, i) => {
+      if (isComment(ln)) return;
+      const opens = (ln.match(/\{/g) || []).length;
+      const closes = (ln.match(/\}/g) || []).length;
+      if (depth === 0 && opens) topSelector = ln.replace(/\{[\s\S]*$/, '').trim();
+      const m = ln.match(LIGHT_STATE_RE);
+      if (m && topSelector === 'body') {
+        a19.add(f, i + 1, `${relFile} 的 body（浅色）块里给状态色阶赋值：${m[1]} —— 会连带重绘所有读该档的 Arco 组件，深色下又因特异度不生效`);
+      }
+      depth += opens - closes;
+      if (depth < 0) depth = 0;
+    });
+  }
+}
+
 // ---------- 输出 ----------
 const out = [
   render('1. 组件内裸颜色（token 禁令）', a1.items),
@@ -558,12 +588,13 @@ const out = [
   render('16c. a-modal 必须有 role="dialog" + aria-modal', a16c.items),
   render('17. token 层的 Arco 内部态类覆写逐条登记（含行数核对）', STATE_UNREG.map((t) => ({ file: '—', line: 0, text: t }))),
   render('18. a-button 配色不覆写（type/status + 色阶变量，例外带理由登记）', a18.items),
+  render('19. 浅色（body 块）不换 Arco 状态色阶，避免连带重绘组件', a19.items),
   `\n扫描 ${files.length} 个文件 · 规范依据 docs/zh/frontend.md §7.5`,
 ];
 
 console.log(out.join('\n'));
 
 const failed =
-  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18]
+  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19]
     .some((a) => a.items.length > 0) || STATE_UNREG.length > 0;
 process.exit(failed ? 1 : 0);

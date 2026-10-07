@@ -74,27 +74,22 @@ body {
      只用于纯装饰符号与占位符。取值按同底实测比值反推：
      fg-hint 7.10 / fg-accent 5.19 / fg-warning-text 6.05 / fg-danger-text 5.43（压白底）。 */
   --fg-hint: var(--color-text-2);
-  /* —— 优先改 Arco 读取的色阶，而不是覆写它的声明 ——
-     实测 Arco 的取色全走变量：实底按钮 bg=rgb(var(--warning-6)) / hover=--warning-5 /
-     active=--warning-7，描边按钮同族变量作文字色，标签文字色=rgb(var(--green-6))，
-     文字按钮与选中菜单=rgb(var(--primary-6))。换变量 = 一条改动管住 filled 与 outline
-     两种形态和全部状态，且 hover / active / loading / disabled 仍由 Arco 自己算；
-     覆写声明则每个状态都要补一条，还要跟特异度与注入顺序较劲。
-     下值即浅色档里能压住白底/浅底达到 4.5:1 的那一档（实测括号内）：
-       warning-6 orange-8 6.05 / warning-5 orange-9 9.53 / warning-7 orange-10 14.26
-       danger-6  red-7 5.43   / danger-5  red-8 7.95   / danger-7  red-9 11.48
-       green-6   green-8 4.84（压 green-1 标签底；Arco 原值 green-6 只有 2.63）
-     --fg-* 保留为**指向 Arco 色阶的别名**，不是第二套颜色。 */
-  --warning-6: 166, 69, 0;
-  --warning-5: 121, 46, 0;
-  --warning-7: 77, 27, 0;
-  --danger-6: 203, 39, 45;
-  --danger-5: 161, 21, 30;
-  --danger-7: 119, 8, 19;
-  --green-6: 0, 128, 38;
+  /* —— 状态色一律用 Arco 官方档，浅色下不再换档（2026-10-07 按用户「浅色观感要与库一致 +
+     完整用官方最佳实践」的要求回退）——
+     Arco 的语义状态色是**间接层**：`--danger-6: var(--red-6)`、`--warning-6: var(--orange-6)`
+     （见 es/style/color/css-variables.less），组件读的就是这三个 -6 槽。在 body 上换它们的值，
+     被重绘的不只是按钮：alert / 表单校验文字 / tag / badge / progress / switch / steps / result
+     等一切读 -6 档的组件会一起变（实测浅色 125 个元素受影响），观感就与设计系统库不一致。
+     另注：这几行换档在**深色下从来没生效过**——Arco 的 `body[arco-theme='dark']`（0,1,1）
+     特异度高于我们的 `body`（0,0,1），所以此前实际是「浅色被改、深色是原档」的不对称状态。
+     承载信息的文字仍要达标，但改用**直接取 Arco 色板里更深的那一档**（下方 --fg-*），
+     不再借用 -6 槽位——色板档位是库的公共词汇，-6 槽位是库的语义装配点，改后者等于改库。 */
   --fg-accent: rgb(var(--primary-6));
-  --fg-warning-text: rgb(var(--warning-6));
-  --fg-danger-text: rgb(var(--danger-6));
+  /* 实测压白底：fg-danger-text = red-7 → 5.43；fg-warning-text = orange-8 → 6.05。
+     （Arco 原档 red-6 压白只有 3.71、orange-6 只有 2.57，作按钮文字时按 §7.5.2 的
+     「跟随库官方观感」豁免登记，不在此处偷偷加深。） */
+  --fg-danger-text: rgb(var(--red-7));
+  --fg-warning-text: rgb(var(--orange-8));
   /* 实底主按钮的 hover 底色：Arco 浅色取的是更亮的 --color-primary-light-3
      （实测 hover 底 64,128,255 + 白字 = 3.65 不达标），换成更深的 primary-7 = 7.70。
      这是语义变量而非色阶，Arco 用它同时作若干浅色底，故只在按钮作用域里换，见文件末。 */
@@ -113,10 +108,12 @@ body[arco-theme='dark'] {
   /* 深色主题：Arco 的强调色本来就亮，压深卡片底达标；只有 primary-6 作文字时偏低
      （实测 4.2），由按钮/菜单作用域换成 primary-7（5.98），见文件末的 token 作用域。 */
   --fg-accent: rgb(var(--primary-7));
+  /* 深色下 Arco 的状态色本来就亮（实测 danger-6 = red-6 深档 247,105,101、warning-6 =
+     orange-6 深档 255,150,38 压深卡片底均 ≥4.5），所以角色档直接取语义 -6 槽，
+     不需要像浅色那样另指深档；也不在这里重复声明色板（原先那行 --green-6: 39,195,70
+     与 Arco 深档同值，是复述，已删）。 */
   --fg-warning-text: rgb(var(--warning-6));
   --fg-danger-text: rgb(var(--danger-6));
-  /* 深色的绿标签本身达标（Arco 深档），不跟随浅色的 orange/green 换档，退回原值 */
-  --green-6: 39, 195, 70;
 }
 
 /* 状态栏为恒定品牌蓝铬面（业务例外，不随主题切换）：Arco 标签预设芯片却随主题取值，
@@ -166,19 +163,12 @@ body[arco-theme='dark'] {
   white-space: nowrap; // 标签单行：防长标签（如「HuggingFace 镜像源」）在定宽列内错误折行
 }
 
-/* ===================== 优先改 Arco 读的变量，不覆写它的声明 =====================
-   实测 Arco 的取色全走变量（filled 按钮 bg=rgb(var(--warning-6))、hover=--warning-5、
-   active=--warning-7；描边版同族变量作文字；标签文字=rgb(var(--green-6))；
-   文字按钮与选中菜单=rgb(var(--primary-6))）。所以换变量一处管住两种形态与全部状态，
-   hover / active / loading / disabled 仍由 Arco 自己算——下面只剩三条**作用域换档**，
-   零条属性覆写。对比数据见 §7.5.1。 */
-
-/* 主按钮 hover：实测 Arco 的 hover 底读 **色阶 --primary-5**（不是语义变量），浅色原值
-   64,128,255 压白字只有 3.65。换到 primary-7 = 7.70；深色同理换到 primary-3 = 10.37。
-   只给按钮作用域：--primary-5 还被 Arco 用在别处，全局换会连带改其他浅色。 */
-.arco-btn-primary:not(.arco-btn-outline):not(.arco-btn-text) {
-  --primary-5: 14, 66, 210;
-}
+/* ===================== 浅色不换档；深色只保留四组「作用域内换档」 =====================
+   浅色主题现在**一条换档都没有**：Arco 的官方档就是浅色的观感口径（用户 2026-10-07：
+   「浅色模式下观感明显与 arco 库不一致」+「完整使用官方最佳实践」）。原先的浅色主按钮
+   hover 换档（--primary-5: 14,66,210，为把白字从 3.65 抬到 7.70）一并删除——它同样是
+   偏离库的观感，代价登记在 §7.5.2 的豁免清单里。
+   下面四条深色换档保留：深色是用户明确「还可以接受」的一档，且它们的作用域只有这几族。 */
 
 /* 深色实底主按钮：Arco 原值 primary-6 压白字只有 3.74。深色色板是「越大越亮」，
    往小档走才是给白字用的深底——取 primary-4（6.90），hover 取 primary-3（10.37）。

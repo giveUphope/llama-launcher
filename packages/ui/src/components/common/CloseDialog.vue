@@ -49,9 +49,6 @@ const isAsk = () => request.value?.mode === 'ask';
     :aria-labelledby="titleId"
     :visible="visible"
     :modal-style="{ width: '400px' }"
-    :mask-closable="true"
-    :esc-to-close="true"
-    :closable="true"
     @cancel="onMaskClose"
   >
     <template #title>

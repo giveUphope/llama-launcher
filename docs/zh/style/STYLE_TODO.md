@@ -15,7 +15,7 @@
 node scripts/style-audit.cjs      # 或 pnpm style:audit
 ```
 
-18 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
+19 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
 
 1. 组件内裸颜色（token 禁令；`#fff`/`#1a1a1a` 仅限彩色按钮文字）
 2. 组件内裸字号（应走 `--fs-*`）
@@ -35,6 +35,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 16. 键盘可达与命名三条：**16a** 点击只挂 Arco 组件（非原生可点元素禁令）、**16b** 只有 `#icon` 的 `a-button` 必须有 `aria-label`（tooltip 不算名称）、**16c** `a-modal` 必须自带 `role="dialog"` + `aria-modal`（Arco 2.58 三样都不给，见 #84–#86）
 17. token 本体层（`styles/`）的 Arco 内部态类覆写逐条登记：`ARCO_STATE_ALLOW` 按 marker + **expect 行数**核对，登记数与实际命中数不符即红（#91）
 18. `a-button` 的配色不覆写：选择器命中「挂在 `<a-button>` 上的 class」或 `.arco-btn*` 且声明 `color` / `background` / `border` / `box-shadow` 即报，例外必须进 `BTN_COLOR_ALLOW` 带 `why` 与 `expect` 条数登记（成因＝scoped 规则 `[data-v-*]` 特异度冻结 hover 文字色，见 §7.5.1 / #93）
+19. 浅色（顶层选择器恰为 `body` 的块）不得给 Arco 状态色阶赋字面值——`--danger-6: var(--red-6)` 这类间接层是组件的取色点，换档会连带重绘 alert / 表单校验 / tag / progress / switch 等一切读它的组件，而深色下又因 `body[arco-theme='dark']` 特异度更高而不生效（见 §7.5.1 / #95）
 
 ***
 
@@ -432,12 +433,23 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 
 
+### 95. 浅色状态色回退 Arco 官方档，并把四处「库已有的能力我们手写」收口 — 🟢 已修复（2026-10-07）
+
+- **位置**：`packages/ui/src/styles/theme.scss`（`body` 块的状态色阶换档）、`components/common/ToolTip.vue`、`components/common/ConfirmModal.vue` / `CloseDialog.vue` / `FileBrowserModal.vue`、`directives/innerAriaLabel.ts` 的注释、`components/layout/TopBar.vue` 的注释、`scripts/style-audit.cjs`（新增第 19 条）。
+- **描述**：用户要求「逐一修正前端仍存在的问题，完整使用 arco 官方最佳实践」。清掉五类：① **浅色在 `body` 上换 Arco 状态色阶**（`--danger-6/5/7`、`--warning-6/5/7`、`--green-6`）——库的状态色是间接层（`--danger-6: var(--red-6)`），组件读的就是 `-6` 槽，换档连带重绘 alert / 表单校验 / tag / badge / progress / switch / steps（实测浅色 125 个元素受影响）；且这几行在深色下**因特异度从未生效**（Arco 的 `body[arco-theme='dark']` 是 0,1,1，我们的是 0,0,1），所以此前是「浅色被改、深色原档」的不对称——这正是「深色可接受、浅色不像库」的成因。② `ToolTip` 在库的内容节点里再包一层 `<span class="tooltip-text">` 承载 `white-space: pre-line`，而 `a-tooltip` 有官方 `contentClass`（`tooltip.js:35`，合并进 `.arco-tooltip-content`）；`position` 写死 top 不可覆盖、`disabled` 没透传。③ 三个弹窗重复声明 `:mask-closable="true"` / `:esc-to-close="true"` / `:closable="true"`——三条都是 Arco 默认值（`modal.vue_vue_type_script_lang.js:63-79`、`:120-123`），读起来像「刻意选择」，实际分不清是选的还是蒙的。④ `FileBrowserModal` 在列表外自包一层 `<a-spin>` 并写 `style="display: block"`，而 `a-list` 自带 `loading`（`list.js:286` 内部就是 Spin）与 `#empty` 槽（`list.js:276`），四个 `v-if/v-else-if` 分支等于把库的两个 prop 重做一遍。⑤ `innerAriaLabel` 的注释自称「一个调用点管住滑杆、下拉与数字框」，实测数字框 / 文本框走的是官方 `input-attrs`（四处调用点），夸大的注释会诱导后人把那些 `input-attrs` 当重复删掉。
+- **修复**：① 删浅色全部状态换档，并删深色块里与 Arco 深档同值的 `--green-6` 复述；`--fg-danger-text` / `--fg-warning-text` 改为**直接取色板档** `rgb(var(--red-7))` / `rgb(var(--orange-8))`——角色档是「选档」，改 `-6` 槽是「改库」；新增门禁第 19 条把这条不变量做成可判对象。② `ToolTip` 改 `:content` + `content-class="fc-tooltip-multiline"`，加 `position` / `disabled` 两个可选 prop，非 scoped 块只放这一条私有类规则。③ 删六条默认值声明；`ConfirmModal` 保留 `:closable="false"` + `:footer="false"` 并写明「出口只有 Esc / 遮罩与取消，✕ 是有意去掉」。④ 改成 `<a-list :loading>` + `#empty` 四态，删外层 `a-spin`。⑤ 注释按实测收窄。**两条评估后不采纳（写明理由，不留模糊）**：`a-list` 内建分页不采纳——`list.js:212` 主动 `omit(['current','pageSize',...])` 改用内部状态，接过来会丢掉「换搜索词回到第 1 页」的受控能力，而 DownloadCard 现在用的兄弟 `<a-pagination simple>` 本身就是库组件的受控用法，不是绕行；`a-form-item` 的 `labelAttrs` 不构成 label 关联——实测 `.arco-form-item-label` 是 69/69 个真 `<label>` 但 0 个带 `for`，库也不生成控件 id，所以 `innerAriaLabel` 不是可替换项。
+- **修复效果验证**：浅色逐族实测（文字 / 底 → 比值）：描边 danger 按钮 `red-6` 压白 3.71、压 `red-1` 底 3.25、hover `red-5` 3.01；描边 warning `orange-6` 压白 2.57；绿 `a-tag` `green-6` 压 `green-1` 2.63；实底主按钮静置 5.19 达标、hover 3.65。我方角色档全部仍达标：`--fg-hint` 7.10 / `--fg-accent` 5.19 / `--fg-danger-text` 5.43 / `--fg-warning-text` 6.05，半透明底上的引擎状态徽章 4.51。**删除实验三组**：把 `--danger-6: 203,39,45` 贴回 `body` 块 ⇒ 第 19 条点名 `theme.scss:88` 且退出码 1（还原转绿）；`ToolTip` 真机悬停实测 `.arco-tooltip-content` 的 class 含 `fc-tooltip-multiline`、`white-space: pre-line`、内部 `span` 数 0（改前为 1）；`FileBrowserModal` 真机打开实测弹窗可见、列表渲染、空态文案照常出得来，且 `e2e/web/a11y.spec.ts:528,625` 两次真按 Escape 仍能关闭并归还焦点（证明删掉那六条默认值声明没改行为）。`pnpm style:audit` 19/19、`vue-tsc --noEmit` 干净、`pnpm test` core 442 + ui 100、`pnpm e2e:web` 78 条、`pnpm lint` 全绿。规范落点：§7.5.1「浅色主题现在零换档」与 §7.5.2 第三类豁免清单。
+
+
+
+
 ## 🟢 已修复索引
 
 完整的问题描述 / 修复方案 / 验证证据见 [已修复归档](../../archive/style-todo-resolved.md)（只读留档）；修复后的规范落点见 [frontend.md §7.5](../frontend.md)。
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 95 | 浅色零换档：删掉 `body` 上的 `--danger-6/5/7`、`--warning-6/5/7`、`--green-6` 与深色块里的 `--green-6` 复述（库的状态色是间接层 `--danger-6: var(--red-6)`，换档连带重绘 125 个元素，而深色下因特异度从未生效——这就是「深色可接受、浅色不像库」的成因），角色档改直接取色板档 `red-7` 5.43 / `orange-8` 6.05 保 AA；四处官方 API 收口＝`ToolTip` 走 `content-class` 与 `position`／`disabled`、三个弹窗删六条与默认值相同的声明、`FileBrowserModal` 改用 `a-list` 的 `:loading` 与 `#empty`、`innerAriaLabel` 注释按实测收窄；两条评估后不采纳并写明理由（`a-list` 内建分页在 `list.js:212` 主动 omit 掉 `current`／`pageSize` 会丢受控能力；`labelAttrs` 不构成 label 关联，实测 69 个 `<label>` 零个带 `for`）；新增门禁第 19 条 + 删除实验（贴回 `--danger-6` ⇒ 点名并退 1） | 2026-10-07 |
 | 94 | Arco 官方用法审查：库自带 i18n 从未配置 ⇒ 英文界面浮层按钮「取消／确定」与表空态「暂无数据」都是中文（`stores/i18n.ts` 注册英文包 + `useLocale` 并同步 `html[lang]`）；`a-result :sub-title` 应为 `subtitle`（Web UI 未运行那一行提示从来没渲染过）、`a-menu :collapse` 应为 `collapsed`、`a-input-group compact` 在 2.58 无此 prop 亦无同名类；收回代理「状态栏 5 行 `.arco-tag-checked` 是死规则」的错报（`tag.js:85` 对非 checkable 返回 true，实测 4.84 生效）；新增 `e2e/web/arco-locale.spec.ts` 2 条含中文态正对照与摘掉 `useLocale` 的删除实验 | 2026-10-07 |
 | 93 | 十处按钮的 `color` 覆写冻结了 hover 文字色（scoped `[data-v-*]` 特异度 (0,4,0) 压过 Arco 的 `:hover` (0,3,0)，实测浅色悬停描边 161,21,30 而文字仍 203,39,45）：10 条覆写与 4 条 `a-statistic` 复述声明全删，hover／active 交回库按 `-5`／`-7` 档算，默认态颜色零变化；新增门禁第 18 条 `BTN_COLOR_ALLOW`（8 条按钮侧例外带理由与条数登记，另 23 条非按钮 Arco 节点覆写在 #93 里逐族登记），两组删除实验（贴回一条 ⇒ 红、`expect` 改 3 ⇒ 红且退出码 1） | 2026-10-07 |
 | 92 | 无标题层级／`main` 地标重复／状态变化不播报：`PageFrame` 由 `a-layout-content` 改普通 `div`（全站只剩外壳那一个 `main`，不用 `role="none"` 遮罩）、`PageHost` 单点渲染 sr-only `<h1>`（文本取 `features` 注册表页名，与侧栏同源）、卡片小节标题改真 `<h2>`（`margin: 0; font: inherit` 继承 Arco 卡片头 16px／500）、概览状态行 `a-space` 透传 `aria-live="polite"` 不新包元素；新增 `e2e/web/semantics.spec.ts` 8 条含 6 组删除实验，六页骨架几何改前后逐项相等 | 2026-10-07 |

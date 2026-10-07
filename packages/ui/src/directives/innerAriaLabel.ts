@@ -27,7 +27,12 @@ function applyLabels(root: HTMLElement, text: string) {
  * **用法约束：指令必须挂在单根元素上（现有调用点都挂在 `a-form-item` 这一层）。**
  * Vue 对多根组件的自定义指令会整体跳过（不报错、静默失效），而 `a-select` 正是多根
  * （select-view + popup），实测挂在 `<a-slider>` 上生效、挂在 `<a-select>` 上一点痕迹都没有。
- * 挂在 form-item 上顺带覆盖整行的内层可聚焦节点，一个调用点管住滑杆、下拉与数字框。
+ * 挂在 form-item 上顺带覆盖整行的内层可聚焦节点。**它只管两类库没有命名入口的节点**：
+ * 滑杆的 `div[role=slider]`（Slider 不透传 `$attrs` 给手柄）与下拉的内层
+ * `input.arco-select-view-input`（Select 没有 `input-attrs`）。数字框 / 文本框 / 文件框
+ * 走的是官方 `input-attrs`（`IntEntryParam` / `SliderParam` 的数值侧 / `TextParam` /
+ * `FileParam` 四处），不经过本指令——**别把它当重复删掉那些 `input-attrs`**，删了那些
+ * 控件的名字就没了。
  */
 export const vInnerAriaLabel: Directive<HTMLElement, string> = {
   created: (el, binding) => {

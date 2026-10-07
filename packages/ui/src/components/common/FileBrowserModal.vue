@@ -156,9 +156,6 @@ function cancel() {
     :aria-labelledby="titleId"
     :visible="visible"
     :modal-style="{ width: '560px' }"
-    :mask-closable="true"
-    :esc-to-close="true"
-    :closable="true"
     @cancel="cancel"
   >
     <template #title><span :id="titleId">{{ current?.title }}</span></template>
@@ -178,38 +175,36 @@ function cancel() {
     </div>
 
     <div class="fb-list-wrap">
-      <a-spin :loading="loading" style="display: block">
-        <a-list
-          v-if="!loading && dirExists && !error && visibleEntries.length"
-          class="fb-list"
-          size="small"
-          :bordered="false"
+      <!-- 加载态与空态都交回 a-list 的官方入口（:loading 内部就是 a-spin，#empty 是它的空态槽）：
+           原先外面自包一层 a-spin + 四个 v-if/v-else-if 分支，等于把库已有的两个 prop 重做一遍 -->
+      <a-list class="fb-list" size="small" :bordered="false" :loading="loading">
+        <a-list-item
+          v-for="entry in (loading ? [] : visibleEntries)"
+          :key="entry.name"
+          class="fb-row"
+          :class="{ 'is-selected': current?.mode === 'file' && selected === entry.name }"
+          @click="onEntryClick(entry)"
+          @dblclick="onEntryDblClick(entry)"
         >
-          <a-list-item
-            v-for="entry in visibleEntries"
-            :key="entry.name"
-            class="fb-row"
-            :class="{ 'is-selected': current?.mode === 'file' && selected === entry.name }"
-            @click="onEntryClick(entry)"
-            @dblclick="onEntryDblClick(entry)"
-          >
-            <span class="fb-e">
-              <Icon :name="entry.isDir ? 'folder' : 'file'" :size="15" />
-              <span class="fb-e-name">{{ entry.name }}</span>
-            </span>
-          </a-list-item>
-        </a-list>
-        <div v-else-if="!loading && !dirExists" class="fb-empty">
-          <span :class="{ 'fb-error': true }">
-            {{ createFailed ? i18n.t('picker_create_failed') : i18n.t('picker_not_exist') }}
+          <span class="fb-e">
+            <Icon :name="entry.isDir ? 'folder' : 'file'" :size="15" />
+            <span class="fb-e-name">{{ entry.name }}</span>
           </span>
-          <a-button v-if="current?.mode === 'dir' && !createFailed" size="small" type="primary" @click="onCreateDir">
-            {{ i18n.t('picker_create_dir') }}
-          </a-button>
-        </div>
-        <div v-else-if="!loading && error" class="fb-empty fb-error">{{ i18n.t('picker_unreadable') }}</div>
-        <div v-else-if="!loading" class="fb-empty">{{ i18n.t('picker_no_selection') }}</div>
-      </a-spin>
+        </a-list-item>
+        <template #empty>
+          <div v-if="loading" class="fb-empty" />
+          <div v-else-if="!dirExists" class="fb-empty">
+            <span :class="{ 'fb-error': true }">
+              {{ createFailed ? i18n.t('picker_create_failed') : i18n.t('picker_not_exist') }}
+            </span>
+            <a-button v-if="current?.mode === 'dir' && !createFailed" size="small" type="primary" @click="onCreateDir">
+              {{ i18n.t('picker_create_dir') }}
+            </a-button>
+          </div>
+          <div v-else-if="error" class="fb-empty fb-error">{{ i18n.t('picker_unreadable') }}</div>
+          <div v-else class="fb-empty">{{ i18n.t('picker_no_selection') }}</div>
+        </template>
+      </a-list>
     </div>
 
     <div v-if="current?.mode === 'save'" class="fb-save-row">
