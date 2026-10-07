@@ -1,41 +1,45 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Icon from '@/components/common/Icon.vue';
 import ServiceStatusCard from '@/components/service/ServiceStatusCard.vue';
-import { useAppLogStore } from '@/stores/appLog';
+import { useAppLogStore, type AppLogLine } from '@/stores/appLog';
+import { useSettingsStore } from '@/stores/settings';
 import { useAutoScroll } from '@/composables/useAutoScroll';
 import { useI18nStore } from '@/stores/i18n';
-import type { AppLogEntry } from '@llama-launcher/shared';
 
 const appLog = useAppLogStore();
+const settings = useSettingsStore();
 const i18n = useI18nStore();
 const router = useRouter();
 
 // 服务状态（状态/模型/API 地址/运行时详情）由 ServiceStatusCard 承担——
 // 服务状态信息的唯一页面级展示区（原 Q1–Q3 与服务页状态卡重复，已合并迁入）。
 
-// 最近需要处理的问题——数据源用【应用日志】而非后端原始输出：
-// 应用日志是结构化分级记录（WARN/ERROR 语义明确，服务启动失败/下载错误等），
-// 后端 stdout 绝大多数为推理信息行，按"问题"语义过滤必然混杂（正则启发式不可靠）；
-// 后端完整输出保留在「服务」页控制台。仅取问题级（warn/error）最近 3 条。
-const recentIssues = computed<AppLogEntry[]>(() =>
-  appLog.entries.filter((e) => e.kind === 'error' || e.kind === 'warn').slice(-3),
-);
-const hasError = computed(() => recentIssues.value.some((e) => e.kind === 'error'));
+// 应用操作日志（服务启停、下载、错误等）的唯一展示区。
+// 2026-10-07 档 B 归位：这一路数据原先有一份完整视图在「日志」页（带级别筛选、搜索、复制、
+// 清空），而那一页现在只展示推理框架输出——一类信息一个出口，本页不再另设复制/清空按钮。
+// 只取最近若干条：日志缓冲 2000 条，概览要的是「最近发生了什么」，滚动窗口自带过期能力。
+const APP_LOG_WINDOW = 24;
+const appLogLines = computed<AppLogLine[]>(() => appLog.entries.slice(-APP_LOG_WINDOW));
+// 是否值得给出入口：只看当前窗口里的 error（窗口自带滚动，旧错误会被新行推走，
+// 不会像「全量历史里有过一次 error」那样把动作行永久钉住）
+const hasError = computed(() => appLogLines.value.some((e) => e.kind === 'error'));
 
-function lineClass(entry: AppLogEntry): string {
-  return `kind-${entry.kind}`;
-}
+// 行级别类由 store 在入队时算好（AppLogLine.cls），渲染期不再逐行求值
 
-// ---- 控制台滚动（迷你问题列表） ----
+// ---- 控制台滚动（应用日志窗口） ----
 // 这一份列表只需要「停用不滚动 + 回页时补滚到底」：没有「有新日志」胶囊，也没有手动跟随开关，
-// 所以接 useAutoScroll 而不套 ConsolePanel（行渲染与日志页/服务页都不同）
+// 所以接 useAutoScroll 而不套 ConsolePanel（行渲染与日志页不同：这里是定高小窗）
 const consoleEl = ref<HTMLElement | null>(null);
-useAutoScroll(consoleEl, { count: () => recentIssues.value.length, pill: false });
+useAutoScroll(consoleEl, { count: () => appLogLines.value.length, pill: false });
 
 onMounted(() => { appLog.subscribe(); });
+
+// 语言切换只需重算已缓存行的时间串（store 内一次遍历）；时间戳渲染在本页，所以这个 watch
+// 随应用日志视图一起从「日志」页搬了过来
+watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, { immediate: true });
 </script>
 
 <template>
@@ -44,20 +48,25 @@ onMounted(() => { appLog.subscribe(); });
          页面级唯一展示区（Card 分区风格，底边线与下方问题区分隔） -->
     <ServiceStatusCard />
 
-    <!-- 最近问题（单行单内容：仅问题本身，无状态指示器——运行状态见上方服务状态卡） -->
+    <!-- 应用操作日志（时间 / 级别 / 正文三列，级别色整行着色；无复制/清空出口——
+         减少多处出口是本轮的决定，需要动手的入口只有下面这一条「日志」跳转） -->
     <div class="q-section q-issues">
       <div class="q-header">
-        <h2 class="q-title">{{ i18n.t('card_dash_issues') }}</h2>
+        <h2 class="q-title">{{ i18n.t('card_dash_applog') }}</h2>
       </div>
       <div ref="consoleEl" class="issues-console">
-        <div v-if="recentIssues.length === 0" class="empty-text">
-          {{ i18n.t('msg_no_issues') }}
+        <div v-if="appLogLines.length === 0" class="empty-text">
+          {{ i18n.t('msg_empty_no_logs') }}
         </div>
         <div
-          v-for="(line, idx) in recentIssues"
-          :key="idx"
-          :class="['log-line', lineClass(line)]"
-        >{{ line.data }}</div>
+          v-for="entry in appLogLines"
+          :key="entry.id"
+          :class="['log-line', entry.cls]"
+        >
+          <span class="log-ts">{{ entry.time }}</span>
+          <span class="log-kind">{{ entry.kind.toUpperCase() }}</span>
+          <span class="log-text">{{ entry.data }}</span>
+        </div>
       </div>
       <div class="issues-actions-slot" :class="{ 'has-actions': hasError }">
         <div v-if="hasError" class="issues-actions">
@@ -106,12 +115,12 @@ onMounted(() => { appLog.subscribe(); });
   color: var(--color-text-1);
 }
 
-/* 迷你日志/问题区域 */
+/* 应用日志窗口（恒深底 + 三列行） */
 .issues-console {
   max-height: 160px;
-  /* 防跳动：问题条目固定上限 3 行（recentIssues.slice(-3)）——预留 3 行最小高度
-     （padding 6×2 + 3×fs-base 行高 1.5 ≈ 72px），空态/少行时高度恒定，不再出现
-     空态 ↔ 多行时的 Q4 区块高度变化（#46 预留位置模式）。 */
+  /* 防跳动：窗口条数上限 24 条但可视区固定，空态时仍预留 3 行最小高度
+     （padding 6×2 + 3×fs-base 行高 1.5 ≈ 72px），空态 ↔ 少行时高度恒定，
+     不再出现空态 ↔ 多行时的 Q4 区块高度变化（#46 预留位置模式）。 */
   min-height: 72px;
   overflow: auto;
   padding: 6px 10px;
@@ -129,6 +138,9 @@ onMounted(() => { appLog.subscribe(); });
   -webkit-user-select: text;
 
   .log-line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
     white-space: pre-wrap;
     word-break: break-all;
     color: var(--console-fg);
@@ -137,6 +149,30 @@ onMounted(() => { appLog.subscribe(); });
     &.kind-warn { color: var(--log-kind-warn); }
     &.kind-success { color: var(--log-kind-success); }
     &.kind-info { color: var(--log-kind-info); }
+  }
+
+  // 时间戳与级别标签是次要列：不随行着色（info 行只给级别标签着色，正文保持前景色）
+  .log-ts {
+    flex-shrink: 0;
+    color: var(--log-kind-info);
+    font-size: var(--fs-sm);
+    min-width: 64px;
+  }
+
+  .log-kind {
+    flex-shrink: 0;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    min-width: 52px;
+  }
+
+  .log-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .log-line.kind-info .log-text {
+    color: var(--console-fg);
   }
 
   .empty-text {

@@ -34,11 +34,16 @@ async function openLogs(page: Page, lang: Lang) {
   await expect(page.locator('.console')).toBeVisible();
 }
 
-/** 灌入 n 条应用日志（mock 钩子，与真实侧同一契约：主进程逐条推 logs.onLog）。 */
-async function pushAppLogs(page: Page, n: number) {
+/**
+ * 灌入 n 行框架输出（mock 钩子，与真实侧同一契约：SERVER_OUTPUT_BATCH 数组逐批推入）。
+ * 2026-10-07 档 B 之后，日志页展示的是 llama-server 原始输出（应用操作日志已并到概览页），
+ * 所以这一页的滚动判据必须灌框架行，而不是应用日志——沿用 __mockPushAppLog 会让
+ * 「远多于一屏」的样本根本进不了这一页的 .console，判据退化成恒等式。
+ */
+async function pushConsole(page: Page, n: number) {
   const got = await page.evaluate((count) => {
-    const hook = (window as unknown as { __mockPushAppLog?: (n?: number) => number }).__mockPushAppLog;
-    if (!hook) throw new Error('缺少 __mockPushAppLog 钩子：判据无法造出「远多于一屏」的日志');
+    const hook = (window as unknown as { __mockPushConsole?: (n?: number) => number }).__mockPushConsole;
+    if (!hook) throw new Error('缺少 __mockPushConsole 钩子：判据无法造出「远多于一屏」的输出');
     return hook(count);
   }, n);
   expect(got).toBe(n);
@@ -85,7 +90,7 @@ for (const lang of ['zh', 'en'] as Lang[]) {
       const baseline = await metric(page, '.console');
       expect(baseline.h).toBeGreaterThan(0);
 
-      await pushAppLogs(page, 400);
+      await pushConsole(page, 400);
       await expect.poll(async () => (await metric(page, '.console')).sh, { timeout: 5000 }).toBeGreaterThan(baseline.sh);
 
       const after = await metric(page, '.console');
@@ -98,18 +103,21 @@ for (const lang of ['zh', 'en'] as Lang[]) {
 
     test('scrollTop 赋值后停在非 0 值（自动滚动不再是空转）', async ({ page }) => {
       await openLogs(page, lang);
-      await pushAppLogs(page, 400);
+      await pushConsole(page, 400);
       const top = await scrollAndRead(page, '.console');
       expect(top).toBeGreaterThan(0);
-      // 稳定：不要求「到底」（不同视口档位不同），只要求它没有被立刻拨回 0
+      // 这一页现在是框架控制台，mock 的正常输出流（startOutputFeed，1 行 / 2.5s）会持续追加，
+      // 跟随底部时 scrollTop 只会被推向新的最大值。要求「两次读数相等」等于把「有正常输出流」
+      // 判成骨架回归（首跑即因此全红：7562 → 7603）。要钉的只有两件事：没被拨回 0、没往回丢位置。
       await page.waitForTimeout(300);
       const again = await page.locator('.console').first().evaluate((el) => Math.round(el.scrollTop));
-      expect(again).toBe(top);
+      expect(again).toBeGreaterThan(0);
+      expect(again).toBeGreaterThanOrEqual(top);
     });
 
     test('滚离底部后来新行 ⇒ 胶囊出现，且不改变控制台高度；点击回到底部后消失', async ({ page }) => {
       await openLogs(page, lang);
-      await pushAppLogs(page, 400);
+      await pushConsole(page, 400);
       await scrollAndRead(page, '.console');
 
       // 样本要求：必须真的离开底部（否则「有新日志」这个状态根本不存在，判据恒不触发）
@@ -117,7 +125,7 @@ for (const lang of ['zh', 'en'] as Lang[]) {
       await page.waitForTimeout(200);
       const beforePill = await metric(page, '.console');
 
-      await pushAppLogs(page, 40);
+      await pushConsole(page, 40);
       const pill = page.locator('.new-logs-bar');
       await expect(pill).toBeVisible();
 
@@ -144,7 +152,7 @@ for (const lang of ['zh', 'en'] as Lang[]) {
 
     test('删除实验：骨架退回块流时，上述判据必须转红', async ({ page }) => {
       await openLogs(page, lang);
-      await pushAppLogs(page, 400);
+      await pushConsole(page, 400);
       const fixed = await metric(page, '.console');
       expect(fixed.innerScroll).toBe(true);
 

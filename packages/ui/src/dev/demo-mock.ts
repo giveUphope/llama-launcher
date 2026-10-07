@@ -524,6 +524,20 @@ export function createDemoApi() {
   }
   setTimeout(startOutputFeed, 300);
 
+  /**
+   * 控制台钩子：`__mockPushConsole(320)` 一次灌入 320 行框架输出，返回实际条数。
+   * 为什么要它：日志页（框架输出的唯一出口）的验收判据是「输出远多于一屏时面板内部滚动
+   * 生效」（STYLE_TODO #82），而上面的喂送节奏每 2.5s 才一行、初始只有 5 行，取证只能干等。
+   * 与 __mockPushAppLog 同一范式，走同一个 pushOutput（真实侧是 SERVER_OUTPUT_BATCH 数组）。
+   */
+  (globalThis as unknown as { __mockPushConsole?: (n?: number) => number }).__mockPushConsole = (n = 200) => {
+    for (let i = 0; i < n; i++) {
+      outputIdx = (outputIdx + 1) % LLAMA_LINES.length;
+      pushOutput(outputIdx % 9 === 7 ? 'info' : 'stdout', LLAMA_LINES[outputIdx]);
+    }
+    return n;
+  };
+
   // ---- 下载模拟状态 ----
   const progressCbs: Array<(p: DownloadProgressPayload) => void> = [];
   const completeCbs: Array<(p: DownloadCompletePayload) => void> = [];

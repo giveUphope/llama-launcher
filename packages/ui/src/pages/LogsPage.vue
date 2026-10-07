@@ -1,35 +1,33 @@
 <script setup lang="ts">
-// 应用日志页：展示应用自身生命周期/操作日志（服务启停、下载、错误等）。
-// 区别于「服务」页控制台——控制台保留后端 llama-server 原始输出（server store）。
-// 数据源：主进程 app-log 缓冲（logs:list 拉取 + logs:onlog 实时推送）。
+// 日志页 = 推理框架（llama-server）输出的唯一出口。
+// 归位前：这一页展示的是应用操作日志，而框架原始输出在「服务」页控制台——两类信息各在一页，
+// 两页都带「复制输出 / 清空控制台」。按用户 2026-10-07 的决定（档 B）改成一处一类：
+// 框架输出 → 本页（唯一复制/清空出口），应用操作日志 → 概览页的日志区。
 import type { IconName } from '@/components/common/icon-map';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import ConsolePanel from '@/components/common/ConsolePanel.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
-import { useAppLogStore, APP_LOG_MAX_LINES } from '@/stores/appLog';
-import { useSettingsStore } from '@/stores/settings';
+import { useServerStore, type ConsoleTone } from '@/stores/server';
 import { useI18nStore } from '@/stores/i18n';
-import type { AppLogKind } from '@llama-launcher/shared';
 
-const appLog = useAppLogStore();
-const settings = useSettingsStore();
+const server = useServerStore();
 const i18n = useI18nStore();
 
-// ---- 搜索 + 级别筛选 ----
-// searchQuery 绑定输入框，deferredQuery 去抖 150ms 后才参与筛选：
-// 每次按键都重算 2000 行筛选会得到新数组身份，进而整表重渲染
-const searchQuery = ref('');
-const deferredQuery = ref('');
-let searchTimer: ReturnType<typeof setTimeout> | null = null;
-watch(searchQuery, (q) => {
-  if (searchTimer) clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => { deferredQuery.value = q; }, 150);
-});
-const levelFilter = ref<AppLogKind | 'all'>('all');
+// 关键词分类在 server store 的入队环节就算好了（OutputLine.tone），渲染期只做一次映射；
+// 此前每条新日志都会对最多 1000 个渲染行各跑 3 条正则
+const TONE_CLASS: Record<ConsoleTone, string> = {
+  error: 'kind-error',
+  warn: 'kind-warn',
+  success: 'kind-success',
+  info: 'kind-info',
+  plain: 'kind-default',
+};
 
-const LEVELS: Array<{ key: AppLogKind | 'all'; label: string; icon: IconName }> = [
+type Level = ConsoleTone | 'all';
+
+const LEVELS: Array<{ key: Level; label: string; icon: IconName }> = [
   { key: 'all', label: i18n.t('lbl_all'), icon: 'info' },
   { key: 'info', label: 'INFO', icon: 'info' },
   { key: 'success', label: 'SUCCESS', icon: 'check' },
@@ -37,52 +35,46 @@ const LEVELS: Array<{ key: AppLogKind | 'all'; label: string; icon: IconName }> 
   { key: 'error', label: 'ERROR', icon: 'error' },
 ];
 
-function setLevel(l: AppLogKind | 'all') {
-  levelFilter.value = l;
-}
+const levelFilter = ref<Level>('all');
+const searchQuery = ref('');
+const deferredQuery = ref('');
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+// 每次按键都重算筛选会得到新数组身份，进而整表重渲染：去抖 150ms 后才参与筛选
+watch(searchQuery, (q) => {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { deferredQuery.value = q; }, 150);
+});
 
-const filteredEntries = computed(() => {
+const filteredOutputs = computed(() => {
   const q = deferredQuery.value.trim().toLowerCase();
-  return appLog.entries.filter((entry) => {
-    if (levelFilter.value !== 'all' && entry.kind !== levelFilter.value) return false;
-    // lower 由 store 在入队时算好，避免逐行 toLowerCase
-    if (q && !entry.lower.includes(q)) return false;
+  return server.outputs.filter((line) => {
+    if (levelFilter.value !== 'all' && line.tone !== levelFilter.value) return false;
+    if (q && !line.data.toLowerCase().includes(q)) return false;
     return true;
   });
 });
 
-const filteredCount = computed(() => filteredEntries.value.length);
-
-// ---- 行数限制 ----
-// 与应用日志缓冲同上限：缓冲本身就只留 2000 行，渲染再给更高的数只是永不触发的死余量
-const RENDER_LIMIT = APP_LOG_MAX_LINES;
-const renderLimit = ref(RENDER_LIMIT);
-const displayEntries = computed(() => {
-  const outs = filteredEntries.value;
-  return outs.length > renderLimit.value ? outs.slice(-renderLimit.value) : outs;
+// 渲染上限：后端缓冲本身就是 1000 行，再给更高的数是永不触发的死余量
+const RENDER_LIMIT = 1000;
+const displayOutputs = computed(() => {
+  const outs = filteredOutputs.value;
+  return outs.length > RENDER_LIMIT ? outs.slice(-RENDER_LIMIT) : outs;
 });
 
-// 行着色与时间戳格式化均已前置到 appLog store 入队时（entry.cls / entry.time）：
-// 此前每次重渲染都要对最多 2000 行各调一次 Intl 格式化，而每条新日志都触发重渲染。
+const filteredCount = computed(() => filteredOutputs.value.length);
 
-// ---- 复制全部 ----
+// 复制的是「当前看到的」：带筛选/搜索时把看不见的行一起复制走会误导排查
 async function onCopyAll() {
-  const text = filteredEntries.value.map((e) => e.data).join('\n');
+  const text = filteredOutputs.value.map((o) => o.data).join('');
   if (!text) return;
   await window.api.clipboard.write(text);
 }
 
-// ---- 清空 ----
 function onClear() {
-  appLog.clear();
+  server.clearOutputs();
 }
 
-// ---- 生命周期 ----
 // 滚动（停用门控 / rAF 合帧 / 「有新日志」判定）一律由 ConsolePanel 内的 useAutoScroll 承担
-onMounted(() => appLog.subscribe());
-
-// 语言切换只需重算已缓存行的时间串（store 内一次遍历）
-watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, { immediate: true });
 </script>
 
 <template>
@@ -94,7 +86,7 @@ watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, 
         type="button"
         size="small"
         :model-value="levelFilter"
-        @change="(v) => setLevel(v as AppLogKind | 'all')"
+        @change="(v) => (levelFilter = v as Level)"
       >
         <a-radio v-for="l in LEVELS" :key="l.key" :value="l.key">
           <Icon :name="l.icon" :size="11" />
@@ -114,7 +106,7 @@ watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, 
         <ToolTip :text="i18n.t('copy_console')">
           <a-button
             size="small"
-            :disabled="filteredEntries.length === 0"
+            :disabled="filteredOutputs.length === 0"
             @click="onCopyAll"
           >
             <template #icon><Icon name="copy" :size="12" /></template>
@@ -130,31 +122,27 @@ watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, 
       </div>
     </div>
 
-    <!-- 应用日志内容区 -->
+    <!-- 框架输出内容区 -->
     <div class="console-wrap">
       <div class="scope-hint">
         <Icon name="info" :size="11" />
-        <span>{{ i18n.t('msg_app_logs_hint') }}</span>
+        <span>{{ i18n.t('msg_framework_logs_hint') }}</span>
       </div>
-      <!-- count 取 entries 而非 filteredEntries 的长度：两个都监听过，同一条日志会触发两次滚动 -->
-      <ConsolePanel class="console-fill" :count="appLog.entries.length">
-        <div v-if="displayEntries.length === 0" class="empty-log">
+      <!-- count 取 outputs 而非 filteredOutputs 的长度：两个都监听过，同一行会触发两次滚动 -->
+      <ConsolePanel class="console-fill" :count="server.outputs.length">
+        <div v-if="displayOutputs.length === 0" class="empty-log">
           <Icon name="empty" :size="32" class="empty-icon" />
           <span>{{ i18n.t('msg_empty_no_logs') }}</span>
         </div>
-        <div
-          v-for="entry in displayEntries"
-          :key="entry.id"
-          :class="['log-line', entry.cls]"
-        >
-          <span class="log-ts">{{ entry.time }}</span>
-          <span class="log-kind">{{ entry.kind.toUpperCase() }}</span>
-          <span class="log-text">{{ entry.data }}</span>
-        </div>
+        <span
+          v-for="line in displayOutputs"
+          :key="line.id"
+          :class="['output-line', TONE_CLASS[line.tone]]"
+        >{{ line.data }}</span>
       </ConsolePanel>
       <div class="scroll-hint-bar">
         <!-- 自动滚动状态文案已移除（b8c1d59：暂停态由「有新日志」胶囊传达），仅保留行数 -->
-        <span class="show-limit">{{ Math.min(filteredCount, renderLimit) }} / {{ filteredCount }} {{ i18n.t('col_lines') }}</span>
+        <span class="show-limit">{{ Math.min(displayOutputs.length, filteredCount) }} / {{ filteredCount }} {{ i18n.t('col_lines') }}</span>
       </div>
     </div>
   </PageFrame>
@@ -216,43 +204,17 @@ watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, 
 }
 
 /* 面板高度：日志页要撑满剩余可视高（骨架链给的是确定高度 + 弹性列，缺这一环等于没写，
-   STYLE_TODO #82），服务页则是定高——同一个面板两种给法，都由外层这一层决定 */
+   STYLE_TODO #82）。同一个面板在概览页是定高小窗，两种给法都由外层决定，面板本体不写 */
 .console-fill {
   flex: 1 1 0%;
   min-height: 0;
 }
 
-.log-line {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
+/* 后端原始输出一行一段；级别色由 ConsolePanel 打在行上（.kind-* → --log-kind-*） */
+.output-line {
   white-space: pre-wrap;
   word-break: break-all;
-}
-
-.log-ts {
-  flex-shrink: 0;
-  color: var(--color-text-3);
-  font-size: var(--fs-sm);
-  min-width: 64px;
-}
-
-/* 级别标签与正文不写 color：级别色由 ConsolePanel 打在行上，这里只留排版 */
-.log-kind {
-  flex-shrink: 0;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  min-width: 52px;
-}
-
-.log-text {
-  flex: 1;
-  min-width: 0;
-}
-
-/* info 行只给级别标签着色，正文保持控制台前景色（error/warn/success 整行着色） */
-.log-line.kind-info .log-text {
-  color: var(--console-fg);
+  display: block;
 }
 
 .empty-log {

@@ -70,7 +70,6 @@ export const zh = {
   nav_webui: '内置 Web UI',
   // ---------------- 仪表盘 ----------------
   lbl_dash_model: '当前模型',
-  msg_no_issues: '暂无问题',
 
 
 
@@ -381,18 +380,17 @@ export const zh = {
   // 下载任务状态
   // 通用空状态
   msg_empty_no_logs: '暂无日志',
+  card_dash_applog: '应用操作日志',
+  msg_framework_logs_hint: '推理框架（llama-server）原始输出；应用操作日志见「概览」页。',
   col_lines: '行',
   // ---- 阶段二 概览 4 问布局 ----
   card_dash_api: 'API 地址',
-  card_dash_issues: '最近问题',
   // ---- 阶段二 导航（6 项：概览/模型/服务/参数/日志/设置）----
   nav_overview: '概览',
   nav_service: '服务',
   nav_logs: '日志',
-  msg_app_logs_hint: '应用操作日志（服务启动/停止、下载、错误）；后端输出请查看「服务」页控制台。',
   // ---- 阶段二 服务页 ----
   card_service_status: '服务状态',
-  card_service_console: '控制台',
   lbl_host: '主机',
   lbl_port: '端口',
   lbl_run_duration: '运行时长',

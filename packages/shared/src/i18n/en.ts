@@ -72,7 +72,6 @@ export const en: Dict = {
   nav_webui: 'Built-in Web UI',
   // ---------------- Dashboard ----------------
   lbl_dash_model: 'Model',
-  msg_no_issues: 'No issues',
 
 
 
@@ -382,18 +381,17 @@ export const en: Dict = {
   // Download task status
   // Common empty states
   msg_empty_no_logs: 'No logs yet',
+  card_dash_applog: 'Application log',
+  msg_framework_logs_hint: 'Raw llama-server framework output. Application operation logs live on the Overview page.',
   col_lines: 'lines',
   // ---- Phase 2 Dashboard 4-question layout ----
   card_dash_api: 'API Address',
-  card_dash_issues: 'Recent Issues',
   // ---- Phase 2 Navigation (6 items: Overview/Models/Service/Params/Logs/Settings) ----
   nav_overview: 'Overview',
   nav_service: 'Service',
   nav_logs: 'Logs',
-  msg_app_logs_hint: 'App operation logs (service start/stop, downloads, errors). Backend output lives in the Service console.',
   // ---- Phase 2 Service page ----
   card_service_status: 'Service Status',
-  card_service_console: 'Console',
   lbl_host: 'Host',
   lbl_port: 'Port',
   lbl_run_duration: 'Duration',
