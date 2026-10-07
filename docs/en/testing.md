@@ -45,7 +45,7 @@
 
 | Test file                          | Covered module                                                            |
 | ----------------------------------- | ------------------------------------------------------------------------ |
-| `src/stores/params.test.ts`         | Params store (dual-track values/baseline, dependency linkage `syncDependencies`, `clearSession` keeping the model, restoring the baseline) |
+| `src/stores/params.test.ts`         | Params store (dual-track values/baseline, dependency linkage `syncDependencies`, `clearSession` reset-all keeping the model) |
 | `src/stores/server.test.ts`         | server store (`apiUrl` bound to the real service state: the three states running/starting/stopped) |
 | `src/stores/hardware.test.ts`       | hardware store (VRAM/memory occupancy derivation: entry routing and unit conversion, "no devices detected ⇒ stay silent", data-fetch timing guarded by the keep-alive rules — background pages never knock the main process, `offloadRelief` relief-advice entries passed through) |
 | `src/composables/useModelPreset.test.ts` | Silent matching and application of smart presets (alias/filename candidates, no second confirmation in a dirty state) |

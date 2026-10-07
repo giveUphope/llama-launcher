@@ -363,10 +363,8 @@ describe('双轨参数逻辑（基线/会话）', () => {
 
     params.set('ctx_size', 4096);
     expect(params.hasChanges).toBe(true); // 偏离基线
-
-    params.restoreBaseline();
-    expect(params.values['ctx_size']).toBe(8192);
-    expect(params.hasChanges).toBe(false);
+    // 2026-10-08 交互收敛：「恢复基线」动作随双钮合并移除，
+    // 回默认值的唯一入口是 clearSession（见下方两组用例）
   });
 
   it('无基线时 hasChanges 与出厂默认比较（兼容原语义）', () => {

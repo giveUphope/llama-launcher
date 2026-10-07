@@ -214,11 +214,13 @@ async function applyTargetRecs() {
   targetOpen.value = false;
 }
 
-// 清除会话参数：回出厂默认 + 清空基线（双确认防误触）
-async function onClearSession() {
+// 全部重置：参数回当前参数表默认值 + 清空基线（保留模型选择；确认防误触）。
+// 2026-10-08 交互收敛：原「恢复基线 / 清除会话参数」双钮回退目标不同（基线快照 vs 出厂默认）
+// 但外观一致，体感混淆——收敛为单钮，重置目标即 PARAMS 表全部条目的 default
+async function onResetAll() {
   const ok = await confirm({
-    title: i18n.t('msg_clear_session'),
-    message: i18n.t('msg_discard_dirty', [i18n.t('baseline_default')]),
+    title: i18n.t('btn_reset_all'),
+    message: i18n.t('msg_reset_all_confirm'),
     variant: 'warning',
   });
   if (!ok) return;
@@ -336,21 +338,16 @@ async function onClearSession() {
           </ToolTip>
         </template>
         <!-- 基线徽章已移除（与「已调整」统计重复，基线状态保留在概览服务状态卡）；
-             保留恢复基线 / 清除会话参数两个操作入口 -->
-        <ToolTip :text="i18n.t('msg_restore_baseline')">
-          <a-button
-            size="small"
-            :disabled="!params.hasChanges || !params.baseline"
-            @click="params.restoreBaseline()"
-          >
-            {{ i18n.t('msg_restore_baseline') }}
-          </a-button>
-        </ToolTip>
-        <ToolTip :text="i18n.t('msg_clear_session')">
-          <a-button size="small" @click="onClearSession">
-            {{ i18n.t('msg_clear_session') }}
-          </a-button>
-        </ToolTip>
+             2026-10-08 交互收敛：恢复基线 / 清除会话参数双钮合并为单一「全部重置」。
+             禁用条件只看「无基线且无修改」：有基线时参数与基线一致（hasChanges=false）
+             但基线≠默认值，重置仍有意义 -->
+        <a-button
+          size="small"
+          :disabled="!params.baseline && !params.hasChanges"
+          @click="onResetAll"
+        >
+          {{ i18n.t('btn_reset_all') }}
+        </a-button>
       </div>
     </div>
 

@@ -287,19 +287,12 @@ export const useParamsStore = defineStore('params', () => {
     persistSession();
   }
 
-  /** 恢复基线：参数回到基线快照（≠ 重置出厂默认），并持久化会话。 */
-  function restoreBaseline() {
-    if (!baseline.value) return;
-    resetAll();
-    const restored = JSON.parse(JSON.stringify(baseline.value.values)) as PresetValues;
-    for (const [k, v] of Object.entries(restored)) values[k] = v;
-    syncDependencies();
-    persistSession();
-  }
-
-  /** 清除会话：回出厂默认并清空基线（慎用；仅由「清除会话参数」确认后调用）。
+  /** 清除会话（=「全部重置」）：回当前参数表默认值并清空基线（仅由「全部重置」确认后调用）。
    *  模型选择不属于「会话参数」——保留当前模型，否则清空后显存估算/目标选择器
-   *  失去模型输入而持续不可用（GGUF 元数据仍有效，无需重新加载）。 */
+   *  失去模型输入而持续不可用（GGUF 元数据仍有效，无需重新加载）。
+   *  2026-10-08 交互收敛：原「恢复基线」（回基线快照）与本动作并排双钮，回退目标不同但
+   *  外观一致，用户体感混淆——收敛为单钮后「恢复基线」动作连同按钮一并移除，
+   *  基线本身仍由 hasChanges / confirmDiscardDirty 使用。 */
   function clearSession() {
     const model = String(values[MODEL_KEY] ?? '');
     baseline.value = null;
@@ -559,7 +552,7 @@ export const useParamsStore = defineStore('params', () => {
     values, baseline, ggufInfo, ggufSuggestions, ggufLoading, ggufError,
     get, set, resetParam, resetGroup, resetAll,
     applyPreset, snapshot, hasChanges, countDiffers,
-    markBaseline, restoreBaseline, clearSession, restoreSession, confirmDiscardDirty, reattachModelRuntime,
+    markBaseline, clearSession, restoreSession, confirmDiscardDirty, reattachModelRuntime,
     setGgufInfo, detectMmproj, detectDraftModel, loadGguf, applyModel, applyModelWithSuggestions,
   };
 });

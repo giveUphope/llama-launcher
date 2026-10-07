@@ -45,7 +45,7 @@
 
 | 测试文件                               | 覆盖模块                                                                     |
 | ----------------------------------- | ------------------------------------------------------------------------ |
-| `src/stores/params.test.ts`         | 参数 store（双轨值/基线、依赖联动 `syncDependencies`、`clearSession` 保留模型、恢复基线）          |
+| `src/stores/params.test.ts`         | 参数 store（双轨值/基线、依赖联动 `syncDependencies`、`clearSession` 全部重置并保留模型）          |
 | `src/stores/server.test.ts`         | server store（`apiUrl` 与真实服务状态绑定：running/starting/stopped 三态）              |
 | `src/stores/hardware.test.ts`       | hardware store（显存/内存占用派生：条目分流与单位换算、「探不到设备就不出声」、取数时机守 keep-alive 铁律——后台页不敲主进程、`offloadRelief` 减负建议条目透传） |
 | `src/composables/useModelPreset.test.ts` | 智能预设静默匹配与应用（别名/文件名候选、脏态不二次确认）                                         |
