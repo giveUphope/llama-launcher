@@ -72,6 +72,7 @@
 | `ToolTip` | Arco `Tooltip` 适配器 |
 | `StatusTag` | 状态标签（状态点 + 文字，ok/warn/error/idle/loading 变体） |
 | `ServiceStatusCard` | 服务状态卡（概览页，页面级唯一展示区）：状态标签（状态行 `a-space` 自身透传 `aria-live="polite"`，启动中 / 运行中 / 未运行 / 启动失败 / 异常退出 每一变都对读屏出声，见 §7.5.7）/ 当前模型 / API 地址（boxed 值盒 `a-descriptions` + 复制按钮；地址下方常驻**端点暴露提示** `sec_open_endpoint_hint`，仅在「未设 API key 且 `--cors-origins` 为 `*`」时出现——引擎只在启动日志打一行 security 告警，滚过就没人再看见）/ 主机·端口·PID·运行时长网格 / 失败 banner（防跳动槽位）/ **OOM 归因与缓解动作**（`status === 'error'` 且 server store 入队时标记到 `oomDetected`（扫最近 300 行）才出现，两个动作钮：「上下文减半」`onOomHalveCtx` 取当前 `-c`（为 0 时按模型训练上限折算）的一半、按 1024 粒度、下限 4096；「KV 量化」`onOomKvQuant` 同时置 `-fa on` + `cache_type_k/v = q8_0`（量化 KV 依赖 Flash Attention）；估算模型答「能开多大」，此处答「失败了怎么救」）/ 快捷操作（打开 Web UI·管理模型） |
+| `TrashCleanCard` | 配置目录清理卡（服务页末卡，2026-10-08 两步流重做）：卡片头「检测配置目录」（`a-button :loading` 官方转圈）→ 卡内逐类勾选面板（`a-checkbox-group` 按 kind 分组行：类型 ×N（大小），检测后默认全选）→ 「清理所选」（danger，未选禁用）→ 确认弹窗按所选实时汇总 → **结果就地显示**（成功行「已清理 N 项（大小）」/ 失败行 + 逐项明细：路径 + 固定枚举原因 i18n（`CleanResult.failures`，见 core-modules §4.13））；空检测结果「没有可清理的内容」就地提示；反馈不再走 pushOutput 日志出口（一类信息一个出口——此前 `lastResult` 是赋值后从未渲染的死代码）；demo-mock 桩同形状（此前残留更早一版的 trashCount 旧形状，mock 下点检测必然报错） |
 | `AppLogo` | 应用 Logo 统一组件（见 §7.5.7） |
 | `ModelMetaCard` | 模型元数据展示（A 类识别摘要 + B/D 类详情**常驻完整展示**，dashed 次级分隔；无收起/展开开关） |
 | `DownloadCard` | 下载功能卡片（`mode: 'library' \| 'tasks'` 双模式：URL 解析/搜索/文件选择/任务列表；推荐文件只作徽标/高亮/排序提示、**不自动勾选**，下载由用户主动勾选触发；提交下载走 `enqueueFiles`：Store 去重 + 本地同名检测 + 后端 ID 回填；URL 会话历史存 `useUrlHistory` 模块级单例，跨子标签 `v-if` 重建保留） |

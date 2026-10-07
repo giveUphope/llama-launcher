@@ -178,6 +178,8 @@ The data source behind "Settings → About → Clean Config Dir" (what `system:d
 
 - **Strict validation**: paths must lie strictly inside a declared root and must not be symlinks; `cleanTrash` re-checks each incoming item against its declared `kind` for root membership and content (orphaned presets are re-read at cleanup time, and the deletion is abandoned the moment the model reappears); paths held by active/paused/retryable download tasks are handed to the protection set by `DownloadManager.getProtectedPaths()` and excluded at both stages; unrecognized files are never listed at all (conservative policy).
 
+- **Per-item failure detail (2026-10-08)**: `CleanResult.failures` expands the `failed` count — each entry carries `path` and a fixed-enum `reason` (`revalidated` failed re-check / `symlink` / `unsupported` non-regular file / `error` delete threw, in which case `detail` carries the raw system error text); the renderer translates the enum via i18n (the data layer produces no prose).
+
 - Protection rules and the complete kind list are in [data-persistence.md](data-persistence.md) §10 "Full list of app-generated files".
 
 ### 4.14 Key class and function index

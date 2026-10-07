@@ -178,6 +178,8 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 
 - **强校验**：路径必须严格位于声明根内且非符号链接；`cleanTrash` 对每个传入项按声明 `kind` 复核根归属与内容（孤儿预设清理时刻重读，模型重新出现即放弃删除）；活动/暂停/可重试下载任务占用的路径由 `DownloadManager.getProtectedPaths()` 传入保护集，双重排除；未识别文件一律不列入（保守策略）。
 
+- **逐项失败明细（2026-10-08）**：`CleanResult.failures` 为 `failed` 计数的展开——每项带 `path` 与固定枚举 `reason`（`revalidated` 复核未过 / `symlink` 符号链接 / `unsupported` 非 regular 文件 / `error` 删除抛错，此时 `detail` 携带系统原始报错文本）；渲染端按枚举 i18n 翻译（数据层不产文案）。
+
 - 保护与完整 kind 清单见 [data-persistence.md](data-persistence.md) §10「应用生成文件全清单」。
 
 ### 4.14 关键类与函数索引
