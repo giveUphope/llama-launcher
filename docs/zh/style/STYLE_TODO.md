@@ -471,6 +471,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：提示行本体换 `a-tag closable`（warn=orange / info=gray 官方预设色对，`size="small"` + `nowrap`，图标走 `#icon` 槽），自绘行布局 / 角色色 / 忽略钮全删；忽略指纹逻辑不变（`@close` → 长句全文入 `settings.engine_hint_dismissed`，新消息照常出现）；`btn_dismiss_hint` 键失去读者删除（官方钮的 `aria-label="Close"` 为库内硬编码，非本地化——接受，官方组件行为）。对比度注记：预设对取代 #99 的角色档，是「文字进了官方组件」后采用官方配对，同 StatusTag 先例。
 - **修复效果验证**：drift 演示场景实测 tag 314px 官方 `arco-tag-orange` 预设类生效、关闭钮 `role="button"` + `aria-label="Close"` 就位、点关后指纹入库且标签消失；`pnpm style:audit` 全绿、`pnpm e2e:web` 81 条全绿。
 
+### 102. 状态卡警示族对齐官方组件：端点提示 / 失败横幅 / OOM 归因行换 a-tag 预设色 — 🟢 已修复（2026-10-08）
+
+- **位置**：`packages/ui/src/components/service/ServiceStatusCard.vue`（端点暴露提示、失败横幅、OOM 归因 / 减负行）、`packages/ui/src/components/service/TrashCleanCard.vue`（清理结果 / 空态 / 检测失败行）。
+- **描述**：用户批注「仍存在样式残留，为什么还有额外的组件使用非arco官方档」，点名概览页端点暴露提示（自绘橙字行 + `--fg-warning-text` 角色色）。同一族还有：失败横幅（自绘 danger pill）、OOM 归因 / 减负文案、清理卡状态行——全部是「图标 + 语义色文字」的自绘形态。
+- **修复**：全部换 `a-tag` 官方预设色（端点提示 / OOM 归因 / 减负 = orange，失败 = red + 保留 `role="alert"`，清理空态 / 结果 = gray / green / orange），自绘配色 / 圆角 / 字重删除；#81 防跳槽位（36 / 30 / 28px）原样保留——tag 24px 在档内，e2e 的「槽高恒等于 min-height / 两档之和」判据不改自明。**库层新知识（本项目首次登记）**：Arco Tag 把默认插槽包进 `.arco-tag-text`——该包装层是 flex 项且无 `min-width: 0`，min-content 撑住不收缩，长文案 tag 在窄视口必然溢出（英文态 1024 实测 +118.7px，被窄视口 e2e 当场抓获）；解法 = 调用方 `:deep(.arco-tag-text) { min-width: 0; flex: 1; display: flex }` 放开收缩，接通内部省略链（规则 12 / 20 均不涉及：非内部态类、非配色）。`a-alert` 二次评估仍不采纳（横幅硬编码结构与 36/30/28px 档位冲突，#100 已给库层证据）。
+- **修复效果验证**：`pnpm style:audit` 22/22（期间它还抓到本侧一处 `gap: 2px` 违反间距刻度，已归一 4px）、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿（含修复后的窄视口英文态）、core 测试 442 全绿。
+
 ### 101. 撤销「截断值保留原生 title」边界：剩余 28 处原生 title 全部迁 ToolTip — 🟢 已修复（2026-10-08）
 
 - **位置**：`ServiceStatusCard.vue`（模型路径 / API 地址 / 安全提示 / OOM 文案 / 减负钮）、`SettingsPage.vue`（状态摘要两处）、`ParamsPage.vue`（性能目标建议 chip）、`AdvancedPanel.vue`（镜像输入框）、`ParamSummaryCard.vue`（参数摘要 chip，双层悬浮：键名区=flag、值区=完整值）、`PresetsPanel.vue`（模型列 + 两只行操作钮）、`LocalModelsPanel.vue`（模型名 / 徽章排 / 三只行操作钮）、`DownloadCard.vue`（URL 历史 doption、文件名 / 任务名 / 量化徽章 / 错误文本 / 打开目录钮）。
@@ -502,6 +509,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
 | 100 | 引擎提示行本体对齐官方组件（用户批注「审查提示样式是否符合arco官方档」）：#99 后提示行仍剩行布局 / 角色色 / 忽略钮三处自绘——官方 `a-alert` 是横幅（width:100%、14px、8/15 内距硬编码）与行内形态冲突，评估后不采纳；换 `a-tag closable`（warn=orange / info=gray 官方预设 + 官方关闭钮内建 role="button"/aria-label + `#icon` 槽 + `nowrap`），自绘行布局 / 角色色 / 忽略钮全删，忽略指纹逻辑不变（@close 入库）；`btn_dismiss_hint` 键失去读者删除（官方钮 aria-label="Close" 为库内硬编码） | 2026-10-08 |
+| 102 | 状态卡警示族对齐官方组件（用户批注「仍存在样式残留，为什么还有额外的组件使用非arco官方档」，点名概览端点暴露提示）：端点提示 / 失败横幅 / OOM 归因与减负文案 / 清理卡状态行全部换 `a-tag` 官方预设色（orange / red / gray / green；失败保留 `role="alert"`），自绘配色删除；#81 防跳槽位原样保留（tag 24px 在 36/30/28px 档内，e2e 判据不改自明）。**库层新知识**：Arco Tag 把默认插槽包进 `.arco-tag-text`（flex 项、无 min-width: 0、min-content 撑住不收缩），长文案 tag 窄视口必然溢出（英文态 1024 实测 +118.7px，被窄视口 e2e 抓获）——解法 = 调用方 `:deep(.arco-tag-text)` 放开收缩（`min-width: 0; flex: 1; display: flex`） | 2026-10-08 |
 | 101 | 撤销「截断值保留原生 title」边界：剩余 28 处原生 `title` 全部迁 ToolTip（用户裁定观感一致性优先，推翻 §7.5 原 ②③ 类的「勿顺手改」）：ServiceStatusCard 6 处、SettingsPage 摘要 2 处（条件悬浮走 `:disabled`）、ParamsPage 建议 chip、AdvancedPanel 输入框、ParamSummaryCard 摘要 chip（嵌套 ToolTip：键名区=flag、值区=完整值）、PresetsPanel 3 处、LocalModelsPanel 6 处、DownloadCard 7 处；热路径顾虑实测解除（a-tooltip trigger 惰性挂载、弹层仅悬停时创建）；现存 `:title=` 仅 3 处组件 prop + 1 iframe title，`<ToolTip` 62 处 / 20 文件 | 2026-10-08 |
 | 98 | 三处日志出口收敛为两处（用户批注「控制台输出出口与当前日志出口应调整到日志界面，只需要输出推理框架日志即可」＋选定档 B）：日志页改为推理框架控制台（`server` store 的原始输出 + 入队时算好的 `tone` 着色 + 同值域级别筛选 + 搜索 / 复制 / 清空），服务页删掉整个控制台卡片只剩三卡，概览「最近问题」改为「应用操作日志」（最近 24 行全级别、时间 / 级别 / 正文三列、出现 error 时给去向按钮）；i18n 删 4 键增 2 键（395/395）；`logs-scroll.spec.ts` 灌流钩子改指 `__mockPushConsole`，`scrollTop` 那条等值断言放宽为「非 0 且不小于首读」（本页现在有 2.5s 一行的正常输出流，等值会把「有输出流」判成回归；删除实验仍咬得红） | 2026-10-07 |
 | 99 | 设置页两个提示样式对齐 Arco 官方组件（用户批注「两个提示样式需要先确认是否符合 arco 官方最佳实践」）：引擎状态胶囊是自绘 chip（图标 + 彩字 + 14% 浅色底 + pill 圆角）＝官方 `a-tag` 预设色的平行实现——换 `a-tag`（color 预设 gray/arcoblue/green/red + `size="small"` + `nowrap`，检测态用官方 `loading` prop 替换自绘 spin，图标走 `#icon` 槽），自绘配色样式全删（第 20 条零登记面）；引擎提示的原生 `title` 换 `ToolTip`（a-tooltip 封装），省略链随包裹层适配；橙色保留 `--fg-warning-text` 角色档（官方 `type="warning"` 是裸 warning-6，压白 2.57:1 不达 4.5 纪律） | 2026-10-08 |

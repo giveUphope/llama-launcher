@@ -129,12 +129,13 @@ async function onCleanSelected() {
       <span>{{ i18n.t('msg_trash_hint') }}</span>
     </div>
 
-    <!-- 两步流面板：检测结果逐类勾选（本卡是服务页末卡，条件渲染不涉及下方内容跳动） -->
+    <!-- 两步流面板：检测结果逐类勾选（本卡是服务页末卡，条件渲染不涉及下方内容跳动）。
+         状态行全部走 a-tag 官方预设色（2026-10-08 与引擎提示 / 状态卡同族对齐） -->
     <div v-if="detected" class="trash-panel">
-      <div v-if="(detected.items ?? []).length === 0 && !result" class="trash-state">
-        <Icon name="check_circle" :size="12" />
-        <span>{{ i18n.t('msg_trash_empty') }}</span>
-      </div>
+      <a-tag v-if="(detected.items ?? []).length === 0 && !result" color="gray" size="small">
+        <template #icon><Icon name="check_circle" :size="12" /></template>
+        {{ i18n.t('msg_trash_empty') }}
+      </a-tag>
       <template v-else>
         <a-checkbox-group v-if="kindRows.length" v-model="selectedKinds" class="trash-kinds" direction="vertical">
           <a-checkbox v-for="row in kindRows" :key="row.kind" :value="row.kind">
@@ -155,21 +156,21 @@ async function onCleanSelected() {
         </a-button>
       </template>
 
-      <div v-if="result" class="trash-state" :class="result.failed > 0 ? 'is-warn' : 'is-ok'">
-        <Icon :name="result.failed > 0 ? 'alert' : 'check_circle'" :size="12" />
+      <a-tag v-if="result" :color="result.failed > 0 ? 'orange' : 'green'" size="small" nowrap>
+        <template #icon><Icon :name="result.failed > 0 ? 'alert' : 'check_circle'" :size="12" /></template>
         <span v-if="result.failed > 0">{{ i18n.t('msg_trash_failed', [String(result.cleaned), String(result.failed)]) }}</span>
         <span v-else>{{ i18n.t('msg_trash_cleaned', [String(result.cleaned), formatBytes(result.totalSize)]) }}</span>
-      </div>
+      </a-tag>
       <div v-if="result && result.failures.length" class="trash-failures">
         <div v-for="f in result.failures" :key="f.path" class="trash-fail-row">
           <span class="trash-fail-path" :title="f.path">{{ f.path }}</span>
           <span class="trash-fail-reason">{{ i18n.t(FAIL_REASON_KEY[f.reason]) }}<template v-if="f.detail">：{{ f.detail }}</template></span>
         </div>
       </div>
-      <div v-if="detectError" class="trash-state is-warn">
-        <Icon name="alert" :size="12" />
-        <span>{{ detectError }}</span>
-      </div>
+      <a-tag v-if="detectError" color="orange" size="small" nowrap>
+        <template #icon><Icon name="alert" :size="12" /></template>
+        {{ detectError }}
+      </a-tag>
     </div>
   </Card>
 </template>
@@ -219,28 +220,13 @@ async function onCleanSelected() {
   min-width: 142px;
 }
 
-/* 状态行（空态 / 结果 / 检测失败）：图标 + 单行文字，语义色跟随文字 */
-.trash-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--fs-sm);
-  color: var(--fg-hint);
-
-  &.is-ok {
-    color: var(--fg-hint);
-  }
-
-  &.is-warn {
-    color: var(--fg-warning-text);
-  }
-}
+/* 状态行（空态 / 结果 / 检测失败）：a-tag 官方预设色（gray/green/orange），自绘配色删除 */
 
 /* 失败明细：路径（mono 等宽，超长省略，完整路径 title）+ 原因短语 */
 .trash-failures {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   max-width: 100%;
 }
 

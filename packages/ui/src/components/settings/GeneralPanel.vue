@@ -509,6 +509,14 @@ onActivated(() => {
   min-width: 0;
 }
 
+/* Arco Tag 把默认插槽包进 .arco-tag-text（flex 项、无 min-width: 0，min-content 撑住
+   不收缩）——放开收缩转 flex，接通「ToolTip host → 内层 span」的省略链 */
+.engine-hint-tag :deep(.arco-tag-text) {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+}
+
 .engine-hint-text {
   display: block;
   min-width: 0;
