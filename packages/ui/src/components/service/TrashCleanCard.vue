@@ -132,10 +132,7 @@ async function onCleanSelected() {
     <!-- 两步流面板：检测结果逐类勾选（本卡是服务页末卡，条件渲染不涉及下方内容跳动）。
          状态行全部走 a-tag 官方预设色（2026-10-08 与引擎提示 / 状态卡同族对齐） -->
     <div v-if="detected" class="trash-panel">
-      <a-tag v-if="(detected.items ?? []).length === 0 && !result" color="gray" size="small">
-        <template #icon><Icon name="check_circle" :size="12" /></template>
-        {{ i18n.t('msg_trash_empty') }}
-      </a-tag>
+      <a-empty v-if="(detected.items ?? []).length === 0 && !result" :description="i18n.t('msg_trash_empty')" class="trash-empty" />
       <template v-else>
         <a-checkbox-group v-if="kindRows.length" v-model="selectedKinds" class="trash-kinds" direction="vertical">
           <a-checkbox v-for="row in kindRows" :key="row.kind" :value="row.kind">
@@ -220,7 +217,14 @@ async function onCleanSelected() {
   min-width: 142px;
 }
 
-/* 状态行（空态 / 结果 / 检测失败）：a-tag 官方预设色（gray/green/orange），自绘配色删除 */
+/* 空态：a-empty 官方组件（紧凑面板隐藏插图只留描述行；描述色用官方 gray-5 配对） */
+.trash-empty {
+  align-self: stretch;
+
+  :deep(.arco-empty-image) {
+    display: none;
+  }
+}
 
 /* 失败明细：路径（mono 等宽，超长省略，完整路径 title）+ 原因短语 */
 .trash-failures {

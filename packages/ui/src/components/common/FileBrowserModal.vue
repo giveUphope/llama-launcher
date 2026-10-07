@@ -192,17 +192,22 @@ function cancel() {
           </span>
         </a-list-item>
         <template #empty>
+          <!-- 空态：a-empty 官方组件（同族统一，见 STYLE_TODO 当轮登记）；错误态文字保留语义着色 -->
           <div v-if="loading" class="fb-empty" />
-          <div v-else-if="!dirExists" class="fb-empty">
-            <span :class="{ 'fb-error': true }">
-              {{ createFailed ? i18n.t('picker_create_failed') : i18n.t('picker_not_exist') }}
-            </span>
+          <a-empty v-else-if="!dirExists" class="fb-empty">
+            <template #description>
+              <span :class="{ 'fb-error': true }">
+                {{ createFailed ? i18n.t('picker_create_failed') : i18n.t('picker_not_exist') }}
+              </span>
+            </template>
             <a-button v-if="current?.mode === 'dir' && !createFailed" size="small" type="primary" @click="onCreateDir">
               {{ i18n.t('picker_create_dir') }}
             </a-button>
-          </div>
-          <div v-else-if="error" class="fb-empty fb-error">{{ i18n.t('picker_unreadable') }}</div>
-          <div v-else class="fb-empty">{{ i18n.t('picker_no_selection') }}</div>
+          </a-empty>
+          <a-empty v-else-if="error" class="fb-empty">
+            <template #description><span class="fb-error">{{ i18n.t('picker_unreadable') }}</span></template>
+          </a-empty>
+          <a-empty v-else class="fb-empty" :description="i18n.t('picker_no_selection')" />
         </template>
       </a-list>
     </div>

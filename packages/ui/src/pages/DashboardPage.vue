@@ -55,9 +55,7 @@ watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, 
         <h2 class="q-title">{{ i18n.t('card_dash_applog') }}</h2>
       </div>
       <div ref="consoleEl" class="issues-console">
-        <div v-if="appLogLines.length === 0" class="empty-text">
-          {{ i18n.t('msg_empty_no_logs') }}
-        </div>
+        <a-empty v-if="appLogLines.length === 0" class="dash-empty" :description="i18n.t('msg_empty_no_logs')" />
         <div
           v-for="entry in appLogLines"
           :key="entry.id"
@@ -175,16 +173,20 @@ watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, 
     color: var(--console-fg);
   }
 
-  .empty-text {
-    /* 空态占位组件：flex 居中 + min-height 60px（父级 72px border-box − 上下 padding 12），
-       垂直居中占满预留区，空态 ↔ 1–3 行条目高度恒定（#46/#47 预留位置模式；
-       原定高行高方案超出预留区 12px 且违反行高语义化清单 #9，2026-09-04 改为 flex） */
-    color: var(--color-text-3);
+  .dash-empty {
+    /* 空态占位：a-empty 官方组件（2026-10-08 统一，替换自绘文案行）。
+       flex 居中 + min-height 60px（父级 72px border-box − 上下 padding 12），垂直居中
+       占满预留区，空态 ↔ 1–3 行条目高度恒定（#46/#47 预留位置模式）；默认插图在
+       60px 档放不下，压到 40px。描述色用 Arco 官方 gray-5 配对，不另写节点配色 */
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 60px;
     padding: 0;
+
+    :deep(.arco-empty-image) {
+      height: 40px;
+    }
   }
 }
 

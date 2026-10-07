@@ -161,10 +161,7 @@ function onClear() {
       </div>
       <!-- count 取 outputs 而非 filteredOutputs 的长度：两个都监听过，同一行会触发两次滚动 -->
       <ConsolePanel class="console-fill" :count="server.outputs.length">
-        <div v-if="displayOutputs.length === 0" class="empty-log">
-          <Icon name="empty" :size="32" class="empty-icon" />
-          <span>{{ emptyText }}</span>
-        </div>
+        <a-empty v-if="displayOutputs.length === 0" class="logs-empty" :description="emptyText" />
         <span
           v-for="row in displayRows"
           :key="row.line.id"
@@ -279,18 +276,10 @@ function onClear() {
   border-radius: 2px;
 }
 
-.empty-log {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 40px 20px;
-  color: var(--color-text-3);
-  font-size: var(--fs-base);
-}
-
-.empty-icon {
-  opacity: 0.4;
+/* 空态：a-empty 官方组件（2026-10-08 统一）。描述色用 Arco 官方 gray-5 配对（中灰压
+   恒深控制台底实测可读），不另写 Arco 节点配色（规则 20 零登记面） */
+.logs-empty {
+  padding: 24px 20px;
 }
 
 /* 底部状态栏 */

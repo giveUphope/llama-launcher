@@ -897,7 +897,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
           </div>
         </div>
         <div class="task-list">
-          <div v-if="tasks.length === 0" class="empty-msg task-empty">{{ i18n.t('msg_no_download_tasks') }}</div>
+          <a-empty v-if="tasks.length === 0" class="empty-msg task-empty" :description="i18n.t('msg_no_download_tasks')" />
           <div v-for="t in tasks" :key="t.id" class="task-item">
             <div class="task-main">
               <div class="task-info">
@@ -1034,6 +1034,12 @@ function quantTooltip(q: QuantizationInfo | null): string {
   display: flex;
   align-items: center;
   justify-content: center;
+
+  /* 空态：a-empty 官方组件（#103 同族统一）。38 档配对槽不变：默认插图在此档放不下
+     隐藏之，只留描述行（槽几何由 min-height 38 保证，layout-stability ④ 判据继续成立） */
+  :deep(.arco-empty-image) {
+    display: none;
+  }
 }
 
 /* URL 输入区 */

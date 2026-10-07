@@ -471,6 +471,14 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：提示行本体换 `a-tag closable`（warn=orange / info=gray 官方预设色对，`size="small"` + `nowrap`，图标走 `#icon` 槽），自绘行布局 / 角色色 / 忽略钮全删；忽略指纹逻辑不变（`@close` → 长句全文入 `settings.engine_hint_dismissed`，新消息照常出现）；`btn_dismiss_hint` 键失去读者删除（官方钮的 `aria-label="Close"` 为库内硬编码，非本地化——接受，官方组件行为）。对比度注记：预设对取代 #99 的角色档，是「文字进了官方组件」后采用官方配对，同 StatusTag 先例。
 - **修复效果验证**：drift 演示场景实测 tag 314px 官方 `arco-tag-orange` 预设类生效、关闭钮 `role="button"` + `aria-label="Close"` 就位、点关后指纹入库且标签消失；`pnpm style:audit` 全绿、`pnpm e2e:web` 81 条全绿。
 
+### 104. 空态范式统一：五处自绘「图标 + 文案」空态换 a-empty 官方组件 — 🟢 已修复（2026-10-08）
+
+- **位置**：`packages/ui/src/pages/LogsPage.vue`（控制台空态）、`pages/DashboardPage.vue`（应用日志小窗空态）、`components/common/DownloadCard.vue`（任务空态，38 档配对槽）、`components/common/FileBrowserModal.vue`（a-list `#empty` 四态）、`components/service/TrashCleanCard.vue`（扫描空结果）、`components/common/icon-map.ts`（`empty` 字形零读者删除）。
+- **描述**：用户裁定「项目整体仅保留一套前端范式（arco）」，对历轮评估中「保留」的项要求给出迁移方案并最终迁移。全站空态两套范式并存：PresetsPanel 用官方 `a-empty`，其余五处自绘「图标 + 文案」。
+- **修复**：五处全部换 `a-empty` + `:description`。档位适配三式：① 日志页大控制台用默认插图（描述色取官方 gray-5 配对——恒深底实测可读，不另写 Arco 节点配色，规则 20 零登记面）；② 概览小窗压插图至 40px；③ DownloadCard 38 档与 FileBrowserModal 紧凑面板隐藏插图只留描述行（38 档几何由 min-height 保证，layout-stability ④ 判据「两槽同高」不改自明）。错误态（fb-error）保留语义着色于 `#description` 槽内。`empty` 字形失去唯一读者，按 icon-map 规则 ② 连 import 删除（规则 21 自证通过）。
+- **探索后不迁移的终态裁定（用户要求的「进一步探索」部分）**：① `badge-orange/red` / ParamsPage 统计与计数标签的角色色文字——它们是**官方组件上的 AA 对比度修正层**（预设对 2.41~4.2 不达 §7.5.8 的 4.5），删除即无障碍倒退，Arco 无高对比文字变体，此层即终态；② ParamRow `--warn` 描边——与 Arco 表单校验（a-form-item 校验态加边框）同一机制模式，已是官方惯例形态；③ 中性灰提示行——Arco 无 Hint 组件，token 着色文字非组件平行，a-typography-text 包装无视觉与语义增益；④ TopBar 关闭钮红 hover——a-button 基座 + 官方 `--danger-6` 调色板 token，已是官方范式（窗口铬语义，Arco 无窗口组件）。
+- **修复效果验证**：`pnpm style:audit` 22/22（注释中的「#103」两次被 hex 正则误报为裸色、措辞规避后通过——误报形态已记 #103）、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿（layout-stability ④ 判据携新空态通过）、ui 103 / core 442 测试全绿；日志页清空后 a-empty + 「暂无日志」实测（mock 喂流 2.5s 一行，探窗须在清空后同帧）。
+
 ### 103. 同族清扫第二轮：下载任务状态文字换 StatusTag、预设应用提示换 a-alert — 🟢 已修复（2026-10-08）
 
 - **位置**：`packages/ui/src/components/common/DownloadCard.vue`（任务行状态文字）、`packages/ui/src/components/presets/PresetsPanel.vue`（应用提示）。
@@ -517,6 +525,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
 | 100 | 引擎提示行本体对齐官方组件（用户批注「审查提示样式是否符合arco官方档」）：#99 后提示行仍剩行布局 / 角色色 / 忽略钮三处自绘——官方 `a-alert` 是横幅（width:100%、14px、8/15 内距硬编码）与行内形态冲突，评估后不采纳；换 `a-tag closable`（warn=orange / info=gray 官方预设 + 官方关闭钮内建 role="button"/aria-label + `#icon` 槽 + `nowrap`），自绘行布局 / 角色色 / 忽略钮全删，忽略指纹逻辑不变（@close 入库）；`btn_dismiss_hint` 键失去读者删除（官方钮 aria-label="Close" 为库内硬编码） | 2026-10-08 |
+| 104 | 空态范式统一（用户裁定「项目整体仅保留一套前端范式（arco）」，要求对历轮保留项给方案并最终迁移）：五处自绘「图标 + 文案」空态换 `a-empty` + `:description`——日志页默认插图（描述色取官方 gray-5 配对）、概览小窗插图压 40px、DownloadCard 38 档与 FileBrowserModal 隐藏插图只留描述行（槽几何不变、layout-stability ④ 判据不改自明）、TrashCleanCard 同式；`empty` 字形失去唯一读者按规则 ② 删除。**探索后不迁移的终态裁定**：`badge-orange/red` 与 ParamsPage 角色色文字 = 官方组件上的 AA 对比度修正层（删除即倒退 §7.5.8）；ParamRow `--warn` 描边 = 与 Arco 表单校验同型的边框态；中性灰提示行 = token 着色文字非组件平行；TopBar 关闭钮 = a-button 基座 + 官方调色板 token（窗口铬语义，Arco 无窗口组件） | 2026-10-08 |
 | 103 | 同族清扫第二轮（用户批注「进一步审查是否还有类似的自绘组件」）：下载任务行状态文字（`STATUS_COLOR` 五档语义色 + 内联上色）换 `StatusTag`（queued=gray / downloading=loading+官方转圈 / paused=warn / completed=ok / error=error）；预设应用提示（自绘 success 底/边/字色盒）换 `a-alert type="success"`。评估后保留并记边界：`fb-error` 空态错误文字（a-list #empty 官方槽内）、ParamsPage 显存超限警示（数据值警示）、`badge-orange/red`（tag 对比度修正）、TopBar 关闭钮红 hover（窗口铬豁免）、中性灰提示行（文字样式非状态芯片）。审计插曲：规则 1 把注释里的「#103」当十六进制色捕获，措辞避开 | 2026-10-08 |
 | 102 | 状态卡警示族对齐官方组件（用户批注「仍存在样式残留，为什么还有额外的组件使用非arco官方档」，点名概览端点暴露提示）：端点提示 / 失败横幅 / OOM 归因与减负文案 / 清理卡状态行全部换 `a-tag` 官方预设色（orange / red / gray / green；失败保留 `role="alert"`），自绘配色删除；#81 防跳槽位原样保留（tag 24px 在 36/30/28px 档内，e2e 判据不改自明）。**库层新知识**：Arco Tag 把默认插槽包进 `.arco-tag-text`（flex 项、无 min-width: 0、min-content 撑住不收缩），长文案 tag 窄视口必然溢出（英文态 1024 实测 +118.7px，被窄视口 e2e 抓获）——解法 = 调用方 `:deep(.arco-tag-text)` 放开收缩（`min-width: 0; flex: 1; display: flex`） | 2026-10-08 |
 | 101 | 撤销「截断值保留原生 title」边界：剩余 28 处原生 `title` 全部迁 ToolTip（用户裁定观感一致性优先，推翻 §7.5 原 ②③ 类的「勿顺手改」）：ServiceStatusCard 6 处、SettingsPage 摘要 2 处（条件悬浮走 `:disabled`）、ParamsPage 建议 chip、AdvancedPanel 输入框、ParamSummaryCard 摘要 chip（嵌套 ToolTip：键名区=flag、值区=完整值）、PresetsPanel 3 处、LocalModelsPanel 6 处、DownloadCard 7 处；热路径顾虑实测解除（a-tooltip trigger 惰性挂载、弹层仅悬停时创建）；现存 `:title=` 仅 3 处组件 prop + 1 iframe title，`<ToolTip` 62 处 / 20 文件 | 2026-10-08 |

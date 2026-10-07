@@ -16,7 +16,6 @@ import IconDashboard from '@arco-design/web-vue/es/icon/icon-dashboard/index.js'
 import IconDelete from '@arco-design/web-vue/es/icon/icon-delete/index.js';
 import IconDown from '@arco-design/web-vue/es/icon/icon-down/index.js';
 import IconDownload from '@arco-design/web-vue/es/icon/icon-download/index.js';
-import IconEmpty from '@arco-design/web-vue/es/icon/icon-empty/index.js';
 import IconExclamationCircle from '@arco-design/web-vue/es/icon/icon-exclamation-circle/index.js';
 import IconExport from '@arco-design/web-vue/es/icon/icon-export/index.js';
 import IconExperiment from '@arco-design/web-vue/es/icon/icon-experiment/index.js';
@@ -56,7 +55,7 @@ export const icons = {
   file: IconFile, file_check: IconCheckSquare, copy: IconCopy, trash: IconDelete, search: IconSearch,
   external: IconExport, close: IconClose, check: IconCheck, globe: IconPublic, theme: IconSunFill, link: IconLink,
   check_circle: IconCheckCircle, alert: IconExclamationCircle, info: IconInfoCircle, error: IconCloseCircle,
-  empty: IconEmpty, star: IconStar, disk: IconStorage, bench: IconExperiment,
+  star: IconStar, disk: IconStorage, bench: IconExperiment,
   // 窗口控制（TopBar win-btn）：Arco 原生字形
   minimize: IconMinus, maximize: IconFullscreen, restore: IconFullscreenExit,
   // 加载中：Arco IconLoading 自带旋转动画（替代自定义 spin @keyframes，全站统一）
