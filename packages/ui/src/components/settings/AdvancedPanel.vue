@@ -2,6 +2,7 @@
 // 阶段三：设置页「高级」分组 —— HF 镜像、下载并发、危险设置单独分组（设计稿 §14.10）。
 import { computed } from 'vue';
 import Card from '@/components/common/Card.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useI18nStore } from '@/stores/i18n';
 import { vInnerAriaLabel } from '@/directives/innerAriaLabel';
@@ -38,10 +39,11 @@ const concurrentOptions = DOWNLOAD_CONCURRENCY_OPTIONS;
             :label-col-style="{ flex: '0 0 176px', minWidth: '0', marginRight: '8px', paddingRight: '0' }"
             :wrapper-col-style="{ flex: '1 1 0', minWidth: '0' }">
       <a-form-item :label="i18n.t('lbl_hf_mirror')">
-        <a-input v-model="hfMirrorHost" class="path-input" size="small"
-                 :input-attrs="{ 'aria-label': i18n.t('lbl_hf_mirror') }"
-                 :placeholder="i18n.t('lbl_hf_mirror_placeholder')"
-                 :title="i18n.t('lbl_hf_mirror_hint')" />
+        <ToolTip :text="i18n.t('lbl_hf_mirror_hint')">
+          <a-input v-model="hfMirrorHost" class="path-input" size="small"
+                   :input-attrs="{ 'aria-label': i18n.t('lbl_hf_mirror') }"
+                   :placeholder="i18n.t('lbl_hf_mirror_placeholder')" />
+        </ToolTip>
       </a-form-item>
       <a-form-item :label="i18n.t('lbl_max_concurrent')" v-inner-aria-label="i18n.t('lbl_max_concurrent')">
         <div class="select-row">

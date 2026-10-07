@@ -4,6 +4,7 @@ import type { ModelInfo, ModelFitResult, LlamaBenchJobState } from '@llama-launc
 import { MODEL_KEY } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
 import PageFrame from '@/components/common/PageFrame.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import ModelMetaCard from '@/components/common/ModelMetaCard.vue';
 import Icon from '@/components/common/Icon.vue';
 import { useSettingsStore } from '@/stores/settings';
@@ -538,32 +539,39 @@ watch(models, () => writeRowMeta());
               <span class="selected-slot">
                 <Icon v-if="record.path === modelPath" name="star" :size="12" class="selected-icon" />
               </span>
-              <div class="model-name-row" :title="record.path">{{ record.name }}</div>
+              <ToolTip :text="record.path"><div class="model-name-row">{{ record.name }}</div></ToolTip>
             </div>
             <!-- 伴随文件标签 + 显存适配 + 体检结果合并同一行：徽章排容器恒渲染（内部各徽章由
                  派生条目决定有无），min-height 预留一行，fit 批量结果 / 体检记录回灌时行高不再
                  从 1 行变 2 行。徽章文本不在此现算——见脚本末 rowMeta（§7.1 铁律②） -->
             <div class="model-tags">
-              <a-tag v-for="b in rowMeta[record.path]?.badges" :key="b.key"
-                     size="small" :color="b.color" :class="`badge-${b.color}`" :title="b.title">{{ b.text }}</a-tag>
+              <ToolTip v-for="b in rowMeta[record.path]?.badges" :key="b.key" :text="b.title ?? ''" :disabled="!b.title">
+                <a-tag size="small" :color="b.color" :class="`badge-${b.color}`">{{ b.text }}</a-tag>
+              </ToolTip>
             </div>
           </template>
           <template #actions="{ record }">
             <!-- 行操作：文本内联小按钮（§7.5.5 禁止纯图标操作按钮，预设面板同款范式） -->
             <div class="row-actions">
-              <a-button size="small" class="row-action" :title="i18n.t('btn_open_dir')" @click.stop="onOpenModelDir(record)">
-                <template #icon><Icon name="folder" :size="11" /></template>
-                {{ i18n.t('act_dir') }}
-              </a-button>
-              <a-button size="small" class="row-action" :title="i18n.t('bench_llama_title')"
-                        :disabled="rowMeta[record.path]?.benchRunning" @click.stop="onBench(record)">
-                <template #icon><Icon name="bench" :size="11" /></template>
-                {{ i18n.t('act_bench') }}
-              </a-button>
-              <a-button size="small" class="row-action row-danger" status="danger" :title="i18n.t('btn_remove_model')" @click.stop="onRemoveModel(record)">
-                <template #icon><Icon name="trash" :size="11" /></template>
-                {{ i18n.t('btn_remove_model') }}
-              </a-button>
+              <ToolTip :text="i18n.t('btn_open_dir')">
+                <a-button size="small" class="row-action" @click.stop="onOpenModelDir(record)">
+                  <template #icon><Icon name="folder" :size="11" /></template>
+                  {{ i18n.t('act_dir') }}
+                </a-button>
+              </ToolTip>
+              <ToolTip :text="i18n.t('bench_llama_title')">
+                <a-button size="small" class="row-action"
+                          :disabled="rowMeta[record.path]?.benchRunning" @click.stop="onBench(record)">
+                  <template #icon><Icon name="bench" :size="11" /></template>
+                  {{ i18n.t('act_bench') }}
+                </a-button>
+              </ToolTip>
+              <ToolTip :text="i18n.t('btn_remove_model')">
+                <a-button size="small" class="row-action row-danger" status="danger" @click.stop="onRemoveModel(record)">
+                  <template #icon><Icon name="trash" :size="11" /></template>
+                  {{ i18n.t('btn_remove_model') }}
+                </a-button>
+              </ToolTip>
             </div>
           </template>
         </a-table>
@@ -724,7 +732,7 @@ watch(models, () => writeRowMeta());
 
 .model-name-row {
   font-weight: 600;
-  /* 长模型名单行截断：悬停 title 已含完整路径，不需要换行堆叠 */
+  /* 长模型名单行截断：悬停 ToolTip 已含完整路径，不需要换行堆叠 */
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

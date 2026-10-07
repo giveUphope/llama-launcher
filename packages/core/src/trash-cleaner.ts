@@ -461,6 +461,7 @@ function runClean(items: TrashItem[], opts: TrashScanOptions, dirSizeOf: (dir: s
   let cleaned = 0;
   let failed = 0;
   let totalSize = 0;
+  const failures: TrashFailure[] = [];
   const modelsDir = String(opts.modelsDir ?? '').trim();
   const protectedPaths = opts.protectedPaths ?? new Set<string>();
 
@@ -468,11 +469,13 @@ function runClean(items: TrashItem[], opts: TrashScanOptions, dirSizeOf: (dir: s
     // 1. kind 级再校验（含根归属、白名单、内容特征、保护集、孤儿复核）
     if (!revalidateItem(item, modelsDir, protectedPaths)) {
       failed++;
+      failures.push({ path: item.absPath, reason: 'revalidated' });
       continue;
     }
     // 2. 符号链接检测：防止清理期间被替换
     if (isSymbolicLink(item.absPath)) {
       failed++;
+      failures.push({ path: item.absPath, reason: 'symlink' });
       continue;
     }
     // 3. 存在性校验
@@ -497,13 +500,15 @@ function runClean(items: TrashItem[], opts: TrashScanOptions, dirSizeOf: (dir: s
       } else {
         // 其他类型（FIFO、设备等）不清理
         failed++;
+        failures.push({ path: item.absPath, reason: 'unsupported' });
       }
-    } catch {
+    } catch (err) {
       failed++;
+      failures.push({ path: item.absPath, reason: 'error', detail: String((err as Error)?.message ?? err) });
     }
   }
 
-  return { cleaned, failed, totalSize };
+  return { cleaned, failed, totalSize, failures };
 }
 
 /** 执行清理（同步版，目录大小走同步递归遍历）。 */

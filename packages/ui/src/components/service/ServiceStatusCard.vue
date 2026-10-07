@@ -332,21 +332,23 @@ function onApplyRelief(key: string, value: string | number | boolean) {
       <a-descriptions-item :label="i18n.t('lbl_dash_model')" :span="2">
         <a-typography-text v-if="currentModel" copyable :copy-text="currentModel" @copy="copyViaApi(currentModel)">
           <Icon name="models" :size="13" />
-          <span class="mono-val ellipsis" :title="currentModel">{{ currentModel }}</span>
+          <ToolTip :text="currentModel"><span class="mono-val ellipsis">{{ currentModel }}</span></ToolTip>
         </a-typography-text>
         <span v-else class="empty-val">{{ i18n.t('status_model_none') }}</span>
       </a-descriptions-item>
-      <!-- API 地址：本应用运行中显示自身地址；停止但探测到外部实例时显示外部地址（title 注明来源） -->
+      <!-- API 地址：本应用运行中显示自身地址；停止但探测到外部实例时显示外部地址（悬浮注明来源，
+           两条信息合并进一个 ToolTip：externalHint 本身含 URL，不丢信息） -->
       <a-descriptions-item :label="i18n.t('card_dash_api')" :span="2">
         <a-typography-text
           v-if="server.apiUrl || externalUrl"
           copyable
           :copy-text="server.apiUrl || externalUrl"
-          :title="!server.apiUrl && externalUrl ? externalHint : undefined"
           @copy="copyViaApi(server.apiUrl || externalUrl)"
         >
           <Icon name="link" :size="13" />
-          <span class="mono-val ellipsis" :title="server.apiUrl || externalUrl">{{ server.apiUrl || externalUrl }}</span>
+          <ToolTip :text="!server.apiUrl && externalUrl ? externalHint : (server.apiUrl || externalUrl)">
+            <span class="mono-val ellipsis">{{ server.apiUrl || externalUrl }}</span>
+          </ToolTip>
         </a-typography-text>
         <span v-else class="empty-val">—</span>
       </a-descriptions-item>
@@ -367,10 +369,10 @@ function onApplyRelief(key: string, value: string | number | boolean) {
     <!-- 端点暴露常驻提示（成因见 openEndpoint 注释）：槽恒在、未触发时 visibility:hidden。
          此前 v-if 插在字段表与快捷按钮之间，进页面/改这两项再回来会把按钮行以下整块下推
          （STYLE_TODO #81 档 2）。预留按较长那态算：中文一行、英文两行，故两档封顶 + 省略，
-         完整文案走 title（同 #81 既有范式 .failure-banner-slot，静态 CSS，不做测量回填）。 -->
+         完整文案走 ToolTip（a-tooltip；#81 静态 CSS 范式不变，悬浮载体随官方组件收敛）。 -->
     <div class="sec-hint-slot" :class="{ 'is-active': openEndpoint }">
       <Icon class="sec-hint-icon" name="alert" :size="12" />
-      <span class="sec-hint-text" :title="secHintText">{{ secHintText }}</span>
+      <ToolTip :text="secHintText"><span class="sec-hint-text">{{ secHintText }}</span></ToolTip>
     </div>
 
     <!-- 快捷操作（自原概览 Q2/Q3 保留）：按钮不属于信息展示，不构成重复。
@@ -413,7 +415,7 @@ function onApplyRelief(key: string, value: string | number | boolean) {
            ① OOM 归因（进程已报错，扫输出尾部判出）——上下文减半 / KV 量化；
            ② 减负建议（还没跑就看出装不下，判据在 core recommendOffloadAdvice）——
               条目来自下发数据，本行只按 offloadRelief 分流，最多两个按钮 + 单行省略，
-              理由走原生 title（同 §7.5「截断值保留原生 title」，不再叠 ToolTip 包一层壳）。 -->
+              理由走 ToolTip（a-tooltip；§7.5 原生 title 边界已随官方组件收敛撤销）。 -->
       <div class="oom-row" :class="{ 'is-active': oomDetected || reliefActive }">
         <div v-if="oomDetected" class="oom-hint">
           <span class="oom-text">{{ i18n.t('msg_oom_detected') }}</span>
@@ -421,16 +423,12 @@ function onApplyRelief(key: string, value: string | number | boolean) {
           <a-button size="mini" @click="onOomKvQuant">{{ i18n.t('act_oom_kv_quant') }}</a-button>
         </div>
         <div v-else-if="reliefActive" class="oom-hint oom-hint--relief">
-          <span class="oom-text" :title="i18n.t('msg_offload_advice')">{{ i18n.t('msg_offload_advice') }}</span>
-          <a-button
-            v-for="line in reliefShown"
-            :key="line.id"
-            size="mini"
-            :title="line.reason"
-            @click="onApplyRelief(line.key, line.value)"
-          >
-            {{ line.action }}
-          </a-button>
+          <ToolTip :text="i18n.t('msg_offload_advice')"><span class="oom-text">{{ i18n.t('msg_offload_advice') }}</span></ToolTip>
+          <ToolTip v-for="line in reliefShown" :key="line.id" :text="line.reason">
+            <a-button size="mini" @click="onApplyRelief(line.key, line.value)">
+              {{ line.action }}
+            </a-button>
+          </ToolTip>
         </div>
       </div>
     </div>
@@ -567,7 +565,7 @@ function onApplyRelief(key: string, value: string | number | boolean) {
 // OOM 归因建议行 / 减负建议行：紧随失败 banner 的次级提示 + 行内动作按钮
 // （行高由 .oom-row 的常驻槽负责，这里只管内容呈现）
 // ⚠ 单行硬约束：槽只预留一档 28px，所以这一行**不许换行**——换行就是卡片长高，
-// #81 登记的正是这个。文案变长（尤其中转英）时省略号收住、完整内容走原生 title，
+// #81 登记的正是这个。文案变长（尤其中转英）时省略号收住、完整内容走 ToolTip，
 // 按钮 flex: 0 0 auto 保证按钮永远完整可见（动作比描述文字更重要）。
 .oom-hint {
   display: flex;

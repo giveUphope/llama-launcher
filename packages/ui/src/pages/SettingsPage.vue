@@ -8,6 +8,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Icon from '@/components/common/Icon.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import GeneralPanel from '@/components/settings/GeneralPanel.vue';
 import AppearancePanel from '@/components/settings/AppearancePanel.vue';
 import AdvancedPanel from '@/components/settings/AdvancedPanel.vue';
@@ -99,12 +100,14 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
       <div class="summary-divider"></div>
       <div class="summary-item">
         <Icon :name="modelsState === 'ok' ? 'check_circle' : modelsState === 'idle' ? 'info' : 'alert'" :size="14" />
-        <span class="summary-label" :title="modelsDir || undefined">
-          <template v-if="modelsState === 'checking'">{{ i18n.t('msg_detecting') }}</template>
-          <template v-else-if="modelsState === 'missing'">{{ i18n.t('lbl_model_dir_missing') }}</template>
-          <template v-else-if="modelsState === 'idle'">{{ i18n.t('lbl_model_dir_unset') }}</template>
-          <template v-else>{{ i18n.t('lbl_model_dir_ready') }}</template>
-        </span>
+        <ToolTip :text="modelsDir" :disabled="!modelsDir">
+          <span class="summary-label">
+            <template v-if="modelsState === 'checking'">{{ i18n.t('msg_detecting') }}</template>
+            <template v-else-if="modelsState === 'missing'">{{ i18n.t('lbl_model_dir_missing') }}</template>
+            <template v-else-if="modelsState === 'idle'">{{ i18n.t('lbl_model_dir_unset') }}</template>
+            <template v-else>{{ i18n.t('lbl_model_dir_ready') }}</template>
+          </span>
+        </ToolTip>
       </div>
       <div class="summary-divider"></div>
       <div class="summary-item">
@@ -112,12 +115,14 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
           :name="exeState === 'checking' ? 'loading' : exeState === 'ok' ? 'check_circle' : exeState === 'missing' ? 'alert' : 'info'"
           :size="14"
         />
-        <span class="summary-label" :title="serverExe || llamaDir || undefined">
-          <template v-if="exeState === 'checking'">{{ i18n.t('msg_detecting') }}</template>
-          <template v-else-if="exeState === 'ok'">{{ i18n.t('lbl_exe_state_ready') }}</template>
-          <template v-else-if="exeState === 'missing'">{{ i18n.t('lbl_exe_state_missing') }}</template>
-          <template v-else>{{ i18n.t('lbl_exe_state_idle') }}</template>
-        </span>
+        <ToolTip :text="serverExe || llamaDir" :disabled="!serverExe && !llamaDir">
+          <span class="summary-label">
+            <template v-if="exeState === 'checking'">{{ i18n.t('msg_detecting') }}</template>
+            <template v-else-if="exeState === 'ok'">{{ i18n.t('lbl_exe_state_ready') }}</template>
+            <template v-else-if="exeState === 'missing'">{{ i18n.t('lbl_exe_state_missing') }}</template>
+            <template v-else>{{ i18n.t('lbl_exe_state_idle') }}</template>
+          </span>
+        </ToolTip>
       </div>
     </div>
 

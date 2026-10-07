@@ -155,6 +155,8 @@ describe('trash-cleaner', () => {
     const result = cleanTrash([fakeItem, ...detected.items]);
 
     expect(result.failed).toBeGreaterThanOrEqual(1);
+    // 逐项失败明细：伪造项带路径与原因（revalidated = 清理时刻复核未过）
+    expect(result.failures.some(f => f.path === tmpSettingsFile && f.reason === 'revalidated')).toBe(true);
     expect(existsSync(tmpSettingsFile)).toBe(true);
   });
 
@@ -305,6 +307,10 @@ describe('trash-cleaner 模型目录扫描（下载残留/孤儿预设/保护集
     const stale = { relPath: join('presets', 'back.json'), absPath: join(tmpModelsPresetsDir, 'back.json'), root: 'models' as const, kind: 'orphan_preset' as const, size: 1 };
     result = cleanTrash([stale], { modelsDir: tmpModelsDir });
     expect(result.failed).toBe(1);
+    // 模型重新出现的放弃项进逐项失败明细（revalidated）
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0].reason).toBe('revalidated');
+    expect(result.failures[0].path).toBe(stale.absPath);
     expect(existsSync(join(tmpModelsPresetsDir, 'back.json'))).toBe(true);
   });
 

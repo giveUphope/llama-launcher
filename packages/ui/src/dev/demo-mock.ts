@@ -722,8 +722,18 @@ export function createDemoApi() {
         (globalThis as unknown as { __mockEngineFileExists?: boolean }).__mockEngineFileExists === true,
       ),
       findLlamaExe: () => Promise.resolve(`${ENGINE_DIR}/llama-server.exe`),
-      detectTrash: () => Promise.resolve({ trashCount: 0, trashFiles: [], detectDurationMs: 12 } as never),
-      cleanTrash: () => Promise.resolve({ cleanedCount: 0, freedBytes: 0 } as never),
+      // 清理配置目录演示桩：返回三类各一条（形状与 shared DetectResult/CleanResult 同构——
+      // 此前这里残留的是更早一版的 trashCount/trashFiles 旧形状，mock 下点检测必然报错）
+      detectTrash: () => {
+        const items = [
+          { relPath: 'stats.jsonl', absPath: 'C:/Users/demo/.llama_launcher/stats.jsonl', root: 'config', kind: 'legacy_stats', size: 2048 },
+          { relPath: 'presets/draft-model.tmp', absPath: 'D:/Models/Qwen3-32B-A3B-Instruct/presets/draft-model.tmp', root: 'models', kind: 'temp_file', size: 512 },
+          { relPath: 'llama-demo.gguf.part', absPath: 'D:/Models/llama-demo.gguf.part', root: 'models', kind: 'download_orphan', size: 1048576 },
+        ];
+        return Promise.resolve({ items, totalSize: items.reduce((s, i) => s + i.size, 0) } as never);
+      },
+      cleanTrash: (items: Array<{ size: number }>) =>
+        Promise.resolve({ cleaned: items.length, failed: 0, totalSize: items.reduce((s, i) => s + i.size, 0), failures: [] } as never),
       listDir: () => Promise.resolve({ path: null, parent: null, entries: [], exists: true }),
       mkdir: () => Promise.resolve(true),
       /**

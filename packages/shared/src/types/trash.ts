@@ -29,9 +29,20 @@ export interface DetectResult {
   totalSize: number;
 }
 
+/** 单项清理失败：reason 为固定枚举（渲染端 i18n 翻译），detail 携带系统原始报错（如有） */
+export interface TrashFailure {
+  path: string;
+  /** revalidated = 清理时刻复核未过（内容变化 / 受保护）；symlink = 符号链接；unsupported = 非 regular 文件；error = 删除抛错 */
+  reason: 'revalidated' | 'symlink' | 'unsupported' | 'error';
+  /** reason = error 时的系统原始报错文本 */
+  detail?: string;
+}
+
 /** 清理结果 */
 export interface CleanResult {
   cleaned: number;
   failed: number;
   totalSize: number;
+  /** 逐项失败明细（failed 的展开；成功时为空数组） */
+  failures: TrashFailure[];
 }

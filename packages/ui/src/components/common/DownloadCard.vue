@@ -685,11 +685,10 @@ function quantTooltip(q: QuantizationInfo | null): string {
               v-for="u in urlHistory"
               :key="u"
               class="url-history-item"
-              :title="u"
               @click="pickHistoryUrl(u)"
             >
               <Icon name="link" :size="11" class="url-history-icon" />
-              <span class="url-history-text">{{ u }}</span>
+              <ToolTip :text="u"><span class="url-history-text">{{ u }}</span></ToolTip>
             </a-doption>
           </template>
         </a-dropdown>
@@ -828,14 +827,14 @@ function quantTooltip(q: QuantizationInfo | null): string {
                 @click.stop
                 @change="toggleFile(f.path)"
               />
-              <span class="file-name" :title="f.path">{{ f.name }}</span>
-              <a-tag
-                v-if="f.quantization"
-                class="quant-badge"
-                size="small"
-                :class="`quant-${f.quantization.family}`"
-                :title="quantTooltip(f.quantization)"
-              >{{ f.quantization.label }}</a-tag>
+              <ToolTip :text="f.path"><span class="file-name">{{ f.name }}</span></ToolTip>
+              <ToolTip v-if="f.quantization" :text="quantTooltip(f.quantization)">
+                <a-tag
+                  class="quant-badge"
+                  size="small"
+                  :class="`quant-${f.quantization.family}`"
+                >{{ f.quantization.label }}</a-tag>
+              </ToolTip>
               <a-tag v-if="f.path === recommendedPath" class="rec-badge" size="small">{{ i18n.t('lbl_recommended') }}</a-tag>
               <a-tag class="file-cat" size="small" :class="`cat-${f.category}`">{{ categoryLabel(f.category) }}</a-tag>
               <span class="file-size">{{ f.sizeStr }}</span>
@@ -904,17 +903,17 @@ function quantTooltip(q: QuantizationInfo | null): string {
           <div v-for="t in tasks" :key="t.id" class="task-item">
             <div class="task-main">
               <div class="task-info">
-                <span class="task-name" :title="t.fileName">{{ t.fileName }}</span>
+                <ToolTip :text="t.fileName"><span class="task-name">{{ t.fileName }}</span></ToolTip>
                 <span class="task-model">
                   {{ t.modelId }}
                   <a-tag class="source-badge" size="small">{{ sourceLabel(t.source) }}</a-tag>
-                  <a-tag
-                    v-if="taskQuant(t)"
-                    class="quant-badge"
-                    size="small"
-                    :class="`quant-${taskQuant(t)?.family}`"
-                    :title="quantTooltip(taskQuant(t))"
-                  >{{ taskQuant(t)?.label }}</a-tag>
+                  <ToolTip v-if="taskQuant(t)" :text="quantTooltip(taskQuant(t))">
+                    <a-tag
+                      class="quant-badge"
+                      size="small"
+                      :class="`quant-${taskQuant(t)?.family}`"
+                    >{{ taskQuant(t)?.label }}</a-tag>
+                  </ToolTip>
                 </span>
               </div>
               <div class="task-progress-bar">
@@ -932,7 +931,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
                 <span class="task-size">{{ formatDownloaded(t) }}</span>
                 <span v-if="t.status === 'downloading'" class="task-speed">{{ formatSpeed(t.speed) }}</span>
                 <span v-if="t.status === 'downloading'" class="task-eta">{{ i18n.t('lbl_eta') }} {{ formatEta(t) }}</span>
-                <span v-if="t.status === 'error'" class="task-error" :title="t.error">{{ errorDisplay(t) }}</span>
+                <ToolTip v-if="t.status === 'error'" :text="t.error"><span class="task-error">{{ errorDisplay(t) }}</span></ToolTip>
               </div>
             </div>
             <div class="task-actions">
@@ -960,15 +959,15 @@ function quantTooltip(q: QuantizationInfo | null): string {
               >
                 {{ i18n.t('btn_cancel_download') }}
               </a-button>
-              <a-button
-                v-if="t.status === 'completed'"
-                size="small"
-                @click="onOpenDir(t)"
-                :title="i18n.t('btn_open_dir')"
-              >
-                <template #icon><Icon name="folder" :size="12" /></template>
-                {{ i18n.t('btn_open_dir') }}
-              </a-button>
+              <ToolTip v-if="t.status === 'completed'" :text="i18n.t('btn_open_dir')">
+                <a-button
+                  size="small"
+                  @click="onOpenDir(t)"
+                >
+                  <template #icon><Icon name="folder" :size="12" /></template>
+                  {{ i18n.t('btn_open_dir') }}
+                </a-button>
+              </ToolTip>
             </div>
           </div>
         </div>

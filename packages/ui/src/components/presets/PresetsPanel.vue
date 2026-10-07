@@ -10,6 +10,7 @@ import type { Preset } from '@llama-launcher/shared';
 import { MODEL_KEY, formatRelativeTime } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import { useParamsStore } from '@/stores/params';
 import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
@@ -197,21 +198,25 @@ onActivated(() => { void onRefreshList(); });
                 </a-tag>
               </span>
               <span class="col-time">{{ formatRelativeTime(p.saved_at, settings.language) }}</span>
-              <span class="col-model" :title="modelLabel(p)">{{ modelLabel(p) }}</span>
+              <ToolTip :text="modelLabel(p)"><span class="col-model">{{ modelLabel(p) }}</span></ToolTip>
               <span class="col-actions">
-                <a-button size="small" type="primary" class="row-action" :title="i18n.t('preset_apply')" @click="onApplyPreset(p.name)">
-                  <template #icon><Icon name="check" :size="11" /></template>
-                  {{ i18n.t('preset_apply') }}
-                </a-button>
+                <ToolTip :text="i18n.t('preset_apply')">
+                  <a-button size="small" type="primary" class="row-action" @click="onApplyPreset(p.name)">
+                    <template #icon><Icon name="check" :size="11" /></template>
+                    {{ i18n.t('preset_apply') }}
+                  </a-button>
+                </ToolTip>
                 <a-popconfirm
                   :title="i18n.t('msg_preset_delete_title')"
                   :content="i18n.t('msg_preset_delete', [p.name])"
                   @ok="onDeletePreset(p.name)"
                 >
-                  <a-button size="small" status="danger" class="row-action row-danger" :title="i18n.t('preset_delete')">
-                    <template #icon><Icon name="trash" :size="11" /></template>
-                    {{ i18n.t('preset_delete') }}
-                  </a-button>
+                  <ToolTip :text="i18n.t('preset_delete')">
+                    <a-button size="small" status="danger" class="row-action row-danger">
+                      <template #icon><Icon name="trash" :size="11" /></template>
+                      {{ i18n.t('preset_delete') }}
+                    </a-button>
+                  </ToolTip>
                 </a-popconfirm>
               </span>
             </div>

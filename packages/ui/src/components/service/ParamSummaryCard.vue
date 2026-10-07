@@ -6,6 +6,7 @@ import { computed } from 'vue';
 import { PARAMS, PARAM_GROUPS, MODEL_KEY } from '@llama-launcher/shared';
 import type { ParamDef } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 
@@ -87,14 +88,17 @@ const activeParamCount = computed(() => {
       <div v-for="g in summaryGroups" :key="g.groupKey" class="summary-group">
         <div class="summary-group-title">{{ i18n.t(g.labelKey) }}</div>
         <div class="summary-chips">
-          <a-tag v-for="r in g.rows" :key="r.key" class="summary-chip" size="small" :title="r.flag">
-            <span class="chip-key">{{ r.label }}</span>
-            <span class="chip-eq">=</span>
-            <!-- 值区单行省略（#81 低档：模型 chip 的值由短文本变成完整绝对路径 →
-                 chip 超宽换行、摘要卡整块长高）；截断值按 §7.5「截断值保留原生 title」
-                 的边界补原生 title 携完整值（STYLE_TODO #75 的保留类别） -->
-            <span class="chip-val" :title="r.value">{{ r.value }}</span>
-          </a-tag>
+          <ToolTip v-for="r in g.rows" :key="r.key" :text="r.flag">
+            <a-tag class="summary-chip" size="small">
+              <span class="chip-key">{{ r.label }}</span>
+              <span class="chip-eq">=</span>
+              <!-- 值区单行省略（#81 低档：模型 chip 的值由短文本变成完整绝对路径 →
+                   chip 超宽换行、摘要卡整块长高）；截断完整值走 ToolTip（a-tooltip，
+                   2026-10-08 撤销 §7.5「截断值保留原生 title」边界，随官方组件收敛）。
+                   双层悬浮沿用原原生 title 语义：悬停键名区看 flag、悬停值区看完整值 -->
+              <ToolTip :text="r.value"><span class="chip-val">{{ r.value }}</span></ToolTip>
+            </a-tag>
+          </ToolTip>
         </div>
       </div>
     </div>
@@ -160,7 +164,7 @@ const activeParamCount = computed(() => {
 // 装饰符号：信息由 key/val 两段承载，等号本身不携带内容，保留 text-3 不并入 --fg-hint
 .chip-eq { color: var(--color-text-3); flex: 0 0 auto; }
 // 值区：单行省略 + 静态 max-width（绝对路径 / --host 多址串等长值都在此收敛），
-// 完整值走原生 title，行结构固定不再因值变长而换行
+// 完整值走 ToolTip，行结构固定不再因值变长而换行
 .chip-val {
   color: var(--color-text-1);
   flex: 0 1 auto;

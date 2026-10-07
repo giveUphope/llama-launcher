@@ -15,6 +15,7 @@ import { mount, flushPromises } from '@vue/test-utils';
 import ArcoVue from '@arco-design/web-vue';
 import type { LlamaBenchJobState, ModelFitResult, ModelInfo } from '@llama-launcher/shared';
 import LocalModelsPanel from './LocalModelsPanel.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 
 // ---- 夹具 ----
 const DIR = 'D:/models';
@@ -102,10 +103,16 @@ const api = {
 function badgeTexts(el: Element): string[] {
   return [...el.querySelectorAll('.model-tags .arco-tag')].map((n) => (n.textContent ?? '').trim());
 }
-/** 行内「体检」钮（三只行操作钮里 title 为 bench_llama_title 的那只） */
+/** 行内第 i 枚徽章的悬浮文案（ToolTip 的 text prop；原生 title 边界已于 2026-10-08 撤销） */
+function badgeTip(row: ReturnType<typeof modelRows>[number], i: number): string {
+  return (row.find('.model-tags').findAllComponents(ToolTip)[i]?.props('text') ?? '') as string;
+}
+function badgeTipDisabled(row: ReturnType<typeof modelRows>[number], i: number): boolean {
+  return (row.find('.model-tags').findAllComponents(ToolTip)[i]?.props('disabled') ?? false) as boolean;
+}
+/** 行内「体检」钮（三只行操作钮里文本为 act_bench 的那只） */
 function benchButton(row: Element): HTMLButtonElement {
-  const found = [...row.querySelectorAll('.row-action')].find((b) =>
-    (b.getAttribute('title') ?? '').startsWith('bench_llama_title|'));
+  const found = [...row.querySelectorAll('.row-action')].find((b) => (b.textContent ?? '').includes('act_bench|'));
   return found as HTMLButtonElement;
 }
 
@@ -149,13 +156,15 @@ describe('模型表行内徽章：派生值随条目携带（frontend.md §7.1 �
   it('扫描 + fit 落地后徽章按条目渲染：标签在前、fit 在后', () => {
     const rows = modelRows();
     expect(rows).toHaveLength(2);
-    // 徽章文本自带勾/三角符号；两个槽（上下文上限 + dtype）落在悬浮文案上，不在文本里
+    // 徽章文本自带勾/三角符号；两个槽（上下文上限 + dtype）落在悬浮文案上，不在文本里。
+    // 悬浮文案挂在 ToolTip 的 text prop 上（2026-10-08 撤销 §7.5 原生 title 边界）
     expect(badgeTexts(rows[0].element)).toEqual(['✓ fit_full|zh|0']);
-    expect(rows[0].findAll('.model-tags .arco-tag')[0].attributes('title')).toBe('msg_fit_full_tip|zh|2');
+    expect(badgeTip(rows[0], 0)).toBe('msg_fit_full_tip|zh|2');
     expect(badgeTexts(rows[1].element)).toEqual(['mmproj', '△ fit_partial|zh|0']);
-    expect(rows[1].findAll('.model-tags .arco-tag')[1].attributes('title')).toBe('msg_fit_partial_tip|zh|1');
-    // 伴随文件标签本就没有悬浮文案（不因合并进同一数组而多出 title 属性）
-    expect(rows[1].findAll('.model-tags .arco-tag')[0].attributes('title')).toBe(undefined);
+    expect(badgeTip(rows[1], 1)).toBe('msg_fit_partial_tip|zh|1');
+    // 伴随文件标签本就没有悬浮文案（不因合并进同一数组而多出悬浮内容：text 空 + disabled）
+    expect(badgeTip(rows[1], 0)).toBe('');
+    expect(badgeTipDisabled(rows[1], 0)).toBe(true);
   });
 
   it('制造第二次重渲染：徽章文本不变，且不再逐行现算（verdict 读取次数不涨）', async () => {
@@ -186,7 +195,7 @@ describe('模型表行内徽章：派生值随条目携带（frontend.md §7.1 �
     const rows = modelRows();
     expect(rows).toHaveLength(3);
     expect(badgeTexts(rows[0].element)).toEqual(['✗ fit_no|zh|0']);
-    expect(rows[0].findAll('.model-tags .arco-tag')[0].attributes('title')).toBe('msg_fit_no_tip|zh|0');
+    expect(badgeTip(rows[0], 0)).toBe('msg_fit_no_tip|zh|0');
   });
 
   it('路径集合不变、只是多了伴随文件标签时，徽章照样当场补上（不等 fit 重估）', async () => {

@@ -471,6 +471,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：提示行本体换 `a-tag closable`（warn=orange / info=gray 官方预设色对，`size="small"` + `nowrap`，图标走 `#icon` 槽），自绘行布局 / 角色色 / 忽略钮全删；忽略指纹逻辑不变（`@close` → 长句全文入 `settings.engine_hint_dismissed`，新消息照常出现）；`btn_dismiss_hint` 键失去读者删除（官方钮的 `aria-label="Close"` 为库内硬编码，非本地化——接受，官方组件行为）。对比度注记：预设对取代 #99 的角色档，是「文字进了官方组件」后采用官方配对，同 StatusTag 先例。
 - **修复效果验证**：drift 演示场景实测 tag 314px 官方 `arco-tag-orange` 预设类生效、关闭钮 `role="button"` + `aria-label="Close"` 就位、点关后指纹入库且标签消失；`pnpm style:audit` 全绿、`pnpm e2e:web` 81 条全绿。
 
+### 101. 撤销「截断值保留原生 title」边界：剩余 28 处原生 title 全部迁 ToolTip — 🟢 已修复（2026-10-08）
+
+- **位置**：`ServiceStatusCard.vue`（模型路径 / API 地址 / 安全提示 / OOM 文案 / 减负钮）、`SettingsPage.vue`（状态摘要两处）、`ParamsPage.vue`（性能目标建议 chip）、`AdvancedPanel.vue`（镜像输入框）、`ParamSummaryCard.vue`（参数摘要 chip，双层悬浮：键名区=flag、值区=完整值）、`PresetsPanel.vue`（模型列 + 两只行操作钮）、`LocalModelsPanel.vue`（模型名 / 徽章排 / 三只行操作钮）、`DownloadCard.vue`（URL 历史 doption、文件名 / 任务名 / 量化徽章 / 错误文本 / 打开目录钮）。
+- **描述**：用户在「两个提示样式对齐官方组件」的延长线上裁定：§7.5 保留原生 `title` 的 ②（v-for 数据条目）③（截断值提示 / `a-input :title`）两类也要一并迁移——观感一致性优先于热路径与盒型顾虑。28 处 `:title=` 全部转换，仅剩 ①（组件 prop 3 处 + iframe title 1 处，本就不是浮层）。
+- **修复**：统一模式 = 元素外包 `ToolTip`、删除 `:title`。三条实现要点：① 省略链免改——`.tooltip-host`（inline-flex + min-width 0）收缩时，内部带 overflow 样式的元素作为 host 的 flex 项自动截断（`.mono-val` 的 inline-block / `-webkit-box` 两档 clamp 均实测保持）；② 热路径顾虑解除——a-tooltip trigger 是惰性 hover 实例，弹层 portal 仅悬停时创建；③ 两处特殊形态——`ParamSummaryCard` 用嵌套 ToolTip 精确保留原语义（悬停键名区=flag、悬停值区=完整值），可选悬浮文案（模型徽章 `b.title?`）用 `text ?? ''` + `:disabled` 表达「无内容即禁用」。条件悬浮（状态摘要目录为空时无 tip）同用 `:disabled`。
+- **修复效果验证**：现存 `:title=` 仅 3 处组件 prop + 1 iframe title；`<ToolTip` 62 处 / 20 文件；`LocalModelsPanel.test.ts` 的 title 断言改走 ToolTip props（含「伴随文件标签无悬浮文案 → text 空 + disabled」的等价判据）；`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿。规范落点：frontend.md §7.5 边界条目改写（历史两轮数据留档）。
+
 ### 99. 设置页两个提示样式对齐 Arco 官方组件：状态胶囊换 a-tag 预设色、提示长文案换 a-tooltip — 🟢 已修复（2026-10-08）
 
 - **位置**：`packages/ui/src/components/settings/GeneralPanel.vue`（引擎状态胶囊、引擎提示）。
@@ -495,6 +502,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
 | 100 | 引擎提示行本体对齐官方组件（用户批注「审查提示样式是否符合arco官方档」）：#99 后提示行仍剩行布局 / 角色色 / 忽略钮三处自绘——官方 `a-alert` 是横幅（width:100%、14px、8/15 内距硬编码）与行内形态冲突，评估后不采纳；换 `a-tag closable`（warn=orange / info=gray 官方预设 + 官方关闭钮内建 role="button"/aria-label + `#icon` 槽 + `nowrap`），自绘行布局 / 角色色 / 忽略钮全删，忽略指纹逻辑不变（@close 入库）；`btn_dismiss_hint` 键失去读者删除（官方钮 aria-label="Close" 为库内硬编码） | 2026-10-08 |
+| 101 | 撤销「截断值保留原生 title」边界：剩余 28 处原生 `title` 全部迁 ToolTip（用户裁定观感一致性优先，推翻 §7.5 原 ②③ 类的「勿顺手改」）：ServiceStatusCard 6 处、SettingsPage 摘要 2 处（条件悬浮走 `:disabled`）、ParamsPage 建议 chip、AdvancedPanel 输入框、ParamSummaryCard 摘要 chip（嵌套 ToolTip：键名区=flag、值区=完整值）、PresetsPanel 3 处、LocalModelsPanel 6 处、DownloadCard 7 处；热路径顾虑实测解除（a-tooltip trigger 惰性挂载、弹层仅悬停时创建）；现存 `:title=` 仅 3 处组件 prop + 1 iframe title，`<ToolTip` 62 处 / 20 文件 | 2026-10-08 |
 | 98 | 三处日志出口收敛为两处（用户批注「控制台输出出口与当前日志出口应调整到日志界面，只需要输出推理框架日志即可」＋选定档 B）：日志页改为推理框架控制台（`server` store 的原始输出 + 入队时算好的 `tone` 着色 + 同值域级别筛选 + 搜索 / 复制 / 清空），服务页删掉整个控制台卡片只剩三卡，概览「最近问题」改为「应用操作日志」（最近 24 行全级别、时间 / 级别 / 正文三列、出现 error 时给去向按钮）；i18n 删 4 键增 2 键（395/395）；`logs-scroll.spec.ts` 灌流钩子改指 `__mockPushConsole`，`scrollTop` 那条等值断言放宽为「非 0 且不小于首读」（本页现在有 2.5s 一行的正常输出流，等值会把「有输出流」判成回归；删除实验仍咬得红） | 2026-10-07 |
 | 99 | 设置页两个提示样式对齐 Arco 官方组件（用户批注「两个提示样式需要先确认是否符合 arco 官方最佳实践」）：引擎状态胶囊是自绘 chip（图标 + 彩字 + 14% 浅色底 + pill 圆角）＝官方 `a-tag` 预设色的平行实现——换 `a-tag`（color 预设 gray/arcoblue/green/red + `size="small"` + `nowrap`，检测态用官方 `loading` prop 替换自绘 spin，图标走 `#icon` 槽），自绘配色样式全删（第 20 条零登记面）；引擎提示的原生 `title` 换 `ToolTip`（a-tooltip 封装），省略链随包裹层适配；橙色保留 `--fg-warning-text` 角色档（官方 `type="warning"` 是裸 warning-6，压白 2.57:1 不达 4.5 纪律） | 2026-10-08 |
 | 97 | 全局图标语义审查（用户批注「全局图标审查，是否还有类似的语义偏差图标」）：`folder_open` 与 `folder` 同为纯文件夹导致「上一级」长得和「打开目录」一样——上一级改 `chevron_up`（Arco icon-up）、四处「打开目录」归 `folder`、别名 `folder_open` 删除；「应用预设」不再借用启动服务的 `play` 而用 `check`；设置页「更改即时保存」不再用暗示手动保存的软盘 `save` 而用 `check_circle`；删零读者的 `clock`；字形表抽成 `icon-map.ts` 并导出 `IconName` 类型（六处 `icon: string` 收紧，错名在 vue-tsc 即红——真机实测模型页页签曾静默退化成问号图标）；新增门禁第 21 条（一名一图 + 每名有读者，删除实验：贴回 `folder_open` ⇒ 两条同时红） | 2026-10-07 |

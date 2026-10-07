@@ -70,7 +70,7 @@ interface ReliefStat {
   btnLabels: string[];
   btnHeights: number[];
   btnInsideCard: boolean[];
-  btnTitleLens: number[];
+  btnTipWrapped: boolean[];
   textSw: number;
   textCw: number;
 }
@@ -97,7 +97,7 @@ async function collectRelief(page: Page): Promise<ReliefStat> {
       btnLabels: btns.map((b) => (b.textContent ?? '').trim()),
       btnHeights: btns.map((b) => b.getBoundingClientRect().height),
       btnInsideCard: btns.map((b) => !!cardRect && b.getBoundingClientRect().right <= cardRect.right + 0.5),
-      btnTitleLens: btns.map((b) => (b.getAttribute('title') ?? '').trim().length),
+      btnTipWrapped: btns.map((b) => b.parentElement?.classList.contains('tooltip-host') ?? false),
       textSw: txt ? txt.scrollWidth : 0,
       textCw: txt ? txt.clientWidth : 0,
     };
@@ -123,7 +123,7 @@ function judgeReliefSlot(s: ReliefStat): string[] {
   return v;
 }
 
-/** 有声态（core 发了带标记的条目）：按钮存在、label 用真实 flag 原文、理由走原生 title、不越出卡片。 */
+/** 有声态（core 发了带标记的条目）：按钮存在、label 用真实 flag 原文、理由走 ToolTip、不越出卡片。 */
 function judgeReliefSpeaking(s: ReliefStat): string[] {
   const v = judgeReliefSlot(s);
   if (!s.hintPresent) return [...v, 'core 发了减负条目却没有建议行（分流或渲染条件失效）'];
@@ -140,7 +140,7 @@ function judgeReliefSpeaking(s: ReliefStat): string[] {
       v.push(`建议按钮「${label}」不含任何真实 flag（PARAMS 里找不到，用户点完在命令行对不上号）`);
     }
   }
-  if (s.btnTitleLens.some((n) => n === 0)) v.push('建议按钮没带 title（按钮只写参数名，理由必须有地方看）');
+  if (s.btnTipWrapped.some((w) => !w)) v.push('建议按钮没有包 ToolTip（理由必须有官方悬浮载体）');
   if (s.btnInsideCard.some((inside) => !inside)) v.push('建议按钮越出卡片右边界（长文案把按钮顶出去了）');
   if (s.textCw <= 0) v.push(`建议说明文案可用宽度为 ${s.textCw}（文案被按钮挤没了）`);
   // 说明文字是单行 + 省略号（.oom-text 的 nowrap/hidden/ellipsis）：被省略 = 用户看不到完整提示。
@@ -171,6 +171,15 @@ for (const lang of ['zh', 'en'] as const) {
       await openScene(page, lang, 'relief');
       const spoken = await readRelief(page);
       expect(judgeReliefSpeaking(spoken), `${langName}态 relief 现场`).toEqual([]);
+
+      // 理由悬浮端到端：真悬停第一只建议钮，官方弹层要带着理由文案出现
+      // （包装检测只证明「有载体」，这条证明「载体里有内容」）
+      const firstTipBtn = page.locator('.oom-hint--relief .tooltip-host .arco-btn').first();
+      await firstTipBtn.hover();
+      await expect(
+        page.locator('.arco-tooltip-content', { hasText: /\S/ }).first(),
+        '悬停建议钮未出现理由弹层（ToolTip 内容为空或载体没接上）',
+      ).toBeVisible();
 
       await openScene(page, lang, 'relief-off');
       const silent = await readRelief(page);
