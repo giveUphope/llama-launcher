@@ -381,7 +381,7 @@ export const zh = {
   // 通用空状态
   msg_empty_no_logs: '暂无日志',
   card_dash_applog: '应用操作日志',
-  msg_framework_logs_hint: '推理框架（llama-server）原始输出；应用操作日志见「概览」页。',
+  msg_framework_logs_hint: '推理框架（llama-server）的原始输出：模型加载、服务监听与请求处理日志。',
   col_lines: '行',
   // ---- 阶段二 概览 4 问布局 ----
   card_dash_api: 'API 地址',

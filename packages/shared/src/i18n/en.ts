@@ -382,7 +382,7 @@ export const en: Dict = {
   // Common empty states
   msg_empty_no_logs: 'No logs yet',
   card_dash_applog: 'Application log',
-  msg_framework_logs_hint: 'Raw llama-server framework output. Application operation logs live on the Overview page.',
+  msg_framework_logs_hint: 'Raw llama-server framework output: model loading, server listening and request-handling logs.',
   col_lines: 'lines',
   // ---- Phase 2 Dashboard 4-question layout ----
   card_dash_api: 'API Address',
