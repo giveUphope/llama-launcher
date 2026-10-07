@@ -6,6 +6,7 @@
 import type { IconName } from '@/components/common/icon-map';
 import { computed, ref, watch } from 'vue';
 import PageFrame from '@/components/common/PageFrame.vue';
+import Card from '@/components/common/Card.vue';
 import ConsolePanel from '@/components/common/ConsolePanel.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
@@ -116,6 +117,10 @@ function onClear() {
 
 <template>
   <PageFrame>
+    <!-- 2026-10-08 卡片化：全站最后一个内容裸在页面上的页面，换官方 Card 基座
+         （无标题卡——页级 h1「日志」已存在，避免重复；筛选行 / 控制台 / 计数条
+         依次排在卡体内，边框 / 底 / 内距交回库） -->
+    <Card class="logs-card">
     <!-- 级别筛选 + 搜索 + 操作按钮：同一行（按钮右对齐） -->
     <div class="filter-row">
       <a-radio-group
@@ -184,6 +189,7 @@ function onClear() {
         <span class="show-limit">{{ filteredCount }} / {{ server.outputs.length }} {{ i18n.t('col_lines') }}</span>
       </div>
     </div>
+    </Card>
   </PageFrame>
 </template>
 
@@ -216,6 +222,23 @@ function onClear() {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+  }
+}
+
+/* 卡片化（2026-10-08）：无标题卡撑满页面剩余高，卡体转弹性列让控制台填充。
+   弹性链：page-frame → 卡 → 卡体 → console-wrap → ConsolePanel(console-fill)，
+   每环 min-height: 0 缺一环即溢出（#82 骨架链纪律） */
+.logs-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  :deep(.arco-card-body) {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 }
 
