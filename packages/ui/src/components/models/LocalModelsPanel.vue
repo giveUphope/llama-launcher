@@ -674,6 +674,14 @@ watch(models, () => writeRowMeta());
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+
+  /* 搜索框与日志页搜索行同规格（flex 1、min 200 / max 380）：此前无上限，832px 宽的
+     搜索框把「N / M」计数推到 700px 外的远端（#107 同族宽度对齐） */
+  :deep(.arco-input-wrapper) {
+    flex: 1 1 200px;
+    min-width: 200px;
+    max-width: 380px;
+  }
 }
 
 // 常驻定宽槽：宽度按双语最宽计数态（「999 / 999」mono）预留，空态留同宽空白
