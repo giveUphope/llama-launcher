@@ -33,6 +33,9 @@ const LEVELS: Array<{ key: Level; label: string; icon: IconName }> = [
   { key: 'success', label: 'SUCCESS', icon: 'check' },
   { key: 'warn', label: 'WARN', icon: 'alert' },
   { key: 'error', label: 'ERROR', icon: 'error' },
+  // 普通档：无关键词的原始行（ggml_cuda_init、llama_model_loader……）——框架输出的大头，
+  // 此前只能靠「全部」看（2026-10-07 快速筛选器修复，用户批注「按建议修复快速筛选器」）
+  { key: 'plain', label: i18n.t('lbl_level_plain'), icon: 'file' },
 ];
 
 const levelFilter = ref<Level>('all');
@@ -85,6 +88,11 @@ const displayRows = computed(() => {
 });
 
 const filteredCount = computed(() => filteredOutputs.value.length);
+
+// 空态两分：缓冲区真的空（服务还没说过话）vs 筛选/搜索无命中——同一张空态图，文案区分
+const emptyText = computed(() =>
+  server.outputs.length === 0 ? i18n.t('msg_empty_no_logs') : i18n.t('msg_no_matching_logs'),
+);
 
 // 复制的是「当前看到的」：带筛选/搜索时把看不见的行一起复制走会误导排查
 async function onCopyAll() {
@@ -155,7 +163,7 @@ function onClear() {
       <ConsolePanel class="console-fill" :count="server.outputs.length">
         <div v-if="displayOutputs.length === 0" class="empty-log">
           <Icon name="empty" :size="32" class="empty-icon" />
-          <span>{{ i18n.t('msg_empty_no_logs') }}</span>
+          <span>{{ emptyText }}</span>
         </div>
         <span
           v-for="row in displayRows"
@@ -168,8 +176,9 @@ function onClear() {
         >{{ p.text }}</span></span></span>
       </ConsolePanel>
       <div class="scroll-hint-bar">
-        <!-- 自动滚动状态文案已移除（b8c1d59：暂停态由「有新日志」胶囊传达），仅保留行数 -->
-        <span class="show-limit">{{ Math.min(displayOutputs.length, filteredCount) }} / {{ filteredCount }} {{ i18n.t('col_lines') }}</span>
+        <!-- 自动滚动状态文案已移除（b8c1d59：暂停态由「有新日志」胶囊传达）。
+             计数 = 命中数 / 缓冲区总行数：分母取缓冲区总量，筛选无命中时读得出一共有多少行 -->
+        <span class="show-limit">{{ filteredCount }} / {{ server.outputs.length }} {{ i18n.t('col_lines') }}</span>
       </div>
     </div>
   </PageFrame>

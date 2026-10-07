@@ -227,6 +227,31 @@ describe('effectiveStatus 由主进程下发的停止事实决定，不看日志
   });
 });
 
+describe('toneOf 级别分类（JSON level 字段优先于关键词正则）', () => {
+  it('llama-server JSON 行按 level 字段归档：INFO → info、ERROR → error、DEBUG → plain', () => {
+    const server = useServerStore();
+    server.subscribe();
+    // INFO JSON 且 msg 含 loaded（若走关键词正则会被判 success）——优先级判据
+    outputCb([{ kind: 'stdout', data: '{"timestamp":1756100000,"level":"INFO","msg":"loaded"}\n', ts: Date.now() }]);
+    outputCb([{ kind: 'stdout', data: '{"level":"ERROR","msg":"oops"}\n', ts: Date.now() }]);
+    outputCb([{ kind: 'stdout', data: '{"level":"DEBUG","msg":"hello"}\n', ts: Date.now() }]);
+    expect(server.outputs.at(-3)?.tone).toBe('info');
+    expect(server.outputs.at(-2)?.tone).toBe('error');
+    expect(server.outputs.at(-1)?.tone).toBe('plain');
+  });
+
+  it('无 level 字段的行仍走关键词正则（success 词表 / error 词表不变）', () => {
+    const server = useServerStore();
+    server.subscribe();
+    outputCb([{ kind: 'stdout', data: 'llama_model_loader: loaded meta data with 39 key-value pairs\n', ts: Date.now() }]);
+    outputCb([{ kind: 'stderr', data: 'srv send_error: error: request exceeds the available context size\n', ts: Date.now() }]);
+    outputCb([{ kind: 'stdout', data: 'ggml_cuda_init: found 1 CUDA device\n', ts: Date.now() }]);
+    expect(server.outputs.at(-3)?.tone).toBe('success');
+    expect(server.outputs.at(-2)?.tone).toBe('error');
+    expect(server.outputs.at(-1)?.tone).toBe('plain');
+  });
+});
+
 describe('控制台行时间串（入队时格式化随行携带，OutputLine.time）', () => {
   it('行时间与 formatLogTime 同源；切换语言整表重算，同一控制台不混两种格式', async () => {
     expect(i18nStub.lang).not.toBeNull();

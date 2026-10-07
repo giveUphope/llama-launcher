@@ -522,13 +522,13 @@ export function createDemoApi() {
     for (let i = 0; i < 5; i++) {
       setTimeout(() => {
         outputIdx = (outputIdx + 1) % LLAMA_LINES.length;
-        pushOutput(outputIdx % 9 === 7 ? 'info' : 'stdout', LLAMA_LINES[outputIdx]);
+        pushOutput('stdout', LLAMA_LINES[outputIdx]);
       }, delay);
       delay += 160;
     }
     outputTimer = setInterval(() => {
       outputIdx = (outputIdx + 1) % LLAMA_LINES.length;
-      pushOutput(outputIdx % 5 === 0 ? 'info' : 'stdout', LLAMA_LINES[outputIdx]);
+      pushOutput('stdout', LLAMA_LINES[outputIdx]);
     }, 2500);
   }
   setTimeout(startOutputFeed, 300);
@@ -542,7 +542,7 @@ export function createDemoApi() {
   (globalThis as unknown as { __mockPushConsole?: (n?: number) => number }).__mockPushConsole = (n = 200) => {
     for (let i = 0; i < n; i++) {
       outputIdx = (outputIdx + 1) % LLAMA_LINES.length;
-      pushOutput(outputIdx % 9 === 7 ? 'info' : 'stdout', LLAMA_LINES[outputIdx]);
+      pushOutput('stdout', LLAMA_LINES[outputIdx]);
     }
     return n;
   };

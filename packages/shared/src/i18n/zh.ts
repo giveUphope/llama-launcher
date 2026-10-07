@@ -23,6 +23,7 @@ export const zh = {
   lbl_search_models: '搜索模型...',
   lbl_search_logs: '搜索日志...',
   lbl_all: '全部',
+  lbl_level_plain: '普通',
   msg_no_search_results: '未找到匹配的模型',
   msg_param_summary_hint: '已生效 {0} 项参数，启动前请核对配置',
   msg_clear_param: '恢复为默认值',
@@ -381,6 +382,7 @@ export const zh = {
   // 下载任务状态
   // 通用空状态
   msg_empty_no_logs: '暂无日志',
+  msg_no_matching_logs: '没有匹配当前筛选的日志',
   card_dash_applog: '应用操作日志',
   msg_framework_logs_hint: '推理框架（llama-server）的原始输出：模型加载、服务监听与请求处理日志。',
   col_lines: '行',

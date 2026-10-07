@@ -25,6 +25,7 @@ export const en: Dict = {
   lbl_search_models: 'Search models...',
   lbl_search_logs: 'Search logs...',
   lbl_all: 'All',
+  lbl_level_plain: 'Plain',
   msg_no_search_results: 'No matching models found',
   msg_param_summary_hint: '{0} parameter(s) active. Verify before launch.',
   msg_clear_param: 'Reset to default',
@@ -382,6 +383,7 @@ export const en: Dict = {
   // Download task status
   // Common empty states
   msg_empty_no_logs: 'No logs yet',
+  msg_no_matching_logs: 'No logs match the current filter',
   card_dash_applog: 'Application log',
   msg_framework_logs_hint: 'Raw llama-server framework output: model loading, server listening and request-handling logs.',
   col_lines: 'lines',

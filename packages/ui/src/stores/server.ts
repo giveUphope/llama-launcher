@@ -22,6 +22,16 @@ const OOM_RE = /\b(out of memory|VK_ERROR_OUT_OF_DEVICE_MEMORY|cudaErrorOutOfMem
 const CONSOLE_ERROR_RE = /\b(error|failed|fatal|exception|cannot|unable|abort|crash|segfault)\b/i;
 const CONSOLE_WARN_RE = /\b(warn|warning|deprecat|slow|out of)\b/i;
 const CONSOLE_SUCCESS_RE = /\b(listening|loaded|ready|initialized|running|success)\b/i;
+// llama-server `--log-format json` 的结构化行：level 字段是最强信号，先于关键词正则判定。
+// 此前这类行只含 "request processed OK" 之类的中性词，全部落进普通档——INFO 快速筛选
+// 在真实框架输出上因此近乎空档。DEBUG 归普通档（底噪不算「信息事件」），其余同名直取。
+const JSON_LEVEL_RE = /"level"\s*:\s*"(ERROR|WARN|INFO|DEBUG)"/i;
+const JSON_LEVEL_TONE: Record<string, ConsoleTone> = {
+  ERROR: 'error',
+  WARN: 'warn',
+  INFO: 'info',
+  DEBUG: 'plain',
+};
 
 /** 控制台一行的着色语义（渲染期只做 tone→class 映射，不再跑正则）。 */
 export type ConsoleTone = 'error' | 'warn' | 'success' | 'info' | 'plain';
@@ -46,6 +56,8 @@ function toneOf(entry: OutputEntry): ConsoleTone {
   if (entry.kind === 'success') return 'success';
   if (entry.kind === 'info') return 'info';
   const text = entry.data || '';
+  const jsonLevel = JSON_LEVEL_RE.exec(text);
+  if (jsonLevel) return JSON_LEVEL_TONE[jsonLevel[1].toUpperCase()] ?? 'plain';
   if (CONSOLE_ERROR_RE.test(text)) return 'error';
   if (CONSOLE_WARN_RE.test(text)) return 'warn';
   if (CONSOLE_SUCCESS_RE.test(text)) return 'success';
