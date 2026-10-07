@@ -34,7 +34,7 @@ llama_launcher/
 │       │   │   │   └── download.ts    #   download:parseUrl/search/listFiles/start/cancel/pause/resume
 │       │   │   ├── launcher-bridge.ts # Launcher 单例桥接 + 输出缓冲（16ms 窗口聚合冲刷）
 │       │   │   ├── app-exit.ts        # 退出行为：close_behavior 分流 + 关闭弹窗一问一答（requestExit/minimizeToTray/handleWindowClose）
-│       │   │   ├── app-log.ts         # 应用日志环形缓冲（区别于服务控制台，走 logs:* IPC）
+│       │   │   ├── app-log.ts         # 应用日志环形缓冲（区别于框架控制台，走 logs:* IPC）
 │       │   │   ├── process-registry.ts # 窗口 ↔ 子进程关联注册表（ProcessRegistry，两阶段终止）
 │       │   │   ├── tray.ts            # 系统托盘保活（createTray，右键菜单定位在图标上方）
 │       │   │   ├── hf-transport.ts    # 注入 HfHttpTransport：Electron net 传输（规避 BoringSSL TLS 指纹被拒）

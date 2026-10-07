@@ -34,7 +34,7 @@ llama_launcher/
 │       │   │   │   └── download.ts    #   download:parseUrl/search/listFiles/start/cancel/pause/resume
 │       │   │   ├── launcher-bridge.ts # Launcher singleton bridge + output buffer (batched flush over a 16ms window)
 │       │   │   ├── app-exit.ts        # Exit behaviour: close_behavior dispatch + one question / one answer close dialog (requestExit/minimizeToTray/handleWindowClose)
-│       │   │   ├── app-log.ts         # App-log ring buffer (distinct from the server console, served over the logs:* IPC)
+│       │   │   ├── app-log.ts         # App-log ring buffer (distinct from the framework console, served over the logs:* IPC)
 │       │   │   ├── process-registry.ts # Window ↔ child-process association registry (ProcessRegistry, two-phase termination)
 │       │   │   ├── tray.ts            # System-tray keep-alive (createTray, context menu positioned above the icon)
 │       │   │   ├── hf-transport.ts    # Injects HfHttpTransport: an Electron net transport (avoids the rejected BoringSSL TLS fingerprint)

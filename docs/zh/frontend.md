@@ -21,11 +21,11 @@
 | 路径 | 说明 |
 |------|------|
 | `/` | 重定向到 `/dashboard` |
-| `/dashboard` | 概览（服务状态卡 + 最近问题） |
+| `/dashboard` | 概览（服务状态卡 + 应用操作日志） |
 | `/models` | 模型管理（2 子标签：本地模型 / 模型库；模型库内含下载任务区） |
-| `/service` | 服务（命令预览 + 参数摘要 + 配置清理 + 控制台） |
+| `/service` | 服务（命令预览 + 参数摘要 + 配置清理） |
 | `/params` | 参数设置（页内 tab-strip 两页签：参数预设 / 自定义参数，与设置页同一体例，`query.tab` 可深链；无 query 进入默认落在首个页签「参数预设」并归一化 URL） |
-| `/logs` | 应用日志中心 |
+| `/logs` | 框架日志（llama-server 原始输出） |
 | `/settings` | 应用设置（4 子标签：常规 / 外观 / 高级 / 关于） |
 | `/webui` | 内置 Web UI（侧栏一级项；服务运行时 iframe 直接展示 llama-server Web UI，替代跳转外部浏览器） |
 | `/download` | 重定向到 `/models?tab=library`（旧书签兼容） |
@@ -45,17 +45,17 @@
 | `params.ts` | **双轨参数逻辑**：`values` 值表 + `baseline`（`SessionBaseline { preset_name, values }`）——临时轨道经 `persistSession` 将 `session_values`/`session_baseline` 节流写入 settings.json（autoSave watch 800ms 节流，**永不写预设文件**），启动经 `restoreSession` 恢复；预设轨道仅显式保存写入。`hasChanges` 有基线时逐键对比基线快照（无基线对比出厂默认）；`markBaseline`/`restoreBaseline`/`clearSession` 管理会话；换模型/应用 GGUF 建议（`applyModel`/`applyModelWithSuggestions`）前 `confirmDiscardDirty` 防丢确认，启动重挂模型走 `reattachModelRuntime`（不确认、不动基线）；`set(MODEL_KEY)` 自动派生 `alias`（`modelBaseName`）；依赖联动清理（`syncDependencies`）+ 草稿模型自动检测 |
 | `server.ts` | 状态/pid/host/port/url、`stopInfo`（主进程下发的停止事实，`effectiveStatus` 的唯一依据——**不看日志文字判进程死活**）、`readyAt`（核心下发的本轮就绪时刻，`stopping` 期间仍有值——「已运行时长」由它派生，渲染层自记起点会在首进页面/重载时显示「—」或偏短）、`apiUrl`（**API 地址唯一来源**，见 §7.5.7）、`runningValues`（最近启动参数快照）、输出数组（上限 5000） |
 | `download.ts` | 任务列表、IPC 监听注册（`ensureSubscribed` 仅注册一次） |
-| `appLog.ts` | 应用日志缓冲（消费 `logs:*` IPC 推送，供日志中心页渲染） |
+| `appLog.ts` | 应用日志缓冲（消费 `logs:*` IPC 推送，供概览页的应用操作日志窗口渲染——档 B 前由「日志」页消费） |
 
 ### 7.3 页面 (7 个，侧栏 7 项一级导航)
 
 | 页面 | 功能 |
 |------|------|
-| `DashboardPage` | 概览：服务状态卡（`ServiceStatusCard`，自服务页迁入——状态/当前模型/API 地址/主机/端口/PID/运行时长，服务状态的唯一页面级展示区）+ 最近问题（应用日志 warn/error 最近 3 条，`.q-section` 分区分隔） |
+| `DashboardPage` | 概览：服务状态卡（`ServiceStatusCard`，自服务页迁入——状态/当前模型/API 地址/主机/端口/PID/运行时长，服务状态的唯一页面级展示区）+ 应用操作日志（2026-10-07 档 B 起为应用日志的唯一视图：最近 24 行、全部级别，时间/级别/正文三列，出现 error 时给「日志 / 服务」去向按钮；`.q-section` 分区分隔，定高小窗接 `useAutoScroll` 但不套 `ConsolePanel`，也不设复制/清空出口） |
 | `ModelsPage` | 2 子标签：本地模型（`LocalModelsPanel`）/ 模型库（`LibraryPanel`，DownloadCard library 模式，内置下载任务区） |
-| `ServicePage` | 命令预览（`CommandPreviewCard`：**双文本框**——「内置参数命令」**只读**展示、随参数实时自动生成（改内置参数走参数设置页控件，无编辑/还原逻辑）；预览按**当前参数**生成，服务在跑且其启动快照与当前参数有差异时，框下出一行橙警示说明「有 N 项不同，重启后生效」（`params.countDiffers(server.runningValues)`，忽略自动检测字段），避免用户把预览误读成"正在跑的"；同一位置还会在 `server.envOverrides` 非空时再出一行提示，列出启动时检出的 `LLAMA_ARG_*` 变量名——发射规则「值等于引擎缺省就不发射」的前提是没有别的东西改写缺省值，而该通道（当前 b11408 基线的 help 里，74 个应用 flag 有 67 个带它）正是改写者，故必须就地声明「这些改写不会出现在命令里」；第三行在 `server.propsCheck.mismatched` 非空时出声，逐项列出 `flag: 发出值 ≠ 引擎回读值`——这是界面唯一「已证实」的信号，一致或未回读时保持安静，绝不暗示全部参数都核对过（`/props` 只回读约 9 项）；「扩展参数」为唯一可编辑区，绑定 `settings.custom_args` 持久化、原样追加到启动命令末尾；复制 = 内置+扩展合并）、参数摘要（`ParamSummaryCard`）、配置目录清理（`TrashCleanCard`）、控制台输出（上限 5000 行；运行状态卡已迁至概览，本页不再重复展示状态/模型/API 地址） |
+| `ServicePage` | 命令预览（`CommandPreviewCard`：**双文本框**——「内置参数命令」**只读**展示、随参数实时自动生成（改内置参数走参数设置页控件，无编辑/还原逻辑）；预览按**当前参数**生成，服务在跑且其启动快照与当前参数有差异时，框下出一行橙警示说明「有 N 项不同，重启后生效」（`params.countDiffers(server.runningValues)`，忽略自动检测字段），避免用户把预览误读成"正在跑的"；同一位置还会在 `server.envOverrides` 非空时再出一行提示，列出启动时检出的 `LLAMA_ARG_*` 变量名——发射规则「值等于引擎缺省就不发射」的前提是没有别的东西改写缺省值，而该通道（当前 b11408 基线的 help 里，74 个应用 flag 有 67 个带它）正是改写者，故必须就地声明「这些改写不会出现在命令里」；第三行在 `server.propsCheck.mismatched` 非空时出声，逐项列出 `flag: 发出值 ≠ 引擎回读值`——这是界面唯一「已证实」的信号，一致或未回读时保持安静，绝不暗示全部参数都核对过（`/props` 只回读约 9 项）；「扩展参数」为唯一可编辑区，绑定 `settings.custom_args` 持久化、原样追加到启动命令末尾；复制 = 内置+扩展合并）、参数摘要（`ParamSummaryCard`）、配置目录清理（`TrashCleanCard`）——运行状态卡已迁至概览；控制台输出已于 2026-10-07 档 B 迁至日志页，本页只剩三卡，全站前端不再有第二个后端输出出口 |
 | `ParamsPage` | 页内 tab-strip 两页签（与设置页统一）：参数预设（`PresetsPanel`）/ 自定义参数（14 个子分类分区，**每区可折叠**——`Card` 的 `collapsible` + `v-model:expanded`，卡片头整体是 `a-button` 切换钮、箭头 `chevron_right` 旋转 90°，标题右侧 `a-tag size="small"` 标「N 项已改」，状态条含展开/折叠全部两钮；折叠态为会话内 `ref`，keep-alive 下跨页签保留、重启回全展开；`param-grid` `repeat(auto-fill, minmax(434px, 1fr))` 响应式网格，无列数上限）；69 参数经 `ParamRow` + 6 类控件渲染（值 ≠ 默认时行 `--warn` 橙描边提示，依赖未满足行加底色与警示图标）；自定义页签状态条含**硬件占用估算 stat**（`useVramEstimate`：显存占用百分比 + 构成明细 tooltip，超限橙色警示）与**性能目标选择器**（四档联动建议差集 chips + 一键应用）；恢复基线/清除会话入口（无基线徽章，与「已调整」统计去重） |
-| `LogsPage` | 应用日志中心：级别筛选 chips、搜索、控制台渲染上限 2000 行（直接取 `appLog` store 导出的 `APP_LOG_MAX_LINES`，与缓冲同上限——曾各写一个数、页面 3000 高于缓冲 2000 而永不触发）、自动滚动 |
+| `LogsPage` | 框架日志中心（2026-10-07 档 B）：数据源为 `server` store 的 `outputs`（llama-server 原始输出，缓冲上限 5000 行，渲染上限 1000 行），级别筛选按钮组与数据同值域（all/info/success/warn/error，按入队时算好的 `tone` 过滤——渲染期零正则）、搜索（150ms 去抖后才参与筛选）、复制全部、清空、行数统计；提示条写明「应用操作日志见概览页」。应用日志的完整视图（`appLog` store、`APP_LOG_MAX_LINES`）已不再是本页职责，只在概览页以最近 24 行呈现 |
 | `SettingsPage` | 4 子标签：常规（`GeneralPanel`，引擎/模型目录内联检测）/ 外观（`AppearancePanel`）/ 高级（`AdvancedPanel`）/ 关于（`AboutPanel`）；原 llama.cpp 标签已并入常规；全部即时保存；顶部状态摘要（即时保存提示 + 模型目录/引擎文件状态）**整体仅常规页签展示**，版本提示已移除（「关于」页签与侧边栏页脚已展示；idle「未设置」与 missing「路径不存在」文案分离，不再自相矛盾） |
 | `WebUiPage` | 内置 Web UI 路由占位（侧栏一级项「内置 Web UI」）；实际渲染由布局层 `WebUiFrame`（iframe 常驻文档，`v-show` 切换显隐，切页不重载）承担：服务运行时展示 llama-server Web UI，未运行时显示占位提示 |
 
@@ -66,7 +66,7 @@
 | 组件 | 用途 |
 |------|------|
 | `PageFrame` | 统一页面容器，**普通 `div`**（2026-10-07 起不再基于 Arco `LayoutContent`）：`a-layout-content` 渲染成 `<main>`，而外壳 `.app-content` 已是全站唯一的那一个地标，套两层就是 `main > main`（模型页把 PageFrame 套了两层，改前实测三个 main）；Arco 那一层只给 `flex: 1`，容器自己写全 `flex: 1 1 0%`，摘掉不缺任何东西——#82 的三层骨架链一字未动（STYLE_TODO #92） |
-| `ConsolePanel` | 控制台面板（2026-10-07 单点实现，日志页与服务页共用，取代此前两页各写一份且已漂移的外壳）：外层 `.console-frame`（`position: relative` + flex 列，**本体不写高度**——弹性档由页面给 `.console-fill`、定高档给 `.console-fixed`）+ 滚动盒 `.console`（`padding: 8px 12px`、`line-height: 1.55`、`--font-mono`、`--fs-base`、恒深底 `--console-bg`）+ 统一「有新日志」胶囊（`a-button` text/mini 基座、带边框、`pulse-glow var(--dur-ambient)` 只动 opacity、`z-index: var(--z-chrome)`）+ 级别色取 `--log-kind-*`；滚动行为由 `useAutoScroll` 承担，**行渲染仍归各页默认插槽**（日志页三段式与服务页单段不强行合并模板） |
+| `ConsolePanel` | 控制台面板（2026-10-07 单点实现，#89 时取代日志页与服务页各写一份且已漂移的外壳；档 B 后服务页控制台迁出，现为日志页唯一消费者）：外层 `.console-frame`（`position: relative` + flex 列，**本体不写高度**——弹性档由页面给 `.console-fill`、定高档给 `.console-fixed`）+ 滚动盒 `.console`（`padding: 8px 12px`、`line-height: 1.55`、`--font-mono`、`--fs-base`、恒深底 `--console-bg`）+ 统一「有新日志」胶囊（`a-button` text/mini 基座、带边框、`pulse-glow var(--dur-ambient)` 只动 opacity、`z-index: var(--z-chrome)`）+ 级别色取 `--log-kind-*`；滚动行为由 `useAutoScroll` 承担，**行渲染仍归各页默认插槽**（日志页三段式与概览定高小窗不强行合并模板——后者只复用 `useAutoScroll` 与级别色约定，不套面板壳） |
 | `Card` | 基于 Arco `Card` 的标题、内容与 actions 容器：卡片小节标题渲染成真的 `<h2>`（非折叠卡 `<h2>` 承载文字，折叠卡是 `<h2>` 包 `a-button` 的手风琴写法），字号字重行高继承 Arco 卡片头自己的声明，不另造一档（STYLE_TODO #92，见 §7.5.7） |
 | `Icon` | Arco 图标适配器：语义名 → Arco 官方字形的**一对一表**（`components/common/icon-map.ts`），并导出 `IconName` 类型——写错名字或引用已删的名字在 `vue-tsc` 阶段就红（此前是运行期静默退化成问号图标）。「一名一图、每个名字都要有读者」由 `style-audit` 第 21 条守 |
 | `ToolTip` | Arco `Tooltip` 适配器 |

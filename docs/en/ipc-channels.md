@@ -49,7 +49,7 @@
 
 | Channel      | Purpose                          |
 | ------------ | ------------------------------ |
-| `logs:list`  | Read the application log (distinct from the service console: this one records the app's own lifecycle/operations) |
+| `logs:list`  | Read the application log (distinct from the framework console: this one records the app's own lifecycle/operations) |
 | `logs:clear` | Clear the application log      |
 | `logs:onlog` | Application log push (main process → renderer) |
 
