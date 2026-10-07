@@ -68,11 +68,6 @@ let unsubModelsChanged: (() => void) | null = null;
 
 async function onSelectModel(path: string) {
   modelDropdownOpen.value = false;
-  if (!path) {
-    // 选择"管理模型…"项
-    void router.push('/models');
-    return;
-  }
   // 统一走 params.applyModel：保留参数值 + 自动检测 mmproj + 加载 GGUF 元数据，
   // 切换模型时自动清空控制台（旧日志属于上一个模型）；
   // 有未固化的临时调整时 applyModel 会先弹确认，用户取消则中止后续预设应用
@@ -166,8 +161,7 @@ async function onOpenWeb() {
       <!-- 模型按钮常驻（不再 v-if="hasModels"）：原先冷启动模型目录扫描返回那一瞬，整簇
            按钮（启动/停止/重启/打开网页）会被这个凭空插入的 flex item 顶开左移（STYLE_TODO #81 档 1）。
            无模型时按钮仍在、置 disabled 并显示「请选择模型」占位文案，宽度由 .model-name 的
-           min-width 锁死，切换模型不再横向重排；下拉内容里的「管理模型…」在禁用态点不到，
-           导航侧栏本就有 Models 入口，不构成能力缺失。 -->
+           min-width 锁死，切换模型不再横向重排；到模型管理页的导航由侧栏承担，菜单只放模型清单。 -->
       <a-dropdown
         trigger="click"
         :disabled="!hasModels"
@@ -184,11 +178,7 @@ async function onOpenWeb() {
           </a-button>
         </ToolTip>
         <template #content>
-          <a-doption class="dd-manage" @click="onSelectModel('')">
-            <Icon name="models" :size="12" class="dd-icon" />
-            {{ i18n.t('lbl_manage_models') }}…
-          </a-doption>
-          <a-divider class="dd-divider" />
+          <!-- 纯模型清单：导航到模型管理页由侧栏承担，菜单里不放动作项（2026-10-08 用户裁定） -->
           <a-doption
             v-for="m in models"
             :key="m.path"
@@ -363,14 +353,13 @@ async function onOpenWeb() {
   max-width: 180px;
 }
 
-// 下拉内容：普通项名称/尺寸两列；选中项 accent 淡色底 + accent 文字；管理项斜体+分割线。
-// 面板固定宽 360px（原被最长模型名撑到 ~378px）：管理项/模型项同宽，长模型名省略、尺寸右对齐
-.dd-manage,
+// 下拉内容：纯模型清单（2026-10-08 起不再有管理项/分割线），名称/尺寸两列；
+// 选中项 accent 淡色底 + accent 文字。面板固定宽 360px（原被最长模型名撑到 ~378px），
+// 长模型名省略、尺寸右对齐
 .dd-item {
   width: 360px;
   box-sizing: border-box;
-}
-.dd-item {
+
   :deep(.arco-dropdown-option-content) {
     display: flex;
     align-items: center;
@@ -378,9 +367,6 @@ async function onOpenWeb() {
     width: 100%;
     min-width: 0;
   }
-}
-.dd-divider {
-  margin: 4px 0;
 }
 .dd-item.active {
   background: color-mix(in srgb, rgb(var(--primary-6)) 14%, transparent);
