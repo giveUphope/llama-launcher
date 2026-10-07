@@ -239,4 +239,5 @@
 - [ ] **对话框语义**：任何弹窗容器带 `role="dialog"` + `aria-modal="true"` + 可读名称，打开时焦点移入、Tab 只在弹窗内循环、关闭时归还触发器（`useDialogFocus`），Arco 2.58 不提供这些
 - [ ] **语义骨架**：全站唯一 `main`（页面根 `PageFrame` 是普通 `div`，不是第二层 `a-layout-content`）；每页恰好一个 `<h1>`（页名只在侧栏出现时走 sr-only 写法，由 `PageHost` 单点渲染，文本与 `features` 注册表同源）；卡片小节标题是 `<h2>`（字号继承 Arco 卡片头，不另造一档）——判据与删除实验见 `e2e/web/semantics.spec.ts`，规范见 §7.5.7
 - [ ] **状态出声**：会随事件翻面的状态行挂 `aria-live="polite"`，且 live 根**就是那一行本身**（属性透传给 Arco 组件，不新包元素改几何）；不为播报新开 IPC 通道或渲染层定时器
+- [ ] **库自带文案跟随界面语言**：Arco 有独立的一套 i18n（默认 `zh-CN`），切语言时必须同步调 `useLocale()` 并把 `html[lang]` 一起改——唯一落点是 `stores/i18n.ts`；判据见 `e2e/web/arco-locale.spec.ts`（英文态七页零中文残留 + 中文态正对照）
 - [ ] 深色/浅色主题都检查一遍（`html[data-theme]` + `body[arco-theme]`；控制台/命令预览恒定深色面）

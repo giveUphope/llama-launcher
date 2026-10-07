@@ -54,7 +54,7 @@ async function onBrowse() {
 <template>
   <a-form-item :label="label" class="param-control">
     <template #label><ToolTip :text="tip"><span>{{ label }}</span></ToolTip></template>
-    <a-input-group compact>
+    <a-input-group>
       <!-- 输入框名 = 参数标签（须走 input-attrs 才落到真 input）；浏览按钮名也带上参数标签，否则各文件行的「浏览」按钮读屏同名难区分 -->
       <a-input v-model="model" size="small" :input-attrs="{ 'aria-label': label }" />
       <a-button type="primary" size="small" :aria-label="`${label} ${i18n.t('browse')}`" @click="onBrowse">{{ i18n.t('browse') }}</a-button>

@@ -422,12 +422,23 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 
 
+### 94. Arco 官方用法审查：库自带文案不跟界面语言、三处 prop 名写错（其中一处让一行提示从来没渲染过）— 🟢 已修复（2026-10-07）
+
+- **位置**：`packages/ui/src/stores/i18n.ts`（语言切换的唯一落点）、`packages/ui/index.html:2`、`components/layout/WebUiFrame.vue:40`、`components/layout/Sidebar.vue:37`、`components/params/FileParam.vue:57`。
+- **描述**：用户要求审查「对 Arco 库的使用是否符合官方最佳实践」，实测四条缺陷：① **Arco 有自己的一套 i18n，本仓库从不调用它**——`addI18nMessages` / `useLocale` / `a-config-provider :locale` 在 `packages/ui/src` 里 0 引用，库默认档是随包注册的 `zh-CN`（`es/locale/index.js` 的 `LOCALE = ref("zh-CN")`），于是英文界面里凡是库自带文案都是中文：删除预设的浮层按钮写着「取消 / 确定」（`popconfirm.js:225,237` 取 `t("popconfirm.cancelText")`），模型表空态写着「暂无数据」（`.arco-empty-description`）。② `index.html` 写死 `lang="zh-CN"` 且无人更新，切英文后实测 `document.documentElement.lang` 仍是 `zh-CN`——读屏按它选发音规则。③ `a-result` 的 prop 名是 `subtitle`（`result.js:41`），我们写的是 `:sub-title`：Vue 的 kebab→camel 归一把它变成 `subTitle`，与 `subtitle` 不相等，于是属性落进 DOM，**内置 Web UI「服务未运行」那一行提示从来没渲染过**。④ `a-menu` 没有 `collapse` 这个 prop（`menu.js` 只声明 `theme` / `mode`，`collapse` 是 BaseMenu 的**事件**名，真 prop 是 `collapsed`），折叠此前只靠 `a-layout-sider` 注入生效；`a-input-group` 在 2.58 **根本没有 props**（`input/input-group.js` 只有 `setup()` 返回 prefixCls），`compact` 是死属性且全库无 `.arco-input-group-compact` 类。
+- **修复**：① ② 都落在语言切换的唯一位置 `stores/i18n.ts`：注册英文包 `addI18nMessages({ 'en-US': arcoEnUS })` 并 `useLocale(l === 'en' ? 'en-US' : 'zh-CN')`，同一处把 `html[lang]` 一起切成 `en` / `zh-CN`。③ 改成 `:subtitle`。④ 改成 `:collapsed`（值与注入相同，`base-menu.js:169` 是 `siderCollapsed || propCollapsed` 的或，行为不变），删掉 `compact`。**收回代理的一条错报**：报告说 `theme.scss:130-134` 那 5 行 `.arco-tag-checked` 是死规则——实测不成立，`tag.js:85` 对非 checkable 标签返回 `computedChecked = true`，状态栏「运行中」胶囊确实带 `arco-tag-checked` 且规则生效（实测 `rgb(0,128,38)` 压 `rgb(232,255,234)` = 4.84）。另把一条「ARIA 落在 `.arco-modal-container` 而不是 `.arco-modal`」降级为不是缺陷：`modal.js` 把 `$attrs` 并到容器，而 `role="dialog"` 与 `aria-modal` 落在**同一个节点**上，语义自洽。**登记本轮明确未做（另立工作项）**：`a-list` 自带 `paginationProps` 而我们手写下拉列表旁的分页；`ToolTip` 写死 position 且没用 `contentClass`；`a-form-item` 的 `labelAttrs` 名义上能挂 `for`，但实测 `.arco-form-item-label` 虽是真 `<label>`（69/69），**69 个都没有 `for`**、库也不生成控件 id，所以「官方 label 关联」这条路要自己配 id 才成立——`innerAriaLabel` 指令仍不是可替换项（这条代理报告说它是「官方 API 未用」，按实测不成立）。
+- **修复效果验证**：新增 `e2e/web/arco-locale.spec.ts` 2 条（中英各 1）。英文态：浮层按钮无中文且含 `Cancel`、表空态为 `No Data`、七页 Arco 节点自带文案中文残留 **0 处**；中文态是**正对照**——同一批节点必须量到中文（实测 146 处），否则「英文态 0 处」可能只是检测器空转。**删除实验**：摘掉 `useLocale(...)` 一行 ⇒ 英文态浮层按钮立刻回到「取消 / 确定」并转红（还原后 78 条全绿）。真机另测：切英文后 `html[lang] = en`；停掉服务后 `.arco-result-subtitle` 现在读得到那句提示（改前该节点不存在）；侧栏折叠宽度 224 → 48 → 224 与改名前一致。`pnpm style:audit` 18/18、`pnpm test` core 442 + ui 100、`pnpm e2e:web` 78 条、`pnpm lint` 全绿。
+
+
+
+
 ## 🟢 已修复索引
 
 完整的问题描述 / 修复方案 / 验证证据见 [已修复归档](../../archive/style-todo-resolved.md)（只读留档）；修复后的规范落点见 [frontend.md §7.5](../frontend.md)。
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 94 | Arco 官方用法审查：库自带 i18n 从未配置 ⇒ 英文界面浮层按钮「取消／确定」与表空态「暂无数据」都是中文（`stores/i18n.ts` 注册英文包 + `useLocale` 并同步 `html[lang]`）；`a-result :sub-title` 应为 `subtitle`（Web UI 未运行那一行提示从来没渲染过）、`a-menu :collapse` 应为 `collapsed`、`a-input-group compact` 在 2.58 无此 prop 亦无同名类；收回代理「状态栏 5 行 `.arco-tag-checked` 是死规则」的错报（`tag.js:85` 对非 checkable 返回 true，实测 4.84 生效）；新增 `e2e/web/arco-locale.spec.ts` 2 条含中文态正对照与摘掉 `useLocale` 的删除实验 | 2026-10-07 |
 | 93 | 十处按钮的 `color` 覆写冻结了 hover 文字色（scoped `[data-v-*]` 特异度 (0,4,0) 压过 Arco 的 `:hover` (0,3,0)，实测浅色悬停描边 161,21,30 而文字仍 203,39,45）：10 条覆写与 4 条 `a-statistic` 复述声明全删，hover／active 交回库按 `-5`／`-7` 档算，默认态颜色零变化；新增门禁第 18 条 `BTN_COLOR_ALLOW`（8 条按钮侧例外带理由与条数登记，另 23 条非按钮 Arco 节点覆写在 #93 里逐族登记），两组删除实验（贴回一条 ⇒ 红、`expect` 改 3 ⇒ 红且退出码 1） | 2026-10-07 |
 | 92 | 无标题层级／`main` 地标重复／状态变化不播报：`PageFrame` 由 `a-layout-content` 改普通 `div`（全站只剩外壳那一个 `main`，不用 `role="none"` 遮罩）、`PageHost` 单点渲染 sr-only `<h1>`（文本取 `features` 注册表页名，与侧栏同源）、卡片小节标题改真 `<h2>`（`margin: 0; font: inherit` 继承 Arco 卡片头 16px／500）、概览状态行 `a-space` 透传 `aria-live="polite"` 不新包元素；新增 `e2e/web/semantics.spec.ts` 8 条含 6 组删除实验，六页骨架几何改前后逐项相等 | 2026-10-07 |
 | 91 | `style-audit` 扫描盲区与空转的 allowList：`SCAN_DIRS` 纳入 `styles/`（token 本体层只豁免第 1/2/3/9/10 条）、新增第 17 条按 marker 加 expect 行数登记内部态类覆写、`readLines()` 抹平块注释正文修掉尺子自身的假阳性；17 条全绿并配三组删除实验 | 2026-10-07 |

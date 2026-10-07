@@ -37,7 +37,7 @@ const frameSrc = computed(() => (running.value && everVisited.value ? webUrl.val
       title="llama Web UI"
     />
     <!-- 服务未运行等待占位：改用 Arco Result 承载图标与提示文案 → -->
-    <a-result v-if="!running" class="webui-placeholder" :sub-title="i18n.t('webui_not_running')">
+    <a-result v-if="!running" class="webui-placeholder" :subtitle="i18n.t('webui_not_running')">
       <template #icon><Icon name="globe" :size="44" /></template>
     </a-result>
   </div>

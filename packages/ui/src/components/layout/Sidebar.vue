@@ -34,7 +34,7 @@ function navigate(key: string | number) {
          强改 collapsed-width 会破坏 icon margin 布局导致收起/展开图标漂移，勿改） -->
     <a-menu
       :selected-keys="[route.path]"
-      :collapse="collapsed"
+      :collapsed="collapsed"
       role="navigation"
       :aria-label="i18n.t('a11y_main_nav')"
       @menu-item-click="navigate"

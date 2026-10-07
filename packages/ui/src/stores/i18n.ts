@@ -1,5 +1,7 @@
 import { defineStore, storeToRefs } from 'pinia';
 import { ref, watchEffect } from 'vue';
+import { addI18nMessages, useLocale } from '@arco-design/web-vue/es/locale';
+import arcoEnUS from '@arco-design/web-vue/es/locale/lang/en-us';
 import {
   tr,
   setLang,
@@ -11,6 +13,11 @@ import {
 } from '@llama-launcher/shared';
 import { useSettingsStore } from './settings';
 
+// Arco 组件自带的文案（popconfirm 的确定/取消、table 空态、pagination 的条数、上传与日期
+// 面板等）走的是库内另一套 i18n，不配置就永远停在随包注册的 zh-CN——实测英文界面下删除预设
+// 的浮层按钮仍是「取消/确定」。这里注册英文包并按当前语言切档，界面文案不再有第二种语言。
+addI18nMessages({ 'en-US': arcoEnUS });
+
 export const useI18nStore = defineStore('i18n', () => {
   // 以 settings.language 为唯一数据源，自动同步 shared 模块的语言状态
   const settings = useSettingsStore();
@@ -20,6 +27,10 @@ export const useI18nStore = defineStore('i18n', () => {
   watchEffect(() => {
     const l = language.value;
     setLang(l);
+    useLocale(l === 'en' ? 'en-US' : 'zh-CN');
+    // 读屏按 html[lang] 选发音规则与翻译策略；index.html 里写死的 zh-CN 不跟随切换时，
+    // 英文界面会被用中文音库念出来
+    document.documentElement.lang = l === 'en' ? 'en' : 'zh-CN';
     lang.value = l;
   });
 
