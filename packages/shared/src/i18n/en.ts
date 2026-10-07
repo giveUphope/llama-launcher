@@ -13,7 +13,7 @@ export const en: Dict = {
   hint_props_mismatch_s: 'Engine read-back: {0} value(s) differ from what was sent: {1}',
   hint_props_mismatch_env_s: 'Engine read-back: {0} differ ({1}); likely rewritten by {2}',
   hint_env_overrides_s: '{0} rewrite defaults of unset parameters (never in the command)',
-  hint_baseline_drift_s: 'Engine build {0} is older than baseline {1}; non-readable defaults may be off',
+  hint_baseline_drift_s: 'Engine {0} older than baseline {1}; defaults may be off',
   copy_url: 'Copy URL',
   copy_model: 'Copy Model',
   copy_console: 'Copy Output',

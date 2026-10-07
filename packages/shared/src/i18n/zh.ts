@@ -11,7 +11,7 @@ export const zh = {
   hint_props_mismatch_s: '引擎回读 {0} 项与发出的值不一致：{1}',
   hint_props_mismatch_env_s: '引擎回读 {0} 项不一致（{1}），疑为 {2} 改写缺省值',
   hint_env_overrides_s: '{0} 在改写未设置参数的缺省值（不会出现在命令里）',
-  hint_baseline_drift_s: '引擎构建 {0} 旧于参数基线 {1}，不可回读参数的缺省判定可能失准',
+  hint_baseline_drift_s: '引擎 {0} 旧于基线 {1}，缺省判定可能失准',
   copy_url: '复制地址',
   copy_model: '复制模型名',
   copy_console: '复制输出',
