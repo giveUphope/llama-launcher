@@ -748,14 +748,9 @@ watch(models, () => writeRowMeta());
   // 标签恒单行：超出时整行省略（名称列已有 min-width 保底）
   overflow: hidden;
 
-  /* 徽章文字取角色色：Arco 预设色（gray/arcoblue/orange/red）作文字压同族浅底实测
-     2.63~4.2，不达 §7.5.8 的 4.5。只换文字取值，底与边仍由 a-tag 预设承载。
-     green 族保留 Arco 原值——theme.scss 未定义 --fg-success-text，本文件不自造 token，
-     已登记为待主控补档（详见收尾报告） */
-  .badge-gray { color: var(--fg-hint); }
-  .badge-arcoblue { color: var(--fg-accent); }
-  .badge-orange { color: var(--fg-warning-text); }
-  .badge-red { color: var(--fg-danger-text); }
+  /* 徽章配色：纯官方预设对（#105 范式纯化裁定——此前的角色色文字修正层删除，
+     「跟随库官方观感」豁免延伸至 tag 预设配对；预设对浅色 2.63~4.2 的对比度
+     差距如实记录于该条） */
 }
 
 /* 常驻卡体：min-height 预留一档（单行状态文案 + 上下内距），四态切换不改卡体高度 */

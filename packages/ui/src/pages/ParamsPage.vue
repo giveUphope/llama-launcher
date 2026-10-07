@@ -256,7 +256,8 @@ async function onClearSession() {
         <a-statistic :value="groupCount" :title="i18n.t('lbl_param_groups')" />
       </div>
       <!-- 硬件占用估算 stat：槽位常驻占位（不可用显示 —），构成明细放 tooltip；
-           显存总占用超出设备空闲时橙色警示 -->
+           显存总占用超出设备空闲时由官方预设 tag 警示（范式纯化：值色覆写删除，
+           统计值回归官方配色——「跟随库官方观感」豁免延伸至预设配对） -->
       <a-divider class="stat-divider" direction="vertical" />
       <ToolTip :text="vramTooltip">
         <div class="stat" :class="{ warn: vramWarn }">
@@ -269,6 +270,7 @@ async function onClearSession() {
           >
             <template #suffix>{{ vramStatValue?.unit }}</template>
           </a-statistic>
+          <a-tag v-if="vramWarn" color="orange" size="small" nowrap>{{ i18n.t('lbl_vram_over') }}</a-tag>
         </div>
       </ToolTip>
       <!-- 性能目标选择器：四档目标联动关键杠杆建议（Arco Dropdown 承接；建议 chips 走 a-tag）。
@@ -366,7 +368,7 @@ async function onClearSession() {
           @update:expanded="onToggleSection(sub.key, $event)"
         >
           <template v-if="sectionChangedCount[sub.key]" #actions>
-            <a-tag size="small" color="orange" class="subcat-changed">{{ i18n.t('subcat_changed_n', [String(sectionChangedCount[sub.key])]) }}</a-tag>
+            <a-tag size="small" color="orange">{{ i18n.t('subcat_changed_n', [String(sectionChangedCount[sub.key])]) }}</a-tag>
           </template>
           <div class="param-grid">
             <ParamRow v-for="p in sub.params" :key="p.key" :p="p" />
@@ -431,17 +433,11 @@ async function onClearSession() {
     min-width: 2ch;
   }
 
-  // 已调整参数 > 0：数值警示橙（与行容器的 warn 描边同一角色色 token，压 fill-2 实测 6.05）
-  &.warn :deep(.arco-statistic-value) {
-    color: var(--fg-warning-text);
-  }
+  // 已调整参数 > 0：数值保持官方配色；警示信号由分区头「N 项已改」官方 orange 预设
+  // tag 承载（#105 范式纯化：统计值色覆写删除）
 }
 
-// 占位态（估算不可用）：次级灰降字重，与其他 stat 的主色区分
-.stat .arco-statistic.muted :deep(.arco-statistic-value) {
-  color: var(--color-text-3);
-  font-weight: 400;
-}
+// （占位态的次级灰覆写已随 #105 范式纯化删除：占位「—」回归官方配色）
 
 .stat-divider.arco-divider-vertical {
   height: 22px;
@@ -468,11 +464,6 @@ async function onClearSession() {
   margin-bottom: 0;
 }
 
-/* 分区「N 项已改」计数标签：Arco orange-6 作文字压 orange-1 底实测 2.41（浅色）/ 4.2（深色），
-   不达 §7.5.8 的 4.5，文字改角色色；底与边仍由 a-tag 预设承载 */
-.param-card .subcat-changed {
-  color: var(--fg-warning-text);
-}
 
 .param-grid {
   // 自适应多列网格：auto-fill 不折叠空轨道——各组共享同一轨道宽度，参数少的组

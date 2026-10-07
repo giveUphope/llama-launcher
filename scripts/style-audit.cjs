@@ -602,10 +602,8 @@ const ARCO_COLOR_ALLOW = [
     why: '同上：descriptions 标签从 text-3 提到角色档 --fg-hint 才达 4.5' },
   { file: 'packages/ui/src/components/settings/AppearancePanel.vue', marker: '.theme-radio-on', expect: 1,
     why: '选中主题的字色：库给 checked 单选按钮铺 primary-1 底 + primary-6 字，深色下 4.2 不达标；换 --primary-6 会连带改圆点填充，故只改文字' },
-  { file: 'packages/ui/src/pages/ParamsPage.vue', marker: '.stat', expect: 2,
-    why: '统计值的警示橙 / 占位灰是业务状态档，a-statistic 只有 valueStyle 没有状态 prop（且 title 无 titleStyle）' },
-  { file: 'packages/ui/src/pages/ParamsPage.vue', marker: '.subcat-changed', expect: 1,
-    why: '「本类有改动」标记取角色橙：库的 tag 预设 orange 作文字 2.57 不达标' },
+  // （ParamsPage 的 .stat / .subcat-changed 两条登记已随 #105 范式纯化删除：
+  //   统计值色覆写与 tag 文字角色色移除，回归官方预设对——「跟随库官方观感」豁免延伸）
   { file: 'packages/ui/src/pages/ParamsPage.vue', marker: '.target-item.active', expect: 1,
     why: '性能目标当前项的强调字色，库的 option 无「当前项」状态' },
 ];
