@@ -27,15 +27,16 @@ const TONE_CLASS: Record<ConsoleTone, string> = {
 
 type Level = ConsoleTone | 'all';
 
+// 快速筛选五档：级别文案全部走 i18n（此前中英混杂——全部/普通中文、INFO 等四级硬编码
+// 英文，同一栏两种语言）。「信息」档合并 tone info 与 plain：JSON INFO 行与无关键词的
+// 原始行对用户是同一类「常规信息」，分列即重复档（#106）；「全部」图标换 console 与
+// 信息档区分（原先两者同为 info-circle）。
 const LEVELS: Array<{ key: Level; label: string; icon: IconName }> = [
-  { key: 'all', label: i18n.t('lbl_all'), icon: 'info' },
-  { key: 'info', label: 'INFO', icon: 'info' },
-  { key: 'success', label: 'SUCCESS', icon: 'check' },
-  { key: 'warn', label: 'WARN', icon: 'alert' },
-  { key: 'error', label: 'ERROR', icon: 'error' },
-  // 普通档：无关键词的原始行（ggml_cuda_init、llama_model_loader……）——框架输出的大头，
-  // 此前只能靠「全部」看（2026-10-07 快速筛选器修复，用户批注「按建议修复快速筛选器」）
-  { key: 'plain', label: i18n.t('lbl_level_plain'), icon: 'file' },
+  { key: 'all', label: i18n.t('lbl_all'), icon: 'console' },
+  { key: 'info', label: i18n.t('lbl_level_info'), icon: 'info' },
+  { key: 'success', label: i18n.t('lbl_level_success'), icon: 'check' },
+  { key: 'warn', label: i18n.t('lbl_level_warn'), icon: 'alert' },
+  { key: 'error', label: i18n.t('lbl_level_error'), icon: 'error' },
 ];
 
 const levelFilter = ref<Level>('all');
@@ -51,7 +52,12 @@ watch(searchQuery, (q) => {
 const filteredOutputs = computed(() => {
   const q = deferredQuery.value.trim().toLowerCase();
   return server.outputs.filter((line) => {
-    if (levelFilter.value !== 'all' && line.tone !== levelFilter.value) return false;
+    // 信息档合并 plain：无关键词的原始行对用户同为「常规信息」（#106 去重复档）；
+    // plain tone 仍存在于内部分类（着色用），只是不再单列筛选档
+    const toneHit = levelFilter.value === 'info'
+      ? line.tone === 'info' || line.tone === 'plain'
+      : levelFilter.value === 'all' || line.tone === levelFilter.value;
+    if (!toneHit) return false;
     if (q && !line.data.toLowerCase().includes(q)) return false;
     return true;
   });
