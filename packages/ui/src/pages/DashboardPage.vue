@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import PageFrame from '@/components/common/PageFrame.vue';
+import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import ServiceStatusCard from '@/components/service/ServiceStatusCard.vue';
 import { useAppLogStore, type AppLogLine } from '@/stores/appLog';
@@ -49,11 +50,10 @@ watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, 
     <ServiceStatusCard />
 
     <!-- 应用操作日志（时间 / 级别 / 正文三列，级别色整行着色；无复制/清空出口——
-         减少多处出口是本轮的决定，需要动手的入口只有下面这一条「日志」跳转） -->
-    <div class="q-section q-issues">
-      <div class="q-header">
-        <h2 class="q-title">{{ i18n.t('card_dash_applog') }}</h2>
-      </div>
+         减少多处出口是本轮的决定，需要动手的入口只有下面这一条「日志」跳转）。
+         2026-10-08 范式统一：自绘 .q-section 裸标题换官方 Card 基座（与同页
+         ServiceStatusCard 及全站卡片同族——标题 h2 / 卡片头 / 体边距全交回库） -->
+    <Card title-key="card_dash_applog">
       <div ref="consoleEl" class="issues-console">
         <a-empty v-if="appLogLines.length === 0" class="dash-empty" :description="i18n.t('msg_empty_no_logs')" />
         <div
@@ -78,40 +78,13 @@ watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, 
           </a-button>
         </div>
       </div>
-    </div>
+    </Card>
   </PageFrame>
 </template>
 
 <style scoped lang="scss">
-/* 问题区域 */
-.q-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  // 分隔线上方距离：与 Card 分区体一致（内容 → 线 14px），避免内容贴线
-  padding-bottom: 14px;
-}
-
-// 服务状态卡（Card 分区）自带底边线；下方问题区补齐与 q-section 相同的 14px 顶距，
-// 保持与「线到内容 14px」一致的分隔节奏（§7.5.4）
-.card + .q-section {
-  padding-top: 14px;
-}
-
-.q-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start; // 指示器贴近标题文本，不拉开到右侧
-  gap: 12px;
-  padding-bottom: 4px;
-}
-
-.q-title {
-  margin: 0;
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--color-text-1);
-}
+/* （自绘 .q-section / .q-header / .q-title 已随 2026-10-08 范式统一删除：
+   应用操作日志换官方 Card 基座，标题 h2 / 卡片头 / 体边距 / 卡间 16px 全交回库） */
 
 /* 应用日志窗口（恒深底 + 三列行） */
 .issues-console {

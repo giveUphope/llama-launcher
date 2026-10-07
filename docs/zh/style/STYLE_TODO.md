@@ -471,6 +471,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：提示行本体换 `a-tag closable`（warn=orange / info=gray 官方预设色对，`size="small"` + `nowrap`，图标走 `#icon` 槽），自绘行布局 / 角色色 / 忽略钮全删；忽略指纹逻辑不变（`@close` → 长句全文入 `settings.engine_hint_dismissed`，新消息照常出现）；`btn_dismiss_hint` 键失去读者删除（官方钮的 `aria-label="Close"` 为库内硬编码，非本地化——接受，官方组件行为）。对比度注记：预设对取代 #99 的角色档，是「文字进了官方组件」后采用官方配对，同 StatusTag 先例。
 - **修复效果验证**：drift 演示场景实测 tag 314px 官方 `arco-tag-orange` 预设类生效、关闭钮 `role="button"` + `aria-label="Close"` 就位、点关后指纹入库且标签消失；`pnpm style:audit` 全绿、`pnpm e2e:web` 81 条全绿。
 
+### 106. 概览应用操作日志换官方 Card 基座：自绘 .q-section 裸标题区删除 — 🟢 已修复（2026-10-08）
+
+- **位置**：`packages/ui/src/pages/DashboardPage.vue`（应用操作日志区）。
+- **描述**：用户批注「参考其他卡片样式进行优化，注意前端范式」。同页服务状态卡是官方 `Card` 组件（卡片头 / h2 / 边框 / 体边距全由库承载），而应用操作日志区是自绘 `.q-section` + 裸 `.q-title` h2 + 手写间距（padding-top/bottom 14px 手调分隔节奏）——同一页面两种卡片形态。
+- **修复**：换官方 `Card title-key="card_dash_applog"` 基座（标题 h2 / 卡片头 / 边框 / 体边距 / 卡间 16px 全交回库）；`.q-section` / `.q-header` / `.q-title` / `.card + .q-section` 四组自绘样式删除；恒深控制台与错误时的「日志 / 服务」跳转按钮原样保留在卡体内（`useAutoScroll` 定高小窗机制不变）。
+- **修复效果验证**：`pnpm style:audit` 22/22、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿（semantics 的 h2 计数与卡片标题判据携新结构通过）、ui 103 / core 442 测试全绿；实测 `.section-card` 计数 2（状态卡 + 日志卡）、日志卡 h2 =「应用操作日志」、深底控制台在卡体内。
+
 ### 105. 范式纯化裁定：官方组件上的角色色修正层全部回归官方预设配对 — 🟢 已修复（2026-10-08）
 
 - **位置**：`packages/ui/src/pages/ParamsPage.vue`（「N 项已改」tag 文字色、已调整 / 显存两个 stat 的值色覆写）、`packages/ui/src/components/models/LocalModelsPanel.vue`（`badge-gray/arcoblue/orange/red` 四条文字覆写）、`scripts/style-audit.cjs`（`ARCO_COLOR_ALLOW` 同步删两条死登记）。
@@ -532,6 +539,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
 | 100 | 引擎提示行本体对齐官方组件（用户批注「审查提示样式是否符合arco官方档」）：#99 后提示行仍剩行布局 / 角色色 / 忽略钮三处自绘——官方 `a-alert` 是横幅（width:100%、14px、8/15 内距硬编码）与行内形态冲突，评估后不采纳；换 `a-tag closable`（warn=orange / info=gray 官方预设 + 官方关闭钮内建 role="button"/aria-label + `#icon` 槽 + `nowrap`），自绘行布局 / 角色色 / 忽略钮全删，忽略指纹逻辑不变（@close 入库）；`btn_dismiss_hint` 键失去读者删除（官方钮 aria-label="Close" 为库内硬编码） | 2026-10-08 |
+| 106 | 概览应用操作日志换官方 Card 基座（用户批注「参考其他卡片样式进行优化，注意前端范式」，点名自绘 `.q-section` 裸标题区与同页官方 Card 状态卡的形态分裂）：换 `Card title-key="card_dash_applog"`（标题 h2 / 卡片头 / 边框 / 体边距 / 卡间 16px 全交回库），`.q-section`/`.q-header`/`.q-title`/`.card + .q-section` 四组自绘样式删除；恒深控制台与错误跳转钮原样保留在卡体内（useAutoScroll 定高小窗机制不变） | 2026-10-08 |
 | 105 | 范式纯化裁定：官方组件上的角色色修正层全部回归官方预设配对（用户对 #104 终态的追问「是否是自绘 arco 范式，这也是非预期的」；「跟随库官方观感」豁免从按钮文字延伸至 tag 预设配对，对比度差距 2.41~4.2 如实登记为已接受官方观感）：`subcat-changed` 文字覆写、LocalModelsPanel 四条 `badge-*`、ParamsPage 两个 stat 的值色覆写全删（显存超限警示改由官方 orange tag「超限」承载，新键 `lbl_vram_over`）；`ARCO_COLOR_ALLOW` 删两条死登记（账本跟现实）；占位态 muted 灰一并删除。保留终态（#104 裁定不变）：ParamRow 描边（Arco 校验同型）/ 中性灰提示行（文字非组件）/ TopBar 红 hover（窗口铬） | 2026-10-08 |
 | 104 | 空态范式统一（用户裁定「项目整体仅保留一套前端范式（arco）」，要求对历轮保留项给方案并最终迁移）：五处自绘「图标 + 文案」空态换 `a-empty` + `:description`——日志页默认插图（描述色取官方 gray-5 配对）、概览小窗插图压 40px、DownloadCard 38 档与 FileBrowserModal 隐藏插图只留描述行（槽几何不变、layout-stability ④ 判据不改自明）、TrashCleanCard 同式；`empty` 字形失去唯一读者按规则 ② 删除。**探索后不迁移的终态裁定**：`badge-orange/red` 与 ParamsPage 角色色文字 = 官方组件上的 AA 对比度修正层（删除即倒退 §7.5.8）；ParamRow `--warn` 描边 = 与 Arco 表单校验同型的边框态；中性灰提示行 = token 着色文字非组件平行；TopBar 关闭钮 = a-button 基座 + 官方调色板 token（窗口铬语义，Arco 无窗口组件）——**其中 AA 修正层已于 #105 二次裁定回归纯预设** | 2026-10-08 |
 | 103 | 同族清扫第二轮（用户批注「进一步审查是否还有类似的自绘组件」）：下载任务行状态文字（`STATUS_COLOR` 五档语义色 + 内联上色）换 `StatusTag`（queued=gray / downloading=loading+官方转圈 / paused=warn / completed=ok / error=error）；预设应用提示（自绘 success 底/边/字色盒）换 `a-alert type="success"`。评估后保留并记边界：`fb-error` 空态错误文字（a-list #empty 官方槽内）、ParamsPage 显存超限警示（数据值警示）、`badge-orange/red`（tag 对比度修正）、TopBar 关闭钮红 hover（窗口铬豁免）、中性灰提示行（文字样式非状态芯片）。审计插曲：规则 1 把注释里的「#103」当十六进制色捕获，措辞避开 | 2026-10-08 |
