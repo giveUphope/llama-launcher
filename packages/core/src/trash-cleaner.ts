@@ -4,7 +4,7 @@ import { join, relative, resolve, sep, extname, basename } from 'node:path';
 import { CONFIG_DIR, SETTINGS_FILE, PRESETS_DIR, resolvePresetsDir } from './paths.js';
 import { DOWNLOAD_LOG_SUFFIX, LEGACY_META_SUFFIX } from './download-log.js';
 import { loadPreset } from './presets-store.js';
-import type { TrashItem, TrashKind, TrashRoot, DetectResult, CleanResult } from '@llama-launcher/shared';
+import type { TrashItem, TrashKind, TrashRoot, DetectResult, CleanResult, TrashFailure } from '@llama-launcher/shared';
 
 /**
  * 应用生成文件清理模块。
