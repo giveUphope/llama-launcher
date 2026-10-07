@@ -85,24 +85,25 @@ watch(llamaDir, () => {
   detectTimer = setTimeout(() => { detectTimer = null; void detectExe(); }, 400);
 }, { immediate: true });
 
-const exeBadge = computed<{ icon: IconName; cls: string; tip: string; label: string; spin?: boolean } | null>(() => {
+const exeBadge = computed<{ icon: IconName; color: 'gray' | 'arcoblue' | 'green' | 'red'; tip: string; label: string; loading?: boolean } | null>(() => {
   switch (exeStatus.value) {
     case 'idle':
-      return { icon: 'info', cls: 'idle', tip: i18n.t('msg_no_exe_hint'), label: i18n.t('lbl_exe_state_idle') };
+      return { icon: 'info', color: 'gray', tip: i18n.t('msg_no_exe_hint'), label: i18n.t('lbl_exe_state_idle') };
     case 'detecting':
-      return { icon: 'refresh', cls: 'detecting', tip: i18n.t('msg_exe_detecting'), label: i18n.t('lbl_exe_state_detecting'), spin: true };
+      // loading 态由 a-tag 的官方 loading prop 渲染转圈，图标留空
+      return { icon: 'refresh', color: 'arcoblue', tip: i18n.t('msg_exe_detecting'), label: i18n.t('lbl_exe_state_detecting'), loading: true };
     case 'ok':
       return {
-        icon: 'file_check', cls: 'ok',
+        icon: 'file_check', color: 'green',
         tip: detectedExePath.value
           ? i18n.t('lbl_exe_detected_path', [detectedExePath.value])
           : i18n.t('lbl_exe_state_ready'),
         label: i18n.t('lbl_exe_state_ready'),
       };
     case 'missing':
-      return { icon: 'alert', cls: 'missing', tip: i18n.t('msg_exe_file_missing'), label: i18n.t('lbl_exe_state_missing') };
+      return { icon: 'alert', color: 'red', tip: i18n.t('msg_exe_file_missing'), label: i18n.t('lbl_exe_state_missing') };
     default:
-      return { icon: 'alert', cls: 'not_found', tip: i18n.t('msg_exe_not_found'), label: i18n.t('lbl_exe_state_not_found') };
+      return { icon: 'alert', color: 'red', tip: i18n.t('msg_exe_not_found'), label: i18n.t('lbl_exe_state_not_found') };
   }
 });
 
@@ -359,16 +360,19 @@ onActivated(() => {
             <template #icon><Icon name="folder" :size="12" /></template>
             {{ i18n.t('btn_change_dir') }}
           </a-button>
-          <!-- 引擎状态胶囊走常驻定宽槽：槽宽按双语最宽状态文案预留，检测结论落地时
-               行内固有宽度不再变化，.path-row 的 flex-wrap 也不会因此把整行折成两行 -->
-          <span class="exe-status-slot">
-            <ToolTip v-if="exeBadge" :text="exeBadge.tip">
-              <span class="exe-status" :class="exeBadge.cls">
-                <Icon :name="exeBadge.spin ? 'loading' : exeBadge.icon" :size="12" />
-                <span class="exe-status-text">{{ exeBadge.label }}</span>
-              </span>
-            </ToolTip>
-          </span>
+            <!-- 引擎状态胶囊：a-tag 官方预设色（2026-10-08 按用户要求对齐 Arco 官方最佳实践，
+                 自绘 chip 是官方 Tag 的平行实现）。常驻定宽槽保留：槽宽按双语最宽状态文案预留，
+                 检测结论落地时行内固有宽度不变；nowrap 防文案折行 -->
+            <span class="exe-status-slot">
+              <ToolTip v-if="exeBadge" :text="exeBadge.tip">
+                <a-tag class="exe-tag" :color="exeBadge.color" size="small" nowrap :loading="exeBadge.loading === true">
+                  <template #icon>
+                    <Icon v-if="!exeBadge.loading" :name="exeBadge.icon" :size="12" />
+                  </template>
+                  {{ exeBadge.label }}
+                </a-tag>
+              </ToolTip>
+            </span>
 
           <!-- 引擎提示（2026-10-07 自服务页命令预览卡迁入）：参数不一致 / /props 回读 /
                env 覆写 / 基线漂移，有事才出声。形态（2026-10-08 用户复核）：行内追加在
@@ -376,7 +380,9 @@ onActivated(() => {
                贴着本行；点「忽略」按条持久化，新出现的消息照常显示 -->
           <div v-if="engineHintVisible" class="engine-hint">
             <Icon :name="engineHintWarn ? 'alert' : 'info'" :size="12" />
-            <span class="engine-hint-text" :title="engineHintTitle">{{ engineHintText }}</span>
+            <ToolTip :text="engineHintTitle">
+              <span class="engine-hint-text">{{ engineHintText }}</span>
+            </ToolTip>
             <ToolTip :text="i18n.t('btn_dismiss_hint')">
               <a-button
                 class="engine-hint-close"
@@ -425,40 +431,16 @@ onActivated(() => {
   }
 }
 
-// 胶囊定宽槽：156px 覆盖英文最宽态「Engine file missing」+ 图标 + 内距（中文态留白但几何恒定）
+// 胶囊定宽槽：156px 覆盖英文最宽态「Engine file missing」+ 图标 + 内距（中文态留白但几何恒定）。
+// 槽内是 a-tag 官方预设色（2026-10-08 对齐官方组件，自绘 chip 的配色/圆角/字重全部删除），
+// Tag 自带尺寸与配色，此处不写任何 Arco 节点样式（风格审计第 20 条零登记面）
 .exe-status-slot {
   display: inline-flex;
   align-items: center;
   flex: 0 0 156px;
   min-width: 0;
 }
-
-.exe-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  max-width: 100%;
-  min-width: 0;
-  padding: 0 10px;
-
-  // 万一某语言译文超出预留宽：就地省略，绝不撑破槽（槽宽恒定是本修法的前提）
-  .exe-status-text {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  white-space: nowrap;
-  flex-shrink: 0;
-  &.idle, &.detecting { color: var(--fg-hint); background: var(--color-fill-3); }
-  &.ok { color: rgb(var(--success-6)); background: color-mix(in srgb, rgb(var(--success-6)) 14%, transparent); }
-  &.missing { color: var(--fg-danger-text); background: color-mix(in srgb, rgb(var(--danger-6)) 14%, transparent); }
-  &.not_found { color: var(--fg-warning-text); background: color-mix(in srgb, rgb(var(--orange-6)) 14%, transparent); }
-}
-/* 检测中图标走 Arco IconLoading 自带旋转动画（不再自定义 spin） */
+/* 检测中图标走 a-tag 的官方 loading prop（Arco IconLoading 自带旋转动画） */
 
 .card-help-icon {
   display: inline-flex;
@@ -539,8 +521,15 @@ onActivated(() => {
   flex: 0 0 auto;
 }
 
-.engine-hint-text {
+/* 文字包在 ToolTip（a-tooltip）的 .tooltip-host 里：host 是 flex 子节点须允许收缩，
+   内层 span 转块级才能接上省略号链（flex 子节点自动块状化的前提随包裹层消失） */
+.engine-hint > .tooltip-host {
   flex: 0 1 auto;
+  min-width: 0;
+}
+
+.engine-hint-text {
+  display: block;
   min-width: 0;
   line-height: 1.5;
   white-space: nowrap;
