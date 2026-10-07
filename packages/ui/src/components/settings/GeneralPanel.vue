@@ -179,7 +179,10 @@ const closeBehavior = computed<CloseBehavior>({
 // ---- 引擎提示（2026-10-07 自服务页命令预览卡迁入，用户决定：提示归设置页引擎行）----
 // 四类消息：参数与运行中服务不一致 / /props 回读不一致 / env 覆写 / 引擎构建旧于基线。
 // 「只在有事要说时出声」口径不变——一致或未回读一行不出（2026-10-06 用户标注）。
-// 可忽略（按条）：点「忽略」把当前行里每条消息全文存进 settings.engine_hint_dismissed，
+// 形态（2026-10-08 按用户复核二次修正）：行内追加在引擎目录行尾部（path-row 末位，
+// 窄窗口经 flex-wrap 折行仍贴着本行），可见文案用短句键（hint_*_s），现有长句键降为
+// hover title——独占一行的长句被批注「过长、不在行后」，行内形态只有文案够短才成立。
+// 可忽略（按条）：点「忽略」把当前行里每条消息的长句全文存进 settings.engine_hint_dismissed，
 // 被忽略的条目保持安静、新出现的消息照常显示——不按整行忽略，因为「N 项不同」的计数
 // 随参数编辑逐次变化，整行指纹会被每次编辑绕过（实测教训）。写入裁剪到最近 50 条。
 // 回读自动刷新的可见计数也挂在这里：展示在哪就在哪看。挂接是「本面板真的可见」计数的
@@ -200,21 +203,33 @@ const baselineDrift = computed(() => server.propsCheck?.baselineDrift ?? null);
 const envBlame = computed(() => server.envOverrides.length > 0 && propsMismatch.value.length > 0);
 
 interface EngineHintPart {
-  text: string;
+  /** 行内短句（hint_*_s）：提示条上直接可见的文字 */
+  short: string;
+  /** 长句（cmd_*，原命令预览卡文案）：hover title 承载完整解释 */
+  long: string;
   warn: boolean;
 }
 const engineHintParts = computed<EngineHintPart[]>(() => {
   const parts: EngineHintPart[] = [];
   const envList = server.envOverrides.join(', ');
   if (staleCount.value) {
-    parts.push({ warn: true, text: i18n.t('cmd_stale_running', [String(staleCount.value)]) });
+    parts.push({
+      warn: true,
+      short: i18n.t('hint_stale_running_s', [String(staleCount.value)]),
+      long: i18n.t('cmd_stale_running', [String(staleCount.value)]),
+    });
   }
   if (propsMismatch.value.length) {
     parts.push(
       envBlame.value
         ? {
             warn: true,
-            text: i18n.t('cmd_props_mismatch_env', [
+            short: i18n.t('hint_props_mismatch_env_s', [
+              String(propsMismatch.value.length),
+              mismatchList.value,
+              envList,
+            ]),
+            long: i18n.t('cmd_props_mismatch_env', [
               String(propsMismatch.value.length),
               mismatchList.value,
               envList,
@@ -222,24 +237,34 @@ const engineHintParts = computed<EngineHintPart[]>(() => {
           }
         : {
             warn: true,
-            text: i18n.t('cmd_props_mismatch', [String(propsMismatch.value.length), mismatchList.value]),
+            short: i18n.t('hint_props_mismatch_s', [String(propsMismatch.value.length), mismatchList.value]),
+            long: i18n.t('cmd_props_mismatch', [String(propsMismatch.value.length), mismatchList.value]),
           },
     );
   }
   // env 覆写单独说明：不一致那句已经带上同一批变量时不再重复列一遍
   if (server.envOverrides.length && !envBlame.value) {
-    parts.push({ warn: true, text: i18n.t('cmd_env_overrides', [envList]) });
+    parts.push({
+      warn: true,
+      short: i18n.t('hint_env_overrides_s', [envList]),
+      long: i18n.t('cmd_env_overrides', [envList]),
+    });
   }
   const drift = baselineDrift.value;
   if (drift) {
-    parts.push({ warn: true, text: i18n.t('cmd_baseline_drift', [drift.engineBuild, drift.baselineBuild]) });
+    parts.push({
+      warn: true,
+      short: i18n.t('hint_baseline_drift_s', [drift.engineBuild, drift.baselineBuild]),
+      long: i18n.t('cmd_baseline_drift', [drift.engineBuild, drift.baselineBuild]),
+    });
   }
   return parts;
 });
 const dismissedHints = computed(() => new Set(settings.settings?.engine_hint_dismissed ?? []));
 // 被忽略的条目不进渲染行：剩下的才是这条提示此刻要说的话
-const visibleHintParts = computed(() => engineHintParts.value.filter((p) => !dismissedHints.value.has(p.text)));
-const engineHintText = computed(() => visibleHintParts.value.map((p) => p.text).join(' · '));
+const visibleHintParts = computed(() => engineHintParts.value.filter((p) => !dismissedHints.value.has(p.long)));
+const engineHintText = computed(() => visibleHintParts.value.map((p) => p.short).join(' · '));
+const engineHintTitle = computed(() => visibleHintParts.value.map((p) => p.long).join(' · '));
 const engineHintWarn = computed(() => visibleHintParts.value[0]?.warn ?? false);
 const engineHintVisible = computed(() => visibleHintParts.value.length > 0);
 
@@ -247,7 +272,7 @@ const HINT_DISMISS_CAP = 50;
 function onDismissEngineHint() {
   if (!settings.settings || !visibleHintParts.value.length) return;
   const next = new Set(dismissedHints.value);
-  for (const p of visibleHintParts.value) next.add(p.text);
+  for (const p of visibleHintParts.value) next.add(p.long);
   const list = [...next];
   settings.settings.engine_hint_dismissed = list.slice(-HINT_DISMISS_CAP);
   void settings.save();
@@ -328,34 +353,30 @@ onActivated(() => {
       </a-form-item>
 
       <a-form-item :label="i18n.t('lbl_exe_dir')">
-        <!-- 内容区是 arco-form-item-content-flex（flex 行、nowrap）：路径行与提示必须
-             包在同一个占满整行的块里，否则两个直接子节点会被并排挤在一行 -->
-        <div class="engine-col">
-          <div class="path-row">
-            <a-input v-model="llamaDir" class="path-input" size="small" :input-attrs="{ 'aria-label': i18n.t('lbl_exe_dir') }" />
-            <a-button size="small" @click="onBrowseExeDir">
-              <template #icon><Icon name="folder" :size="12" /></template>
-              {{ i18n.t('btn_change_dir') }}
-            </a-button>
-            <!-- 引擎状态胶囊走常驻定宽槽：槽宽按双语最宽状态文案预留，检测结论落地时
-                 行内固有宽度不再变化，.path-row 的 flex-wrap 也不会因此把整行折成两行 -->
-            <span class="exe-status-slot">
-              <ToolTip v-if="exeBadge" :text="exeBadge.tip">
-                <span class="exe-status" :class="exeBadge.cls">
-                  <Icon :name="exeBadge.spin ? 'loading' : exeBadge.icon" :size="12" />
-                  <span class="exe-status-text">{{ exeBadge.label }}</span>
-                </span>
-              </ToolTip>
-            </span>
-          </div>
+        <div class="path-row engine-path-row">
+          <a-input v-model="llamaDir" class="path-input" size="small" :input-attrs="{ 'aria-label': i18n.t('lbl_exe_dir') }" />
+          <a-button size="small" @click="onBrowseExeDir">
+            <template #icon><Icon name="folder" :size="12" /></template>
+            {{ i18n.t('btn_change_dir') }}
+          </a-button>
+          <!-- 引擎状态胶囊走常驻定宽槽：槽宽按双语最宽状态文案预留，检测结论落地时
+               行内固有宽度不再变化，.path-row 的 flex-wrap 也不会因此把整行折成两行 -->
+          <span class="exe-status-slot">
+            <ToolTip v-if="exeBadge" :text="exeBadge.tip">
+              <span class="exe-status" :class="exeBadge.cls">
+                <Icon :name="exeBadge.spin ? 'loading' : exeBadge.icon" :size="12" />
+                <span class="exe-status-text">{{ exeBadge.label }}</span>
+              </span>
+            </ToolTip>
+          </span>
 
           <!-- 引擎提示（2026-10-07 自服务页命令预览卡迁入）：参数不一致 / /props 回读 /
-               env 覆写 / 基线漂移，有事才出声；「忽略」按条持久化，新出现的消息照常显示。
-               落在引擎目录行内容区内（与输入框同列缩进）而非 form-item 之间——整行铺开
-               会从标签列左缘起排，读起来像游离横幅而非本行的附属提示（用户复核批注）。 -->
+               env 覆写 / 基线漂移，有事才出声。形态（2026-10-08 用户复核）：行内追加在
+               本行尾部——可见短句直接可见、完整长句走 title；窄窗口经 flex-wrap 折行仍
+               贴着本行；点「忽略」按条持久化，新出现的消息照常显示 -->
           <div v-if="engineHintVisible" class="engine-hint">
             <Icon :name="engineHintWarn ? 'alert' : 'info'" :size="12" />
-            <span class="engine-hint-text" :title="engineHintText">{{ engineHintText }}</span>
+            <span class="engine-hint-text" :title="engineHintTitle">{{ engineHintText }}</span>
             <ToolTip :text="i18n.t('btn_dismiss_hint')">
               <a-button
                 class="engine-hint-close"
@@ -492,27 +513,24 @@ onActivated(() => {
   word-break: break-word;
 }
 
-/* 引擎目录行内容列：占满内容区整行（容器是 nowrap flex 行，不占满就把后块挤到右侧），
-   路径行与引擎提示在其中按块流纵排。路径行保持 max-content（与模型目录行的输入框
-   同宽节奏，flex: 1 1 200px 的基准宽仍在），只有提示行吃满可用宽 */
-.engine-col {
-  width: 100%;
-  min-width: 0;
+/* 引擎目录行：输入框不参与 grow（保持 200 基准宽，与模型目录行同宽节奏），
+   行尾剩余空间全部让给引擎提示 */
+.engine-path-row .path-input {
+  flex-grow: 0;
 }
 
-.engine-col .path-row {
-  width: fit-content;
-  max-width: 100%;
-}
-
-/* 引擎提示（自服务页命令预览卡迁入）：橙走 --fg-warning-text（与 ParamRow 超限提示同一
-   token，压页面底已实测达标），压在引擎目录行内容区内。文字单行省略、完整文案走 title
-   （超长句在行内铺开会读成一段公告；「可忽略提示」本就该是一行紧凑附注） */
+/* 引擎提示：行内追加在引擎目录行尾部（path-row 末位子节点，与输入框 / 更改 / 状态胶囊
+   同一行，窄窗口随 flex-wrap 折行仍贴着本行）。橙走 --fg-warning-text（与 ParamRow 超限
+   提示同一 token，压页面底已实测达标）。可见短句直接显示、完整长句走 title——「可忽略
+   提示」是行尾的一枚紧凑附注，不是一行公告（2026-10-08 用户复核批注）。
+   420 上限同折行判据：内容超限时省略号兜底，title 承载全文 */
 .engine-hint {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 4px 0 0;
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 420px;
   font-size: var(--fs-sm);
   color: var(--fg-warning-text);
 }
@@ -522,7 +540,7 @@ onActivated(() => {
 }
 
 .engine-hint-text {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   line-height: 1.5;
   white-space: nowrap;
