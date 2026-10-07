@@ -4,6 +4,7 @@ import { DEFAULT_HOST, DEFAULT_PORT } from '@llama-launcher/shared';
 import type { ServerStatus, ServerStatusEvent, ServerStopInfo, OutputEntry, PropsCheck } from '@llama-launcher/shared';
 import { useIPC, invokeOk, toPlain } from '@/composables/useIPC';
 import { useI18nStore } from '@/stores/i18n';
+import { formatLogTime } from './appLog';
 import type { AppSettings, PresetValues } from '@llama-launcher/shared';
 
 /** 有效状态：在 ServerStatus（stopped/starting/running/stopping）基础上叠加
@@ -34,6 +35,8 @@ export type ConsoleTone = 'error' | 'warn' | 'success' | 'info' | 'plain';
 export interface OutputLine extends OutputEntry {
   /** 单调递增行号：v-for 的稳定 key（数组按 MAX_LINES 裁剪时索引会整体前移） */
   id: number;
+  /** 行时间串（formatLogTime(ts, lang)，与概览应用日志同源）：入队时算好随行携带，语言切换整表重算 */
+  time: string;
   tone: ConsoleTone;
   oom: boolean;
 }
@@ -86,6 +89,7 @@ export function propsPollDelayMs(step: number): number {
 
 export const useServerStore = defineStore('server', () => {
   const api = useIPC();
+  const i18n = useI18nStore();
 
   const status = ref<ServerStatus>('stopped');
   const pid = ref<number | null>(null);
@@ -181,6 +185,7 @@ export const useServerStore = defineStore('server', () => {
     return {
       ...entry,
       id: ++outputSeq,
+      time: formatLogTime(entry.ts, i18n.lang),
       tone: toneOf(entry),
       oom: OOM_RE.test(text),
     };
@@ -198,6 +203,16 @@ export const useServerStore = defineStore('server', () => {
   function pushOutput(entry: OutputEntry) {
     pushOutputBatch([entry]);
   }
+
+  // 行时间串与界面语言绑定（Intl 输出随 locale 变）：切换语言时对已缓存行整表重算一次，
+  // 与 appLog.setLocale 同规则——不重算的话同一个控制台里会同时出现两种时间格式
+  watch(
+    () => i18n.lang,
+    (lang) => {
+      if (!lang) return;
+      for (const line of outputs.value) line.time = formatLogTime(line.ts, lang);
+    },
+  );
 
   // 端口占用友好提示：同一端口 5s 内只提示一次，避免重复输出刷屏
   let lastPortHintKey = '';

@@ -61,6 +61,29 @@ const displayOutputs = computed(() => {
   return outs.length > RENDER_LIMIT ? outs.slice(-RENDER_LIMIT) : outs;
 });
 
+// 搜索命中切段：deferred 后按 indexOf 切（不用正则，免转义），命中段渲染为高亮底。
+// 放 computed 而非 v-for 内联函数：只在（行集 | 关键词）变化时重算一次
+interface RenderPart {
+  text: string;
+  hit: boolean;
+}
+const displayRows = computed(() => {
+  const q = deferredQuery.value.trim().toLowerCase();
+  return displayOutputs.value.map((line) => {
+    if (!q) return { line, parts: [{ text: line.data, hit: false }] as RenderPart[] };
+    const parts: RenderPart[] = [];
+    const lower = line.data.toLowerCase();
+    let from = 0;
+    for (let at = lower.indexOf(q); at !== -1; at = lower.indexOf(q, from)) {
+      if (at > from) parts.push({ text: line.data.slice(from, at), hit: false });
+      parts.push({ text: line.data.slice(at, at + q.length), hit: true });
+      from = at + q.length;
+    }
+    if (from < line.data.length) parts.push({ text: line.data.slice(from), hit: false });
+    return { line, parts };
+  });
+});
+
 const filteredCount = computed(() => filteredOutputs.value.length);
 
 // 复制的是「当前看到的」：带筛选/搜索时把看不见的行一起复制走会误导排查
@@ -135,10 +158,14 @@ function onClear() {
           <span>{{ i18n.t('msg_empty_no_logs') }}</span>
         </div>
         <span
-          v-for="line in displayOutputs"
-          :key="line.id"
-          :class="['output-line', TONE_CLASS[line.tone]]"
-        >{{ line.data }}</span>
+          v-for="row in displayRows"
+          :key="row.line.id"
+          :class="['output-line', TONE_CLASS[row.line.tone]]"
+        ><span class="line-ts">{{ row.line.time }}</span><span class="line-text"><span
+          v-for="(p, i) in row.parts"
+          :key="i"
+          :class="{ 'search-hit': p.hit }"
+        >{{ p.text }}</span></span></span>
       </ConsolePanel>
       <div class="scroll-hint-bar">
         <!-- 自动滚动状态文案已移除（b8c1d59：暂停态由「有新日志」胶囊传达），仅保留行数 -->
@@ -210,11 +237,37 @@ function onClear() {
   min-height: 0;
 }
 
-/* 后端原始输出一行一段；级别色由 ConsolePanel 打在行上（.kind-* → --log-kind-*） */
+/* 后端原始输出一行一段：行首时间戳 + 正文两段，flex 折行时长行悬挂缩进在正文列下。
+   级别色由 ConsolePanel 打在行上（.kind-* → --log-kind-*），时间列固定 info 色不随级别 */
 .output-line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+
+  // 横向扫读辅助：整行提亮一档
+  &:hover {
+    background: color-mix(in srgb, var(--console-fg) 6%, var(--console-bg));
+  }
+}
+
+.line-ts {
+  flex: none;
+  color: var(--log-kind-info);
+  font-variant-numeric: tabular-nums;
+}
+
+.line-text {
+  flex: 1;
+  min-width: 0;
   white-space: pre-wrap;
   word-break: break-all;
-  display: block;
+}
+
+/* 搜索命中段：accent 不透明混色打底（压住深底保证级别色文字仍可读），文字色继承行 */
+.search-hit {
+  background: color-mix(in srgb, rgb(var(--console-accent)) 26%, var(--console-bg));
+  color: inherit;
+  border-radius: 2px;
 }
 
 .empty-log {

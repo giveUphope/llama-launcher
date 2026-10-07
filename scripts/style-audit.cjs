@@ -698,6 +698,42 @@ const a21 = new Audit();
   }
 }
 
+// ---------- 22. 控制台 token 家族必须有定义且有读者（var(--x) 无定义会静默回退继承色） ----------
+// 实案（2026-10-07）：1e73a17 把 theme.scss 里四个 --log-kind-* 字面量定义当属性覆写误删，
+// 消费端（ConsolePanel / DashboardPage / LogsPage）全数回退 console-fg——级别着色静默失效，
+// 而既有各条测的都是「颜色写对没有」，测不到「token 还在不在」。本条对控制台专属家族
+// （--log-kind-* / --console-*，非 Arco 词汇表）做双向核对：消费必有定义、定义必有读者。
+const a22 = new Audit();
+{
+  const defRe = /--((?:log-kind|console)-[a-z0-9-]+)\s*:/;
+  const useRe = /var\(\s*--((?:log-kind|console)-[a-z0-9-]+)/;
+  const defs = new Map();
+  const used = new Map();
+  for (const f of files) {
+    const lines = readLines(f);
+    for (const [i, ln] of lines.entries()) {
+      const def = !isComment(ln) && ln.match(defRe);
+      if (def && isTokenLayer(f)) defs.set(def[1], f);
+      const use = !isComment(ln) && ln.match(useRe);
+      if (use && !used.has(use[1])) used.set(use[1], { file: f, line: i + 1 });
+    }
+  }
+  // 自证解析规模：家族当前 7 条定义（log-kind 4 + console 3），解析到更少说明尺子或文件变形
+  if (defs.size < 6) {
+    a22.add(path.join(ROOT, 'scripts/style-audit.cjs'), 0, `styles/ 只解析到 ${defs.size} 条控制台家族定义（实际 7 条）：解析器与文件形状脱节，本条判据不可信`);
+  }
+  for (const [name, at] of used) {
+    if (!defs.has(name)) {
+      a22.add(at.file, at.line, `var(--${name}) 有消费无定义：颜色会静默回退继承色（1e73a17 着色失效的实案形态）`);
+    }
+  }
+  for (const name of defs.keys()) {
+    if (!used.has(name)) {
+      a22.add(path.join(ROOT, 'packages/ui/src/styles'), 0, `--${name} 有定义零读者：token 与其注释应一并删除`);
+    }
+  }
+}
+
 // ---------- 输出 ----------
 const out = [
   render('1. 组件内裸颜色（token 禁令）', a1.items),
@@ -724,12 +760,13 @@ const out = [
   render('19. 浅色（body 块）不换 Arco 状态色阶，避免连带重绘组件', a19.items),
   render('20. 给 Arco 内部节点写配色必须逐条登记（按钮侧归第 18 条）', a20.items),
   render('21. 图标语义表一对一且有读者（icon-map.ts）', a21.items),
+  render('22. 控制台 token 家族（--log-kind-* / --console-*）有定义且有读者', a22.items),
   `\n扫描 ${files.length} 个文件 · 规范依据 docs/zh/frontend.md §7.5`,
 ];
 
 console.log(out.join('\n'));
 
 const failed =
-  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19, a20, a21]
+  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19, a20, a21, a22]
     .some((a) => a.items.length > 0) || STATE_UNREG.length > 0;
 process.exit(failed ? 1 : 0);

@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
+import { nextTick } from 'vue';
 import type { ServerStatus, ServerStatusEvent, ServerStopInfo, PropsCheck } from '@llama-launcher/shared';
+import { formatLogTime } from './appLog';
 import { LLAMA_SERVER_NAME_RE, PORT_BUSY_RE, PROPS_POLL_MAX_MS, PROPS_POLL_MAX_STEPS, propsPollDelayMs, useServerStore } from './server';
+
+// i18n 桩的 lang 用真实 ref（模块导入期由 factory 填充），控制台行时间串的「切语言整表重算」才有响应式可测
+const i18nStub = vi.hoisted(() => ({ lang: null as { value: string } | null }));
 
 // —— window.api 桩：捕获 onOutputBatch/onStatus 回调，getStatus 返回可控的主进程状态 ——
 type StatusCb = (e: ServerStatusEvent) => void;
@@ -64,9 +69,20 @@ function stopOf(part: Partial<ServerStopInfo> & { reason: ServerStopInfo['reason
   },
 };
 
-vi.mock('@/stores/i18n', () => ({
-  useI18nStore: () => ({ t: (k: string) => k }),
-}));
+vi.mock('@/stores/i18n', async () => {
+  const { ref } = await import('vue');
+  const lang = ref('zh-CN');
+  i18nStub.lang = lang;
+  return {
+    // lang 用 getter 而非求值快照：store 里 watch(() => i18n.lang) 要能在 ref 变化时触发
+    useI18nStore: () => ({
+      t: (k: string) => k,
+      get lang() {
+        return lang.value;
+      },
+    }),
+  };
+});
 
 /** 模拟主进程推送的一行服务输出（preload 载荷恒为批次数组） */
 function out(data: string) {
@@ -208,6 +224,23 @@ describe('effectiveStatus 由主进程下发的停止事实决定，不看日志
     };
     await server.refreshStatus();
     expect(server.effectiveStatus).toBe('crashed');
+  });
+});
+
+describe('控制台行时间串（入队时格式化随行携带，OutputLine.time）', () => {
+  it('行时间与 formatLogTime 同源；切换语言整表重算，同一控制台不混两种格式', async () => {
+    expect(i18nStub.lang).not.toBeNull();
+    i18nStub.lang!.value = 'zh-CN';
+    const server = useServerStore();
+    server.subscribe();
+    const ts = 1_700_000_000_000;
+    outputCb([{ kind: 'stdout', data: 'hello\n', ts }]);
+    expect(server.outputs[0].time).toBe(formatLogTime(ts, 'zh-CN'));
+    const zhTime = server.outputs[0].time;
+    i18nStub.lang!.value = 'en-US';
+    await nextTick();
+    expect(server.outputs[0].time).toBe(formatLogTime(ts, 'en-US'));
+    expect(server.outputs[0].time).not.toBe(zhTime);
   });
 });
 

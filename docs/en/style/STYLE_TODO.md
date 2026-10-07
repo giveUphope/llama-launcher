@@ -16,7 +16,7 @@
 node scripts/style-audit.cjs      # or pnpm style:audit
 ```
 
-21 checks are codified in `scripts/style-audit.cjs`; all green = consistent with the frontend.md §7.5 spec; ❌ findings print `file:line` detail and the script exits non-zero (so it can be wired into CI / pre-commit). What each check does:
+22 checks are codified in `scripts/style-audit.cjs`; all green = consistent with the frontend.md §7.5 spec; ❌ findings print `file:line` detail and the script exits non-zero (so it can be wired into CI / pre-commit). What each check does:
 
 1. bare colors inside components (token-only rule; `#fff`/`#1a1a1a` allowed only as text on colored buttons)
 2. bare font sizes inside components (must go through `--fs-*`)
@@ -39,6 +39,7 @@ node scripts/style-audit.cjs      # or pnpm style:audit
 19. The light theme (a block whose top-level selector is exactly `body`) must not assign literal values to Arco's state colour tiers — the indirection `--danger-6: var(--red-6)` is where components pick their colour, so stepping it repaints alert / form validation / tag / progress / switch and everything else reading that tier, while in dark the same line never applies because `body[arco-theme='dark']` outranks it (see §7.5.1 / #95)
 20. Writing colour onto an Arco internal node must be registered line by line: a selector containing `.arco-*` (or hitting a class attached to an Arco component) that declares `color` / `background` / `border` / `box-shadow` is reported — the button side belongs to check 18 and the token layer to check 17; exceptions go into `ARCO_COLOR_ALLOW` with a `why` and an expected count (17 entries, 23 rules, see #96)
 21. The icon semantic table must be one-to-one and every name must have a reader (`components/common/icon-map.ts`): one Arco glyph mapped from several semantic names is reported (historical defect: `folder` and `folder_open` were both the plain folder, so "go up one level" and "open directory" looked identical), as is a semantic name with no reader in `ui/src` (delete the name and its import together); a wrong name is additionally caught at `vue-tsc` by the `IconName` type (see #97)
+22. The console token family (`--log-kind-*` / `--console-*`) must be defined and have readers: an undefined `var(--x)` **silently falls back to the inherited colour** — the recorded case is 1e73a17 deleting the four level-colour definitions in `theme.scss` as if they were property overrides, killing console colouring outright while every existing "is the colour written correctly" check stayed green; this check verifies both directions for the family (every use has a definition, every definition has a reader) and self-proves its parse scale (fewer than 6 definitions found reports a deformed parser)
 
 ***
 

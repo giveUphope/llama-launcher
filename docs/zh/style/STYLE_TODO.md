@@ -15,7 +15,7 @@
 node scripts/style-audit.cjs      # 或 pnpm style:audit
 ```
 
-21 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
+22 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
 
 1. 组件内裸颜色（token 禁令；`#fff`/`#1a1a1a` 仅限彩色按钮文字）
 2. 组件内裸字号（应走 `--fs-*`）
@@ -38,6 +38,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 19. 浅色（顶层选择器恰为 `body` 的块）不得给 Arco 状态色阶赋字面值——`--danger-6: var(--red-6)` 这类间接层是组件的取色点，换档会连带重绘 alert / 表单校验 / tag / progress / switch 等一切读它的组件，而深色下又因 `body[arco-theme='dark']` 特异度更高而不生效（见 §7.5.1 / #95）
 20. 给 Arco 内部节点写配色必须逐条登记：选择器含 `.arco-*` 或命中挂在 Arco 组件类上的 class、且声明 `color` / `background` / `border` / `box-shadow` 即报（按钮侧归第 18 条、token 本体层归第 17 条），例外进 `ARCO_COLOR_ALLOW` 带 `why` 与 `expect` 条数（17 条登记共 23 处，见 #96）
 21. 图标语义表必须一对一且有读者（`components/common/icon-map.ts`）：一个 Arco 字形挂多个语义名即报（历史缺陷：`folder` 与 `folder_open` 同为纯文件夹，「上一级」与「打开目录」长得一样），语义名在 `ui/src` 里没有读者也即报（连带 import 一起删）；名字写错另有 `IconName` 类型在 `vue-tsc` 阶段拦（见 #97）
+22. 控制台 token 家族（`--log-kind-*` / `--console-*`）有定义且有读者：`var(--x)` 无定义时浏览器**静默回退继承色**——实案是 1e73a17 把 `theme.scss` 的四个级别色定义当属性覆写误删，控制台着色整体失效而既有各条「颜色写对没有」的检查全绿；本条对家族双向核对（消费必有定义、定义必有读者）并自证解析规模（解析不到 6 条定义即报尺子变形）
 
 ***
 

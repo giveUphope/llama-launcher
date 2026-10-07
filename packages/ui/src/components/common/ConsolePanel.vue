@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// 控制台面板：日志页与服务页共用的「外壳 + 滚动行为 + 有新日志提示」。
-// 行渲染留给各页（日志页是时间戳/级别/正文三段，服务页是后端原始输出单段），
-// 这里只统一底/字/边框/圆角、级别色与滚动，不把两套行模板并成一个大杂烩。
+// 控制台面板：框架输出控制台的「外壳 + 滚动行为 + 有新日志提示」（档 B 后日志页是唯一消费者）。
+// 行渲染留给页面默认插槽（日志页 = 行首时间戳 + 正文两段，tone 色打在行上），
+// 这里只统一底/字/边框/圆角、级别色与滚动，不把行模板并进外壳。
 import { ref } from 'vue';
 import Icon from '@/components/common/Icon.vue';
 import { useAutoScroll } from '@/composables/useAutoScroll';

@@ -25,7 +25,9 @@ function clsOf(kind: AppLogKind): string {
   }
 }
 
-function formatTime(ts: number, locale: string): string {
+/** 行时间串（Intl 按 locale 输出 时:分:秒）：应用日志与框架控制台（server store）共用，
+ *  两处日志面的时间列因此同格式；调用方在入队时调用并随行携带 */
+export function formatLogTime(ts: number, locale: string): string {
   return new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
@@ -47,7 +49,7 @@ export const useAppLogStore = defineStore('appLog', () => {
     return {
       ...entry,
       id: ++seq,
-      time: formatTime(entry.ts, locale),
+      time: formatLogTime(entry.ts, locale),
       cls: clsOf(entry.kind),
       lower: data.toLowerCase(),
     };
@@ -78,7 +80,7 @@ export const useAppLogStore = defineStore('appLog', () => {
   function setLocale(next: string) {
     if (!next || next === locale) return;
     locale = next;
-    for (const line of entries.value) line.time = formatTime(line.ts, locale);
+    for (const line of entries.value) line.time = formatLogTime(line.ts, locale);
   }
 
   function clear() {
