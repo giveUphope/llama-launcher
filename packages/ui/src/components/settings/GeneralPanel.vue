@@ -418,11 +418,11 @@ onActivated(() => {
 }
 
 // 路径输入：Arco a-input（small=28px 与原自绘同高），仅保留布局尺寸与 mono 字体覆盖
-// （input 原生不继承 font，mono 需打在内层 .arco-input 上，§7.5.1 路径一律 --font-mono）
+// （input 原生不继承 font，mono 需打在内层 .arco-input 上，§7.5.1 路径一律 --font-mono）。
+// 固定 200px 不参与 grow（#107 宽度对齐）：模型/引擎两行的行尾内容不同（按钮数/徽章/提示），
+// grow 会让两行输入框宽度随行尾内容漂移（实测 214 vs 200），固定基准宽才恒等对齐
 .path-input {
-  flex: 1 1 200px;
-  min-width: 160px;
-  max-width: 460px; // 限制最大宽度：避免宽窗口下路径输入框拉满整行，表单行节奏更紧凑
+  flex: 0 0 200px;
   :deep(.arco-input) {
     font-family: var(--font-mono);
     font-size: var(--fs-md);
@@ -493,16 +493,10 @@ onActivated(() => {
   word-break: break-word;
 }
 
-/* 引擎目录行：输入框不参与 grow（保持 200 基准宽，与模型目录行同宽节奏），
-   行尾剩余空间全部让给引擎提示 */
-.engine-path-row .path-input {
-  flex-grow: 0;
-}
-
 /* 引擎提示：a-tag closable 官方组件（2026-10-08 三轮对齐的定稿——官方关闭钮内建
    role="button" + aria-label="Close"，配色走官方 orange/gray 预设对，同 StatusTag 先例；
    此前自绘的行布局 / 角色色 / 忽略钮全部删除）。tag 在引擎目录行尾弹性收缩：
-   min-width 0，超宽时内部 ToolTip host（自带 min-width 0）带动内层 span 省略号，
+   min-width 0，超宽时内部 ToolTip host（自带 min-width 0）带动内层 span 省略，
    完整长句走 ToolTip */
 .engine-hint-tag {
   flex: 0 1 auto;
