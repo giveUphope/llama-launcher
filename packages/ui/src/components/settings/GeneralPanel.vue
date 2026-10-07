@@ -328,42 +328,48 @@ onActivated(() => {
       </a-form-item>
 
       <a-form-item :label="i18n.t('lbl_exe_dir')">
-        <div class="path-row">
-          <a-input v-model="llamaDir" class="path-input" size="small" :input-attrs="{ 'aria-label': i18n.t('lbl_exe_dir') }" />
-          <a-button size="small" @click="onBrowseExeDir">
-            <template #icon><Icon name="folder" :size="12" /></template>
-            {{ i18n.t('btn_change_dir') }}
-          </a-button>
-          <!-- 引擎状态胶囊走常驻定宽槽：槽宽按双语最宽状态文案预留，检测结论落地时
-               行内固有宽度不再变化，.path-row 的 flex-wrap 也不会因此把整行折成两行 -->
-          <span class="exe-status-slot">
-            <ToolTip v-if="exeBadge" :text="exeBadge.tip">
-              <span class="exe-status" :class="exeBadge.cls">
-                <Icon :name="exeBadge.spin ? 'loading' : exeBadge.icon" :size="12" />
-                <span class="exe-status-text">{{ exeBadge.label }}</span>
-              </span>
+        <!-- 内容区是 arco-form-item-content-flex（flex 行、nowrap）：路径行与提示必须
+             包在同一个占满整行的块里，否则两个直接子节点会被并排挤在一行 -->
+        <div class="engine-col">
+          <div class="path-row">
+            <a-input v-model="llamaDir" class="path-input" size="small" :input-attrs="{ 'aria-label': i18n.t('lbl_exe_dir') }" />
+            <a-button size="small" @click="onBrowseExeDir">
+              <template #icon><Icon name="folder" :size="12" /></template>
+              {{ i18n.t('btn_change_dir') }}
+            </a-button>
+            <!-- 引擎状态胶囊走常驻定宽槽：槽宽按双语最宽状态文案预留，检测结论落地时
+                 行内固有宽度不再变化，.path-row 的 flex-wrap 也不会因此把整行折成两行 -->
+            <span class="exe-status-slot">
+              <ToolTip v-if="exeBadge" :text="exeBadge.tip">
+                <span class="exe-status" :class="exeBadge.cls">
+                  <Icon :name="exeBadge.spin ? 'loading' : exeBadge.icon" :size="12" />
+                  <span class="exe-status-text">{{ exeBadge.label }}</span>
+                </span>
+              </ToolTip>
+            </span>
+          </div>
+
+          <!-- 引擎提示（2026-10-07 自服务页命令预览卡迁入）：参数不一致 / /props 回读 /
+               env 覆写 / 基线漂移，有事才出声；「忽略」按条持久化，新出现的消息照常显示。
+               落在引擎目录行内容区内（与输入框同列缩进）而非 form-item 之间——整行铺开
+               会从标签列左缘起排，读起来像游离横幅而非本行的附属提示（用户复核批注）。 -->
+          <div v-if="engineHintVisible" class="engine-hint">
+            <Icon :name="engineHintWarn ? 'alert' : 'info'" :size="12" />
+            <span class="engine-hint-text" :title="engineHintText">{{ engineHintText }}</span>
+            <ToolTip :text="i18n.t('btn_dismiss_hint')">
+              <a-button
+                class="engine-hint-close"
+                size="mini"
+                type="text"
+                :aria-label="i18n.t('btn_dismiss_hint')"
+                @click="onDismissEngineHint"
+              >
+                <template #icon><Icon name="close" :size="12" /></template>
+              </a-button>
             </ToolTip>
-          </span>
+          </div>
         </div>
       </a-form-item>
-
-      <!-- 引擎提示（2026-10-07 自服务页命令预览卡迁入）：参数不一致 / /props 回读 /
-           env 覆写 / 基线漂移，有事才出声；「忽略」按条持久化，新出现的消息照常显示 -->
-      <div v-if="engineHintVisible" class="engine-hint">
-        <Icon :name="engineHintWarn ? 'alert' : 'info'" :size="12" />
-        <span class="engine-hint-text" :title="engineHintText">{{ engineHintText }}</span>
-        <ToolTip :text="i18n.t('btn_dismiss_hint')">
-          <a-button
-            class="engine-hint-close"
-            size="mini"
-            type="text"
-            :aria-label="i18n.t('btn_dismiss_hint')"
-            @click="onDismissEngineHint"
-          >
-            <template #icon><Icon name="close" :size="12" /></template>
-          </a-button>
-        </ToolTip>
-      </div>
 
       <a-form-item :label="i18n.t('lbl_close_behavior')" v-inner-aria-label="i18n.t('lbl_close_behavior')">
         <a-select class="fc-select" v-model="closeBehavior" :style="{ width: '160px' }"
@@ -486,26 +492,42 @@ onActivated(() => {
   word-break: break-word;
 }
 
+/* 引擎目录行内容列：占满内容区整行（容器是 nowrap flex 行，不占满就把后块挤到右侧），
+   路径行与引擎提示在其中按块流纵排。路径行保持 max-content（与模型目录行的输入框
+   同宽节奏，flex: 1 1 200px 的基准宽仍在），只有提示行吃满可用宽 */
+.engine-col {
+  width: 100%;
+  min-width: 0;
+}
+
+.engine-col .path-row {
+  width: fit-content;
+  max-width: 100%;
+}
+
 /* 引擎提示（自服务页命令预览卡迁入）：橙走 --fg-warning-text（与 ParamRow 超限提示同一
-   token，压页面底已实测达标），文字可换行；「忽略」钉在行尾不随文案长短移动 */
+   token，压页面底已实测达标），压在引擎目录行内容区内。文字单行省略、完整文案走 title
+   （超长句在行内铺开会读成一段公告；「可忽略提示」本就该是一行紧凑附注） */
 .engine-hint {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
-  margin: -10px 0 4px;
+  margin: 4px 0 0;
   font-size: var(--fs-sm);
   color: var(--fg-warning-text);
 }
 
 .engine-hint > .icon {
   flex: 0 0 auto;
-  margin-top: 3px; // 与首行文字基线对齐
 }
 
 .engine-hint-text {
   flex: 1;
   min-width: 0;
   line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .engine-hint-close {
