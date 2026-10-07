@@ -15,7 +15,7 @@
 node scripts/style-audit.cjs      # 或 pnpm style:audit
 ```
 
-19 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
+20 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
 
 1. 组件内裸颜色（token 禁令；`#fff`/`#1a1a1a` 仅限彩色按钮文字）
 2. 组件内裸字号（应走 `--fs-*`）
@@ -36,6 +36,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 17. token 本体层（`styles/`）的 Arco 内部态类覆写逐条登记：`ARCO_STATE_ALLOW` 按 marker + **expect 行数**核对，登记数与实际命中数不符即红（#91）
 18. `a-button` 的配色不覆写：选择器命中「挂在 `<a-button>` 上的 class」或 `.arco-btn*` 且声明 `color` / `background` / `border` / `box-shadow` 即报，例外必须进 `BTN_COLOR_ALLOW` 带 `why` 与 `expect` 条数登记（成因＝scoped 规则 `[data-v-*]` 特异度冻结 hover 文字色，见 §7.5.1 / #93）
 19. 浅色（顶层选择器恰为 `body` 的块）不得给 Arco 状态色阶赋字面值——`--danger-6: var(--red-6)` 这类间接层是组件的取色点，换档会连带重绘 alert / 表单校验 / tag / progress / switch 等一切读它的组件，而深色下又因 `body[arco-theme='dark']` 特异度更高而不生效（见 §7.5.1 / #95）
+20. 给 Arco 内部节点写配色必须逐条登记：选择器含 `.arco-*` 或命中挂在 Arco 组件类上的 class、且声明 `color` / `background` / `border` / `box-shadow` 即报（按钮侧归第 18 条、token 本体层归第 17 条），例外进 `ARCO_COLOR_ALLOW` 带 `why` 与 `expect` 条数（17 条登记共 23 处，见 #96）
 
 ***
 
@@ -443,12 +444,23 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 
 
+### 96. 自建浮层改挂 a-popover、圆角改指官方档、四个零读者 token 删除，并新增门禁第 20 条守住「给 Arco 内部节点写配色」 — 🟢 已修复（2026-10-07）
+
+- **位置**：`packages/ui/src/components/settings/GeneralPanel.vue`（引擎获取指引浮层）、`packages/ui/src/styles/theme.scss`（圆角三别名 + `--dur-med` / `--ease-jelly` / `--shadow-dropdown` / `--z-overlay`）、`scripts/style-audit.cjs`（新增第 20 条、修掉第 8 条的过期例外注释）、`e2e/web/help-popover.spec.ts`（新增）、`docs/{zh,en}/frontend.md`（14 处 token 声明）。
+- **描述**：用户要求「进一步审查是否还有哪些前端实现并未使用 arco 原档，全部需要使用官方实现」。审查口径是把「选择器命中 Arco 内部节点、或命中挂在 Arco 组件类上的 class，且声明了配色」的规则全量清点（46 个文件 / 204 条配色规则 / 36 条命中），再逐条问「库有没有对应的 prop 或变量能做这件事」。结果四类：① **引擎获取指引浮层是自建浮层**——`Teleport` 到 body + `getBoundingClientRect` 算位置 + 300/150ms 悬停定时器 + resize/scroll 重定位监听 + 自己的 `z-index: 9999` / 背景 / 边框 / 阴影 / 圆角 / 入场动画，而 `a-popover`（底层就是 `a-trigger`）这六件事全部提供（`trigger.js` 有 `mouseEnterDelay` / `mouseLeaveDelay` / `autoFixPosition` / `clickOutsideToClose` / `popupHoverStay` / `unmountOnClose`）。② 圆角三个别名各自写死 `4px`，而 Arco 有官方档 `--border-radius-medium: 4px`（`es/style/index.css`）——同值但来源不同，库改档我们不跟。③ 四个 token **零读者**：`--dur-med` / `--ease-jelly` / `--shadow-dropdown` / `--z-overlay`（帮助面板改挂库组件后，`--z-overlay` 与 `--shadow-dropdown` 失去最后的消费者），但中英规范里还写着「自建浮层仅剩两处」「层级三档」——死字段配着活声明，读文档的人会以为还有这套体系。④ 其余 23 处「给 Arco 内部节点写配色」确实是有据偏离（库无对应 prop，或原值不达 AA），可它们只写在文档段落里，**没有任何门禁守着**——下一次改动多加一条覆写不会有人报警。
+- **修复**：① 浮层改挂 `a-popover`：悬停开关与延迟、定位、视口避让、点击外部关闭、hover-stay、表面样式与层级全部交回库，只留库没给的两条（Esc 关闭——`trigger.js` 无 `escToClose`；键盘打开时把焦点移进浮层、关闭后归还触发器——它不管理焦点），`aria-expanded` / `aria-controls` 仍由我方维护（库不写）；脚本从约 90 行手写浮层机制降到约 35 行，模板删掉 `Teleport` 与 `:style` 定位。② 圆角三别名改指 `var(--border-radius-medium)`，名字只保留语义（胶囊 / 行 / 控件）。③ 删四个零读者 token，中英规范 14 处声明同步改口（批量脚本对每条锚点断言「恰好命中 1 次」，任何一条不中就整批不落盘）。④ 新增门禁第 20 条 `ARCO_COLOR_ALLOW`：17 条登记、共 23 处、每条带理由与 expect 条数；第 8 条那句「允许例外：侧边栏折叠宽度与进度条填充宽度」的注释也已按实测改掉——业务侧现在零布局属性过渡。**评估后不采纳的官方能力（逐条给库层证据，避免下一个人重新评估）**：`a-list` 内建分页（#95 已记：`list.js:212` 主动 omit 掉 `current`/`pageSize`，会丢受控能力）；`a-collapse`（其 header 不是标题元素，采纳会拆掉 #92 刚立的 `<h2>` 结构）；`a-scrollbar`（换滚动容器会拆掉 `useAutoScroll` 与 `logs-scroll.spec.ts` 钉住的 `.console` 几何与 `scrollTop` 判据）；`a-back-top`（语义是回到顶部，控制台要的是滚到底）；`a-input-search`（自带搜索按钮，我们的搜索行是 `a-input` + 官方 `#prefix` 插槽）；`a-link`（渲染 `<a href>`，Electron 里外链必须走 IPC `openExternal`，动作语义用 `a-button` 才对）；`a-form-item` 的 `labelAttrs`（#95 已记：69 个真 `<label>` 零个带 `for`）。
+- **修复效果验证**：新增 `e2e/web/help-popover.spec.ts` 3 条，用**真指针与真键盘**钉住四条通道：悬停开 + 离开关（含四步指引都渲染）、Enter 开且 `document.activeElement` 落在 `.exe-help-panel` 内、Esc 关且焦点回到触发器、`aria-expanded` 随开关翻转、表面（底 / 圆角 / 阴影）来自库自己的节点。**一处取证教训**：我第一版用合成 `dispatchEvent(new MouseEvent('mouseleave'))` 量 hover 关闭，得出「离开不关」的结论——合成的 mouseleave 不驱动 Arco 的 hover-stay 状态机，是真判据缺失而不是产品缺陷；改用 Playwright 真指针（`page.hover` + `page.mouse.move`）后四条通道全通。**删除实验两组**：把 `ARCO_COLOR_ALLOW` 里 `.dl-pager` 的 marker 改错 ⇒ 第 20 条同时报「未登记命中 `DownloadCard.vue:1206`」与「登记数不符」并退出码 1（还原转绿）；`--z-overlay` 等四个 token 删除后中英两份规范里对它们的**活引用**归零（残留 14 处全部是「已删的零读者」这句说明本身，脚本按行核对过）。`pnpm style:audit` **20/20**（45 文件）、`pnpm e2e:web` **81** 条、`vue-tsc --noEmit` 干净、`pnpm test` core 442 + ui 100、`pnpm lint` 全绿。规范落点：§7.5.1（圆角取官方档、时长两档与层级两档）、§7.5.6（自建浮层归零）、§7.5.8（浮层一律用库组件那条）。
+
+
+
+
 ## 🟢 已修复索引
 
 完整的问题描述 / 修复方案 / 验证证据见 [已修复归档](../../archive/style-todo-resolved.md)（只读留档）；修复后的规范落点见 [frontend.md §7.5](../frontend.md)。
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 96 | 自建浮层归零：引擎获取指引从「Teleport + getBoundingClientRect + 300/150ms 定时器 + 自带 z-index/阴影/入场动画」改挂 `a-popover`（悬停开关与延迟、定位、视口避让、点击外部关闭、hover-stay、表面与层级全交回库；只留库没给的 Esc 关闭与焦点移入/归还），脚本约 90 行降到约 35 行，新增 `e2e/web/help-popover.spec.ts` 3 条用真指针与真键盘钉四条通道（合成 mouseleave 曾给出「离开不关」的假结论）；圆角三别名改指官方档 `var(--border-radius-medium)`；删四个零读者 token（`--dur-med` / `--ease-jelly` / `--shadow-dropdown` / `--z-overlay`）并同步中英规范 14 处声明（批量脚本逐条断言恰好命中 1 次）；新增门禁第 20 条 `ARCO_COLOR_ALLOW`（17 条登记共 23 处带理由，删除实验：改错一个 marker ⇒ 同时报未登记命中与登记数不符）；七项官方能力评估后不采纳并逐条给库层证据（`a-list` 分页 / `a-collapse` / `a-scrollbar` / `a-back-top` / `a-input-search` / `a-link` / `labelAttrs`） | 2026-10-07 |
 | 95 | 浅色零换档：删掉 `body` 上的 `--danger-6/5/7`、`--warning-6/5/7`、`--green-6` 与深色块里的 `--green-6` 复述（库的状态色是间接层 `--danger-6: var(--red-6)`，换档连带重绘 125 个元素，而深色下因特异度从未生效——这就是「深色可接受、浅色不像库」的成因），角色档改直接取色板档 `red-7` 5.43 / `orange-8` 6.05 保 AA；四处官方 API 收口＝`ToolTip` 走 `content-class` 与 `position`／`disabled`、三个弹窗删六条与默认值相同的声明、`FileBrowserModal` 改用 `a-list` 的 `:loading` 与 `#empty`、`innerAriaLabel` 注释按实测收窄；两条评估后不采纳并写明理由（`a-list` 内建分页在 `list.js:212` 主动 omit 掉 `current`／`pageSize` 会丢受控能力；`labelAttrs` 不构成 label 关联，实测 69 个 `<label>` 零个带 `for`）；新增门禁第 19 条 + 删除实验（贴回 `--danger-6` ⇒ 点名并退 1） | 2026-10-07 |
 | 94 | Arco 官方用法审查：库自带 i18n 从未配置 ⇒ 英文界面浮层按钮「取消／确定」与表空态「暂无数据」都是中文（`stores/i18n.ts` 注册英文包 + `useLocale` 并同步 `html[lang]`）；`a-result :sub-title` 应为 `subtitle`（Web UI 未运行那一行提示从来没渲染过）、`a-menu :collapse` 应为 `collapsed`、`a-input-group compact` 在 2.58 无此 prop 亦无同名类；收回代理「状态栏 5 行 `.arco-tag-checked` 是死规则」的错报（`tag.js:85` 对非 checkable 返回 true，实测 4.84 生效）；新增 `e2e/web/arco-locale.spec.ts` 2 条含中文态正对照与摘掉 `useLocale` 的删除实验 | 2026-10-07 |
 | 93 | 十处按钮的 `color` 覆写冻结了 hover 文字色（scoped `[data-v-*]` 特异度 (0,4,0) 压过 Arco 的 `:hover` (0,3,0)，实测浅色悬停描边 161,21,30 而文字仍 203,39,45）：10 条覆写与 4 条 `a-statistic` 复述声明全删，hover／active 交回库按 `-5`／`-7` 档算，默认态颜色零变化；新增门禁第 18 条 `BTN_COLOR_ALLOW`（8 条按钮侧例外带理由与条数登记，另 23 条非按钮 Arco 节点覆写在 #93 里逐族登记），两组删除实验（贴回一条 ⇒ 红、`expect` 改 3 ⇒ 红且退出码 1） | 2026-10-07 |

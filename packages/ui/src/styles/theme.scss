@@ -29,10 +29,12 @@
   --badge-quant-fp32: #475569;
   --badge-quant-int: #dc2626;
 
-  /* 迁移兼容层：业务组件替换前，将旧语义映射到 Arco token。 */
-  --radius-pill: 4px;
-  --radius-row: 4px;
-  --radius-control: 4px;
+  /* 圆角直接取 Arco 的官方档位（--border-radius-medium = 4px，实测与旧值同），
+     这三个名字只保留语义（胶囊 / 行 / 控件），不再自带数值——库改档我们就跟，
+     不再维护第二套圆角刻度。字号 Arco 没有 CSS 变量（组件里写死 px），故 --fs-* 仍是我们的。 */
+  --radius-pill: var(--border-radius-medium);
+  --radius-row: var(--border-radius-medium);
+  --radius-control: var(--border-radius-medium);
   --fs-xs: 12px;
   --fs-sm: 12px;
   --fs-base: 13px;
@@ -42,21 +44,19 @@
   --console-fg: #e5e6eb;
   --primary-fg: #fff;
   --dur-fast: 0.16s;
-  --dur-med: 0.2s;
   /* 环境/注意力提示档（区别于交互反馈档）：这类动效的本质是「持续表示状态还在延续」，
-     一次性的 fast/med 表达不了它，所以它不受「交互反馈 ≤0.3s」约束，但必须
+     一次性的 fast 表达不了它，所以它不受「交互反馈 ≤0.3s」约束，但必须
      只动 transform/opacity，且由 reset.scss 的 prefers-reduced-motion 统一关停。 */
   --dur-ambient: 2s;
   --ease-smooth: ease;
-  --ease-jelly: ease;
-  --shadow-dropdown: 0 4px 12px rgb(0 0 0 / 12%);
-  /* 层级刻度（取代散落的 2 / 20 / 9999 孤值）：
-     chrome = 页面内常驻装饰（状态栏、控制台胶囊）；raised = 覆盖内容的框架（WebUI iframe 之上）；
-     overlay = 必须压过 Arco popup 动态计数器的悬浮面板（引擎帮助面板），
-     Arco 的 popup z-index 由运行时计数器发号（千位级），故这里刻意取到万位。 */
+  /* 层级刻度（取代散落的 2 / 20 孤值）：chrome = 页面内常驻装饰（状态栏、控制台胶囊）；
+     raised = 覆盖内容的框架（WebUI iframe 之上）。
+     原先第三档 overlay（9999，为「自建浮层必须压过 Arco popup 计数器」而设）已删——
+     引擎帮助面板改挂 a-popover 后不再有自建浮层，Arco 自己管弹层层级。
+     同理删掉零读者的 --dur-med / --ease-jelly / --shadow-dropdown：浮层表面（底 / 边 /
+     阴影）现在一律由 Arco 组件自带，业务侧不再自备一份阴影配方。 */
   --z-chrome: 2;
   --z-raised: 20;
-  --z-overlay: 9999;
 }
 
 :root[data-theme='dark'] {

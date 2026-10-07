@@ -195,8 +195,8 @@ for (const f of files) {
   });
 }
 
-// 8) 动画只动 transform/opacity（禁布局动画；宽/度等布局属性必须带 var(--dur-*)）
-//    允许例外：侧边栏折叠宽度与进度条填充宽度（均 var(--dur-med) var(--ease-jelly)）
+// 8) 动画只动 transform/opacity（禁布局属性过渡；实测当前零例外——侧边栏折叠与进度条
+//    填充的宽度过渡都已收进 Arco 组件自己的动效，业务侧不再写布局属性 transition）
 const a8 = new Audit();
 const LAYOUT_PROPS = /width|height|margin|padding|top:|left:|right:|bottom:/;
 for (const f of files) {
@@ -565,6 +565,95 @@ const a19 = new Audit();
   }
 }
 
+// ---------- 20. 给 Arco 内部节点写配色必须逐条登记（按钮侧归第 18 条） ----------
+// 第 18 条管住了按钮，但「改 Arco 组件的颜色」还有另一条路：直接选中库的内部节点
+// （`.arco-tag` / `.arco-table-th` / `.arco-descriptions-item-label` …）写 color / background。
+// 这类声明每一条都是「我们比库更懂这个节点该什么颜色」，所以要么用库的 prop / 变量表达，
+// 要么在这里带理由登记。判据与 17/18 同构：marker + expect 条数，多一条少一条都红。
+const ARCO_TEXT_TAGS = ['a-tag', 'a-doption', 'a-textarea', 'a-input', 'a-input-number', 'a-radio',
+  'a-radio-group', 'a-select', 'a-pagination', 'a-statistic', 'a-descriptions', 'a-typography',
+  'a-menu-item', 'a-table', 'a-list', 'a-dropdown', 'a-typography-text', 'a-typography-title'];
+const ARCO_COLOR_ALLOW = [
+  { file: 'packages/ui/src/components/common/DownloadCard.vue', marker: '.dl-pager', expect: 1,
+    why: '分页取次级字色：库的 simple 分页容器继承 text-1，比同行说明文字重一档' },
+  { file: 'packages/ui/src/components/common/DownloadCard.vue', marker: '.rec-badge', expect: 1,
+    why: '推荐徽标是实底强调芯片（白字压 primary-6），a-tag 的 color 预设里没有「实底蓝 + 白字」这一档' },
+  { file: 'packages/ui/src/components/common/DownloadCard.vue', marker: '.source-badge', expect: 1,
+    why: '来源族中性化（§7.5.7：来源不占色相），库预设没有中性灰实底档' },
+  { file: 'packages/ui/src/components/common/DownloadCard.vue', marker: 'url-history', expect: 2,
+    why: 'URL 历史下拉的分组标题与条目图标取次级/装饰档，库对 dropdown 分组不提供层级 prop' },
+  { file: 'packages/ui/src/components/layout/Sidebar.vue', marker: '.arco-menu-item:focus-visible', expect: 1,
+    why: '库的 a-menu-item 无 tabindex、不自带焦点环，键盘可见性只能我方补（#84）' },
+  { file: 'packages/ui/src/components/layout/StatusBar.vue', marker: '.arco-typography', expect: 1,
+    why: '状态栏是恒定品牌蓝铬面，库的 typography 取 text-1（浅色为深字）压蓝底只有 3.58，这里交回 inherit' },
+  { file: 'packages/ui/src/components/layout/TopBar.vue', marker: '.dd-manage', expect: 1,
+    why: '「管理模型」是次级动作，与同列表里的模型名条目分层级；库对 option 不提供层级 prop' },
+  { file: 'packages/ui/src/components/layout/TopBar.vue', marker: '.dd-item.active', expect: 1,
+    why: '标记「当前已加载的模型」——库的下拉没有「当前项」状态（selected 只在多选模式出现）' },
+  { file: 'packages/ui/src/components/models/LocalModelsPanel.vue', marker: 'row-selected', expect: 2,
+    why: '选中行底色 --row-selected-bg 是业务语义（当前模型所在行），库的 hover/斑马纹不是这个意思' },
+  { file: 'packages/ui/src/components/models/LocalModelsPanel.vue', marker: '.arco-table-th', expect: 1,
+    why: '表头取 text-2 次级档：库的 th 是 gray-10（比正文更重），与本页「数据为主、表头为辅」的层级相反' },
+  { file: 'packages/ui/src/components/service/CommandPreviewCard.vue', marker: '.cmd-preview', expect: 4,
+    why: '命令预览是恒定深底控制台面（§7.5.2 业务例外），库的 textarea 表面/文字/占位/聚焦都按主题取档，必须钉住' },
+  { file: 'packages/ui/src/components/service/ServiceStatusCard.vue', marker: '.status-desc', expect: 1,
+    why: 'descriptions 标签库内取 text-3（实测压卡片底 3.24 不达标），提到 text-2 达标' },
+  { file: 'packages/ui/src/components/settings/AboutPanel.vue', marker: '.about-desc', expect: 1,
+    why: '同上：descriptions 标签从 text-3 提到角色档 --fg-hint 才达 4.5' },
+  { file: 'packages/ui/src/components/settings/AppearancePanel.vue', marker: '.theme-radio-on', expect: 1,
+    why: '选中主题的字色：库给 checked 单选按钮铺 primary-1 底 + primary-6 字，深色下 4.2 不达标；换 --primary-6 会连带改圆点填充，故只改文字' },
+  { file: 'packages/ui/src/pages/ParamsPage.vue', marker: '.stat', expect: 2,
+    why: '统计值的警示橙 / 占位灰是业务状态档，a-statistic 只有 valueStyle 没有状态 prop（且 title 无 titleStyle）' },
+  { file: 'packages/ui/src/pages/ParamsPage.vue', marker: '.subcat-changed', expect: 1,
+    why: '「本类有改动」标记取角色橙：库的 tag 预设 orange 作文字 2.57 不达标' },
+  { file: 'packages/ui/src/pages/ParamsPage.vue', marker: '.target-item.active', expect: 1,
+    why: '性能目标当前项的强调字色，库的 option 无「当前项」状态' },
+];
+const a20 = new Audit();
+{
+  const counted = new Map();
+  for (const f of files) {
+    const relFile = path.relative(ROOT, f).split(path.sep).join('/');
+    if (isTokenLayer(f)) continue; // token 本体层由第 17 条按行登记
+    const lines = readLines(f);
+    const text = lines.join('\n');
+    const btnClasses = buttonClasses(text);
+    const compClasses = new Set();
+    const tplText = text.indexOf('<template>') >= 0 ? text.slice(text.indexOf('<template>')) : '';
+    for (const m of tplText.matchAll(/<(a-[a-z-]+)((?:[^>"']|"[^"]*"|'[^']*')*?)\/?>/g)) {
+      if (!ARCO_TEXT_TAGS.includes(m[1])) continue;
+      const cm = m[2].match(/\s(?:::?class|class)="([^"]*)"/);
+      if (!cm) continue;
+      for (const raw of cm[1].split(/[\s'`"{}[\]():,.]+/)) if (/^[a-z][\w-]*$/i.test(raw)) compClasses.add(raw);
+    }
+    let cursor = 0;
+    while (cursor < lines.length) {
+      const openIdx = lines.findIndex((ln, i) => i >= cursor && /^\s*<style\b/.test(ln));
+      if (openIdx < 0) break;
+      let closeIdx = openIdx + 1;
+      while (closeIdx < lines.length && !/^\s*<\/style>/.test(lines[closeIdx])) closeIdx++;
+      for (const r of colorRules(lines.slice(openIdx + 1, closeIdx), openIdx + 1)) {
+        const isButtonSide = /\.arco-btn[\w-]*/.test(r.selector) ||
+          [...btnClasses].some((c) => new RegExp(`\\.${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(r.selector));
+        if (isButtonSide) continue; // 第 18 条已管
+        const hitsArco = /\.arco-[a-z-]+/.test(r.selector) ||
+          [...compClasses].some((c) => new RegExp(`\\.${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(r.selector));
+        if (!hitsArco) continue;
+        const allow = ARCO_COLOR_ALLOW.find((a) => a.file === relFile && r.selector.includes(a.marker));
+        if (allow) counted.set(allow, (counted.get(allow) || 0) + 1);
+        else a20.add(f, r.line, `${r.selector} { ${r.props.join('; ')} }`);
+      }
+      cursor = closeIdx + 1;
+    }
+  }
+  for (const a of ARCO_COLOR_ALLOW) {
+    const got = counted.get(a) || 0;
+    if (got !== a.expect) {
+      a20.add(path.join(ROOT, a.file), 0, `例外登记数不符：「${a.marker}」期望 ${a.expect} 处，实测 ${got} 处（理由：${a.why}）`);
+    }
+  }
+}
+
 // ---------- 输出 ----------
 const out = [
   render('1. 组件内裸颜色（token 禁令）', a1.items),
@@ -589,12 +678,13 @@ const out = [
   render('17. token 层的 Arco 内部态类覆写逐条登记（含行数核对）', STATE_UNREG.map((t) => ({ file: '—', line: 0, text: t }))),
   render('18. a-button 配色不覆写（type/status + 色阶变量，例外带理由登记）', a18.items),
   render('19. 浅色（body 块）不换 Arco 状态色阶，避免连带重绘组件', a19.items),
+  render('20. 给 Arco 内部节点写配色必须逐条登记（按钮侧归第 18 条）', a20.items),
   `\n扫描 ${files.length} 个文件 · 规范依据 docs/zh/frontend.md §7.5`,
 ];
 
 console.log(out.join('\n'));
 
 const failed =
-  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19]
+  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19, a20]
     .some((a) => a.items.length > 0) || STATE_UNREG.length > 0;
 process.exit(failed ? 1 : 0);

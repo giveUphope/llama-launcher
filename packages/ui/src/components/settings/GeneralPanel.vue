@@ -2,7 +2,7 @@
 // 阶段三：设置页「常规」分组 —— 模型目录、llama 后端（引擎目录）+ 引擎检测、关闭窗口行为。
 // 设计稿 §14.10 / 补充指南 §14.10：模型目录提供「打开目录」；
 // 原独立「llama.cpp」标签（LlamaPanel）已整合为本卡片内的引擎目录行。
-import { computed, ref, watch, nextTick, getCurrentInstance, onMounted, onActivated, onDeactivated, onUnmounted } from 'vue';
+import { computed, ref, watch, nextTick, getCurrentInstance, onDeactivated, onUnmounted } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
@@ -112,15 +112,14 @@ async function onOpenLlamaReleases() {
   try { await window.api.openExternal(LLAMA_CPP_RELEASES_URL); } catch { /* 静默 */ }
 }
 
-// 悬浮帮助面板（引擎获取指引）
+// 悬浮帮助面板（引擎获取指引）：定位、视口避让、滚动跟随、hover 延迟与 teleport 全部交给
+// a-trigger（a-popover 的底层原语）。库里没有的只有两件事，所以只有这两处留在这里手写：
+// Esc 关闭（trigger.js 没有 escToClose 属性）与键盘打开时把焦点移进浮层（它不管理焦点）。
 const helpVisible = ref(false);
-// 触发器已改为 a-button：模板 ref 拿到的是组件实例，浮层定位要的是它的根 <button>
+// 触发器是 a-button：模板 ref 拿到的是组件实例，归还焦点要的是它的根 <button>
 const helpIconRef = ref<{ $el?: HTMLElement } | null>(null);
 const helpPanelRef = ref<HTMLElement | null>(null);
 const helpPanelId = `exe-help-panel-${getCurrentInstance()?.uid ?? 0}`;
-const helpPanelStyle = ref<Record<string, string>>({});
-let helpShowTimer: ReturnType<typeof setTimeout> | null = null;
-let helpHideTimer: ReturnType<typeof setTimeout> | null = null;
 
 const helpSteps = computed(() =>
   i18n.t('msg_exe_help_steps').split('\n').map((text, i) => ({ num: i + 1, text })),
@@ -130,94 +129,39 @@ function getHelpIconEl(): HTMLElement | null {
   return helpIconRef.value?.$el ?? null;
 }
 
-function updateHelpPanelPosition() {
-  const el = getHelpIconEl();
-  if (!el) return;
-  const rect = el.getBoundingClientRect();
-  const width = 320;
-  const left = Math.min(rect.right, window.innerWidth - width - 8);
-  helpPanelStyle.value = {
-    position: 'fixed',
-    top: `${rect.bottom + 4}px`,
-    left: `${Math.max(8, left)}px`,
-    width: `${width}px`,
-  };
+// 焦点归还：只有当焦点确实在浮层里（键盘打开过，又在浮层里按 Esc 或点浮层外）才收回触发器。
+// 纯 hover 开关时焦点从未进过浮层，这时抢焦点是错的。
+function returnHelpFocus() {
+  if (helpPanelRef.value && helpPanelRef.value.contains(document.activeElement)) getHelpIconEl()?.focus();
 }
-function clearHelpTimers() {
-  if (helpShowTimer) { clearTimeout(helpShowTimer); helpShowTimer = null; }
-  if (helpHideTimer) { clearTimeout(helpHideTimer); helpHideTimer = null; }
+// a-trigger 的可见性回调（受控模式）：hover 进出与点击外部关闭都走这里
+function onHelpVisibleChange(visible: boolean) {
+  helpVisible.value = visible;
+  if (!visible) returnHelpFocus();
 }
-function showHelp() {
-  if (helpHideTimer) { clearTimeout(helpHideTimer); helpHideTimer = null; }
-  if (helpShowTimer) return;
-  helpShowTimer = setTimeout(() => {
-    helpShowTimer = null;
-    updateHelpPanelPosition();
-    helpVisible.value = true;
-  }, 300);
-}
-function hideHelp() {
-  if (helpShowTimer) { clearTimeout(helpShowTimer); helpShowTimer = null; }
-  if (helpHideTimer) clearTimeout(helpHideTimer);
-  helpHideTimer = setTimeout(() => { helpHideTimer = null; helpVisible.value = false; }, 150);
-}
-// 键盘入口：hover 的定时器行为原样保留，键盘走「立即开/立即关」——按键不该等 300ms 悬停延迟。
-// 打开后把焦点移进浮层，浮层是 Teleport 到 body 的独立片段，不移入就 Tab 不进去它唯一的动作按钮。
-function openHelpByKeyboard() {
-  clearHelpTimers();
-  updateHelpPanelPosition();
-  helpVisible.value = true;
-  void nextTick(() => helpPanelRef.value?.focus());
-}
-function closeHelpByKeyboard() {
-  clearHelpTimers();
-  const focusInsidePanel = !!helpPanelRef.value && helpPanelRef.value.contains(document.activeElement);
-  helpVisible.value = false;
-  if (focusInsidePanel || document.activeElement === document.body) getHelpIconEl()?.focus();
-}
+// 键盘入口：Enter/Space 由原生 button 自带的 click 承接（不另写 keydown，写了会与 click
+// 叠加成「开→立刻关」）。打开后把焦点移进浮层——它唯一的动作是里面的按钮，不移入就 Tab 不进去。
 function onHelpActivate() {
-  if (helpVisible.value) closeHelpByKeyboard();
-  else openHelpByKeyboard();
+  const next = !helpVisible.value;
+  helpVisible.value = next;
+  if (next) void nextTick(() => helpPanelRef.value?.focus());
+  else returnHelpFocus();
 }
 function onHelpGlobalKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') closeHelpByKeyboard();
+  if (e.key === 'Escape') onHelpVisibleChange(false);
 }
 // Esc 监听随浮层开关配对：只在浮层真的打开期间驻留
 watch(helpVisible, (visible) => {
   if (visible) document.addEventListener('keydown', onHelpGlobalKeydown);
   else document.removeEventListener('keydown', onHelpGlobalKeydown);
 });
-function onHelpReposition() {
-  if (helpVisible.value) updateHelpPanelPosition();
-}
-// 帮助浮层跟随重定位：本组件在 keep-alive 的「应用设置」页内，onUnmounted 永不触发——
-// 监听必须配对 activate/deactivate，否则访问过一次设置页后，非 passive 的捕获期 scroll
-// 监听会终身驻留并在每次滚动（含两个控制台的自动滚动）上回调。
-function startHelpTracking() {
-  window.addEventListener('resize', onHelpReposition);
-  window.addEventListener('scroll', onHelpReposition, { capture: true, passive: true });
-}
-function stopHelpTracking() {
-  window.removeEventListener('resize', onHelpReposition);
-  window.removeEventListener('scroll', onHelpReposition, { capture: true });
-}
-onMounted(() => {
-  startHelpTracking();
-});
-onActivated(() => {
-  startHelpTracking();
-});
 onDeactivated(() => {
-  stopHelpTracking();
-  // 浮层 Teleport 到 body，不随 keep-alive 页面一起隐藏：切走页面时必须就地关掉
-  clearHelpTimers();
+  // 浮层挂在 body 上，不随 keep-alive 页面一起隐藏：切走页面时必须就地关掉
   helpVisible.value = false;
 });
 onUnmounted(() => {
   if (detectTimer) { clearTimeout(detectTimer); detectTimer = null; }
-  clearHelpTimers();
   document.removeEventListener('keydown', onHelpGlobalKeydown);
-  stopHelpTracking();
 });
 
 // ---- 关闭窗口行为 ----
@@ -230,24 +174,48 @@ const closeBehavior = computed<CloseBehavior>({
 <template>
   <Card title-key="nav_settings_general">
     <template #title-extra>
-      <!-- a-button 基座（type=text size=mini）+ class 覆盖保留原 .card-help-icon 视觉；
-           原生 button 的 Enter/Space 已由 @click 承接，无需另写 keydown 分支（写了反而与
-           浏览器自带的 click 叠加成「开→立刻关」） -->
-      <a-button
-        ref="helpIconRef"
-        class="card-help-icon"
-        type="text"
-        size="mini"
-        :aria-label="i18n.t('a11y_exe_help_toggle')"
-        :aria-expanded="helpVisible ? 'true' : 'false'"
-        aria-haspopup="true"
-        :aria-controls="helpVisible ? helpPanelId : undefined"
-        @mouseenter="showHelp"
-        @mouseleave="hideHelp"
-        @click="onHelpActivate"
+      <!-- 悬浮帮助面板：定位、视口避让、点击外部关闭、hover 停留、表面样式（底/边/阴影/
+           箭头/入场动画）全部由 a-popover 承载（官方组件，内部就是 a-trigger）。
+           库没有给的只有两件事，仍由本组件手写：Esc 关闭（trigger 无 escToClose 属性）
+           与键盘打开时把焦点移进浮层（它不管理焦点）。hover 延迟取 Arco 默认 100ms，
+           不再自定 300/150ms 的定时器。 -->
+      <a-popover
+        :popup-visible="helpVisible"
+        trigger="hover"
+        position="bottom"
+        :content-style="{ width: '320px' }"
+        content-class="exe-help-pop"
+        @popup-visible-change="onHelpVisibleChange"
       >
-        <Icon name="info" :size="13" />
-      </a-button>
+        <template #content>
+          <div :id="helpPanelId" ref="helpPanelRef" tabindex="-1" class="exe-help-panel">
+            <div v-for="step in helpSteps" :key="step.num" class="exe-help-step">
+              <span class="exe-help-step-num">{{ step.num }}</span>
+              <span class="exe-help-step-text">{{ step.text }}</span>
+            </div>
+            <a-button size="small" class="exe-help-open-btn" @click="onOpenLlamaReleases">
+              <template #icon><Icon name="external" :size="12" /></template>
+              {{ i18n.t('btn_open_llama_releases') }}
+            </a-button>
+          </div>
+        </template>
+        <!-- a-button 基座（type=text size=mini）+ class 覆盖保留原 .card-help-icon 视觉；
+             原生 button 的 Enter/Space 已由 @click 承接，无需另写 keydown 分支（写了反而与
+             浏览器自带的 click 叠加成「开→立刻关」） -->
+        <a-button
+          ref="helpIconRef"
+          class="card-help-icon"
+          type="text"
+          size="mini"
+          :aria-label="i18n.t('a11y_exe_help_toggle')"
+          :aria-expanded="helpVisible ? 'true' : 'false'"
+          aria-haspopup="true"
+          :aria-controls="helpVisible ? helpPanelId : undefined"
+          @click="onHelpActivate"
+        >
+          <Icon name="info" :size="13" />
+        </a-button>
+      </a-popover>
     </template>
 
     <a-form :model="{}" layout="horizontal" label-align="right"
@@ -298,20 +266,6 @@ const closeBehavior = computed<CloseBehavior>({
         </a-select>
       </a-form-item>
     </a-form>
-
-    <Teleport to="body">
-      <div v-if="helpVisible" :id="helpPanelId" ref="helpPanelRef" tabindex="-1" class="exe-help-panel"
-           :style="helpPanelStyle" @mouseenter="showHelp" @mouseleave="hideHelp">
-        <div v-for="step in helpSteps" :key="step.num" class="exe-help-step">
-          <span class="exe-help-step-num">{{ step.num }}</span>
-          <span class="exe-help-step-text">{{ step.text }}</span>
-        </div>
-        <a-button size="small" class="exe-help-open-btn" @click="onOpenLlamaReleases">
-          <template #icon><Icon name="external" :size="12" /></template>
-          {{ i18n.t('btn_open_llama_releases') }}
-        </a-button>
-      </div>
-    </Teleport>
   </Card>
 </template>
 
@@ -390,19 +344,10 @@ const closeBehavior = computed<CloseBehavior>({
 </style>
 
 <style lang="scss">
+// 浮层本体只留排印：底、边、阴影、圆角、箭头与入场动画都由 a-popover 提供（官方表面），
+// 层级也交回 Arco 的 popup 计数器——原这里的 z-index / box-shadow / animation 三条已删。
 .exe-help-panel {
-  z-index: var(--z-overlay);
-  padding: 10px 12px;
-  border-radius: var(--radius-row);
-  // 实底浮层（STYLE_TODO #41 / §7.5.6）：可读性优先，不用半透明玻璃 + backdrop-filter
-  background: var(--color-bg-2);
-  border: 1px solid var(--color-border-2);
-  box-shadow: var(--shadow-dropdown);
-  animation: exe-help-panel-in var(--dur-fast) var(--ease-jelly);
-}
-@keyframes exe-help-panel-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  outline: none; // tabindex="-1" 只为可编程聚焦，浮层不需要自己的焦点环（焦点环在触发器上）
 }
 .exe-help-panel .exe-help-step {
   display: flex;
