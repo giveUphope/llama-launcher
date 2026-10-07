@@ -4,14 +4,24 @@
 > 范围：Windows runner 远程打包 .exe + 自动创建 GitHub Release。
 > 索引：[README.md](../../README.md) · 相关：[ci-cd.md](ci-cd.md) · [packaging.md](packaging.md)
 
-release.yml 由 ci.yml 的 bump job 通过 `gh workflow run release.yml -f version="vX"` 触发，也可在 GitHub 上手动 workflow_dispatch 输入版本号。
+release.yml 由 ci.yml 的 release job 通过 `gh workflow run release.yml -f version="vX"` 触发，也可在 GitHub 上手动 workflow_dispatch 输入版本号。
 
 ---
 
 ## 1. 触发方式
 
-- **自动触发**：push main → ci.yml verify 通过 → bump job 自动递增版本并 `gh workflow run release.yml -f version="vX"`
+- **自动触发**：push main（非纯文档变更）→ ci.yml verify 通过 → release job 核对「package.json 版本尚无对应 tag」→ 打 tag `vX` 并 `gh workflow run release.yml -f version="vX"`
 - **手动触发**：GitHub → Actions → release → Run workflow → 输入版本号（如 v0.0.19）
+
+### 1.1 发版前置：版本递增在本地执行（2026-10-08 起）
+
+非文档变更的推送流程：
+
+1. 改完代码，在 `docs/CHANGELOG.md` 的 `[Unreleased]` 下写本轮条目；
+2. 本地运行 `node scripts/bump-version.cjs`（默认 patch）——版本文件与 CHANGELOG 版本段随本轮提交；
+3. push。CI 的 release job 核对版本号尚无对应 tag 后打 tag 并触发发版。
+
+**CI 不再向 main 提交任何内容**。旧系统由 CI 在远端跑 bump 并 `commit → tag → push`，远端永远比本地多一个提交：下次推送必然非快进被拒、本地 CHANGELOG 的 `[Unreleased]` 与 CI 的段落搬移必然冲突（2026-10-06 与 10-08 两次撞上后根治）。忘了本地 bump 时，release job 会红牌报错提示，补 bump 后随下一次推送发版。
 
 ---
 

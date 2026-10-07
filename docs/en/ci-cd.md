@@ -1,14 +1,14 @@
 # CI/CD workflow
 
 > Language: English · [中文](../zh/ci-cd.md)
-> Scope: GitHub Actions pipeline: PR/push validation, automatic version increment on the main branch and release triggering.
+> Scope: GitHub Actions pipeline: PR/push validation, release gate on the main branch (version increment runs locally).
 > Index: [README.en.md](../../README.en.md) · Related: [auto-release.md](auto-release.md) · [packaging.md](packaging.md)
 
 The repository uses two workflow files (.github/workflows/), which together make up the complete CI/CD pipeline:
 
 | File | Trigger | Responsibility |
 |------|------|------|
-| [`ci.yml`](../../.github/workflows/ci.yml) | `push main` + `pull_request` | Validation + automatic bump on the main branch + triggering release |
+| [`ci.yml`](../../.github/workflows/ci.yml) | `push main` + `pull_request` | Validation + release gate (checks the locally incremented version, creates the tag and triggers release) |
 | [`release.yml`](../../.github/workflows/release.yml) | `workflow_dispatch` (triggered by ci) | Windows runner packages the .exe + GitHub Release |
 
 See [auto-release.md](auto-release.md).
@@ -31,31 +31,29 @@ See [auto-release.md](auto-release.md).
 
 Both pull_request and push events go through verify.
 
-### 1.2 bump job (push to main only + not a bot + not a documentation-only change)
+### 1.2 release job (push to main only + not a bot + not a documentation-only change)
 
 - **Dependencies**: needs: [verify, changes] (skipped when verify fails; skipped when the `changes` job classifies the push as documentation-only)
 - **Guard condition**: `github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && needs.changes.outputs.non-doc == 'true'`
   - Only pushes to main are handled; the event fired after a PR is merged is picked up automatically
-  - `github.actor != 'github-actions[bot]'` is the **second** layer of insurance: what actually breaks the loop is a GitHub mechanism — a push written with the repository's default `GITHUB_TOKEN` **does not trigger workflows again**, so the bot's bump commit never brings around another CI round by itself (measured: bump commit `712233a` of v0.0.34 does not exist in the CI run list at all; after its parent `e156388` the list simply has a gap). The actor guard only covers a future switch to a PAT, or someone pushing manually as the bot.
-  - **Side effect (known and accepted)**: the bump commit that gets released **has no CI validation of its own** — it only changes version strings (`package.json` / `APP_VERSION` / the CHANGELOG heading / version references in the docs), so the risk surface is small; the real validation happened on its parent commit.
-  - **`non-doc == 'true'` (added 2026-09-01)**: the `changes` job resolves the file list of the commits in this push and bumps only when at least one non-documentation file changed (anything other than `docs/**`, the root `README.md` and `AGENTS.md`) — **documentation-only updates neither increment the version nor trigger a Release**, which avoids cutting a release every single time
+  - `github.actor != 'github-actions[bot]'`: CI itself no longer writes commits to main (see below); the guard stays as a second layer of insurance against accidental releases from a future bot / PAT push.
+  - **`non-doc == 'true'`**: the `changes` job resolves the file list of the commits in this push and only a push with at least one non-documentation file changed (anything other than `docs/**`, the root `README.md` and `AGENTS.md`) goes to release — **documentation-only updates never release**, which avoids version noise.
+- **The version increment runs locally (since 2026-10-08, which fixed the push divergence at its root)**: a non-documentation push must have run `node scripts/bump-version.cjs` locally first, with its results (version files + the CHANGELOG version section) committed as part of the push. The old system had CI run the bump remotely with `commit → tag → push` — the remote was always one commit ahead of local, so the next push was always rejected as non-fast-forward, and the local CHANGELOG `[Unreleased]` entries always conflicted with CI's section move (hit on 2026-10-06 and again on 10-08). CI now **writes nothing to main**, and the version declarations on both sides no longer drift.
 - **Steps**:
-  1. `actions/checkout@v7` (fetch-depth: 0, persist-credentials: true)
-  2. `actions/setup-node@v7` (**no `pnpm install`**: `bump-version.cjs` is a plain node script with no npm dependencies, so the install step was dropped starting 2026-09-09)
-  3. `node scripts/bump-version.cjs patch` — the patch increment. The sync scope is defined in **two places** inside the script: the "sync scope" comment at the top of the file + the manifest array in step 5 `['docs/zh/packaging.md','docs/en/packaging.md','docs/zh/architecture.md','docs/en/architecture.md','README.md','README.en.md','AGENTS.md']`. Those two used to disagree (the comment claimed the architecture document had been collected while the array had not been touched), which let the desktop row of the monorepo version table drift for three rounds in a row `0.0.12 → 0.0.34 → 0.0.40 → 0.0.41`; they are aligned now, and `verify-version-sync.cjs` holds the final invariant on the `pnpm lint` side. **The script itself is not inside the documentation paths**, so changing it still bumps and releases as usual. **The two language trees are the current case for this manifest**: a file under `docs/en/` that carries a version declaration must enter the manifest alongside its `docs/zh/` twin, otherwise a release leaves one side drifting.
-  4. Configure git user.name / git user.email as github-actions[bot]
-  5. Read the new version: `V=$(node -p "require('./package.json').version")`
-  6. `git add -A` → `git commit -m "chore(release): vX"` → `git tag -a vX` → `git push origin HEAD:main` + `git push origin vX`
-  7. `gh workflow run release.yml -f version="vX"` (triggers the release workflow through GH_TOKEN)
+  1. `actions/checkout@v7` (fetch-depth: 0 — all tags must be visible)
+  2. `actions/setup-node@v7` (**no `pnpm install`**: the check logic is plain node / shell)
+  3. Check: `V=$(node -p "require('./package.json').version")`; if `refs/tags/v$V` **already exists** ⇒ fail with a `::error::` red flag (= this push forgot the local bump; run the bump and ship it with the next push); if not ⇒ continue
+  4. `git tag -a "v$V"` + `git push origin "v$V"` (pushes the tag only — **no commit, no push of main**)
+  5. `gh workflow run release.yml -f version="v$V"` (triggers the release workflow through GH_TOKEN)
 
-On every push to main the pipeline runs: verify all green → the `changes` job classifies the nature of the change — only a **non-documentation change** automatically increments the version, creates a tag and triggers the Windows packaging; a documentation-only change (only `docs/**` / root `README.md` / `AGENTS.md`) means **both bump and Release are skipped** (verify still runs, which is what guarantees documentation/link integrity).
+On every push to main the pipeline runs: verify all green → the `changes` job classifies the nature of the change — a **non-documentation change** must have its version incremented locally (the release job checks that and creates the tag, triggering the Windows packaging); a documentation-only change (only `docs/**` / root `README.md` / `AGENTS.md`) means the **Release is skipped** (verify still runs, which is what guarantees documentation/link integrity).
 
 ### 1.3 changes job (documentation-only change detection)
 
 - After `checkout` (fetch-depth: 0) it takes the baseline and runs `git diff --name-only <base> HEAD`, aggregating the real list of changed files (it does not rely on the webhook's `commits[].modified` fields — that field is unreliable in the Actions environment).
 - **The baseline is taken per event type (fixed 2026-09-19)**: push → `github.event.before`; pull_request → `github.event.pull_request.base.sha`. **Historical defect**: the `pull_request` event has **no** `github.event.before`, so the old implementation interpolated it as an empty string and `git diff --name-only "" HEAD` failed with **exit 128** (reproduced locally), while `run` defaults to `bash -e` → on a PR the changes job was always red and `e2e` (`needs: changes`) got skipped along with it. Because this repository is driven mainly by pushes to main, the defect stayed latent for a long time (both PR runs in the repository predate the introduction of the changes job, so it never surfaced).
 - **Conservative fallback**: empty baseline / all 0 (first push) / `git rev-parse --verify` cannot resolve it (shallow clone or rewritten history) → emit a `::warning::` and output `non-doc=true` (E2E runs, and the release decision runs as well), **better one extra run than a missed check**.
-- If any file does not belong to `docs/*` / `README.md` / `AGENTS.md` → `non-doc=true`; if all of them are documentation → `non-doc=false` (skip bump and e2e).
+- If any file does not belong to `docs/*` / `README.md` / `AGENTS.md` → `non-doc=true`; if all of them are documentation → `non-doc=false` (skip release and e2e).
 - Event context is always injected into the script through `env:`; `${{ }}` is never interpolated directly inside `run:` (this blocks the script-injection pattern and makes it easy to extract the very same script body and run it locally).
 - **Locally verifiable**: the decision logic of `changes` is plain shell, so it can be pulled out of the workflow with js-yaml and executed directly with different `EVENT_NAME/PUSH_BEFORE/PR_BASE` combinations — all 7 scenarios of this round (push non-doc / push documentation-only / no changes at all / PR with base / PR without base / all-0 baseline / unknown sha) passed in real runs.
 - Purpose: documentation updates produce no version noise and trigger no Release; engineering/code changes such as `.github/`, `package.json`, `packages/`, `scripts/` still release as usual.
@@ -100,11 +98,11 @@ tsc -b uses project references, and the desktop package's tsc --noEmit needs sha
 
 ### 2.4 Preventing an infinite loop
 
-**The primary mechanism is GitHub's token rule, not the actor check inside the workflow**: a push made with the repository's default `GITHUB_TOKEN` does not start a new `on: push` workflow run, so the version bump commit pushed by the `bump` job naturally never triggers another CI round. Measured evidence: the bump commit of v0.0.34, `712233a`, **does not exist** in the CI run history (the list jumps from its parent `e156388` straight to the older `13b5ee8`).
+**Mechanically eliminated since 2026-10-08**: CI no longer writes any commit to main (the version increment moved local; the release job only creates a tag), so the "CI's push triggers another CI round" chain no longer exists. Historically it was broken by two layers: GitHub's token rule (a push made with the repository's default `GITHUB_TOKEN` does not start a new `on: push` workflow run — the bump commit of v0.0.34, `712233a`, does not exist in the CI run history for exactly this reason) plus the actor guard.
 
-`github.actor != 'github-actions[bot]'` is kept as the **second** layer: should a PAT be used for pushing in the future, or should someone manually push a version commit as the bot, the token rule no longer applies and the guard still blocks the loop.
+`github.actor != 'github-actions[bot]'` remains in the release job's guard condition: should someone push a version commit as the bot or with a PAT in the future, the release would not be triggered accidentally.
 
-Two connected conclusions — do not trip over them when changing the pipeline: ① **the released bump commit has no CI validation of its own** (it only changes version strings, so the risk is acceptable, and the real validation lives on its parent commit); ② at the end, `bump` **explicitly dispatches** the Release with `gh workflow run release.yml` — `workflow_dispatch` is not affected by the push-suppression rule above, so the Release runs as usual (verified working on v0.0.34).
+One connected conclusion still holds: at the end, the release job **explicitly dispatches** the Release with `gh workflow run release.yml` — `workflow_dispatch` is not affected by the push-suppression rule, so the Release runs as usual (verified working on v0.0.34, still in use).
 
 ### 2.5 Concurrency control
 
@@ -119,12 +117,12 @@ concurrency:
   cancel-in-progress: false
 ```
 
-- **CI cancellation applies to PRs only**: previously a push to main also had `cancel-in-progress: true`, yet the `bump` job performs `commit → tag → push → gh workflow run release.yml` **inside the same run**; if a new push cancelled it during that window, the result could be a half-finished state of "tag already pushed, Release never triggered". Measured: `bump` takes only 7s and the whole pipeline about 1 minute, so the cost of serial queueing is negligible and pushes are not cancelled.
+- **CI cancellation applies to PRs only**: previously a push to main also had `cancel-in-progress: true`, yet the release job performs `tag → push tag → gh workflow run release.yml` **inside the same run** (before 2026-10-08 it also did `commit → push main`, removed when the bump moved local); if a new push cancelled it during that window, the result could be a half-finished state of "tag already pushed, Release never triggered". The release job is now a seconds-long operation and the whole pipeline about 1 minute, so the cost of serial queueing is negligible and pushes are not cancelled.
 - **Release is grouped by version number and never cancelled**: two manual dispatches of the same version would fight over the same tag / Release, and cancelling mid-package leaves a half-built Release behind.
 
 ### 2.6 Timeout backstop and duration baseline
 
-Every job carries `timeout-minutes` (filled in 2026-09-19): `changes` 5 / `verify` 15 / `e2e` 20 / `bump` 10 / `release.build` 45 (its build and dist steps have an additional 20m per-step safeguard). The motivation is a hang race condition already observed on the release side (on a Windows runner, the turbo daemon × the vite 8 rolldown stdout pipe — the artifacts are produced but the process never exits): without a job-level timeout, a single hang burns 6h of quota for nothing.
+Every job carries `timeout-minutes` (filled in 2026-09-19): `changes` 5 / `verify` 15 / `e2e` 20 / `release` 5 / `release.build` 45 (its build and dist steps have an additional 20m per-step safeguard). The motivation is a hang race condition already observed on the release side (on a Windows runner, the turbo daemon × the vite 8 rolldown stdout pipe — the artifacts are produced but the process never exits): without a job-level timeout, a single hang burns 6h of quota for nothing.
 
 Measured duration baseline (run 35255644716, push main, 2026-09-17, total wall clock **1m11s**):
 
@@ -133,23 +131,18 @@ Measured duration baseline (run 35255644716, push main, 2026-09-17, total wall c
 | verify | 56s | `pnpm build` 16s, `pnpm test` 15s |
 | changes | 5s | — |
 | e2e | 54s | **Playwright Chromium download 16s** (since changed to a cache hit), web e2e 13s, electron smoke 10s |
-| bump | 7s | — |
+| release (the former bump; tag-only and faster since 2026-10-08) | 7s | — |
 
 Conclusion: `pnpm install` takes only 4~5s (the `cache: pnpm` of `setup-node` is already effective), so the artifact round trip for sharing build products between jobs is not worth it; the only genuinely savable cost is the browser download, which is why only it is cached.
 
 ---
 
-## 3. Manual local triggering
+## 3. Local bump and release (the only path since 2026-10-08)
 
-Version increment and release can be completed locally without depending on GitHub Actions:
+For non-documentation changes, increment the version locally before pushing:
 
 ```bash
 node scripts/bump-version.cjs patch   # or minor / major
 ```
 
-**Note**: bumping manually and then `git push origin main` hits CI's bump job, which increments once more (the bump guard looks only at the change type `non-doc` and at whether the actor is the bot — it does not recognise "already bumped locally") — the local version number is skipped and neither tagged nor released, so the published version ends up being the result of CI's second bump. Optional approaches:
-
-- **Locally only bump + create the tag + push the tag**, then trigger `release.yml` manually on GitHub (workflow_dispatch → enter the version number vX.Y.Z) — this avoids the second CI bump;
-- or accept the semantics "bump locally then push straight to main = the published version is CI's +1", and treat the tag output by CI as authoritative.
-
-Or rely entirely on the automated release: push non-documentation changes straight to main and let the bump job complete bump + tag + release.
+Once the version files and the CHANGELOG version section are committed and pushed with the round, the CI release job checks "the package.json version has no tag yet" and, if so, creates the tag and triggers the release — **the local bump is the release path itself**. The old warning "a manual bump followed by a straight push to main would be incremented once more by CI" is gone together with the CI-side bump; if the local bump is forgotten, the release job turns red with an instructive error, and the supplementary bump ships with the next push.

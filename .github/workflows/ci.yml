@@ -9,13 +9,13 @@ permissions:
   contents: read
 concurrency:
   group: ci-${{ github.ref }}
-  # push 到 main 不再取消在跑的运行：bump job 会在一个 run 内 commit → tag → push → 触发 Release，
-  # 中途取消可能留下「tag 已推、Release 未触发」的半程状态（实测 bump 仅 7s，串行排队的代价可忽略）。
+  # push 到 main 不取消在跑的运行：release job 会在一个 run 内 tag → push tag → 触发 Release，
+  # 中途取消仍可能留下「tag 已推、Release 未触发」的半程状态（job 仅剩秒级操作，串行排队代价可忽略）。
   # PR 仍是新提交取消旧运行。
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   # 判定本次变更是否仅涉及文档（docs/** 与仓库根 README.md / AGENTS.md）。
-  # 纯文档提交跳过 bump job（不递增版本、不发 Release）并跳过 E2E（渲染逻辑未动，无需 Playwright）。
+  # 纯文档提交跳过 release job（不发版）并跳过 E2E（渲染逻辑未动，无需 Playwright）。
   # 基线取法分两种事件（实测坑：pull_request 事件**没有** github.event.before，早期版本在 PR 上
   # 会让 git diff "" HEAD 以 exit 128 失败，导致 changes 变红、e2e 连带被跳过）：
   #   - push：以 push 前基线 github.event.before；
@@ -122,11 +122,18 @@ jobs:
             test-results/
           retention-days: 7
           if-no-files-found: ignore
-  bump:
+  # 发版闸门（2026-10-08 起版本递增归本地）：非文档推送必须已在本地跑过
+  # `node scripts/bump-version.cjs`（版本文件与 CHANGELOG 版本段随推送提交进来）。
+  # 本 job 只核对「package.json 版本尚无对应 tag」，不等 ⇒ 在当前 HEAD 打 tag 并触发 Release；
+  # 相等（= 忘了本地 bump）⇒ 报错退出，红牌提示补 bump 后随下次推送发版。
+  # CI 从此不向 main 写任何提交——旧系统由 CI 提交 bump，远端永远比本地多一个提交，
+  # 下次推送必然非快进被拒、且 CHANGELOG 的 [Unreleased] 与 CI 的段落搬移必然冲突
+  # （该分叉在 2026-10-06/10-08 两次撞上，本轮根治）。
+  release:
     needs: [verify, changes]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && needs.changes.outputs.non-doc == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     permissions:
       contents: write
       actions: write
@@ -134,24 +141,23 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          persist-credentials: true
       # bump-version.cjs 为纯 node 脚本（无 npm 依赖），本 job 无需 pnpm install
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - run: node scripts/bump-version.cjs patch
+      - id: ver
+        run: |
+          set -euo pipefail
+          V=$(node -p "require('./package.json').version")
+          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
+            echo "::error::非文档变更已推送，但 v$V 的 tag 已存在——本次推送没有先在本地跑 node scripts/bump-version.cjs。本地递增版本号并提交后，随下一次推送发版。"
+            exit 1
+          fi
+          echo "v=$V" >> "$GITHUB_OUTPUT"
       - run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      - id: ver
-        run: |
-          V=$(node -p "require('./package.json').version")
-          echo "v=$V" >> "$GITHUB_OUTPUT"
-      - run: |
-          git add -A
-          git commit -m "chore(release): v${{ steps.ver.outputs.v }}"
           git tag -a "v${{ steps.ver.outputs.v }}" -m "v${{ steps.ver.outputs.v }}"
-          git push origin HEAD:main
           git push origin "v${{ steps.ver.outputs.v }}"
       - name: Trigger release
         env:

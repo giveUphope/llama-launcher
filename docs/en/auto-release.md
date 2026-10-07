@@ -4,14 +4,24 @@
 > Scope: Remote packaging of the .exe on a Windows runner + automatic creation of the GitHub Release.
 > Index: [README.en.md](../../README.en.md) · Related: [ci-cd.md](ci-cd.md) · [packaging.md](packaging.md)
 
-release.yml is triggered by the bump job of ci.yml through `gh workflow run release.yml -f version="vX"`, and it can also be dispatched manually on GitHub via workflow_dispatch by entering the version number.
+release.yml is triggered by the release job of ci.yml through `gh workflow run release.yml -f version="vX"`, and it can also be dispatched manually on GitHub via workflow_dispatch by entering the version number.
 
 ---
 
 ## 1. Trigger modes
 
-- **Automatic trigger**: push main → ci.yml verify passes → the bump job increments the version automatically and runs `gh workflow run release.yml -f version="vX"`
+- **Automatic trigger**: push main (non-documentation change) → ci.yml verify passes → the release job checks "the package.json version has no tag yet" → creates tag `vX` and runs `gh workflow run release.yml -f version="vX"`
 - **Manual trigger**: GitHub → Actions → release → Run workflow → enter the version number (e.g. v0.0.19)
+
+### 1.1 Release prerequisite: the version increment runs locally (since 2026-10-08)
+
+The push flow for non-documentation changes:
+
+1. Finish the code, write the round's entry under `[Unreleased]` in `docs/CHANGELOG.md`;
+2. Run `node scripts/bump-version.cjs` locally (patch by default) — the version files and the CHANGELOG version section ship with the round's commit;
+3. Push. The CI release job checks that the version has no tag yet, then creates the tag and triggers the release.
+
+**CI no longer commits anything to main**. The old system had CI run the bump remotely with `commit → tag → push`: the remote was always one commit ahead of local, so the next push was always rejected as non-fast-forward and the local CHANGELOG `[Unreleased]` always conflicted with CI's section move (hit on 2026-10-06 and again on 10-08 before this was fixed at the root). If the local bump is forgotten, the release job turns red with an instructive error, and the supplementary bump ships with the next push.
 
 ---
 

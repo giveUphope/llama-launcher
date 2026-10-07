@@ -4,6 +4,17 @@
 
 ## \[Unreleased]
 
+## \[0.0.54] - 2026-10-07
+
+
+- **推送分叉根治：版本递增收归本地，CI 不再向 main 写提交（用户批注「当前经常触发推送问题又复现了，优化changelogs的问题并且解决远端本地版本号不一致问题」）**：出了什么事——旧系统 push 后由 CI 在远端跑 bump 并 `commit → tag → push`：远端永远比本地多一个提交，下次推送必然非快进被拒；且 CI 把 CHANGELOG 的 `[Unreleased]` 条目搬进新版本段，与本地持续追加的 `[Unreleased]` 必然冲突（2026-10-06 与 10-08 两次撞上）。**改法**：`node scripts/bump-version.cjs` 收回本地、推送前执行（版本文件与 CHANGELOG 版本段随推送提交进来）；ci.yml 的 `bump` job 改为 **release 闸门**——核对「package.json 版本尚无对应 tag」即打 tag 并触发发版，相等（= 忘了本地 bump）则红牌报错提示补 bump；CI 从此对 main 零写入，本地与远端版本声明零漂移、CHANGELOG 零冲突。**文档**：ci-cd §1.2 / §2.4 / §3 与 auto-release §1.1 中英两树同轮改写，AGENTS.md「Version bumps」与「提交到本地」两条流程陈述同步。
+
+- **参数页重置入口收敛单一「全部重置」（用户批注「清理会话参数按钮、恢复基线按钮用户体感混淆，应只做全部重置按钮，并且将重置逻辑对齐当前支持的参数的默认值」，STYLE_TODO #112）**：出了什么事——「恢复基线」（回基线快照，无基线灰掉）与「清除会话参数」（回出厂默认）并排双钮回退目标不同但外观一致，「恢复基线」的可用性还取决于用户感知不到的基线状态。**改法**：收敛为单一「全部重置」，重置目标即当前 `PARAMS` 表全部条目的 `default`（原 `clearSession` 语义：保留模型选择、清空基线），确认弹窗换明确文案；禁用条件只看「无基线且无修改」。store 删 `restoreBaseline` 动作与两个失读 i18n 键，新增 `btn_reset_all` / `msg_reset_all_confirm`；store 测试同步；四篇文档与 AGENTS.md 双语同步。
+
+- **模型下拉收敛为纯模型清单（用户批注「模型选择菜单不需要额外出现管理模型选项」，STYLE_TODO #111）**：「管理模型…」动作项与分割线删除，到模型管理页的导航由侧栏承担；`onSelectModel` 空路径分支随之移除；`.dd-manage` / `.dd-divider` 零读者样式清理（`lbl_manage_models` 键在服务页仍有读者，保留）。
+
+- **下拉触发钮的箭头从死槽里救回（用户批注「过长的名称省略逻辑正常，但下拉栏仍看不到下拉箭头」，STYLE_TODO #110）**：a-button 官方只有 icon/default 两个槽，TopBar 模型下拉与参数页性能目标按钮的尾箭头一直写在 `<template #suffix>` 里被 Vue 静默丢弃——自 Arco 迁移首日起从未渲染。两处箭头改挂默认槽（尾间距镜像官方前导图标 margin：medium 8px / small 6px）；style-audit 新增第 23 条守卫（a-button 块内出现 #suffix 即红，删除实验通过）。
+
 ## \[0.0.53] - 2026-10-07
 
 

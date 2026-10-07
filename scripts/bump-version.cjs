@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 /**
- * 自动更新版本号：读取 root package.json 中的 version，按类型（patch/minor/major）
- * 递增，然后同步更新所有版本声明文件并生成新的 git tag。
+ * 版本递增（本地执行）：读取 root package.json 中的 version，按类型（patch/minor/major）
+ * 递增，然后同步更新所有版本声明文件。
+ *
+ * 推送流程（非文档变更）：改完代码 → CHANGELOG.md 的 [Unreleased] 下写条目 →
+ *   本地运行本脚本 → 提交 → push。CI 的 release job 核对「版本号尚无对应 tag」后打 tag
+ *   并触发发版；CI 从此不向 main 写任何提交（2026-10-08 起）。
+ *   旧系统由 CI 在远端提交 bump——远端永远比本地多一个提交，下次推送必然非快进被拒、
+ *   CHANGELOG 的 [Unreleased] 与 CI 的段落搬移必然冲突，该分叉在 2026-10-06 与 10-08
+ *   两次撞上后根治。忘了本地 bump：release job 会红牌报错，补 bump 后随下次推送发版。
  *
  * 用法：node scripts/bump-version.cjs [patch|minor|major]
  *   默认 patch。
@@ -10,7 +17,7 @@
  *   - root package.json
  *   - apps/desktop/package.json
  *   - packages/shared/src/params/definitions.ts（APP_VERSION）
- *   - docs/CHANGELOG.md（[Unreleased] 标题 → 新版本）
+ *   - docs/CHANGELOG.md（[Unreleased] 下已有条目整体划入新版本段）
  *   - docs/zh/packaging.md 与 docs/en/packaging.md（所有旧版本号引用）
  *   - docs/zh/architecture.md 与 docs/en/architecture.md（monorepo 包版本表中的 desktop 行）
  *   - README.md（中文，GitHub 默认展示）/ README.en.md（旧版本号引用）
