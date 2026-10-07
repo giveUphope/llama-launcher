@@ -586,8 +586,8 @@ const ARCO_COLOR_ALLOW = [
     why: '库的 a-menu-item 无 tabindex、不自带焦点环，键盘可见性只能我方补（#84）' },
   { file: 'packages/ui/src/components/layout/StatusBar.vue', marker: '.arco-typography', expect: 1,
     why: '状态栏是恒定品牌蓝铬面，库的 typography 取 text-1（浅色为深字）压蓝底只有 3.58，这里交回 inherit' },
-  { file: 'packages/ui/src/components/layout/TopBar.vue', marker: '.dd-manage', expect: 1,
-    why: '「管理模型」是次级动作，与同列表里的模型名条目分层级；库对 option 不提供层级 prop' },
+  // （TopBar .dd-manage 斜体灰登记已随 #108 删除：管理模型动作项回归普通 option 形态，
+  //   与同面板模型条目及全站下拉一致——「层级区分」由分隔线承担，不再用异形文字）
   { file: 'packages/ui/src/components/layout/TopBar.vue', marker: '.dd-item.active', expect: 1,
     why: '标记「当前已加载的模型」——库的下拉没有「当前项」状态（selected 只在多选模式出现）' },
   { file: 'packages/ui/src/components/models/LocalModelsPanel.vue', marker: 'row-selected', expect: 2,

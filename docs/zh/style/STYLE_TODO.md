@@ -471,6 +471,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：提示行本体换 `a-tag closable`（warn=orange / info=gray 官方预设色对，`size="small"` + `nowrap`，图标走 `#icon` 槽），自绘行布局 / 角色色 / 忽略钮全删；忽略指纹逻辑不变（`@close` → 长句全文入 `settings.engine_hint_dismissed`，新消息照常出现）；`btn_dismiss_hint` 键失去读者删除（官方钮的 `aria-label="Close"` 为库内硬编码，非本地化——接受，官方组件行为）。对比度注记：预设对取代 #99 的角色档，是「文字进了官方组件」后采用官方配对，同 StatusTag 先例。
 - **修复效果验证**：drift 演示场景实测 tag 314px 官方 `arco-tag-orange` 预设类生效、关闭钮 `role="button"` + `aria-label="Close"` 就位、点关后指纹入库且标签消失；`pnpm style:audit` 全绿、`pnpm e2e:web` 81 条全绿。
 
+### 108. 模型下拉顶部动作项回归普通 option 形态：斜体灰自绘层级样式删除 — 🟢 已修复（2026-10-08）
+
+- **位置**：`packages/ui/src/components/layout/TopBar.vue`（模型下拉顶部「管理模型…」动作项）、`scripts/style-audit.cjs`（`ARCO_COLOR_ALLOW` 删 `.dd-manage` 死登记）。
+- **描述**：用户批注「优化下拉栏顶部（非菜单）的样式，目前实现和其他下拉栏样式存在明显差异」。TopBar 模型下拉的顶部「管理模型…」动作项被手绘成**斜体 + `--color-text-2` 灰**的特殊形态（自绘「层级区分」：与同列表的模型名条目视觉分层），与全站其他下拉的顶部形态（URL 历史下拉 = 官方 `a-dgroup` 组标题 + 普通选项）明显不同。
+- **修复**：删 `.dd-manage` 的斜体与特殊配色（宽 360px 共享规则保留）→ 动作项回归普通 option 形态，与同面板模型条目及全站下拉一致；「层级区分」由既有分隔线承担（动作项与模型列表间的 `dd-divider` 本就存在）；`ARCO_COLOR_ALLOW` 删 `.dd-manage` 死登记（账本跟现实）。
+- **修复效果验证**：`pnpm style:audit` 22/22（登记数与实测数恢复相等）、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿；drift 场景实测——管理项正体（italic normal）、官方 option 文字色（text-1）、360px 同宽、分隔线保留。
+
 ### 107. 日志页卡片化：全站最后一个内容裸页面换官方 Card 基座 — 🟢 已修复（2026-10-08）
 
 - **位置**：`packages/ui/src/pages/LogsPage.vue`（筛选行 + 控制台 + 计数条整页内容）。
@@ -546,6 +553,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
 | 100 | 引擎提示行本体对齐官方组件（用户批注「审查提示样式是否符合arco官方档」）：#99 后提示行仍剩行布局 / 角色色 / 忽略钮三处自绘——官方 `a-alert` 是横幅（width:100%、14px、8/15 内距硬编码）与行内形态冲突，评估后不采纳；换 `a-tag closable`（warn=orange / info=gray 官方预设 + 官方关闭钮内建 role="button"/aria-label + `#icon` 槽 + `nowrap`），自绘行布局 / 角色色 / 忽略钮全删，忽略指纹逻辑不变（@close 入库）；`btn_dismiss_hint` 键失去读者删除（官方钮 aria-label="Close" 为库内硬编码） | 2026-10-08 |
+| 108 | 模型下拉顶部动作项回归普通 option 形态（用户批注「优化下拉栏顶部（非菜单）的样式，目前实现和其他下拉栏样式存在明显差异」）：「管理模型…」动作项的手绘斜体灰形态（自绘层级区分）删除，回归普通 option（正体 + 官方文字色），与同面板模型条目及全站下拉（URL 历史下拉 = dgroup 组标题 + 普通选项）一致；层级区分由既有分隔线承担；`ARCO_COLOR_ALLOW` 删 `.dd-manage` 死登记 | 2026-10-08 |
 | 107 | 日志页卡片化（用户批注「优化卡片化，按arco官方档实现」）：概览卡片化后日志页是全站最后一个内容裸页面——整页内容（筛选行 / 提示条 / 控制台 / 计数条）包进官方 `Card` **无标题卡**（页级 h1「日志」已存在，加卡标题即与 h1 重复）；弹性链逐环打通（page-frame → 卡 → 卡体 → console-wrap → console-fill，每环 min-height: 0），卡片撑满页面剩余高、控制台填充卡体（实测卡高 786、consoleFills） | 2026-10-08 |
 | 106 | 概览应用操作日志换官方 Card 基座（用户批注「参考其他卡片样式进行优化，注意前端范式」，点名自绘 `.q-section` 裸标题区与同页官方 Card 状态卡的形态分裂）：换 `Card title-key="card_dash_applog"`（标题 h2 / 卡片头 / 边框 / 体边距 / 卡间 16px 全交回库），`.q-section`/`.q-header`/`.q-title`/`.card + .q-section` 四组自绘样式删除；恒深控制台与错误跳转钮原样保留在卡体内（useAutoScroll 定高小窗机制不变） | 2026-10-08 |
 | 105 | 范式纯化裁定：官方组件上的角色色修正层全部回归官方预设配对（用户对 #104 终态的追问「是否是自绘 arco 范式，这也是非预期的」；「跟随库官方观感」豁免从按钮文字延伸至 tag 预设配对，对比度差距 2.41~4.2 如实登记为已接受官方观感）：`subcat-changed` 文字覆写、LocalModelsPanel 四条 `badge-*`、ParamsPage 两个 stat 的值色覆写全删（显存超限警示改由官方 orange tag「超限」承载，新键 `lbl_vram_over`）；`ARCO_COLOR_ALLOW` 删两条死登记（账本跟现实）；占位态 muted 灰一并删除。保留终态（#104 裁定不变）：ParamRow 描边（Arco 校验同型）/ 中性灰提示行（文字非组件）/ TopBar 红 hover（窗口铬） | 2026-10-08 |

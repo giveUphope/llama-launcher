@@ -369,10 +369,6 @@ async function onOpenWeb() {
     min-width: 0;
   }
 }
-.dd-manage {
-  color: var(--color-text-2);
-  font-style: italic;
-}
 .dd-divider {
   margin: 4px 0;
 }
