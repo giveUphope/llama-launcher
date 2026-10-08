@@ -166,13 +166,31 @@ describe('每模型自动持久化：节流自动保存与全部重置', () => {
     params.set('ctx_size', 9999);
     saveParamsMock.mockClear();
 
-    params.resetCurrentModel();
+    await params.resetCurrentModel();
 
     const def = PARAMS.find((p) => p.key === 'ctx_size')!.default;
     expect(params.values['ctx_size']).toBe(def);
     expect(params.values[MODEL_KEY]).toBe('C:/models/foo.gguf');
     expect(params.hasChanges).toBe(false);
     expect(saveParamsMock).toHaveBeenCalledWith('C:/models/foo.gguf', expect.objectContaining({ [MODEL_KEY]: 'C:/models/foo.gguf' }));
+  });
+
+  it('resetCurrentModel：自动检测字段清空后立即重探回填（对齐 applyModel，不等下次启动）', async () => {
+    const api = (globalThis as any).window.api;
+    const origMmproj = api.models.detectMmproj;
+    api.models.detectMmproj = () => Promise.resolve('C:/detected/mmproj.gguf');
+    try {
+      const params = useParamsStore();
+      await params.applyModel('C:/models/foo.gguf');
+      // 上一模型的 mmproj 探测值在重置时被清空
+      params.set('mmproj', 'D:/old/mmproj-a.gguf');
+
+      await params.resetCurrentModel();
+
+      expect(params.values['mmproj']).toBe('C:/detected/mmproj.gguf');
+    } finally {
+      api.models.detectMmproj = origMmproj;
+    }
   });
 
   it('autoSave 不再写预设文件（预设机制已移除，双轨核心回归沿用）', async () => {

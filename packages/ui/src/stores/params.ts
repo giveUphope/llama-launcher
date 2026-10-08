@@ -248,8 +248,13 @@ export const useParamsStore = defineStore('params', () => {
     return false;
   });
 
-  /** 全部重置：当前模型参数回出厂默认（保留模型选择），随后自动持久化覆盖该模型的参数集。 */
-  function resetCurrentModel() {
+  /**
+   * 全部重置：当前模型参数回出厂默认（保留模型选择），随后自动持久化覆盖该模型的参数集。
+   * 对齐 applyModel 语义（2026-10-08）：重置把 mmproj/草稿模型等自动检测字段清空后，
+   * **立即重探回填**——不等下次启动，本会话内多模态/推测解码不因重置而失效；
+   * 探测只在字段为空时填充，不会覆盖已存参数集里的值。
+   */
+  async function resetCurrentModel() {
     const model = String(values[MODEL_KEY] ?? '');
     resetAll();
     if (model) {
@@ -257,6 +262,9 @@ export const useParamsStore = defineStore('params', () => {
       values['alias'] = modelBaseName(model);
     }
     persistModelParams();
+    if (model) {
+      await Promise.all([detectMmproj(model), detectDraftModel(model)]);
+    }
   }
 
   /**

@@ -19,6 +19,7 @@ export const en: Dict = {
   // ---------------- Params dual-track (baseline / session) ----------------
   btn_reset_all: 'Reset All',
   msg_reset_all_confirm: 'All parameters of the current model will be reset to the param table defaults (the model selection is kept) and the result is saved to this model automatically. Continue?',
+  msg_reset_all_hint: 'Resets all parameters of the current model to defaults and auto-saves them to this model (model selection is kept)',
   lbl_select_model: 'Select Model',
   lbl_manage_models: 'Manage Models',
   lbl_search_models: 'Search models...',

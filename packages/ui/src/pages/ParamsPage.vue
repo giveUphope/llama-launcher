@@ -173,7 +173,7 @@ async function applyTargetRecs() {
 
 // 全部重置：当前模型参数回当前参数表默认值（保留模型选择；确认防误触）。
 // 2026-10-08 起（每模型自动持久化）：重置后自动持久化覆盖该模型名下的参数集，
-// 无「基线 / 未保存修改」概念
+// 自动检测字段（mmproj/草稿模型）立即重探回填，无「基线 / 未保存修改」概念
 async function onResetAll() {
   const ok = await confirm({
     title: i18n.t('btn_reset_all'),
@@ -181,7 +181,7 @@ async function onResetAll() {
     variant: 'warning',
   });
   if (!ok) return;
-  params.resetCurrentModel();
+  await params.resetCurrentModel();
 }
 </script>
 
@@ -281,14 +281,17 @@ async function onResetAll() {
             <template #icon><Icon name="chevron_right" :size="12" /></template>
           </a-button>
         </ToolTip>
-        <!-- 全部重置：当前模型参数回出厂默认并自动持久化（禁用条件 = 无任何与默认不同的参数） -->
-        <a-button
-          size="small"
-          :disabled="!params.hasChanges"
-          @click="onResetAll"
-        >
-          {{ i18n.t('btn_reset_all') }}
-        </a-button>
+        <!-- 全部重置：当前模型参数回出厂默认并自动持久化（禁用条件 = 无任何与默认不同的参数）；
+             重置后 mmproj/草稿模型等自动检测字段立即重探回填（对齐 applyModel 语义） -->
+        <ToolTip :text="i18n.t('msg_reset_all_hint')">
+          <a-button
+            size="small"
+            :disabled="!params.hasChanges"
+            @click="onResetAll"
+          >
+            {{ i18n.t('btn_reset_all') }}
+          </a-button>
+        </ToolTip>
       </div>
     </div>
 

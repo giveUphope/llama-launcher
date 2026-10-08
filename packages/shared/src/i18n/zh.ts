@@ -17,6 +17,7 @@ export const zh = {
   // ---------------- 参数双轨逻辑（基线/会话） ----------------
   btn_reset_all: '全部重置',
   msg_reset_all_confirm: '将把当前模型的全部参数重置为参数表默认值（保留模型选择），重置结果自动保存到该模型名下。确定继续？',
+  msg_reset_all_hint: '将当前模型的全部参数重置为默认值，并自动保存到该模型（不影响模型选择）',
   lbl_select_model: '选择模型',
   lbl_manage_models: '管理模型',
   lbl_search_models: '搜索模型...',
