@@ -117,7 +117,7 @@ onUnmounted(() => {
       <div class="cmd-section">
         <span class="cmd-section-label">{{ i18n.t('lbl_cmd_extra') }}</span>
         <a-textarea
-          class="cmd-preview"
+          class="cmd-preview cmd-extra"
           v-model="extraArgs"
           :placeholder="i18n.t('cmd_extra_placeholder')"
           :auto-size="{ minRows: 3, maxRows: 8 }"
@@ -187,6 +187,13 @@ onUnmounted(() => {
   &:focus-within {
     border-color: rgb(var(--primary-6));
   }
+}
+
+/* 三行示例占位完整可见（#121）：auto-size 的 3 行行内高度（3×18=54px）不足以
+   容纳 3×19.5 行高 + 16px 内距 + 2px 边框 ≈ 76.5px，示例第三行被裁——
+   min-height 恒定胜过 auto-size 的行内 height；有内容时行内高度照常长大、不再受限 */
+.cmd-extra :deep(.arco-textarea) {
+  min-height: calc(4.5em + 18px);
 }
 
 .cmd-hint {

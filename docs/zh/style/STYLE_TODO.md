@@ -508,6 +508,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：① `subcat-changed` 文字覆写删除 → tag 回归纯 orange 预设；② LocalModelsPanel 四条 `badge-*` 删除 → 徽章回归纯预设（`:color` 预设承载全部配色）；③ ParamsPage 两个 stat 的值色覆写删除 → 统计值回归官方配色，显存超限的警示信号改由官方 `a-tag color="orange"`「超限」（新键 `lbl_vram_over`）承载；④ `ARCO_COLOR_ALLOW` 删 `.stat` / `.subcat-changed` 两条死登记（登记数与实测数恢复相等——账本必须跟着现实走）；⑤ 占位态 `muted` 次级灰覆写一并删除。**保留终态（非组件平行，#104 裁定不变）**：ParamRow `--warn` 描边（与 Arco 表单校验同型的边框态）、中性灰提示行（token 着色文字）、TopBar 关闭钮红 hover（a-button 基座 + 官方 token，窗口铬语义）。
 - **修复效果验证**：`pnpm style:audit` 22/22（`ARCO_COLOR_ALLOW` 登记数与实测数恢复相等）、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿、ui 103 / core 442 测试全绿；all-ram 等 4 个演示场景均不触发 `fits === false`（演示模型永不超限），超限 tag 的 `v-if` 路径与图标绑定对称、真实超限时自然显示。
 
+### 121. 扩展参数输入框高度裁切三行示例占位 — 🟢 已修复（2026-10-09，用户批注「优化输入框高度，完整展示示例文本」）
+
+- **位置**：`packages/ui/src/components/service/CommandPreviewCard.vue`（`.cmd-extra` 扩展参数框）。
+- **描述**：多行示例占位（三行：说明行 + `--no-warmup` + `--special`）需要 3×19.5 行高 + 16px 内距 + 2px 边框 ≈ 77px，而 Arco auto-size 按 3 行给的行内高度是 54px——示例第三行被裁掉，用户看不到「一行一个」的示例形态。
+- **修复**：`.cmd-extra :deep(.arco-textarea) { min-height: calc(4.5em + 18px) }`——CSS min-height 恒定胜过 auto-size 写入的行内 height（54px），占位完整可见；有内容时 auto-size 的行内高度照常长大、不再受此下限约束。
+- **修复效果验证**：mock 页实测输入框高度 54 → 77px（= 计算所需值），占位三行完整渲染；`pnpm style:audit` / `pnpm lint` 全绿。
+
 ### 120. 设置页摘要条预留宽死区（首项静态提示也被 132px 预留）— 🟢 已修复（2026-10-09，用户批注「优化间距」）
 
 - **位置**：`packages/ui/src/pages/SettingsPage.vue`（`.status-summary` 三条摘要项）。
@@ -589,6 +596,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 121 | 扩展参数输入框高度裁切三行示例占位（用户批注「优化输入框高度，完整展示示例文本」）：Arco auto-size 的 3 行行内高度（54px）容不下 3×19.5 行高 + 内距 ≈ 77px，示例第三行被裁——`.cmd-extra` 加 `min-height: calc(4.5em + 18px)` 保底（min-height 恒胜行内 height，有内容时不受限），实测 54→77px 占位完整 | 2026-10-09 |
 | 120 | 设置页摘要条间距优化（用户批注「优化间距」→「明显出现摘要间距不同的问题」）：`.summary-label` 全局 132px 防抖预留制造死区（视觉间距 58/44/48）；首版收窄预留到 2/3 项仍不齐（10/44）——终案彻底去掉预留，label 贴合自然宽（gap 10/10 齐平），状态切换时末项一次性横移 ≤24px 作为明示代价 | 2026-10-09 |
 | 119 | 下载卡文件行徽章列错位修复 + e2e 列对齐判据（用户批注「修复内容错位，并确保该问题不会影响到生产环境」）：`.file-name` 的 flex:1 被 ToolTip 宿主架空 + 行继承 Arco space-between，徽章列随名字长短漂移（cat 列实测散布 109px）——`.file-item` 显式 flex-start、名字宿主 `:deep + :has` 反查赋弹性（宿主 span 只带 ToolTip scope 属性，裸选择器够不到）、推荐徽章前移、size 定宽右对齐；来源徽章移出 uppercase 标题（不再渲染成 MODELSCOPE 混进标题）。**生产防波 = e2e 新增 ⑥ 列对齐判据（中英双语，跑生产构建）**，删除实验双向通过 | 2026-10-09 |
 | 118 | 清理卡失败明细原生 title 残留清零 + 门禁固化（用户批注「修复，不允许维护两套逻辑」，子代理全站交互审查的唯一确认残留）：`TrashCleanCard` 截断路径外包 `ToolTip` 删 `:title`（#101 同日新写代码漏网，其计数声明当场失真）；`style-audit` 新增第 24 条「原生 title 禁令」——模板内 title/`:title` 宿主只允许 `a-*` 组件与 iframe，自证解析规模（合法命中 <6 即红）；frontend.md §7.5.6 计数声明修订为实测 6 处、并补记 #115 漏改的「⑥ 级别筛选仍写分段单选组」 | 2026-10-08 |

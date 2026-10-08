@@ -236,7 +236,7 @@ describe('previewCommand', () => {
   });
 });
 
-describe('formatCommandLines（一行一个参数的查看形态，#121）', () => {
+describe('formatCommandLines（一行一个参数的查看形态）', () => {
   it('exe 独占一行，flag 连同其值一行，续行缩进两格；纯 flag 不带值', () => {
     expect(formatCommandLines([EXE_PATH, '-m', 'm.gguf', '-c', '2048', '--no-warmup']))
       .toBe(`${quoteArg(EXE_PATH)}\n  -m m.gguf\n  -c 2048\n  --no-warmup`);
