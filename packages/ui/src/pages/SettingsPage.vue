@@ -97,7 +97,6 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
         <Icon name="check_circle" :size="14" />
         <span class="summary-label">{{ i18n.t('lbl_settings_hint') }}</span>
       </div>
-      <div class="summary-divider"></div>
       <div class="summary-item">
         <Icon :name="modelsState === 'ok' ? 'check_circle' : modelsState === 'idle' ? 'info' : 'alert'" :size="14" />
         <ToolTip :text="modelsDir" :disabled="!modelsDir">
@@ -109,7 +108,6 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
           </span>
         </ToolTip>
       </div>
-      <div class="summary-divider"></div>
       <div class="summary-item">
         <Icon
           :name="exeState === 'checking' ? 'loading' : exeState === 'ok' ? 'check_circle' : exeState === 'missing' ? 'alert' : 'info'"
@@ -190,11 +188,8 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
   white-space: nowrap;
 }
 
-.summary-divider {
-  width: 1px;
-  height: 18px;
-  background: var(--color-border-2);
-}
+// （summary-divider 自绘分隔线已删：与统计条分隔线同族的被淘汰样式（STYLE_TODO 116 号），
+// 项间距由容器既有 gap 承担）
 
 .tab-content {
   display: flex;

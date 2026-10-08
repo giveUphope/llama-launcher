@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **设置页状态摘要条分隔线退役（用户批注「内容分隔还是使用被淘汰的样式」）**：出了什么事——「常规」页签顶部的状态摘要条（更改即时保存 · 模型目录状态 · 引擎状态）之间还有两根自绘的 1px 竖向分隔线（`.summary-divider`），与 #113 统计条分隔线、#115 分段组分隔线同族，且是全站最后一处。**改法**：两根分隔节点与样式块删除，项间距由容器既有 `gap: 10px` 承担；`grep divider` 全站零命中——分隔线语言至此完全统一为「纯间距分列」。登记 STYLE_TODO #116（中英两树）。**验证**：`pnpm lint` + ui 测试 + `pnpm style:audit` + e2e 全绿；mock 页目测摘要条三态文本纯间距排列。
+
 - **分段单选组全站退役，换切换按钮组（用户批注「按钮分隔还在使用被淘汰的样式」）**：出了什么事——日志页级别筛选还在用按钮型 radio-group（分段样式），它的钮间分隔线与 #113 退役的统计条分隔线同族——「部分组件间有线、部分没有」的反例还没清完。**改法**：全站仅存的两处分段组（日志页级别筛选、设置外观的主题三选一）一并换成独立 `a-button` 切换组——选中 = primary 实底、其余 secondary，`role="group"` + `aria-label`（新键 `lbl_level_filter`）+ `aria-pressed` 表达单选按下态，组件间纯 `gap: 8px` 无线；不取 checkable tag 方案（Arco Tag 无 tabindex，键盘无法切换）；外观面板原 `.theme-radio-on` 对比度修正随组消亡（primary 实底白字是 Arco 官方预设自身达标），style-audit 登记同步删。登记 STYLE_TODO #115（中英两树）。**验证**：`pnpm lint` + ui 测试 + `pnpm style:audit` + e2e 全绿；mock 页目测两组均为纯间距按钮、选中态实底。
 
 - **e2e 存量修复：预设页签移除后 6 个 spec 的陈旧引用清零，81 条全绿**：出了什么事——「参数页单视图」那轮删了预设页签，但 e2e 只跑了单测没跑 e2e，6 条用例还在等 `.page-tabs` 里的「自定义参数」页签（app/a11y/logs-scroll/layout-stability/narrow-viewport/params 六个 spec），30s 超时假红；`arco-locale` 找的「预设行删除按钮」宿主也随面板消亡。**改法**：所有指向参数页页签的点击删除（参数页直出 69 行，原页签点击兼任的「行已挂载」等待改为显式 `expect(.param-row-wrapper).toBeVisible()`）；`arco-locale` 的 popconfirm 腿删除——全站已无 `a-popconfirm` 宿主，不能为测试造一个生产没有的浮层，Arco 内建文案一致性仍由表格空态腿（暂无数据 / No data）+ 七页 CJK 残留扫描（中文态正对照）守护。**验证**：`pnpm e2e:web` 81 passed / 0 failed。
