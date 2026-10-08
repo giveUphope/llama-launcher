@@ -121,7 +121,9 @@ function onClear() {
          （无标题卡——页级 h1「日志」已存在，避免重复；筛选行 / 控制台 / 计数条
          依次排在卡体内，边框 / 底 / 内距交回库） -->
     <Card class="logs-card">
-    <!-- 级别筛选 + 搜索 + 操作按钮：同一行（按钮右对齐） -->
+    <!-- 级别筛选 + 搜索 + 操作按钮：单行编排（2026-10-08，用户裁定）——按钮收纯图标
+         （ToolTip 承担说明 + aria-label 补无障碍名），省出的宽度交给搜索框；
+         不许折行：窗口最小宽 1024 下三段合计约 440px（图标钮后），单行恒放得下 -->
     <div class="filter-row">
       <a-radio-group
         class="level-filter"
@@ -149,16 +151,21 @@ function onClear() {
           <a-button
             size="small"
             :disabled="filteredOutputs.length === 0"
+            :aria-label="i18n.t('copy_console')"
             @click="onCopyAll"
           >
             <template #icon><Icon name="copy" :size="12" /></template>
-            {{ i18n.t('copy_console') }}
           </a-button>
         </ToolTip>
         <ToolTip :text="i18n.t('clear_console')">
-          <a-button size="small" class="clear-console" status="danger" @click="onClear">
+          <a-button
+            size="small"
+            class="clear-console"
+            status="danger"
+            :aria-label="i18n.t('clear_console')"
+            @click="onClear"
+          >
             <template #icon><Icon name="trash" :size="12" /></template>
-            {{ i18n.t('clear_console') }}
           </a-button>
         </ToolTip>
       </div>
@@ -203,21 +210,22 @@ function onClear() {
   margin-left: auto;
 }
 
-/* 筛选行 */
+/* 筛选行：单行编排（2026-10-08 用户裁定）——不开 wrap（折行 = 高度跳动 +
+   按钮掉到第二行），宽度压力由右侧图标钮（已收窄）与搜索框弹性收缩承担；
+   窗口最小宽 1024 下三段合计 ~440px，恒放得下 */
 .filter-row {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
-  flex-wrap: wrap;
 }
 
 // 级别筛选：Arco radio-group（button 型）替代自绘筛选 chip；
-// 仅保留换行与图标对齐覆盖，其余走 Arco 默认。
+// 仅保留图标对齐覆盖，其余走 Arco 默认（wrap 已随单行编排删除——
+// 五钮是一组刚性筛选，组内折行只会更难看）。
 // 图标+文本在 .arco-radio-button-content 内（content 默认 block：图标与文本
 // baseline 对齐偏下 2px 且无间距），需显式 inline-flex + gap 对齐
 .level-filter {
-  flex-wrap: wrap;
   :deep(.arco-radio-button-content) {
     display: inline-flex;
     align-items: center;
@@ -244,7 +252,8 @@ function onClear() {
 
 .search-box {
   flex: 1;
-  min-width: 200px;
+  // 下限 140：1024 最小窗宽下理论分得 ~280px，此值只是极端情况的兜底
+  min-width: 140px;
   max-width: 380px;
 }
 
