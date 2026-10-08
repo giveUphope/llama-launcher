@@ -347,6 +347,38 @@ for (const lang of ['zh', 'en'] as const) {
       await expect(page.locator('.parse-status-slot')).toBeAttached();
       expect(judgeDownloadSlots(await collectDownloadSlots(page)), `${langName}态下载卡`).toEqual([]);
     });
+
+    test(`⑥文件行徽章列对齐：cat/quant/size 三列跨行一致，来源徽章不继承标题大写（#119）`, async ({ page }) => {
+      await gotoPage(page, lang, 'models');
+      await openModelsTab(page, lang, 'library');
+      // 驱动 mock 下载流到文件列表：填 URL → 解析（ModelScope 源直出文件列表）
+      await page.locator('.url-row input').fill('https://modelscope.cn/models/Qwen/Qwen3-8B');
+      await page.locator('.parse-btn').click();
+      await expect(page.locator('.file-item').first()).toBeVisible();
+      const cols = await page.evaluate(() => {
+        const right = (row: Element, sel: string) => {
+          const el = row.querySelector(sel);
+          return el ? Math.round(el.getBoundingClientRect().right) : null;
+        };
+        const rows = Array.from(document.querySelectorAll('.file-item .arco-list-item-content'));
+        const badge = document.querySelector('.files-header .source-badge');
+        const title = document.querySelector('.files-header .section-title');
+        return {
+          catRight: rows.map((r) => right(r, '.file-cat')),
+          sizeRight: rows.map((r) => right(r, '.file-size')),
+          quantRight: rows.map((r) => right(r, '.quant-badge')).filter((v): v is number => v !== null),
+          badgeOutOfTitle: !!(badge && title && badge.parentElement !== title),
+          badgeUppercase: badge ? getComputedStyle(badge).textTransform : null,
+        };
+      });
+      // 徽章组右缘成列（宽度随文字不同的徽章左缘允许漂移，右缘必须齐）；容差 2px = 取整噪声
+      const spread = (xs: number[]) => Math.max(...xs) - Math.min(...xs);
+      expect(spread(cols.catRight), `${langName}态 cat 列错位：${JSON.stringify(cols.catRight)}`).toBeLessThanOrEqual(2);
+      expect(spread(cols.sizeRight), `${langName}态 size 右缘错位：${JSON.stringify(cols.sizeRight)}`).toBeLessThanOrEqual(2);
+      expect(spread(cols.quantRight), `${langName}态 quant 列错位：${JSON.stringify(cols.quantRight)}`).toBeLessThanOrEqual(2);
+      expect(cols.badgeOutOfTitle, '来源徽章应移出 section-title（不继承 uppercase 组标题体例）').toBe(true);
+      expect(cols.badgeUppercase, '来源徽章不应渲染成大写').not.toBe('uppercase');
+    });
   });
 }
 

@@ -508,6 +508,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：① `subcat-changed` 文字覆写删除 → tag 回归纯 orange 预设；② LocalModelsPanel 四条 `badge-*` 删除 → 徽章回归纯预设（`:color` 预设承载全部配色）；③ ParamsPage 两个 stat 的值色覆写删除 → 统计值回归官方配色，显存超限的警示信号改由官方 `a-tag color="orange"`「超限」（新键 `lbl_vram_over`）承载；④ `ARCO_COLOR_ALLOW` 删 `.stat` / `.subcat-changed` 两条死登记（登记数与实测数恢复相等——账本必须跟着现实走）；⑤ 占位态 `muted` 次级灰覆写一并删除。**保留终态（非组件平行，#104 裁定不变）**：ParamRow `--warn` 描边（与 Arco 表单校验同型的边框态）、中性灰提示行（token 着色文字）、TopBar 关闭钮红 hover（a-button 基座 + 官方 token，窗口铬语义）。
 - **修复效果验证**：`pnpm style:audit` 22/22（`ARCO_COLOR_ALLOW` 登记数与实测数恢复相等）、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿、ui 103 / core 442 测试全绿；all-ram 等 4 个演示场景均不触发 `fits === false`（演示模型永不超限），超限 tag 的 `v-if` 路径与图标绑定对称、真实超限时自然显示。
 
+### 119. 下载卡文件行徽章列错位 + 来源徽章混入标题体例 — 🟢 已修复（2026-10-09，用户批注「修复内容错位，并确保该问题不会影响到生产环境」）
+
+- **位置**：`packages/ui/src/components/common/DownloadCard.vue`（`.file-item` 文件行与 `.files-header`）。
+- **描述**：① 文件行的量化/类别/推荐徽章位置随文件名长短漂移（实测三行 cat 列 x = 851/820/742，散布 109px）——成因是双重的：`.file-name { flex: 1 }` 被 ToolTip 宿主（`.tooltip-host` flex: 0 1 auto）架空，名字不吸收自由空间；行又继承 Arco list-item 的 `space-between`，把剩余空间均匀摊到徽章上。只有 file-size 因右对齐幸免。② 来源徽章写在 `.section-title` **内部**，继承组标题的 `uppercase` 体例渲染成「MODELSCOPE」，混进标题文本。
+- **修复**：① `.file-item` 显式 `justify-content: flex-start`；名字宿主用 `:deep + :has` 反查（`.file-item :deep(.tooltip-host:has(> .file-name))`）赋 `flex: 1 1 auto`——:deep 必需，宿主 span 只带 ToolTip 自己的 scope 属性，本组件 `[data-v]` 落不到它头上（第一版裸 `:has` 选择器即因此全然无效）；推荐徽章移到量化徽章之前，量化/类别/大小右列成列；`.file-size` 定宽 56px 右对齐（KB/GB 文本宽度不同会带漂列）。② 来源徽章移出标题、改为 `.header-main` 分组的兄弟节点（uppercase 不再漏入；组内 gap 8px，与右侧打开页按钮由 space-between 分居）。
+- **修复效果验证**：**e2e 新增 ⑥ 判据（中英双语）**：驱动 mock 下载流到文件列表，断言 cat/quant/size 三列右缘跨行一致（容差 2px）+ 来源徽章已移出标题且非 uppercase——e2e 跑在**生产构建**上，判据红即挡在生产之前；删除实验：撤掉 `:has` 宿主规则 ⇒ ⑥ 双语转红，恢复 ⇒ 绿（首轮红牌还抓出恢复脚本把规则插进注释中间致规则失效的次生错误）。`pnpm style:audit` 24 条全绿、`pnpm lint` + ui/core 测试全绿。
+
 ### 118. 清理卡失败明细的原生 title 残留（#101 同日新增代码漏网）— 🟢 已修复（2026-10-08，用户裁定「修复，不允许维护两套逻辑」）
 
 - **位置**：`packages/ui/src/components/settings/TrashCleanCard.vue:163`（`<span class="trash-fail-path" :title="f.path">`——清理结果失败明细的截断路径）。
@@ -575,6 +582,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 119 | 下载卡文件行徽章列错位修复 + e2e 列对齐判据（用户批注「修复内容错位，并确保该问题不会影响到生产环境」）：`.file-name` 的 flex:1 被 ToolTip 宿主架空 + 行继承 Arco space-between，徽章列随名字长短漂移（cat 列实测散布 109px）——`.file-item` 显式 flex-start、名字宿主 `:deep + :has` 反查赋弹性（宿主 span 只带 ToolTip scope 属性，裸选择器够不到）、推荐徽章前移、size 定宽右对齐；来源徽章移出 uppercase 标题（不再渲染成 MODELSCOPE 混进标题）。**生产防波 = e2e 新增 ⑥ 列对齐判据（中英双语，跑生产构建）**，删除实验双向通过 | 2026-10-09 |
 | 118 | 清理卡失败明细原生 title 残留清零 + 门禁固化（用户批注「修复，不允许维护两套逻辑」，子代理全站交互审查的唯一确认残留）：`TrashCleanCard` 截断路径外包 `ToolTip` 删 `:title`（#101 同日新写代码漏网，其计数声明当场失真）；`style-audit` 新增第 24 条「原生 title 禁令」——模板内 title/`:title` 宿主只允许 `a-*` 组件与 iframe，自证解析规模（合法命中 <6 即红）；frontend.md §7.5.6 计数声明修订为实测 6 处、并补记 #115 漏改的「⑥ 级别筛选仍写分段单选组」 | 2026-10-08 |
 | 117 | GGUF 建议芯片走官方 checkable 交互档（用户批注「偏离完全修复」，审查结论「视觉完全官方、交互未走 checkable」）：applicable 档挂 `:checkable` + `:checked`（恒 true 保 arcoblue 配色，点击仍走既有 `@click`），即获官方悬停底色反馈与过渡；只读档保持非 checkable 不加假可供性；键盘缺失随「快捷路径非唯一路径」豁免（Arco Tag 不透传 $attrs，tabindex 挂不上） | 2026-10-08 |
 | 116 | 设置页状态摘要条分隔线退役（用户批注「内容分隔还是使用被淘汰的样式」）：`.status-summary` 三个状态项之间的 `.summary-divider`（自绘 1px×18px 竖条）与统计条/分段组分隔线同族，是全站最后一处自绘分隔——两根分隔节点与样式块删除，项间距由容器既有 `gap: 10px` 承担；全站自此再无任何自绘或 a-divider 分隔线（`grep divider` 零命中） | 2026-10-08 |

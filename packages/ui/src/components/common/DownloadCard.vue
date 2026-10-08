@@ -754,8 +754,10 @@ function quantTooltip(q: QuantizationInfo | null): string {
       <!-- 模型文件列表 -->
       <div v-if="selectedModel" class="files-section">
         <div class="files-header">
-          <span class="section-title">
-            {{ i18n.t('lbl_model_files') }}
+          <span class="header-main">
+            <span class="section-title">{{ i18n.t('lbl_model_files') }}</span>
+            <!-- 来源徽章是标题的兄弟节点而非子节点：section-title 是 uppercase 组标题体例
+                 （§7.5.3），放里面会继承大写变换渲染成「MODELSCOPE」混进标题（STYLE_TODO 119 号） -->
             <a-tag class="source-badge" size="small">{{ sourceLabel(currentSource) }}</a-tag>
           </span>
           <ToolTip v-if="currentSource === 'huggingface'" :text="i18n.t('btn_open_hf_mirror')">
@@ -828,7 +830,11 @@ function quantTooltip(q: QuantizationInfo | null): string {
                 @click.stop
                 @change="toggleFile(f.path)"
               />
+              <!-- 文件行布局（STYLE_TODO 119 号）：名字宿主弹性吸收自由空间，徽章与大小右列对齐——
+                   此前 .file-name 的 flex:1 被 ToolTip 宿主（flex:0 1 auto）架空，
+                   行继承 Arco 的 space-between 把徽章均匀摊开，列随名字长短漂移 -->
               <ToolTip :text="f.path"><span class="file-name">{{ f.name }}</span></ToolTip>
+              <a-tag v-if="f.path === recommendedPath" class="rec-badge" size="small">{{ i18n.t('lbl_recommended') }}</a-tag>
               <ToolTip v-if="f.quantization" :text="quantTooltip(f.quantization)">
                 <a-tag
                   class="quant-badge"
@@ -836,7 +842,6 @@ function quantTooltip(q: QuantizationInfo | null): string {
                   :class="`quant-${f.quantization.family}`"
                 >{{ f.quantization.label }}</a-tag>
               </ToolTip>
-              <a-tag v-if="f.path === recommendedPath" class="rec-badge" size="small">{{ i18n.t('lbl_recommended') }}</a-tag>
               <a-tag class="file-cat" size="small" :class="`cat-${f.category}`">{{ categoryLabel(f.category) }}</a-tag>
               <span class="file-size">{{ f.sizeStr }}</span>
             </a-list-item>
@@ -1227,6 +1232,14 @@ function quantTooltip(q: QuantizationInfo | null): string {
   justify-content: space-between;
 }
 
+/* 标题 + 来源徽章的分组（#119）：徽章做标题的兄弟而非子节点——section-title 的
+   uppercase 体例不再漏进徽章；组内间距固定 8px，与右侧按钮由 space-between 分居 */
+.header-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .tasks-actions {
   margin-left: auto;
   display: flex;
@@ -1286,6 +1299,9 @@ function quantTooltip(q: QuantizationInfo | null): string {
 .file-item {
   display: flex;
   align-items: center;
+  // 显式左对齐压掉 Arco list-item 的 space-between 继承（#119：摊开式分布是
+  // 「徽章列随名字长短漂移」的另一半成因）；右列对齐由名字宿主弹性吸收承担
+  justify-content: flex-start;
   gap: 8px;
   border-radius: var(--radius-row);
   border: 1px solid var(--color-border-2);
@@ -1313,6 +1329,16 @@ function quantTooltip(q: QuantizationInfo | null): string {
 .file-check {
   flex-shrink: 0;
 }
+
+/* 名字宿主：ToolTip 的 .tooltip-host 是 flex:0 1 auto，会把 .file-name 的 flex:1
+   架空（名字不长大则剩余空间被摊到徽章上，列随名字长短漂移）——
+   用 :deep + :has 反查「包着 .file-name 的那个宿主」让它长大吸收自由空间，
+   徽章与大小从而右列对齐（#119；:deep 必需——宿主 span 只带 ToolTip 自己的
+   scope 属性，本组件的 [data-v] 落不到它头上；:has 先例见 .arco-dropdown-list 反查） */
+.file-item :deep(.tooltip-host:has(> .file-name)) {
+  flex: 1 1 auto;
+}
+
 
 .file-name {
   flex: 1;
@@ -1375,6 +1401,9 @@ function quantTooltip(q: QuantizationInfo | null): string {
   color: var(--fg-hint);
   font-size: var(--fs-sm);
   flex-shrink: 0;
+  // 定宽右对齐：KB/MB/GB 文本宽度不同，不定宽会带着左侧徽章列逐行漂移（#119）
+  min-width: 56px;
+  text-align: right;
 }
 
 /* 来源徽标（ModelScope / HF Mirror）：中性配色、以文字区分——可用色相已被类别族与量化族占满，
