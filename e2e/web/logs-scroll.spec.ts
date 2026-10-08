@@ -14,9 +14,7 @@ type Lang = 'zh' | 'en';
 
 const NAV_LOGS: Record<Lang, string> = { zh: '日志', en: 'Logs' };
 const NAV_PARAMS: Record<Lang, string> = { zh: '参数设置', en: 'Parameters' };
-// 「长页面」样本必须显式选到自定义参数页签：点侧栏进来默认落在参数预设页，那一页没有 69 行控件，
-// 断言「必然超出可视高」会在它身上假红（首跑就是这么红的，不是骨架问题）。
-const TAB_CUSTOM_PARAMS: Record<Lang, string> = { zh: '自定义参数', en: 'Custom Params' };
+// 2026-10-08 预设页签移除：参数页单视图直出 69 行控件，「长页面」样本不再需要切页签
 
 /**
  * 冷启动进目标页。英文态直接用 `?lang=en`（mock 的 language 由 URL 取，见 demo-mock 的 DEMO_SETTINGS）——
@@ -141,7 +139,8 @@ for (const lang of ['zh', 'en'] as Lang[]) {
 
     test('长页面在 .page-frame 内滚，外层 .app-content 不再被撑高', async ({ page }) => {
       await open(page, lang, NAV_PARAMS[lang]);
-      await page.locator('.arco-tabs-tab', { hasText: TAB_CUSTOM_PARAMS[lang] }).click();
+      // 等参数行真的挂载再量几何（原页签点击兼任此等待，2026-10-08 单视图后需显式等）
+      await expect(page.locator('.param-row-wrapper').first()).toBeVisible();
       const frame = await metric(page, '.page-frame');
       const content = await metric(page, '.app-content');
       expect(frame.innerScroll).toBe(true); // 参数页 69 行控件，必然超出可视高

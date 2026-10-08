@@ -19,8 +19,8 @@ type Lang = 'zh' | 'en';
 // 设置页与「外观」页签恒按中文点击——每条用例都是全新 context，mock 初始语言是 zh，
 // 语言切换发生在切到目标语言之前（沿用 app.spec.ts setLanguage 的做法）。
 const UI = {
-  zh: { dashboard: '概览', models: '模型管理', params: '参数设置', custom: '自定义参数', local: '本地模型', library: '模型库' },
-  en: { dashboard: 'Overview', models: 'Models', params: 'Parameters', custom: 'Custom Params', local: 'Local', library: 'Library' },
+  zh: { dashboard: '概览', models: '模型管理', params: '参数设置', local: '本地模型', library: '模型库' },
+  en: { dashboard: 'Overview', models: 'Models', params: 'Parameters', local: 'Local', library: 'Library' },
 };
 
 const ROUTE: Record<string, string> = {
@@ -108,7 +108,7 @@ function judgeParamSlots(rows: SlotRow[], expected: number): string[] {
 
 async function openCustomParams(page: Page, lang: Lang) {
   await gotoPage(page, lang, 'params');
-  await page.locator('.page-tabs .arco-tabs-tab', { hasText: UI[lang].custom }).click();
+  // 2026-10-08 预设页签移除：参数页单视图直出 69 行，无需切页签
   await expect(page.locator('.param-row-wrapper').first()).toBeVisible();
 }
 

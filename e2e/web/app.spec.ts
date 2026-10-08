@@ -130,7 +130,7 @@ test.describe('表单标签几何（双语）', () => {
       await expect(page.locator('.sidebar')).toBeVisible();
       await setLanguage(page, lang);
       await page.locator('.sidebar .arco-menu-item', { hasText: lang === 'zh' ? '参数设置' : 'Parameters' }).click();
-      await page.locator('.arco-tabs-tab', { hasText: lang === 'zh' ? '自定义参数' : 'Custom Params' }).click();
+      // 2026-10-08 预设页签移除：参数页单视图直出 69 行
       await expect(page.locator('.param-row-wrapper').first()).toBeVisible();
       await expectLabelsFit(page, '参数页');
       // 全部参数行都在 DOM 内（无虚拟列表），少一行说明渲染或选择器变了

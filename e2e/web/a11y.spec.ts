@@ -65,9 +65,9 @@ const TAB_BUDGET = 30;
 /** 弹窗内 Tab 圈数预算：实测弹窗内 4 个可 Tab 控件，16 次 = 4 圈。 */
 const DIALOG_TAB_BUDGET = 16;
 
-const UI: Record<Lang, { custom: string; change: string; dlgTitle: string }> = {
-  zh: { custom: '自定义参数', change: '更改', dlgTitle: '选择模型目录' },
-  en: { custom: 'Custom Params', change: 'Change', dlgTitle: 'Select model directory' },
+const UI: Record<Lang, { change: string; dlgTitle: string }> = {
+  zh: { change: '更改', dlgTitle: '选择模型目录' },
+  en: { change: 'Change', dlgTitle: 'Select model directory' },
 };
 
 /** 冷启动 → 走侧栏进目标页（demo 的 last_tab 会回跳概览，故不用 URL 直达）。 */
@@ -544,10 +544,9 @@ for (const lang of ['zh', 'en'] as const) {
       await open(page, lang, 2);
       await censusOn(page, lang, '服务', { minTabbable: 12 });
       await open(page, lang, 3);
-      // 默认页签是参数预设，没有 69 行控件；切到「自定义参数」才覆盖六个控件组件的补名
-      await page.locator('.page-tabs .arco-tabs-tab', { hasText: UI[lang].custom }).click();
+      // 2026-10-08 预设页签移除：参数页单视图直出 69 行控件，六类控件的补名随页覆盖
       await expect(page.locator('.param-row-wrapper').first()).toBeVisible();
-      await censusOn(page, lang, '参数设置/自定义参数', { minTabbable: 100, expectRows: PARAMS.length });
+      await censusOn(page, lang, '参数设置', { minTabbable: 100, expectRows: PARAMS.length });
       await open(page, lang, 6);
       await censusOn(page, lang, '应用设置', { minTabbable: 15 });
     });
@@ -629,7 +628,7 @@ test.describe('判据自证：摘掉本轮补上的属性必须转红', () => {
 
   test('③摘掉参数控件的 aria-label → 命名普查判据转红；还原后转绿', async ({ page }) => {
     await open(page, 'zh', 3);
-    await page.locator('.page-tabs .arco-tabs-tab', { hasText: UI.zh.custom }).click();
+    // 2026-10-08 预设页签移除：参数页单视图直出
     await expect(page.locator('.param-row-wrapper').first()).toBeVisible();
     expect(judgeCensus('基线', await runCensus(page), { minTabbable: 100, expectRows: PARAMS.length }), '基线应无报警').toEqual([]);
 

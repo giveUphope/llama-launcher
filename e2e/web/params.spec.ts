@@ -8,8 +8,7 @@ async function openParams(page: Page) {
   await expect(page.locator('.sidebar')).toBeVisible();
   await page.locator('.sidebar .arco-menu-item', { hasText: '参数设置' }).click();
   await expect(page).toHaveURL(new RegExp(`#/params(\\?|$)`));
-  // 默认落在「参数预设」页签，切到「自定义参数」才渲染参数控件
-  await page.locator('.page-tabs .arco-tabs-tab', { hasText: '自定义参数' }).click();
+  // 2026-10-08 预设页签移除：参数页单视图直出控件，进入即可交互
 }
 
 test.describe('参数页交互', () => {

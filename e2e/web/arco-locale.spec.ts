@@ -9,25 +9,18 @@ import { test, expect, type Page } from '@playwright/test';
  * 注册英文包 + 随 settings.language 调 `useLocale()`，顺带把 `html[lang]` 一起跟着切
  * （读屏按它选发音规则）。
  *
- * 判据为什么带中文态：只断言「英文态是英文」可能是空转——如果选择器根本没命中按钮，
+ * 判据为什么带中文态：只断言「英文态是英文」可能是空转——如果选择器根本没命中节点，
  * 文本集合为空也会绿。中文态要求同一批节点必须读出中文，这才证明量的是库自带文案。
+ *
+ * 2026-10-08：预设面板删除后 popconfirm 在全站失去最后一个宿主，原「删除预设浮层按钮」
+ * 一腿随之移除（不能为测试造一个生产没有的浮层）；Arco 内建文案仍由表格空态腿 +
+ * 七页 CJK 残留扫描（中文态正对照）守护。
  */
 
 const CJK = /[\u4e00-\u9fa5]/;
 
 type Lang = 'zh' | 'en';
 const url = (lang: Lang, hash = '') => `/?lang=${lang}${hash}`;
-
-/** 打开预设页并弹出「删除预设」的 a-popconfirm，返回浮层里两个按钮的文字 */
-async function popconfirmButtons(page: Page, lang: Lang) {
-  await page.goto(url(lang, '#/params'));
-  const del = page.locator('.col-actions .arco-btn', { hasText: lang === 'en' ? 'Delete' : '删除' }).first();
-  await expect(del, `${lang} 态应能命中删除按钮`).toBeVisible();
-  await del.click();
-  const pop = page.locator('.arco-popconfirm').first();
-  await expect(pop).toBeVisible();
-  return (await pop.locator('.arco-btn').allTextContents()).map((s) => s.trim());
-}
 
 /** 把模型表筛到空集，返回 Arco 空态节点的文字 */
 async function tableEmptyText(page: Page, lang: Lang) {
@@ -67,17 +60,6 @@ for (const lang of ['zh', 'en'] as const) {
     await page.goto(url(lang));
     expect(await page.locator('html').getAttribute('lang'), `${lang} 态 html[lang] 应跟随界面语言`)
       .toBe(lang === 'en' ? 'en' : 'zh-CN');
-
-    const buttons = await popconfirmButtons(page, lang);
-      console.log(`[arco-i18n][${lang}] popconfirm 按钮：${JSON.stringify(buttons)}`);
-    expect(buttons.length, '浮层应有两个按钮').toBeGreaterThanOrEqual(2);
-    if (lang === 'en') {
-      for (const b of buttons) expect(CJK.test(b), `英文态浮层按钮出现中文：${b}`).toBe(false);
-      expect(buttons.some((b) => /cancel/i.test(b)), '英文态取消按钮应为 Cancel').toBe(true);
-    } else {
-      // 中文态是正对照：同一批节点必须读出中文，否则上面的英文断言是空转
-      expect(buttons.filter((b) => CJK.test(b)).length, '中文态浮层按钮应为中文').toBe(buttons.length);
-    }
 
     const emptyText = await tableEmptyText(page, lang);
     console.log(`[arco-i18n][${lang}] 表格空态：${emptyText}`);

@@ -22,8 +22,10 @@ import { join, resolve } from 'node:path';
 //
 // 实测数字（2026-10-07 于 vite dev 服务 127.0.0.1:5173，视口 1024×680 = window.ts 的
 // minWidth/minHeight，中英各 8 次测量 = 16 次）：
-//   /dashboard 可见 183 · /models 447 · /service 206 · /params 208 · /params?自定义参数 1457 ·
+//   /dashboard 可见 183 · /models 447 · /service 206 · /params 208 ·
 //   /logs 183 · /webui 113 · /settings 213；**文档溢出 0px、越界元素 0 个，16 次全为 0**。
+//   （2026-10-08 起参数页单视图直出，原「/params?自定义参数 1457」二测随页签移除而删；
+//   当轮实测 /params 单视图本身零溢出）
 //   主操作区（顶栏 4 只按钮 + 窗口控制 + 侧栏 + 7 个导航项 + 折叠按钮）逐页 toBeInViewport 通过；
 //   注意 .window-controls 顶边实测 -0.5px（亚像素），Playwright 仍判在视口内。
 //   删除实验：注入 .param-grid{min-width:2048px} → 越界元素 687 个、最大 +1289px，
@@ -44,7 +46,6 @@ const NAV = [
   { to: '/webui', zh: '内置 Web UI', en: 'Built-in Web UI' },
   { to: '/settings', zh: '应用设置', en: 'Settings' },
 ];
-const TAB_CUSTOM: Record<Lang, string> = { zh: '自定义参数', en: 'Custom Params' };
 
 /** 主操作区：顶栏按钮簇 + 窗口控制 + 侧栏（含 7 个导航项与折叠按钮）。 */
 const CHROME = [
@@ -210,12 +211,7 @@ for (const lang of ['zh', 'en'] as const) {
         await openNarrow(page, lang, i);
         await measureAndJudge(page, lang, NAV[i].to);
         await expectChromeReachable(page, NAV[i].to);
-        if (NAV[i].to === '/params') {
-          // 参数页最密的一屏是「自定义参数」69 行（默认页签是参数预设，测不到网格）
-          await page.locator('.page-tabs .arco-tabs-tab', { hasText: TAB_CUSTOM[lang] }).click();
-          await expect(page.locator('.param-row-wrapper').first()).toBeVisible();
-          await measureAndJudge(page, lang, '/params?自定义参数');
-        }
+        // 2026-10-08 预设页签移除：参数页单视图直出 69 行（最密一屏就是默认页），原「切自定义参数页签二测」分支随之删除
       }
     });
   });
@@ -234,9 +230,9 @@ async function removeStyle(handle: ElementHandle<HTMLElement>) {
 test.describe('判据自证：撑破最小视口必须报警', () => {
   test('⑦-②元素级：把参数网格撑到 2 倍可视宽 → 越界判据转红且指认到 .param-grid（文档级此刻仍为 0，正是它抓不到的那类）', async ({ page }) => {
     await openNarrow(page, 'zh', 3);
-    await page.locator('.page-tabs .arco-tabs-tab', { hasText: TAB_CUSTOM.zh }).click();
+    // 2026-10-08 预设页签移除：参数页单视图直出，等行挂载即可
     await expect(page.locator('.param-row-wrapper').first()).toBeVisible();
-    const base = await measureAndJudge(page, 'zh', '/params?自定义参数（基线）');
+    const base = await measureAndJudge(page, 'zh', '/params（基线）');
     const handle = await injectStyle(page, `.param-grid{min-width:${base.clientWidth * 2}px !important}`);
     const broken = await measureOverflow(page);
     console.log(
@@ -249,7 +245,7 @@ test.describe('判据自证：撑破最小视口必须报警', () => {
     // 实测事实（写进判据而非只写注释）：外壳裁剪下文档级完全不响，删掉元素级这条就等于没判据
     expect(broken.docOverflow, '文档级这条在此类越界下必须仍是 0（若哪天变成非 0，说明外壳裁剪改了，须复核两条腿的分工）').toBe(0);
     await removeStyle(handle);
-    await measureAndJudge(page, 'zh', '/params?自定义参数（撤掉注入后）');
+    await measureAndJudge(page, 'zh', '/params（撤掉注入后）');
   });
 
   test('⑦-①文档级：取消外壳裁剪并撑宽顶栏 → 文档溢出判据转红（证明⑥-①不是恒等式）', async ({ page }) => {
