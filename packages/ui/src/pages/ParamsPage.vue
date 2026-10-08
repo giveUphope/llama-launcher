@@ -1,28 +1,16 @@
 <script setup lang="ts">
-import type { IconName } from '@/components/common/icon-map';
-import { computed, onMounted, onUnmounted, ref, watch, type Component } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { PARAMS, MODEL_KEY } from '@llama-launcher/shared';
 import type { PerfTarget, TargetRecommendation, OccupancyConfig } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
 import PageFrame from '@/components/common/PageFrame.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
-import PresetsPanel from '@/components/presets/PresetsPanel.vue';
 import ParamRow from '@/components/params/ParamRow.vue';
 import { confirm } from '@/composables/useConfirm';
 import { useVramEstimate } from '@/composables/useVramEstimate';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
-
-// 单页 + 页内 tab-strip 切换（与设置页同一体例）：query.tab 可深链，无 query 进入回退首个页签「参数预设」。
-// 参数预设（PresetsPanel）由 KeepAlive 缓存，切页不丢状态。
-type TabKey = 'custom' | 'presets';
-
-const TABS: Array<{ key: TabKey; icon: IconName; labelKey: string }> = [
-  { key: 'presets', icon: 'presets', labelKey: 'nav_params_presets' },
-  { key: 'custom', icon: 'params', labelKey: 'nav_params_custom' },
-];
 
 const SUBCATEGORY_ORDER: string[] = [
   'network', 'context', 'compute', 'memory', 'sampling',
@@ -30,39 +18,8 @@ const SUBCATEGORY_ORDER: string[] = [
   'identity', 'endpoints', 'security', 'behavior',
 ];
 
-const route = useRoute();
-const router = useRouter();
 const params = useParamsStore();
 const i18n = useI18nStore();
-
-// 进入参数设置（无 query：侧栏点击、/basic 等旧重定向、旧书签）固定落在「参数预设」（首个页签）；
-// 显式 ?tab=presets|custom|bench 仍深链有效。页签切换仅改写 query，不跨次进入记忆。
-const activeTab = computed<TabKey>(() => {
-  const t = String(route.query.tab ?? '');
-  if (t === 'presets' || t === 'custom') return t;
-  return 'presets';
-});
-
-function setTab(key: TabKey) {
-  if (key === activeTab.value) return;
-  void router.replace({ query: { ...route.query, tab: key } });
-}
-
-// 无 query 进入 /params 时归一化 URL 为默认页签，保证刷新/分享与视图一致
-watch(
-  () => [route.path, route.query.tab] as const,
-  ([p, t]) => {
-    if (p === '/params' && (t === undefined || t === '')) {
-      void router.replace({ query: { ...route.query, tab: 'presets' } });
-    }
-  },
-  { immediate: true },
-);
-
-const activeComponent = computed<Component | null>(() => {
-  if (activeTab.value === 'presets') return PresetsPanel;
-  return null; // custom 直接渲染 ParamRow 列表
-});
 
 // 按 subcategory 分组参数（保持定义顺序 + 自定义排序）
 const subcategoryGroups = computed(() => {
@@ -214,9 +171,9 @@ async function applyTargetRecs() {
   targetOpen.value = false;
 }
 
-// 全部重置：参数回当前参数表默认值 + 清空基线（保留模型选择；确认防误触）。
-// 2026-10-08 交互收敛：原「恢复基线 / 清除会话参数」双钮回退目标不同（基线快照 vs 出厂默认）
-// 但外观一致，体感混淆——收敛为单钮，重置目标即 PARAMS 表全部条目的 default
+// 全部重置：当前模型参数回当前参数表默认值（保留模型选择；确认防误触）。
+// 2026-10-08 起（每模型自动持久化）：重置后自动持久化覆盖该模型名下的参数集，
+// 无「基线 / 未保存修改」概念
 async function onResetAll() {
   const ok = await confirm({
     title: i18n.t('btn_reset_all'),
@@ -224,25 +181,14 @@ async function onResetAll() {
     variant: 'warning',
   });
   if (!ok) return;
-  params.clearSession();
+  params.resetCurrentModel();
 }
 </script>
 
 <template>
   <PageFrame>
-    <!-- 页内页签（与设置页同一体例）：参数预设 / 自定义参数（Arco Tabs） -->
-    <a-tabs class="page-tabs" :active-key="activeTab" @change="(k) => setTab(k as TabKey)">
-      <a-tab-pane v-for="t in TABS" :key="t.key" :key-value="t.key">
-        <template #title>
-          <Icon :name="t.icon" :size="13" />
-          <span>{{ i18n.t(t.labelKey) }}</span>
-        </template>
-      </a-tab-pane>
-    </a-tabs>
-
-    <!-- 参数预览条仅在「自定义参数」标签展示（预设界面聚焦预设编辑，不显示参数统计）：
-         a-statistic 承载统计（warn/muted 态走语义类），a-divider 分隔 -->
-    <div v-if="activeTab === 'custom'" class="params-status-bar">
+    <!-- 参数预览条：a-statistic 承载统计（warn/muted 态走语义类），a-divider 分隔 -->
+    <div class="params-status-bar">
       <div class="stat">
         <Icon name="params" :size="14" />
         <a-statistic :value="totalParamCount" :title="i18n.t('lbl_total_params')" />
@@ -324,26 +270,21 @@ async function onResetAll() {
         </template>
       </a-dropdown>
       <div class="status-right">
-        <!-- 分区折叠总控（仅自定义参数页签有分区概念）-->
-        <template v-if="activeTab === 'custom'">
-          <ToolTip :text="i18n.t('act_expand_all')">
-            <a-button size="small" :disabled="allOpen" :aria-label="i18n.t('act_expand_all')" @click="expandAll">
-              <template #icon><Icon name="chevron_down" :size="12" /></template>
-            </a-button>
-          </ToolTip>
-          <ToolTip :text="i18n.t('act_collapse_all')">
-            <a-button size="small" :disabled="openSections.length === 0" :aria-label="i18n.t('act_collapse_all')" @click="collapseAll">
-              <template #icon><Icon name="chevron_right" :size="12" /></template>
-            </a-button>
-          </ToolTip>
-        </template>
-        <!-- 基线徽章已移除（与「已调整」统计重复，基线状态保留在概览服务状态卡）；
-             2026-10-08 交互收敛：恢复基线 / 清除会话参数双钮合并为单一「全部重置」。
-             禁用条件只看「无基线且无修改」：有基线时参数与基线一致（hasChanges=false）
-             但基线≠默认值，重置仍有意义 -->
+        <!-- 分区折叠总控 -->
+        <ToolTip :text="i18n.t('act_expand_all')">
+          <a-button size="small" :disabled="allOpen" :aria-label="i18n.t('act_expand_all')" @click="expandAll">
+            <template #icon><Icon name="chevron_down" :size="12" /></template>
+          </a-button>
+        </ToolTip>
+        <ToolTip :text="i18n.t('act_collapse_all')">
+          <a-button size="small" :disabled="openSections.length === 0" :aria-label="i18n.t('act_collapse_all')" @click="collapseAll">
+            <template #icon><Icon name="chevron_right" :size="12" /></template>
+          </a-button>
+        </ToolTip>
+        <!-- 全部重置：当前模型参数回出厂默认并自动持久化（禁用条件 = 无任何与默认不同的参数） -->
         <a-button
           size="small"
-          :disabled="!params.baseline && !params.hasChanges"
+          :disabled="!params.hasChanges"
           @click="onResetAll"
         >
           {{ i18n.t('btn_reset_all') }}
@@ -351,46 +292,30 @@ async function onResetAll() {
       </div>
     </div>
 
-    <!-- 左侧 mini-nav 已重构入侧边栏子标签；内容区随 query.tab 切换 -->
     <div class="params-content">
-      <template v-if="activeTab === 'custom'">
-        <!-- 分组卡使用标准卡片标题（fs-lg 主色，与预设/服务等页对齐）；
-             可折叠：卡片头即切换钮，标题右侧 a-tag 标出该组相对出厂默认已改几项 -->
-        <Card
-          v-for="sub in subcategoryGroups"
-          :key="sub.key"
-          class="param-card"
-          :title-key="`subcat_${sub.key}`"
-          collapsible
-          :expanded="openSections.includes(sub.key)"
-          @update:expanded="onToggleSection(sub.key, $event)"
-        >
-          <template v-if="sectionChangedCount[sub.key]" #actions>
-            <a-tag size="small" color="orange">{{ i18n.t('subcat_changed_n', [String(sectionChangedCount[sub.key])]) }}</a-tag>
-          </template>
-          <div class="param-grid">
-            <ParamRow v-for="p in sub.params" :key="p.key" :p="p" />
-          </div>
-        </Card>
-      </template>
-
-      <KeepAlive v-else include="PresetsPanel">
-        <component
-          :is="activeComponent"
-          v-if="activeComponent"
-          :key="activeTab"
-        />
-      </KeepAlive>
+      <!-- 分组卡使用标准卡片标题（fs-lg 主色，与服务等页对齐）；
+           可折叠：卡片头即切换钮，标题右侧 a-tag 标出该组相对出厂默认已改几项 -->
+      <Card
+        v-for="sub in subcategoryGroups"
+        :key="sub.key"
+        class="param-card"
+        :title-key="`subcat_${sub.key}`"
+        collapsible
+        :expanded="openSections.includes(sub.key)"
+        @update:expanded="onToggleSection(sub.key, $event)"
+      >
+        <template v-if="sectionChangedCount[sub.key]" #actions>
+          <a-tag size="small" color="orange">{{ i18n.t('subcat_changed_n', [String(sectionChangedCount[sub.key])]) }}</a-tag>
+        </template>
+        <div class="param-grid">
+          <ParamRow v-for="p in sub.params" :key="p.key" :p="p" />
+        </div>
+      </Card>
     </div>
   </PageFrame>
 </template>
 
 <style scoped lang="scss">
-// 页签条与下方区块统一 8px 间距（§7.5 顶栏条与相邻区块间距规范）
-.page-tabs {
-  margin-bottom: 8px;
-}
-
 .params-status-bar {
   display: flex;
   align-items: center;

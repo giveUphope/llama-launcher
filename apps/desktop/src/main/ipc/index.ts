@@ -5,7 +5,7 @@ import { ipcMain } from 'electron';
 import type { IpcMain } from 'electron';
 import { registerSettingsIpc } from './settings.js';
 import { registerModelsIpc } from './models.js';
-import { registerPresetsIpc } from './presets.js';
+import { registerModelParamsIpc } from './model-params.js';
 import { registerServerIpc } from './server.js';
 import { registerSystemIpc } from './system.js';
 import { registerWindowIpc } from './window.js';
@@ -17,7 +17,7 @@ type IpcRegistrar = (ipcMain: IpcMain) => void;
 const ipcRegistrars: IpcRegistrar[] = [
   registerSettingsIpc,
   registerModelsIpc,
-  registerPresetsIpc,
+  registerModelParamsIpc,
   registerServerIpc,
   registerSystemIpc,
   registerWindowIpc,

@@ -26,9 +26,6 @@ export function getDefaultSettings(): AppSettings {
     llama_dir: '',
     models_dir: DEFAULT_MODELS_DIR,
     selected_model: '',
-    last_preset: '',
-    // 最近应用的预设 id（v3 起预设以 id 为主键）；旧字段 last_preset 仅兼容读取
-    last_preset_id: '',
     // 窗口几何:空字符串表示使用默认值并居中;格式 "x,y,width,height"
     window_geometry: '',
     // 默认以最大化状态启动
@@ -44,9 +41,9 @@ export function getDefaultSettings(): AppSettings {
     hf_mirror_host: '',
     // 扩展参数（追加到启动命令末尾的用户自定义参数，空 = 无）
     custom_args: '',
-    // 参数会话（临时轨道）：null = 无会话，启动走 selected_model + last_preset 预设链
-    session_values: null,
-    session_baseline: null,
+    // 参数会话（临时轨道）/ 预设引用字段已随每模型自动持久化移除（2026-10-08）：
+    // 旧 settings.json 里的 session_values/session_baseline/last_preset/last_preset_id
+    // 由 zod 对象剥未知键，静默忽略
   };
 }
 
@@ -76,41 +73,12 @@ const bool = (fallback: boolean) =>
 const enumOf = <T extends readonly [string, ...string[]]>(values: T, fallback: T[number]) =>
   z.enum(values).catch(fallback);
 
-const valuesShape = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
-
-/** 会话字段形状校验：非法/缺失一律回退 null（启动走预设应用链）。 */
-const sessionValuesSchema = z.preprocess(
-  (v) => {
-    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-    const clean: Record<string, unknown> = {};
-    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
-      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') clean[k] = val;
-    }
-    return Object.keys(clean).length > 0 ? clean : null;
-  },
-  valuesShape.nullable().catch(null),
-);
-
-const sessionBaselineSchema = z.preprocess(
-  (v) => {
-    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-    const b = v as Record<string, unknown>;
-    if (typeof b.preset_name !== 'string') return null;
-    const values = sessionValuesSchema.parse(b.values);
-    if (!values) return null;
-    return { preset_name: b.preset_name, values };
-  },
-  z.object({ preset_name: z.string(), values: valuesShape }).nullable().catch(null),
-);
-
 const settingsSchema = z.object({
   settings_version: num(SETTINGS_VERSION, 0, 999),
   server_exe: str(DEFAULT_SERVER_EXE),
   llama_dir: str(''),
   models_dir: str(DEFAULT_MODELS_DIR),
   selected_model: str(''),
-  last_preset: str(''),
-  last_preset_id: str(''),
   window_geometry: str(''),
   window_maximized: bool(true),
   theme_mode: enumOf(THEME_MODES, 'light'),
@@ -121,8 +89,6 @@ const settingsSchema = z.object({
   download_max_concurrent: num(DOWNLOAD_CONCURRENCY_DEFAULT, DOWNLOAD_CONCURRENCY_MIN, DOWNLOAD_CONCURRENCY_MAX),
   hf_mirror_host: str(''),
   custom_args: str(''),
-  session_values: sessionValuesSchema,
-  session_baseline: sessionBaselineSchema,
 });
 
 /**

@@ -111,7 +111,6 @@ const baseSettings: AppSettings = {
   server_exe: process.execPath,
   models_dir: './models',
   selected_model: '',
-  last_preset: '',
   window_geometry: '1280x800',
   theme_mode: 'dark',
   sidebar_collapsed: false,

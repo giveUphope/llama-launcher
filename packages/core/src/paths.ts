@@ -17,15 +17,17 @@ export const CONFIG_DIR = path.join(os.homedir(), '.llama_launcher');
 export const SETTINGS_FILE = path.join(CONFIG_DIR, 'settings.json');
 // llama-bench 体检结果（跨重启保留，见 bench-records.ts）
 export const BENCH_RECORDS_FILE = path.join(CONFIG_DIR, 'bench-records.json');
-// 预设文件统一存放在应用配置目录（与模型目录解耦：更换模型目录预设不丢，
-// 预设是「应用的参数集合」而不是「某个模型目录的附属物」）。
-// 历史版本曾存放在 <models_dir>/presets，升级时由 preset-repository 的
-// migratePresetStore 在应用启动时一次性搬入本目录。
-export const PRESETS_DIR = path.join(CONFIG_DIR, 'presets');
+// 每模型参数集目录（2026-10-08 起：参数跟模型走，自动持久化/自动载回，取代手存预设）。
+// 位置固定在应用配置目录，与模型目录解耦——模型目录只是模型文件的存放地。
+export const MODEL_PARAMS_DIR = path.join(CONFIG_DIR, 'model-params');
+
+// 旧版手存预设目录（两代历史：先 <models_dir>/presets，后集中到本目录）。
+// 预设机制已移除，本目录仅作为 migratePresetsToModelParams 的迁移源保留。
+export const LEGACY_PRESETS_DIR = path.join(CONFIG_DIR, 'presets');
 
 /**
  * 旧版预设目录（<models_dir>/presets）：仅作为迁移源路径解析，
- * 不再有任何读写——活目录恒为 PRESETS_DIR。
+ * 不再有任何读写——每模型参数集活目录恒为 MODEL_PARAMS_DIR。
  */
 export function legacyModelsPresetsDir(modelsDir: string): string {
   if (!modelsDir) return '';

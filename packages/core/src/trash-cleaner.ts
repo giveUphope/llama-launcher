@@ -1,8 +1,8 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join, relative, resolve, sep, extname, basename } from 'node:path';
-import { CONFIG_DIR, SETTINGS_FILE, PRESETS_DIR } from './paths.js';
+import { CONFIG_DIR, SETTINGS_FILE, MODEL_PARAMS_DIR } from './paths.js';
 import { DOWNLOAD_LOG_SUFFIX, LEGACY_META_SUFFIX } from './download-log.js';
-import { readPresetFileByName } from './presets-store.js';
+import { parseModelParams } from './model-params-store.js';
 import type { TrashItem, TrashKind, TrashRoot, DetectResult, CleanResult, TrashFailure } from '@llama-launcher/shared';
 
 /**
@@ -11,16 +11,16 @@ import type { TrashItem, TrashKind, TrashRoot, DetectResult, CleanResult, TrashF
  * 覆盖应用写入的全部落盘位置（生成清单与扫描规则一一对应）：
  *  - 配置目录 CONFIG_DIR（~/.llama_launcher/）：
  *      settings.json（白名单永不清理）、settings.json.bak/.tmp（损坏备份/原子写残留）、
- *      presets/（**预设活目录**：*.tmp/*.bak 原子写残留、*.json 损坏/孤儿检测）、
+ *      model-params/（**每模型参数集活目录**：*.tmp/*.bak 原子写残留、*.json 损坏/孤儿检测）、
  *      stats.jsonl（旧版下载统计，已停用）
- *  - 模型目录 modelsDir（下载落盘地；**预设已迁往 CONFIG_DIR/presets，不再有预设子目录**）：
+ *  - 模型目录 modelsDir（下载落盘地；参数集在 CONFIG_DIR/model-params，模型目录无参数扫描）：
  *      *.part（下载临时文件）、*.llama_dl.jsonl / *.llama_dl.json（续传日志/旧版快照）。
  *      历史版本遗留的 <models_dir>/presets 不扫描、不列入清理——迁移流程搬空它，
  *      搬不动的（同名冲突/损坏）属于用户数据，宁可保留也不冒误删风险。
  *
  * 设计原则：强校验、白名单、严格路径隔离
  *  - 所有待清理路径必须严格位于其声明根目录（CONFIG_DIR 或 modelsDir）内，且不是符号链接
- *  - settings.json 与有效预设永不清理；未识别的文件不列入清理（保守策略）
+ *  - settings.json 与有效参数集永不清理；未识别的文件不列入清理（保守策略）
  *  - 进行中/已暂停的下载任务占用的路径（partPath/localPath/续传日志）自动保护，
  *    由调用方传入 protectedPaths（DownloadManager.getProtectedPaths()）
  *  - cleanTrash 对每个传入项按其声明 kind 重新校验（防渲染层伪造路径/类型）
@@ -140,16 +140,25 @@ function walkFiles(
   }
 }
 
+/** 读取并解析一个模型参数集 JSON 文件（供孤儿/损坏判定）；文件名不参与解析，仅定位。 */
+function parseModelParamsByFile(dir: string, fileName: string): ReturnType<typeof parseModelParams> {
+  try {
+    return parseModelParams(readFileSync(join(dir, fileName), 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
 /**
- * 扫描一个预设目录内的残留（root 声明归属根，当前仅 CONFIG_DIR/presets 活目录）：
+ * 扫描每模型参数集目录（CONFIG_DIR/model-params 活目录）内的残留：
  *  - 原子写 .tmp/.bak 残留 → temp_file
- *  - *.json 解析失败 → broken_json；绑定模型已不存在 → orphan_preset
+ *  - *.json 解析失败 → broken_json；存储的模型文件已不存在 → orphan_model_params
  */
-function scanPresetsDir(presetsDir: string, root: TrashRoot, modelsDir: string, items: TrashItem[]): void {
-  if (!existsSync(presetsDir) || isSymbolicLink(presetsDir)) return;
+function scanModelParamsDir(paramsDir: string, root: TrashRoot, modelsDir: string, items: TrashItem[]): void {
+  if (!existsSync(paramsDir) || isSymbolicLink(paramsDir)) return;
   let entries;
   try {
-    entries = readdirSync(presetsDir, { withFileTypes: true });
+    entries = readdirSync(paramsDir, { withFileTypes: true });
   } catch {
     return;
   }
@@ -164,7 +173,7 @@ function scanPresetsDir(presetsDir: string, root: TrashRoot, modelsDir: string, 
   };
   for (const entry of entries) {
     if (!entry.isFile() || entry.isSymbolicLink()) continue;
-    const absPath = join(presetsDir, entry.name);
+    const absPath = join(paramsDir, entry.name);
     const ext = extname(entry.name).toLowerCase();
     if (entry.name.toLowerCase().endsWith('.json.tmp')) {
       // extname('x.json.tmp')='.tmp'；原子写残留
@@ -172,16 +181,16 @@ function scanPresetsDir(presetsDir: string, root: TrashRoot, modelsDir: string, 
     } else if (ext === '.tmp' || ext === '.bak') {
       add(absPath, 'temp_file', fileSize(absPath));
     } else if (ext === '.json') {
-      const parsed = readPresetFileByName(presetsDir, entry.name);
+      const parsed = parseModelParamsByFile(paramsDir, entry.name);
       if (!parsed) {
-        // 解析失败：损坏预设（形状非法/JSON 坏）
+        // 解析失败：损坏参数集（形状非法/JSON 坏）
         if (isBrokenJson(absPath)) add(absPath, 'broken_json', fileSize(absPath));
         continue;
       }
-      if (parsed.model && !existsSync(parsed.model)) {
-        add(absPath, 'orphan_preset', fileSize(absPath));
+      if (parsed.model_path && !existsSync(parsed.model_path)) {
+        add(absPath, 'orphan_model_params', fileSize(absPath));
       }
-      // 有效预设 / 纯参数集（model=null）：不清理
+      // 有效参数集（模型仍存在）：不清理
     }
     // 其他扩展名：不识别，不清理（保守策略）
   }
@@ -190,7 +199,7 @@ function scanPresetsDir(presetsDir: string, root: TrashRoot, modelsDir: string, 
 /**
  * 扫描模型目录内应用生成的下载残留：
  *  - .part / .llama_dl.jsonl / .llama_dl.json（活动/暂停任务占用者跳过）
- * 预设已迁往 CONFIG_DIR/presets，模型目录内不再有预设扫描。
+ * 参数集在 CONFIG_DIR/model-params，模型目录内没有参数集扫描。
  */
 function scanModelsDir(
   modelsDir: string,
@@ -229,12 +238,12 @@ function scanModelsDir(
  *
  * 识别规则（强校验）：
  *  1. CONFIG_DIR 根 *.tmp/*.bak/*.old/*.log → temp_file；stats.jsonl → legacy_stats
- *  2. CONFIG_DIR/presets（预设活目录）内 *.tmp/*.bak → temp_file；*.json：
- *     损坏 → broken_json；绑定模型已删除 → orphan_preset；有效/纯参数集 → 保留
+ *  2. CONFIG_DIR/model-params（参数集活目录）内 *.tmp/*.bak → temp_file；*.json：
+ *     损坏 → broken_json；绑定模型已删除 → orphan_model_params；有效/纯参数集 → 保留
  *  3. CONFIG_DIR 根非 settings.json 的 *.json：解析失败 → broken_json
  *  4. modelsDir 内下载残留（未被活动任务占用）→ download_orphan
  *
- * 白名单（永不清理）：settings.json、有效预设、CONFIG_DIR/modelsDir 自身、未识别文件
+ * 白名单（永不清理）：settings.json、有效参数集、CONFIG_DIR/modelsDir 自身、未识别文件
  */
 function collectTrashItems(opts: TrashScanOptions): TrashItem[] {
   const items: TrashItem[] = [];
@@ -282,8 +291,8 @@ function collectTrashItems(opts: TrashScanOptions): TrashItem[] {
       // 忽略读取错误
     }
 
-    // 1b. presets 活目录：残留临时文件 + 孤儿/损坏预设
-    scanPresetsDir(PRESETS_DIR, 'config', modelsDir, items);
+    // 1b. model-params 活目录：残留临时文件 + 孤儿/损坏参数集
+    scanModelParamsDir(MODEL_PARAMS_DIR, 'config', modelsDir, items);
   }
 
   // ---- 2. 模型目录（下载残留；modelsDir 嵌在 CONFIG_DIR 内时跳过避免重复）----
@@ -334,7 +343,7 @@ function revalidateItem(item: TrashItem, modelsDir: string, protectedPaths: Set<
       return item.root === 'config' && name.toLowerCase() === LEGACY_STATS_FILENAME;
     case 'temp_file': {
       if (item.root === 'config') return TEMP_EXTENSIONS.has(ext);
-      // models 根已无预设目录：临时文件残留不再来自模型目录（保守拒绝）
+      // models 根没有参数集目录：临时文件残留不来自模型目录（保守拒绝）
       return false;
     }
     case 'broken_json': {
@@ -347,13 +356,13 @@ function revalidateItem(item: TrashItem, modelsDir: string, protectedPaths: Set<
       // 清理时刻重查保护集：扫描后新启动/暂停的任务不被误删
       return !protectedPaths.has(resolve(item.absPath));
     }
-    case 'orphan_preset': {
-      // 孤儿预设只可能来自 CONFIG_DIR/presets 活目录
+    case 'orphan_model_params': {
+      // 孤儿参数集只可能来自 CONFIG_DIR/model-params 活目录
       if (item.root !== 'config' || ext !== '.json') return false;
-      if (!item.absPath.startsWith(PRESETS_DIR + sep)) return false;
+      if (!item.absPath.startsWith(MODEL_PARAMS_DIR + sep)) return false;
       // 清理时刻重读：模型文件重新出现（换盘/改路径）则放弃删除
-      const parsed = readPresetFileByName(PRESETS_DIR, name);
-      return !!parsed && !!parsed.model && !existsSync(parsed.model);
+      const parsed = parseModelParamsByFile(MODEL_PARAMS_DIR, name);
+      return !!parsed && !!parsed.model_path && !existsSync(parsed.model_path);
     }
     default:
       return false;
@@ -365,10 +374,10 @@ function revalidateItem(item: TrashItem, modelsDir: string, protectedPaths: Set<
  *
  * 安全策略：
  *  - 对每个待清理项重新校验根目录归属（config → CONFIG_DIR，models → modelsDir）
- *  - 按声明 kind 复核路径与内容特征（防伪造）；孤儿预设/下载残留清理时刻重查
+ *  - 按声明 kind 复核路径与内容特征（防伪造）；孤儿参数集/下载残留清理时刻重查
  *    （模型文件重新出现、任务重新占用 → 放弃该项）
  *  - 重新检测符号链接（防止清理期间被替换）
- *  - settings.json 与有效预设永不清理
+ *  - settings.json 与有效参数集永不清理
  */
 function runClean(items: TrashItem[], opts: TrashScanOptions): CleanResult {
   let cleaned = 0;

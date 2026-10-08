@@ -26,7 +26,7 @@ const TRASH_KIND_LABEL_KEY: Record<TrashKind, string> = {
   broken_json: 'lbl_trash_broken_json',
   legacy_stats: 'lbl_trash_legacy_stats',
   download_orphan: 'lbl_trash_download_orphan',
-  orphan_preset: 'lbl_trash_orphan_preset',
+  orphan_model_params: 'lbl_trash_orphan_model_params',
 };
 
 const FAIL_REASON_KEY: Record<string, string> = {

@@ -12,14 +12,12 @@ import { useParamsStore } from '@/stores/params';
 import { useServerStore } from '@/stores/server';
 import { useI18nStore } from '@/stores/i18n';
 import { confirm } from '@/composables/useConfirm';
-import { useModelPreset } from '@/composables/useModelPreset';
 
 const settings = useSettingsStore();
 const params = useParamsStore();
 const server = useServerStore();
 const i18n = useI18nStore();
 // 智能预设：模型切换时自动发现该模型已保存的预设并询问应用
-const { applyModelPresetIfAny } = useModelPreset();
 
 // 扫描结果用浅响应式：模型对象整体替换（无原地变更），避免数百个 ModelInfo
 // 逐个深响应式包装的开销（大模型库扫描后过滤/渲染更快）。
@@ -171,12 +169,9 @@ onMounted(() => {
     // 启动文件系统监听
     try { void window.api.models.watch(modelsDir.value); } catch { /* 浏览器预览容错 */ }
   }
-  // 已有选中模型时补齐 mmproj 自动检测 + GGUF 元数据加载
-  // （启动时由 App.vue 恢复会话/模型路径，此处走 reattachModelRuntime 仅补运行时检测：
-  //   不弹确认、不重建基线、不覆盖会话中的自定义别名）
-  if (modelPath.value) {
-    void params.reattachModelRuntime(modelPath.value);
-  }
+  // 选中模型的运行时检测与 GGUF 元数据已由 App.vue 启动链的 applyModel 一并完成
+  // （每模型自动持久化：applyModel = 载入已存参数 + 补检测 + 首载自动应用建议），
+  // 旧 reattachModelRuntime 补检测入口随双轨机制一并移除，此处无需再补。
   // 选中态由模板直接比较 m.path === modelPath（O(1)/行），扫描完成后自动同步，无需手动恢复
 });
 
@@ -258,13 +253,7 @@ async function onRefresh() {
 // 点击列表行直接应用模型（统一走 params.applyModel：
 // 保留参数值 + 自动检测 mmproj + 加载 GGUF 元数据，控制台切换时自动清理）
 function handleSelect(m: ModelInfo) {
-  void (async () => {
-    // 有未固化的临时调整时先确认丢弃（用户取消则中止后续预设应用）
-    const ok = await params.applyModel(m.path);
-    if (!ok) return;
-    // 智能预设：该模型存在已保存预设时静默应用（建立预设基线）
-    await applyModelPresetIfAny(m.path);
-  })();
+  void params.applyModel(m.path);
 }
 
 // ---- 显存适配徽章：批量估算每个模型文件的显存适配判定（fit/partial/no）+ 上下文上限 ----

@@ -20,7 +20,7 @@ const url = (lang: Lang, hash = '') => `/?lang=${lang}${hash}`;
 
 /** 打开预设页并弹出「删除预设」的 a-popconfirm，返回浮层里两个按钮的文字 */
 async function popconfirmButtons(page: Page, lang: Lang) {
-  await page.goto(url(lang, '#/params?tab=presets'));
+  await page.goto(url(lang, '#/params'));
   const del = page.locator('.col-actions .arco-btn', { hasText: lang === 'en' ? 'Delete' : '删除' }).first();
   await expect(del, `${lang} 态应能命中删除按钮`).toBeVisible();
   await del.click();

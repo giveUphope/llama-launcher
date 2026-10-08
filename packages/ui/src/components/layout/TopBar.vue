@@ -11,7 +11,6 @@ import Icon from '@/components/common/Icon.vue';
 import AppLogo from '@/components/common/AppLogo.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
 import { useStartServer } from '@/composables/useStartServer';
-import { useModelPreset } from '@/composables/useModelPreset';
 
 const settings = useSettingsStore();
 const server = useServerStore();
@@ -21,8 +20,6 @@ const router = useRouter();
 
 // 统一的启动/重启前置校验与流程（LaunchPage 共用）
 const { start: launchStart, restart: launchRestart } = useStartServer();
-// 智能预设：模型切换时自动发现该模型已保存的预设并询问应用
-const { applyModelPresetIfAny } = useModelPreset();
 
 // 模型列表（TopBar 常驻下拉用）：浅响应式——每次路由切换都会整体替换刷新，
 // 避免数百个 ModelInfo 深响应式包装的开销（与模型管理页同模式）。
@@ -68,13 +65,9 @@ let unsubModelsChanged: (() => void) | null = null;
 
 async function onSelectModel(path: string) {
   modelDropdownOpen.value = false;
-  // 统一走 params.applyModel：保留参数值 + 自动检测 mmproj + 加载 GGUF 元数据，
-  // 切换模型时自动清空控制台（旧日志属于上一个模型）；
-  // 有未固化的临时调整时 applyModel 会先弹确认，用户取消则中止后续预设应用
-  const ok = await params.applyModel(path);
-  if (!ok) return;
-  // 智能预设：该模型存在已保存预设时静默应用（建立预设基线）
-  await applyModelPresetIfAny(path);
+  // 统一走 params.applyModel：载入该模型的已存参数（无则默认 + GGUF 建议自动应用）、
+  // 自动检测 mmproj、加载 GGUF 元数据，切换模型时自动清空控制台（旧日志属于上一个模型）
+  await params.applyModel(path);
 }
 
 onMounted(() => {

@@ -12,16 +12,44 @@ afterEach(() => {
   vi.runOnlyPendingTimers();
 });
 
+// 每模型参数集 API 桩：save/load 接成真实内存往返（切模型再切回可恢复）；
+// load 默认无存储；各用例可预置或覆写
+const storedParams = new Map<string, { format_version: number; model_path: string; updated_at: string; values: Record<string, unknown> }>();
+const loadParamsMock = vi.fn<(p: string) => Promise<unknown>>((p) => Promise.resolve(storedParams.get(p) ?? null));
+const saveParamsMock = vi.fn<(p: string, v: Record<string, unknown>) => Promise<unknown>>((p, v) => {
+  storedParams.set(p, { format_version: 1, model_path: p, updated_at: new Date().toISOString(), values: v });
+  return Promise.resolve(storedParams.get(p));
+});
+const clearParamsMock = vi.fn<(p: string) => Promise<boolean>>((p) => Promise.resolve(storedParams.delete(p)));
+const readGgufMock = vi.fn<(p: string) => Promise<unknown>>(() => Promise.resolve(null));
+
 // 全局 window 桩：测试环境（node）无 Electron，避免 detectMmproj/detectDraft/loadGguf 抛出
 (globalThis as any).window = (globalThis as any).window ?? {};
 (globalThis as any).window.api = (globalThis as any).window.api ?? {
-  presets: { list: () => Promise.resolve([]), save: () => Promise.resolve() },
+  modelParams: {
+    load: (p: string) => loadParamsMock(p),
+    save: (p: string, v: Record<string, unknown>) => saveParamsMock(p, v),
+    clear: (p: string) => clearParamsMock(p),
+  },
   models: {
     detectMmproj: () => Promise.resolve(''),
     detectDraft: () => Promise.resolve(''),
-    readGgufMeta: () => Promise.resolve(null),
+    readGgufMeta: (p: string) => readGgufMock(p),
   },
 };
+
+beforeEach(() => {
+  // mockReset（而非 mockClear）：前序用例的 mockResolvedValue/mockRejectedValue
+  // 覆写不得泄漏到后续用例；基础实现每次重新接线
+  storedParams.clear();
+  loadParamsMock.mockReset().mockImplementation((p) => Promise.resolve(storedParams.get(p) ?? null));
+  saveParamsMock.mockReset().mockImplementation((p, v) => {
+    storedParams.set(p, { format_version: 1, model_path: p, updated_at: new Date().toISOString(), values: v });
+    return Promise.resolve(storedParams.get(p));
+  });
+  clearParamsMock.mockReset().mockImplementation((p) => Promise.resolve(storedParams.delete(p)));
+  readGgufMock.mockReset().mockResolvedValue(null);
+});
 
 vi.mock('./settings', () => ({
   useSettingsStore: () => ({ settings: null, save: () => Promise.resolve() }),
@@ -33,118 +61,132 @@ vi.mock('./i18n', () => ({
   useI18nStore: () => ({ t: (k: string) => k }),
 }));
 
-describe('params store applyPreset（预设完全覆盖语义）', () => {
+describe('每模型自动持久化：applyModel 载入已存参数 / 首载自动应用建议', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });
 
-  it('预设完全覆盖 values', () => {
-    const params = useParamsStore();
-    params.set('ctx_size', 4096);
-    params.set('port', 9999);
-
-    params.applyPreset({ ctx_size: 8192, port: 8080, [MODEL_KEY]: 'C:/models/foo.gguf' });
-
-    expect(params.values['ctx_size']).toBe(8192);
-    expect(params.values['port']).toBe(8080);
-    expect(params.values[MODEL_KEY]).toBe('C:/models/foo.gguf');
-  });
-
-  it('预设未包含的参数回到默认值', () => {
-    const params = useParamsStore();
-    params.set('batch_size', 4096);
-
-    const preset: Record<string, string | number | boolean> = { ctx_size: 8192 };
-    params.applyPreset(preset);
-
-    expect(params.values['batch_size']).toBe(2048);
-  });
-
-  it('旧格式预设（值非默认即生效）兼容', () => {
-    const params = useParamsStore();
-    params.applyPreset({ ctx_size: 8192, flash_attn: 'on' });
-
-    expect(params.values['ctx_size']).toBe(8192);
-    expect(params.values['flash_attn']).toBe('on');
-    expect(params.values['port']).toBe(8080); // 默认值
-  });
-
-  it('预设加载保留 editable 下拉的自定义值（chat_template 不在内置 options）', () => {
-    const params = useParamsStore();
-    params.applyPreset({ chat_template: 'qwen2.5-custom' });
-
-    // 自定义模板不属内置 options，editable 语义应保留而非回退默认 'none'（此前回归点）
-    expect(params.values['chat_template']).toBe('qwen2.5-custom');
-
-    // 内置选项与空串照常收束
-    params.applyPreset({ chat_template: 'llama3' });
-    expect(params.values['chat_template']).toBe('llama3');
-  });
-
-  it('预设无模型时保留当前模型；有模型时以预设为准', () => {
-    const params = useParamsStore();
-    params.values[MODEL_KEY] = 'C:/models/current.gguf';
-
-    params.applyPreset({ ctx_size: 8192 });
-    expect(params.values[MODEL_KEY]).toBe('C:/models/current.gguf');
-
-    params.applyPreset({ model: 'C:/models/other.gguf', ctx_size: 8192 });
-    expect(params.values[MODEL_KEY]).toBe('C:/models/other.gguf');
-  });
-
-  it('应用后清理依赖不满足的下游参数（文件类型保留路径，由命令构建器跳过发射）', () => {
-    const params = useParamsStore();
-    const preset: Record<string, string | number | boolean> = {
-      spec_type: 'draft-mtp',
-      spec_draft_model: 'C:/models/draft.gguf',
-    };
-    params.applyPreset(preset);
-    // 文件类型依赖不满足时保留用户路径（避免切换时丢失），命令构建器会跳过发射
-    expect(params.values['spec_draft_model']).toBe('C:/models/draft.gguf');
-  });
-
-  it('智能归一化：超范围钳制、字符串布尔转换、旧版 draft-model 映射', () => {
-    const params = useParamsStore();
-    params.applyPreset({
-      ctx_size: 999999999,
-      cont_batching: 'false',
-      spec_type: 'draft-model',
+  it('有已存参数集时：applyModel 载入该模型的参数（参数跟模型走）', async () => {
+    loadParamsMock.mockResolvedValue({
+      format_version: 1,
+      model_path: 'C:/models/foo.gguf',
+      updated_at: '',
+      values: { ctx_size: 8192, temperature: 0.7 },
     });
+    const params = useParamsStore();
 
-    expect(params.values['ctx_size']).toBe(262144);
-    expect(params.values['cont_batching']).toBe(false);
-    expect(params.values['spec_type']).toBe('draft-simple');
+    await params.applyModel('C:/models/foo.gguf');
+
+    expect(params.values[MODEL_KEY]).toBe('C:/models/foo.gguf');
+    expect(params.values['ctx_size']).toBe(8192);
+    expect(params.values['temperature']).toBe(0.7);
+    // 别名随模型派生
+    expect(params.values['alias']).toBe('foo');
   });
 
-  it('丢弃未知 key，并返回应用后非默认参数数量', () => {
+  it('已存参数的 mmproj/草稿模型不被检测覆盖（检测只填空字段）', async () => {
+    loadParamsMock.mockResolvedValue({
+      format_version: 1, model_path: 'C:/models/foo.gguf', updated_at: '',
+      values: { mmproj: 'C:/stored/mmproj.gguf', spec_draft_model: 'C:/stored/draft.gguf' },
+    });
     const params = useParamsStore();
-    const preset: Record<string, string | number | boolean> = {
-      removed_param_old: 'x',
-      ctx_size: 8192,
-    };
 
-    const count = params.applyPreset(preset);
+    await params.applyModel('C:/models/foo.gguf');
 
-    expect('removed_param_old' in params.values).toBe(false);
-    expect(count).toBe(1);
+    expect(params.values['mmproj']).toBe('C:/stored/mmproj.gguf');
+    expect(params.values['spec_draft_model']).toBe('C:/stored/draft.gguf');
   });
 
-  it('快照往返是恒等变换', () => {
+  it('首载（无已存参数）且模型带推荐参数时自动应用建议', async () => {
+    readGgufMock.mockResolvedValue({
+      ok: true,
+      data: {
+        info: { path: 'C:/models/foo.gguf', version: 2, tensor_count: 1, metadata_kv_count: 0, metadata: {} },
+        suggestions: [
+          { key: 'temperature', value: 1, source: 'general.sampling.temp' },
+          { key: 'top_k', value: 20, source: 'general.sampling.top_k' },
+        ],
+      },
+    });
     const params = useParamsStore();
-    params.set('ctx_size', 16384);
-    params.set('flash_attn', 'on');
-    params.set('metrics', true);
-    const snapshot = params.snapshot();
 
-    params.applyPreset(snapshot);
+    await params.applyModel('C:/models/foo.gguf');
 
-    expect(params.values['ctx_size']).toBe(16384);
-    expect(params.values['flash_attn']).toBe('on');
-    expect(params.values['metrics']).toBe(true);
+    expect(params.values['temperature']).toBe(1);
+    expect(params.values['top_k']).toBe(20);
+  });
+
+  it('载入失败（load 抛错）按无存储处理：回落默认 + 建议，不阻塞切换', async () => {
+    loadParamsMock.mockRejectedValue(new Error('io'));
+    readGgufMock.mockResolvedValue({
+      ok: true,
+      data: {
+        info: { path: 'C:/models/foo.gguf', version: 2, tensor_count: 1, metadata_kv_count: 0, metadata: {} },
+        suggestions: [{ key: 'temperature', value: 1, source: 'x' }],
+      },
+    });
+    const params = useParamsStore();
+
+    await expect(params.applyModel('C:/models/foo.gguf')).resolves.toBe(true);
+    expect(params.values['temperature']).toBe(1);
   });
 });
 
-describe('hasChanges（任一参数值非默认即为已修改）', () => {
+describe('每模型自动持久化：节流自动保存与全部重置', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it('参数变化后 800ms 节流写入当前模型名下（快照含模型键，存储层负责剔除）', async () => {
+    const params = useParamsStore();
+    await params.applyModel('C:/models/foo.gguf');
+    saveParamsMock.mockClear();
+
+    params.set('ctx_size', 4096);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(saveParamsMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(400);
+    expect(saveParamsMock).toHaveBeenCalledTimes(1);
+    const [path, values] = saveParamsMock.mock.calls[0];
+    expect(path).toBe('C:/models/foo.gguf');
+    expect((values as Record<string, unknown>)['ctx_size']).toBe(4096);
+  });
+
+  it('未选择模型时不触发自动保存', async () => {
+    const params = useParamsStore();
+    params.set('ctx_size', 4096);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(saveParamsMock).not.toHaveBeenCalled();
+  });
+
+  it('resetCurrentModel：回出厂默认 + 保留模型 + 立即持久化覆盖该模型参数集', async () => {
+    const params = useParamsStore();
+    await params.applyModel('C:/models/foo.gguf');
+    params.set('ctx_size', 9999);
+    saveParamsMock.mockClear();
+
+    params.resetCurrentModel();
+
+    const def = PARAMS.find((p) => p.key === 'ctx_size')!.default;
+    expect(params.values['ctx_size']).toBe(def);
+    expect(params.values[MODEL_KEY]).toBe('C:/models/foo.gguf');
+    expect(params.hasChanges).toBe(false);
+    expect(saveParamsMock).toHaveBeenCalledWith('C:/models/foo.gguf', expect.objectContaining({ [MODEL_KEY]: 'C:/models/foo.gguf' }));
+  });
+
+  it('autoSave 不再写预设文件（预设机制已移除，双轨核心回归沿用）', async () => {
+    const params = useParamsStore();
+    await params.applyModel('C:/models/foo.gguf');
+    params.set('ctx_size', 4096);
+    await vi.advanceTimersByTimeAsync(1000);
+    // window.api 上已不存在 presets 域；save 只发生在 modelParams
+    expect((globalThis as any).window.api.presets).toBeUndefined();
+    expect(saveParamsMock).toHaveBeenCalled();
+  });
+});
+
+describe('hasChanges（当前参数相对出厂默认的偏离；自动管理字段不计入）', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });
@@ -186,8 +228,9 @@ describe('hasChanges（任一参数值非默认即为已修改）', () => {
     expect(params.hasChanges).toBe(true); // port 仍非默认
   });
 
-  it('自动检测/填充的字段（mmproj、spec_draft_model）不计入已修改', () => {
+  it('自动管理字段（mmproj、spec_draft_model、alias）不计入已修改', async () => {
     const params = useParamsStore();
+    await params.applyModel('C:/models/foo.gguf'); // 派生 alias + 探测字段
     params.values['mmproj'] = 'C:/models/mmproj.gguf';
     params.values['spec_draft_model'] = 'C:/models/draft.gguf';
     expect(params.hasChanges).toBe(false);
@@ -350,75 +393,6 @@ describe('推测解码联动（spec_type → 推荐草稿数）', () => {
   });
 });
 
-describe('双轨参数逻辑（基线/会话）', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
-  it('applyPreset 建立命名基线；hasChanges 相对基线计算', () => {
-    const params = useParamsStore();
-    params.applyPreset({ ctx_size: 8192, [MODEL_KEY]: 'C:/models/foo.gguf' }, 'foo');
-    expect(params.baseline?.preset_name).toBe('foo');
-    expect(params.hasChanges).toBe(false); // 与基线一致
-
-    params.set('ctx_size', 4096);
-    expect(params.hasChanges).toBe(true); // 偏离基线
-    // 2026-10-08 交互收敛：「恢复基线」动作随双钮合并移除，
-    // 回默认值的唯一入口是 clearSession（见下方两组用例）
-  });
-
-  it('无基线时 hasChanges 与出厂默认比较（兼容原语义）', () => {
-    const params = useParamsStore();
-    expect(params.hasChanges).toBe(false);
-    params.set('ctx_size', 4096);
-    expect(params.hasChanges).toBe(true);
-  });
-
-  it('restoreSession 恢复参数与基线，自定义别名不被覆盖', async () => {
-    const params = useParamsStore();
-    await params.restoreSession(
-      { [MODEL_KEY]: 'C:/models/foo.gguf', ctx_size: 12345, alias: 'my-alias' },
-      { preset_name: 'foo', values: { [MODEL_KEY]: 'C:/models/foo.gguf', ctx_size: 8192 } as never },
-    );
-    expect(params.values['ctx_size']).toBe(12345);
-    expect(params.values['alias']).toBe('my-alias');
-    expect(params.baseline?.preset_name).toBe('foo');
-  });
-
-  it('clearSession 回出厂默认并清空基线', () => {
-    const params = useParamsStore();
-    params.applyPreset({ ctx_size: 8192 }, 'foo');
-    params.clearSession();
-    const def = PARAMS.find((p) => p.key === 'ctx_size')!.default;
-    expect(params.values['ctx_size']).toBe(def);
-    expect(params.baseline).toBeNull();
-    expect(params.hasChanges).toBe(false);
-  });
-
-  it('clearSession 保留模型选择（显存估算/目标选择器不失联）', () => {
-    const params = useParamsStore();
-    params.set(MODEL_KEY, 'C:/models/foo.gguf');
-    params.set('ctx_size', 12345);
-    params.clearSession();
-    // 模型选择不属于会话参数：保留，估算与目标建议继续可用
-    expect(params.values[MODEL_KEY]).toBe('C:/models/foo.gguf');
-    const def = PARAMS.find((p) => p.key === 'ctx_size')!.default;
-    expect(params.values['ctx_size']).toBe(def);
-    expect(params.baseline).toBeNull();
-  });
-
-  it('autoSave 只写会话、不再写预设文件（双轨核心回归）', async () => {
-    const savePreset = vi.fn(() => Promise.resolve());
-    (globalThis as any).window.api.presets.save = savePreset;
-    (globalThis as any).window.api.presets.list = () =>
-      Promise.resolve([{ preset_version: 1, name: 'foo', saved_at: '', values: {} }]);
-    const params = useParamsStore();
-    params.set('ctx_size', 4096);
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(savePreset).not.toHaveBeenCalled();
-  });
-});
-
 // 网络常量派生自 PARAMS 表（唯一起点见 definitions.ts）：表里改 min/max/default，
 // 这些常量与校验必须跟着变，否则会出现「参数页允许、启动前检查拒绝」的分裂。
 describe('网络常量派生与端口校验', () => {
@@ -453,8 +427,8 @@ describe('网络常量派生与端口校验', () => {
   });
 });
 
-describe('params store 换模型：伴随文件路径的智能处理（2026-10-06 用户标注）', () => {
-  it('旧模型目录里的 mmproj / 草稿模型被清掉并重探；手挑到别处的路径保留', async () => {
+describe('params store 换模型：每模型自动持久化下的切换语义（2026-10-08）', () => {
+  it('切到新模型 = 回到新模型自己的状态：旧模型的伴随路径不再跨模型残留', async () => {
     const params = useParamsStore();
     const api = (globalThis as any).window.api;
     const origMmproj = api.models.detectMmproj;
@@ -464,16 +438,22 @@ describe('params store 换模型：伴随文件路径的智能处理（2026-10-0
       return Promise.resolve(p.includes('new') ? 'D:/Models/new/mmproj-b.gguf' : '');
     };
     try {
-      await params.reattachModelRuntime('D:/Models/old/a.gguf');
-      params.set('mmproj', 'D:/Models/old/mmproj-a.gguf'); // 与旧模型同目录 ⇒ 旧模型的伴随文件
-      params.set('spec_draft_model', 'E:/shared/draft.gguf'); // 别处 ⇒ 用户手挑
-      params.markBaseline(''); // 固化当前状态，免得 applyModel 弹「丢弃未保存改动」确认
+      await params.applyModel('D:/Models/old/a.gguf');
+      params.set('mmproj', 'D:/Models/old/mmproj-a.gguf');   // 自动保存进旧模型的参数集
+      params.set('spec_draft_model', 'E:/shared/draft.gguf'); // 同上
+      await vi.advanceTimersByTimeAsync(800); // 推过节流窗：调整落盘为旧模型的参数集
 
       await params.applyModel('D:/Models/new/b.gguf');
 
-      expect(probed, '换模型后必须为新模型重探 mmproj（说明旧值被清掉了）').toContain('D:/Models/new/b.gguf');
+      // 新模型无已存参数 ⇒ 回默认 + 为新模型重探 mmproj（旧模型的伴随路径不残留）
+      expect(probed, '换模型后必须为新模型重探 mmproj').toContain('D:/Models/new/b.gguf');
       expect(params.values.mmproj).toBe('D:/Models/new/mmproj-b.gguf');
-      expect(params.values.spec_draft_model, '手挑到别处的路径不是残留，必须保留').toBe('E:/shared/draft.gguf');
+      expect(params.values.spec_draft_model).toBe('');
+
+      // 切回旧模型：刚才的调整已自动保存，随模型整体恢复
+      await params.applyModel('D:/Models/old/a.gguf');
+      expect(params.values.mmproj).toBe('D:/Models/old/mmproj-a.gguf');
+      expect(params.values.spec_draft_model).toBe('E:/shared/draft.gguf');
     } finally {
       api.models.detectMmproj = origMmproj;
     }

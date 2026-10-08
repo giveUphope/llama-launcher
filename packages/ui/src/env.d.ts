@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import type {
-  AppSettings, ModelInfo, OutputEntry, Preset, PresetValues, PresetSummary, PresetSaveInput,
+  AppSettings, ModelInfo, OutputEntry, PresetValues, ModelParams,
   ServerInfo, ServerStatusEvent, GgufReadResult,
   ParsedModelUrl, ModelScopeSearchResult, ModelScopeFileListResult,
   StartDownloadRequest, DownloadProgressPayload, DownloadCompletePayload, DownloadErrorPayload,
@@ -38,17 +38,13 @@ export interface ElectronAPI {
     remove: (modelPath: string) => Promise<IpcResponse>;
     onChanged: (cb: () => void) => () => void;
   };
-  presets: {
-    /** 预设列表（视图模型：仅元数据，不含 values） */
-    list: () => Promise<PresetSummary[]>;
-    /** upsert 保存（语义见 shared PresetSaveInput）；返回落盘后的摘要 */
-    save: (input: PresetSaveInput) => Promise<PresetSummary>;
-    /** 重命名（id 恒定，仅改展示名） */
-    rename: (id: string, name: string) => Promise<PresetSummary>;
-    /** 按主键删除；删除了文件返回 true */
-    delete: (id: string) => Promise<boolean>;
-    /** 按主键取完整预设（含 values）；不存在返回 null */
-    load: (id: string) => Promise<Preset | null>;
+  modelParams: {
+    /** 读取某模型的已存参数集；无存储返回 null（回落出厂默认 + GGUF 建议自动应用） */
+    load: (modelPath: string) => Promise<ModelParams | null>;
+    /** 自动持久化某模型的当前参数（参数变化节流调用；upsert） */
+    save: (modelPath: string, values: PresetValues) => Promise<ModelParams>;
+    /** 清除某模型的已存参数（「全部重置」覆盖写之外的清理口）；删除了文件返回 true */
+    clear: (modelPath: string) => Promise<boolean>;
   };
   server: {
     start: (values: PresetValues, settings: AppSettings) => Promise<IpcResponse>;

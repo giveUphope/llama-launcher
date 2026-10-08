@@ -34,7 +34,9 @@ describe('settings-store', () => {
     expect(defaults.server_exe).toBe(DEFAULT_SERVER_EXE);
     expect(defaults.models_dir).toBe(DEFAULT_MODELS_DIR);
     expect(defaults.selected_model).toBe('');
-    expect(defaults.last_preset).toBe('');
+    // 双轨字段（last_preset/session_values/session_baseline）已随每模型自动持久化移除
+    expect('last_preset' in defaults).toBe(false);
+    expect('session_values' in defaults).toBe(false);
     expect(defaults.window_geometry).toBe('');
     expect(defaults.theme_mode).toBe('light');
     expect(defaults.sidebar_collapsed).toBe(false);
@@ -53,7 +55,6 @@ describe('settings-store', () => {
       server_exe: '/custom/path/llama-server.exe',
       models_dir: '/custom/models',
       selected_model: 'model.gguf',
-      last_preset: 'default',
       window_geometry: '100,100,1920,1080',
       theme_mode: 'light',
       sidebar_collapsed: true,
@@ -68,7 +69,6 @@ describe('settings-store', () => {
     expect(settings.theme_mode).toBe('light');
     expect(settings.sidebar_collapsed).toBe(true);
     expect(settings.language).toBe('en');
-    expect(settings.last_preset).toBe('default');
   });
 
   it('loadSettings merges file settings with defaults', () => {
@@ -96,7 +96,6 @@ describe('settings-store', () => {
       server_exe: '/custom/exe',
       models_dir: '/models',
       selected_model: 'test.gguf',
-      last_preset: 'test-preset',
       window_geometry: '1366x768',
       theme_mode: 'dark',
       sidebar_collapsed: false,
@@ -120,7 +119,6 @@ describe('settings-store', () => {
       server_exe: '/first/path',
       models_dir: '/first/models',
       selected_model: '',
-      last_preset: '',
       window_geometry: '1280x800',
       theme_mode: 'dark',
       sidebar_collapsed: false,
@@ -135,7 +133,6 @@ describe('settings-store', () => {
       server_exe: '/second/path',
       models_dir: '/second/models',
       selected_model: 'model.gguf',
-      last_preset: '',
       window_geometry: '1280x800',
       theme_mode: 'dark',
       sidebar_collapsed: false,
@@ -153,7 +150,6 @@ describe('settings-store', () => {
       server_exe: '/path',
       models_dir: '/models',
       selected_model: '',
-      last_preset: '',
       window_geometry: '1280x800',
       theme_mode: 'dark',
       sidebar_collapsed: false,
@@ -211,7 +207,6 @@ describe('settings-store', () => {
       server_exe: '/x',
       models_dir: '/m',
       selected_model: '',
-      last_preset: '',
       window_geometry: '',
       window_maximized: true,
       theme_mode: 'neon',

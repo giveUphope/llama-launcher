@@ -62,7 +62,7 @@
 
 - **`detectDraftModel(modelPath)`**：在模型同目录查找草稿模型文件（文件名含 `dflash` / `draft` 的 `.gguf`），优先选择含 `"dflash"` 的文件，用于自动关联 DFlash/推测解码草稿模型。
 
-- **`removeModelFile(modelPath, modelsDir)`**：按模型文件移除。先判断模型所在目录内容——目录下存在其他内容（其他量化版本、用户创建的非 gguf 文件、子目录等）时**仅删除选中的模型文件**，保留其余内容；目录下无其他内容时删除模型文件 + 相关伴随 GGUF（mmproj/projector/multimodal 关键词的 `.gguf/.bin`、dflash/draft/mtp 关键词的 `.gguf`），空目录一并移除（返回 `removedDir`，供预设清理按目录前缀匹配）。安全约束：仅允许删除 modelsDir 内部路径，拒绝删除 modelsDir 本身。
+- **`removeModelFile(modelPath, modelsDir)`**：按模型文件移除。先判断模型所在目录内容——目录下存在其他内容（其他量化版本、用户创建的非 gguf 文件、子目录等）时**仅删除选中的模型文件**，保留其余内容；目录下无其他内容时删除模型文件 + 相关伴随 GGUF（mmproj/projector/multimodal 关键词的 `.gguf/.bin`、dflash/draft/mtp 关键词的 `.gguf`），空目录一并移除（返回 `removedDir`，供每模型参数集清理按目录前缀匹配）。安全约束：仅允许删除 modelsDir 内部路径，拒绝删除 modelsDir 本身。
 
 ### 4.5 GGUF 元数据读取 (gguf-meta.ts)
 
@@ -122,17 +122,17 @@
 
 - **生产模式**：返回空字符串，由用户在「应用设置」页选择引擎目录，内联检测机制自动查找 `llama-server.exe`。
 
-- **`legacyModelsPresetsDir(modelsDir)`**：返回 `modelsDir/presets`——**旧版**预设目录（迁移源）；活目录恒为 `PRESETS_DIR`（`~/.llama_launcher/presets`），预设存储已与模型目录解耦。
+- **`legacyModelsPresetsDir(modelsDir)`**：返回 `modelsDir/presets`——**两代历史**预设目录之一（迁移源）；每模型参数集活目录恒为 `MODEL_PARAMS_DIR`（`~/.llama_launcher/model-params`），参数存储已与模型目录解耦。
 
 - **伴随标签**：`detectCompanionTags`（**定义在 `models-scanner.ts:111`**，非 paths.ts）为扫描结果标注伴随文件标签（多模态投影器 / 草稿模型是否存在），写入 `ModelInfo.tags` 供前端展示。
 
-### 4.8 设置与预设存储 (settings-store.ts / presets-store.ts / preset-repository.ts)
+### 4.8 设置与每模型参数集存储 (settings-store.ts / model-params-store.ts / model-params-repository.ts)
 
 - **`settings-store.ts`**：`loadSettings()` / `saveSettings(settings)` / `getDefaultSettings()`。持久化到 `~/.llama_launcher/settings.json`，写入为**原子替换**（`.tmp` + rename）+ **CAS 合并守卫**（写入前读取磁盘值作基线，其他实例的更新不丢），加载时逐字段归一化，损坏文件自动备份 `settings.json.bak`。schema 版本由 `SETTINGS_VERSION` 管理（变更走 `migrateSettings`）。含 `hf_mirror_host` 时同步 `setHfMirrorHost` 驱动镜像链路。字段全清单见 [data-persistence.md](data-persistence.md) §10。
 
-- **`presets-store.ts`（文件层）**：`listPresets(dir)` / `readPresetByName(dir, name)` / `readPresetFileByName(dir, fileName)`（垃圾清理器判孤儿/损坏用）/ `writePresetFile(dir, preset)` / `deletePresetFile(dir, fileName)`。只负责「一个目录里的一组 JSON」的读写与格式迁移（v1/v2 → v3 内存形状：v1 `values.model` 提升为顶层、无 id 回填 UUID），不知道目录在哪、也不知道业务规则；mtime+原始字节双指纹解析记忆化保留。
+- **`model-params-store.ts`（文件层）**：`modelParamsKey(modelPath)`（存储键 = 清洗后的模型文件名 + 规范化路径 sha1 前 8 位）/ `listModelParams(dir)` / `readModelParams(dir, modelPath)` / `writeModelParams(dir, params)` / `deleteModelParams(dir, modelPath)` / `parseModelParams(raw)`（垃圾清理器判孤儿/损坏用）/ `normalizeValues`。只负责「按模型路径派生键读写一个 JSON」与形状容错，不知道目录在哪、也不知道业务规则；mtime+原始字节双指纹解析记忆化保留。
 
-- **`preset-repository.ts`（领域层）**：`PresetRepository` 接口 + `createPresetRepository(dir)`（测试可注入目录）/ `getPresetRepository()`（活目录单例）。业务对预设的全部读写都走这层——`summaries()`（列表视图模型，不含 values）/ `get(id)` / `save({ name, values, id? })`（upsert：同名即覆盖并继承其 id 与 created_at；带 id 可同时改名）/ `rename(id, name)`（id 恒定）/ `delete(id)` / `deleteForModel(modelPath)`（路径前缀匹配，移除模型时同步清理）；重名/目标不存在抛 `PresetRepoError`。**位置迁移**：`migratePresetStore(fromDir, toDir)` 把旧版 `<models_dir>/presets` 搬入活目录并升级 v3（幂等，IPC 注册时执行一次）。上层（IPC/UI）不接触目录、文件名、JSON 布局——换存储介质只需换掉本层实现。详见 [data-persistence.md](data-persistence.md) §10。
+- **`model-params-repository.ts`（领域层）**：`ModelParamsRepository` 接口 + `createModelParamsRepository(dir)`（测试可注入目录）/ `getModelParamsRepository()`（活目录单例）。业务对每模型参数的全部读写都走这层——`load(modelPath)`（未存储返回 null；**搬家重识别**：精确键未命中时按存储原路径的文件名找回并换键重写）/ `save(modelPath, values)`（upsert，渲染层 800ms 节流调用）/ `clear(modelPath)` / `deleteForModel(modelPath)`（路径前缀匹配，移除模型时同步清理）。**预设迁移**：`migratePresetsToModelParams(fromDir, toDir)` 把两代历史预设（`<models_dir>/presets` 与 `~/.llama_launcher/presets`）一次性并入活目录（同模型多条取 `saved_at` 最新，迁入后源文件删除，无绑定/损坏文件原地保留；幂等，IPC 注册时执行一次）。上层（IPC/UI）不接触目录、键派生与文件布局——换存储介质只需换掉本层实现。详见 [data-persistence.md](data-persistence.md) §10。
 
 ### 4.9 可重试错误判定与指数退避 (retry.ts)
 
@@ -176,9 +176,9 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 
 「设置 → 关于 → 配置清理」的数据源（`system:detectTrash` / `system:cleanTrash` 委托），覆盖应用全部落盘位置：
 
-- **双根扫描**：配置目录 `~/.llama_launcher/`（`settings.json` 白名单永不清理、`.bak/.tmp` 残留、**预设活目录 `presets/`** 的 `.tmp|*.bak` 残留/孤儿/损坏检测、`stats.jsonl`、根目录损坏 JSON）+ 模型目录（`*.part`、续传日志；预设已迁出，模型目录不再有预设扫描，历史遗留的 `presets/` 子目录不列入清理）。
+- **双根扫描**：配置目录 `~/.llama_launcher/`（`settings.json` 白名单永不清理、`.bak/.tmp` 残留、**参数集活目录 `model-params/`** 的 `.tmp|*.bak` 残留/孤儿/损坏检测、`stats.jsonl`、根目录损坏 JSON）+ 模型目录（`*.part`、续传日志；参数集已独立成目录，模型目录不再有参数扫描，两代历史遗留的预设目录不列入清理）。
 
-- **强校验**：路径必须严格位于声明根内且非符号链接；`cleanTrash` 对每个传入项按声明 `kind` 复核根归属与内容（孤儿预设清理时刻重读，模型重新出现即放弃删除）；活动/暂停/可重试下载任务占用的路径由 `DownloadManager.getProtectedPaths()` 传入保护集，双重排除；未识别文件一律不列入（保守策略）。
+- **强校验**：路径必须严格位于声明根内且非符号链接；`cleanTrash` 对每个传入项按声明 `kind` 复核根归属与内容（孤儿参数集清理时刻重读，模型重新出现即放弃删除）；活动/暂停/可重试下载任务占用的路径由 `DownloadManager.getProtectedPaths()` 传入保护集，双重排除；未识别文件一律不列入（保守策略）。
 
 - **逐项失败明细（2026-10-08）**：`CleanResult.failures` 为 `failed` 计数的展开——每项带 `path` 与固定枚举 `reason`（`revalidated` 复核未过 / `symlink` 符号链接 / `unsupported` 非 regular 文件 / `error` 删除抛错，此时 `detail` 携带系统原始报错文本）；渲染端按枚举 i18n 翻译（数据层不产文案）。
 
@@ -192,10 +192,10 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 
 | 文件                      | 主要导出                                                                                                                                                            | 说明                                    |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `paths.ts`              | `CONFIG_DIR`/`SETTINGS_FILE`/`PRESETS_DIR`、`legacyModelsPresetsDir(modelsDir)`、`basenameSafe`                                                                  | 路径常量与解析；开发模式自动查找 `llama-*-bin-*` 最新目录 |
+| `paths.ts`              | `CONFIG_DIR`/`SETTINGS_FILE`/`MODEL_PARAMS_DIR`/`LEGACY_PRESETS_DIR`、`legacyModelsPresetsDir(modelsDir)`、`basenameSafe`                                        | 路径常量与解析；开发模式自动查找 `llama-*-bin-*` 最新目录 |
 | `settings-store.ts`     | `loadSettings` / `saveSettings` / `getDefaultSettings`                                                                                                          | 设置读写（CAS + 原子替换，§4.8）                 |
-| `presets-store.ts`      | `listPresets`/`readPresetByName`/`readPresetFileByName`/`writePresetFile`/`deletePresetFile`/`parsePreset`/`normalizeValues`                                    | 预设文件层（v3 格式与记忆化，§4.8）                |
-| `preset-repository.ts`  | `PresetRepository`、`createPresetRepository`/`getPresetRepository`/`migratePresetStore`/`PresetRepoError`                                                        | 预设领域层（id 主键/upsert/改名/迁移，§4.8）        |
+| `model-params-store.ts` | `modelParamsKey`/`listModelParams`/`readModelParams`/`writeModelParams`/`deleteModelParams`/`parseModelParams`/`normalizeValues`                                | 每模型参数集文件层（键派生/容错/记忆化，§4.8）      |
+| `model-params-repository.ts` | `ModelParamsRepository`、`createModelParamsRepository`/`getModelParamsRepository`/`migratePresetsToModelParams`                                             | 每模型参数集领域层（load/save/clear/搬家重识别/预设迁移，§4.8） |
 | `models-scanner.ts`     | `scanModels` / `detectMmproj` / `detectDraftModel` / `removeModelFile` / `invalidateScanCache` / `ensureDir`                                                    | .gguf 递归扫描 + 伴随检测 + 移除（§4.4）          |
 | `command-builder.ts`    | `buildCommand` / `previewCommand`（argv 本体在 `shared/params/command.ts`）                                                                                                              | 启动命令构建的执行侧包装（§4.3）              |
 | `server-props.ts`       | `verifyEngineProps` / `defaultPropsFetcher` / `PropsFetcher`                                                                                                                              | 就绪后 `GET /props` 回读，与发出的值对账（§4.11）  |
@@ -222,7 +222,7 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 
 | 文件                      | 主要导出                                                                                                                               | 说明                                                    |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `types/`                | `IPC`（58 通道）、`AppSettings`、`ParamDef`、`Preset`、`ServerInfo`、`OutputEntry`、`ModelInfo`、`GgufModelInfo`、`DownloadTask`、`TrashItem`、`HardwareOccupancy`/`VramEstimateResult`/`PerfTarget` 等 | 全部跨包类型（[data-persistence.md](data-persistence.md) §9） |
+| `types/`                | `IPC`（56 通道）、`AppSettings`、`ParamDef`、`ModelParams`、`ServerInfo`、`OutputEntry`、`ModelInfo`、`GgufModelInfo`、`DownloadTask`、`TrashItem`、`HardwareOccupancy`/`VramEstimateResult`/`PerfTarget` 等 | 全部跨包类型（[data-persistence.md](data-persistence.md) §9） |
 | `params/definitions.ts` | `PARAMS`（69：basic 26 / advanced 29 / server 14）/ `PARAM_GROUPS`（3 组）/ `MODEL_KEY` / `APP_VERSION` / `APP_NAME` / `APP_REPO_URL` + `LLAMA_CPP_RELEASES_URL` / `DEFAULT_HOST` + `DEFAULT_PORT` + `PORT_MIN` + `PORT_MAX` + `isValidPort()`（网络四项全部由 `host`/`port` 两条目派生）                  | 参数表唯一来源（[params-system.md](params-system.md)）。① 网络默认值与端口边界唯一来源：主进程/core/渲染层的回退值与范围校验一律引此，不再各写 `'127.0.0.1'` / `?? 8080` / `> 65535`（默认值曾散落 7 处、端口上界曾散落 5 处，漏改即出现「UI 探 8080、服务起在别端口」的假占用告警或「参数页允许、启动检查拒绝」的分裂）；② 对外链接唯一来源（llama.cpp 发布页曾在 AboutPanel 与 GeneralPanel 各写一份完整 URL）         |
 | `hosts.ts`              | `MODELSCOPE_HOST` / `DEFAULT_HF_MIRROR_HOST` / `normalizeMirrorHost(raw)` / `HF_SOURCE_HOST_SUFFIXES` + `MODELSCOPE_HOST_SUFFIX`                                                            | 下载源主机名与镜像回退唯一来源（core 客户端与 UI「在浏览器打开」外链共用，分叉会让下载走自建镜像而外链仍跳默认站）。**识别后缀与建站 host 分列两套**：建站用 `www.modelscope.cn`，粘贴 URL 的站点判定须用不含 www 的 `modelscope.cn` 后缀，否则裸域链接判为无法识别        |
 | `settings-limits.ts`    | `DOWNLOAD_CONCURRENCY_DEFAULT/MIN/MAX/OPTIONS` + `clampDownloadConcurrency(n)`                                                                      | 应用设置的取值边界唯一来源：core 的 zod schema 与下载器钳制、设置页下拉同源（`ui ↛ core`，故常量必须在 shared）        |
@@ -238,7 +238,7 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | `index.ts`              | 入口逻辑（单实例锁 / `registerIpcHandlers` / `installHfTransport` + `installDownloadTransport` / `createMainWindow` / `launcherBridge`）                                                                                                                | 生命周期入口（[desktop-main.md](desktop-main.md) §6.1）     |
 | `window.ts`             | `createMainWindow`（几何持久化，500ms 防抖）                                                                                                                                                                                                            | 窗口管理（§6.2）                                          |
 | `ipc/index.ts`          | `registerIpcHandlers`（`ipcRegistrars` 装配 8 个域）                                                                                                                                                                                                | IPC 注册（§6.3，清单见 [ipc-channels.md](ipc-channels.md)） |
-| `ipc/*.ts`              | `registerSettingsIpc` / `registerModelsIpc` / `registerPresetsIpc` / `registerServerIpc` / `registerSystemIpc` / `registerWindowIpc` / `registerDownloadIpc` / `registerLogsIpc`；`models-watcher.ts` 的 `watchModelsDir`/`notifyModelsChanged` | 各功能域处理器                                             |
+| `ipc/*.ts`              | `registerSettingsIpc` / `registerModelsIpc` / `registerModelParamsIpc` / `registerServerIpc` / `registerSystemIpc` / `registerWindowIpc` / `registerDownloadIpc` / `registerLogsIpc`；`models-watcher.ts` 的 `watchModelsDir`/`notifyModelsChanged` | 各功能域处理器                                             |
 | `launcher-bridge.ts`    | `launcherBridge`（单例跨窗口共享 Launcher + 5000 条输出缓冲 + 16ms 批量推送 + `disposeSync`）                                                                                                                                                                   | 启动桥接（§6.4）                                          |
 | `app-exit.ts`           | `requestExit` / `minimizeToTray` / `handleWindowClose` / `handleCloseDialogResult` / `isQuitting`                                                                                                                                             | 关闭行为分流 + 弹窗一问一答（§6.6）                               |
 | `app-log.ts`            | `logApp` / `getAppLogs` / `clearAppLogs`                                                                                                                                                                                                      | 应用日志环形缓冲（2000 条）                                    |
@@ -252,8 +252,8 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | 目录             | 主要导出                                                                                                                                                                                                                                                             | 说明                                           |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | `stores/`      | `settings` / `i18n` / `params`（双轨）/ `server` / `download` / `appLog`                                                                                                                                                                                             | Pinia store（[frontend.md](frontend.md) §7.2） |
-| `composables/` | `useIPC` / `useTheme` / `useStartServer` / `useAutoPresetName` / `useModelPreset` / `useConfirm` / `useFilePicker` / `useUrlHistory` / `useVramEstimate`                                                                                                     | IPC 调用与逻辑封装                                  |
+| `composables/` | `useIPC` / `useTheme` / `useStartServer` / `useConfirm` / `useFilePicker` / `useUrlHistory` / `useVramEstimate`                                                                                                     | IPC 调用与逻辑封装                                  |
 | `features/`    | dashboard / models / service / params / logs / settings / webui 各 `FeatureDef` + `navItems`/`featureRoutes` 聚合                                                                                                                                                   | 功能注册表（侧栏导航 + 路由装配，§7.1）                      |
 | `pages/`       | `DashboardPage` / `ModelsPage` / `ServicePage` / `ParamsPage` / `LogsPage` / `SettingsPage` / `WebUiPage`                                                                                                                                                        | 7 页面（§7.3）                                   |
-| `components/`  | common（`PageFrame`/`Card`/`Icon`/`ToolTip`/`StatusTag`/`DownloadCard`/`ModelMetaCard`/`ConfirmModal`/`CloseDialog`/`FileBrowserModal`…）、layout（`Sidebar`/`TopBar`/`StatusBar`/`WebUiFrame`…）、service（`ServiceStatusCard`/`CommandPreviewCard`/`ParamSummaryCard`/`TrashCleanCard`）、models（`LocalModelsPanel`/`LibraryPanel`）、presets（`PresetsPanel`）、settings（4 面板）、params 6 控件 + `ParamRow` | 组件库（§7.4）                                    |
+| `components/`  | common（`PageFrame`/`Card`/`Icon`/`ToolTip`/`StatusTag`/`DownloadCard`/`ModelMetaCard`/`ConfirmModal`/`CloseDialog`/`FileBrowserModal`…）、layout（`Sidebar`/`TopBar`/`StatusBar`/`WebUiFrame`…）、service（`ServiceStatusCard`/`CommandPreviewCard`/`ParamSummaryCard`/`TrashCleanCard`）、models（`LocalModelsPanel`/`LibraryPanel`）、settings（4 面板）、params 6 控件 + `ParamRow` | 组件库（§7.4）                                    |
 

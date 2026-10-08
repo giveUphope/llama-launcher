@@ -1,10 +1,10 @@
 /** 清理项类型（应用生成文件的全量清单，与 core/trash-cleaner 扫描规则一一对应） */
 export type TrashKind =
-  | 'temp_file'           // 临时/备份文件（*.tmp/*.bak/*.old/*.log；含预设目录的原子写残留）
-  | 'broken_json'         // 损坏的 JSON 文件（非 settings.json）
-  | 'legacy_stats'        // 旧版下载统计（stats.jsonl，已停用）
-  | 'download_orphan'     // 下载残留（无活动任务占用的 .part / .llama_dl.jsonl / .llama_dl.json）
-  | 'orphan_preset';      // 孤儿预设（绑定的模型文件已不存在；预设现居 CONFIG_DIR/presets）
+  | 'temp_file'             // 临时/备份文件（*.tmp/*.bak/*.old/*.log；含模型参数目录的原子写残留）
+  | 'broken_json'           // 损坏的 JSON 文件（非 settings.json）
+  | 'legacy_stats'          // 旧版下载统计（stats.jsonl，已停用）
+  | 'download_orphan'       // 下载残留（无活动任务占用的 .part / .llama_dl.jsonl / .llama_dl.json）
+  | 'orphan_model_params';  // 孤儿模型参数集（绑定的模型文件已不存在；现居 CONFIG_DIR/model-params）
 
 /** 清理项所在根目录：config = ~/.llama_launcher，models = 用户设置的模型目录 */
 export type TrashRoot = 'config' | 'models';

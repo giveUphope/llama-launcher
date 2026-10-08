@@ -17,7 +17,6 @@ const settings: AppSettings = {
   llama_dir: 'D:/Models/llama-bins',
   models_dir: 'D:/Models',
   selected_model: MODEL,
-  last_preset: '',
   window_geometry: '1280x800',
   window_maximized: true,
   theme_mode: 'dark',

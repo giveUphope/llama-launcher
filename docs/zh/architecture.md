@@ -6,7 +6,7 @@
 
 ## 1. 项目概述
 
-llama\_launcher 是面向 llama.cpp 的 `llama-server` 的桌面启动器。功能包括：选择 `.gguf` 模型、读取 GGUF 元数据自动推导建议参数、配置 60 个启动参数、启动/停止/重启服务、实时查看输出、保存/加载预设、在线下载模型、浅色/深色主题和中/英文切换。应用不捆绑 llama.cpp 二进制，用户选择 llama-server 所在目录后自动检测可执行文件。
+llama\_launcher 是面向 llama.cpp 的 `llama-server` 的桌面启动器。功能包括：选择 `.gguf` 模型、读取 GGUF 元数据自动推导建议参数、配置 60 个启动参数、启动/停止/重启服务、实时查看输出、参数按模型自动记忆与恢复、在线下载模型、浅色/深色主题和中/英文切换。应用不捆绑 llama.cpp 二进制，用户选择 llama-server 所在目录后自动检测可执行文件。
 
 当前只有一条主维护线：`apps/desktop` + `packages/*`（Electron + TypeScript + Vue 3 + Vite + Pinia）。整个项目通过 pnpm workspace + turborepo 管理，构建产物统一由 turbo 编排。
 
@@ -21,12 +21,12 @@ llama_launcher/
 │       ├── src/
 │       │   ├── main/                  # 主进程
 │       │   │   ├── index.ts           # 入口：单实例锁、窗口创建、生命周期、传输注入
-│       │   │   ├── ipc/               # 功能域 IPC 注册表（58 通道，register*Ipc + index 聚合）
+│       │   │   ├── ipc/               # 功能域 IPC 注册表（56 通道，register*Ipc + index 聚合）
 │       │   │   │   ├── index.ts       #   ipcRegistrars 数组汇总装配（registerIpcHandlers）
 │       │   │   │   ├── settings.ts    #   settings:load/save
 │       │   │   │   ├── models.ts      #   models:scan/detectMmproj/detectDraft/readGgufMeta/remove
 │       │   │   │   ├── models-watcher.ts # models:watch 目录监听单例（watchModelsDir/notifyModelsChanged）
-│       │   │   │   ├── presets.ts     #   presets:list/save/load/delete
+│       │   │   │   ├── model-params.ts #   modelParams:load/save/clear
 │       │   │   │   ├── server.ts      #   server:start/stop/restart/status/preview/output
 │       │   │   │   ├── logs.ts        #   logs:list/clear/onlog
 │       │   │   │   ├── system.ts      #   system:checkPort/killProcess/findFreePort/fileExists/findLlamaExe/detectTrash/cleanTrash/estimateVram/benchLlamaRun/benchLlamaStatus/estimateModelFit
@@ -49,9 +49,10 @@ llama_launcher/
 │   ├── core/                          # 核心业务逻辑
 │   │   └── src/
 │   │       ├── index.ts               # 包导出聚合
-│   │       ├── paths.ts               # llama-server 路径解析 + 预设目录解析
+│   │       ├── paths.ts               # llama-server 路径解析 + 参数集/迁移源目录常量
 │   │       ├── settings-store.ts      # 设置读写（CAS 合并守卫 + 原子替换）
-│   │       ├── presets-store.ts       # 预设读写（动态目录参数，v2 结构）
+│   │       ├── model-params-store.ts  # 每模型参数集读写（路径派生键，自动持久化）
+│   │       ├── model-params-repository.ts # 参数集领域层（load/save/clear + 存量预设迁移）
 │   │       ├── models-scanner.ts      # .gguf 递归扫描 + mmproj/draft 检测 + 移除
 │   │       ├── command-builder.ts     # 启动命令构建的执行侧包装（exe 存在性校验；发射规则在 shared/params/command.ts）
 │   │       ├── server-props.ts        # 就绪后 GET /props 回读，与发出的参数对账（取数实现可注入，单测不碰真网络）
@@ -74,7 +75,7 @@ llama_launcher/
 │   │       └── types.ts               # 核心内部类型
 │   ├── shared/                    # 共享层（类型/参数表/i18n 唯一来源）
 │   │   └── src/
-│   │       ├── types/             # 类型定义（settings/param/preset/server/gguf/download/trash/vram/ipc）
+│   │       ├── types/             # 类型定义（settings/param/model-params/server/gguf/download/trash/vram/ipc）
 │   │       ├── params/definitions.ts # 参数表（3 组 / 69 个参数）
 │   │       ├── params/engine-baseline.ts # 引擎缺省基线（engineDefault / sentinel / note，对拍 help）
 │   │       ├── params/command.ts    # 参数表 → argv 的唯一发射实现（buildArgv，展示方与执行方共用）
@@ -89,8 +90,8 @@ llama_launcher/
 │           ├── stores/            # Pinia store（settings/i18n/params/server/download/appLog）
 │           ├── pages/             # 7 个页面（概览/模型/服务/参数/日志/内置 Web UI/设置；侧栏 7 项一级导航，旧页路由重定向）
 │           ├── features/          # 功能注册表（FeatureDef：侧栏导航 + 路由装配）
-│           ├── components/        # 通用组件 + 参数控件（common/layout/models/params/presets/service/settings）
-│           ├── composables/       # useIPC / useTheme / useStartServer / useAutoPresetName / useModelPreset / useConfirm / useFilePicker / useUrlHistory
+│           ├── components/        # 通用组件 + 参数控件（common/layout/models/params/service/settings）
+│           ├── composables/       # useIPC / useTheme / useStartServer / useConfirm / useFilePicker / useUrlHistory
 │           ├── dev/               # demo-mock（无 Electron preload 的浏览器预览环境注入）
 │           └── styles/            # reset / theme（含 Arco token 兼容层与业务语义色）
 ├── scripts/                           # 构建辅助脚本

@@ -93,12 +93,10 @@ const api = {
       };
     },
   },
-  presets: {
-    list: () => invoke(IPC.PRESETS_LIST),
-    save: (input) => invoke(IPC.PRESETS_SAVE, input),
-    rename: (id, name) => invoke(IPC.PRESETS_RENAME, id, name),
-    delete: (id) => invoke(IPC.PRESETS_DELETE, id),
-    load: (id) => invoke(IPC.PRESETS_LOAD, id),
+  modelParams: {
+    load: (modelPath) => invoke(IPC.MODELPARAMS_LOAD, modelPath),
+    save: (modelPath, values) => invoke(IPC.MODELPARAMS_SAVE, modelPath, values),
+    clear: (modelPath) => invoke(IPC.MODELPARAMS_CLEAR, modelPath),
   },
   server: {
     start: (values, settings) => invoke(IPC.SERVER_START, values, settings),

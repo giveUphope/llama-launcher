@@ -1,11 +1,10 @@
 import { defineStore } from 'pinia';
 import { reactive, computed, ref, watch } from 'vue';
 import { PARAMS, MODEL_KEY, modelBaseName } from '@llama-launcher/shared';
-import type { ParamDef, Preset, PresetValues, GgufModelInfo, GgufSuggestedParam, SessionBaseline } from '@llama-launcher/shared';
+import type { ParamDef, PresetValues, GgufModelInfo, GgufSuggestedParam } from '@llama-launcher/shared';
 import { useSettingsStore } from './settings';
 import { useServerStore } from './server';
 import { useI18nStore } from './i18n';
-import { confirm } from '@/composables/useConfirm';
 
 // 推测解码类型 → 推荐最大草稿数
 const SPEC_DRAFT_N_MAX_BY_TYPE: Record<string, number> = {
@@ -28,8 +27,9 @@ const DEP_SOURCE_KEYS = new Set<string>(
   PARAMS.filter((p) => p.dependsOn).map((p) => p.dependsOn!.key),
 );
 
-// 自动检测/自动填充的参数，不计入"已修改"指示（mmproj / 草稿模型路径由 app 管理）
-const IGNORE_FOR_DIRTY = new Set<string>(['mmproj', 'spec_draft_model']);
+// 不计入「已修改」的自动管理字段：mmproj / 草稿模型路径由检测填充，
+// alias 由模型文件名自动派生——三者都不表达用户的自定义意图
+const IGNORE_FOR_DIRTY = new Set<string>(['mmproj', 'spec_draft_model', 'alias']);
 // 参数键常量表（hasChanges 每次求值都要用它建集合，避免逐次 PARAMS.map 分配）
 const PARAM_KEYS: string[] = PARAMS.map((p) => p.key);
 
@@ -97,7 +97,7 @@ function normalizePresetValue(p: ParamDef, raw: string | number | boolean): stri
       if (p.key === 'spec_type' && s === 'draft-model') return 'draft-simple';
       // editable 下拉（chat_template 等）：合法的自定义输入值得保留
       // （值 ∉ 内置 options 不代表非法，这正是 editable 的用途），
-      // 否则预设保存后重新加载会把自定义模板回退成默认值，造成配置丢失
+      // 否则持久化后重新加载会把自定义模板回退成默认值，造成配置丢失
       if (p.editable && s !== '') return s;
       return p.default;
     }
@@ -112,9 +112,6 @@ export const useParamsStore = defineStore('params', () => {
   const ggufSuggestions = ref<GgufSuggestedParam[]>([]);
   const ggufLoading = ref(false);
   const ggufError = ref('');
-  // 参数会话基线（双轨逻辑的锚点）：当前会话加载的预设（名称 + 应用时刻完整快照）；
-  // null = 无预设基线（出厂默认轨道）。hasChanges 与「恢复基线」都相对基线计算。
-  const baseline = ref<SessionBaseline | null>(null);
   init();
 
   function init() {
@@ -124,13 +121,12 @@ export const useParamsStore = defineStore('params', () => {
     values[MODEL_KEY] = '';
   }
 
-  /** 会话持久化：当前参数快照 + 基线写入 settings（临时轨道专用，永不触碰预设文件）。 */
-  function persistSession() {
-    const settings = useSettingsStore();
-    if (!settings.settings) return;
-    settings.settings.session_values = snapshot();
-    settings.settings.session_baseline = baseline.value ? JSON.parse(JSON.stringify(baseline.value)) : null;
-    void settings.save();
+  /** 把当前参数快照持久化到当前模型名下（自动保存的唯一出口，节流后调用）。 */
+  function persistModelParams() {
+    const model = String(values[MODEL_KEY] ?? '');
+    if (!model) return;
+    if (typeof window?.api?.modelParams?.save === 'undefined') return; // 浏览器 mock 环境容错
+    void window.api.modelParams.save(model, snapshot());
   }
 
   function get(key: string): string | number | boolean {
@@ -201,48 +197,19 @@ export const useParamsStore = defineStore('params', () => {
     values[MODEL_KEY] = '';
   }
 
-  /**
-   * 应用预设（完全覆盖），并以该预设建立会话基线。返回应用后非默认参数数量，供调用方反馈。
-   * 值做智能归一化；加载后清理依赖不满足的参数，保证预设内部自洽。
-   * presetName：预设名（建立基线用；空 = 自定义参数集基线，如 bench 参数应用）。
-   */
-  function applyPreset(presetValues: PresetValues, presetName = ''): number {
-    const currentModel = String(values[MODEL_KEY] ?? '');
-    resetAll();
-    if (!presetValues[MODEL_KEY] && currentModel) {
-      values[MODEL_KEY] = currentModel;
-    }
-    for (const k of Object.keys(presetValues)) {
-      if (k === MODEL_KEY) {
-        values[k] = String(presetValues[k]);
-        continue;
-      }
+  /** 按已存参数集逐键归一化写入（未知键忽略；模型键不在此流程——模型即存储键）。 */
+  function applyStoredValues(stored: PresetValues): number {
+    let changed = 0;
+    for (const k of Object.keys(stored)) {
+      if (k === MODEL_KEY || k === '_enabled') continue;
       const def = findParamDef(k);
       if (!def) continue;
-      values[k] = normalizePresetValue(def, presetValues[k]);
-    }
-    // 预设携带模型但未存别名（旧预设）：按模型文件名派生别名（去 .gguf 后缀）
-    if (presetValues[MODEL_KEY] && !String(values['alias'] ?? '').trim()) {
-      values['alias'] = modelBaseName(String(values[MODEL_KEY]));
+      const v = normalizePresetValue(def, stored[k]);
+      if (values[k] !== v) changed++;
+      values[k] = v;
     }
     syncDependencies();
-    // 应用预设 = 建立新基线（双轨逻辑：预设完整轨道的锚点）
-    markBaseline(presetName);
-    let count = 0;
-    for (const p of PARAMS) {
-      if (values[p.key] !== p.default) count++;
-    }
-    return count;
-  }
-
-  /**
-   * 应用预设实体（v3 完整对象）：预设文件「model 在顶层元数据、values 为纯参数」的布局
-   * 知识**只**收敛在此一处——绑定模型注回 values 后走 applyPreset，未绑定则保留当前模型。
-   * 此前 PresetsPanel / App.vue / useModelPreset 三处各注回一遍，是存储布局泄漏进展示层的耦合点。
-   */
-  function applyPresetEntity(preset: Preset): number {
-    const merged = preset.model ? { ...preset.values, [MODEL_KEY]: preset.model } : preset.values;
-    return applyPreset(merged, preset.name);
+    return changed;
   }
 
   function snapshot(): PresetValues {
@@ -267,84 +234,112 @@ export const useParamsStore = defineStore('params', () => {
   }
 
   /**
-   * 已修改（脏）标记：相对【基线】的偏离（双轨逻辑语义）。
-   * - 有基线（已加载预设）：逐键与基线快照比较（忽略自动检测字段）→ 红点 = 有未固化的临时调整
-   * - 无基线（出厂默认轨道）：与出厂默认比较（原语义）
+   * 已修改标记：当前参数相对**出厂默认**的偏离（2026-10-08 起，双轨基线机制随
+   * 每模型自动持久化移除——参数永远已保存，不再有「未固化修改」概念）。
+   * 语义 = 「该模型有自定义参数」：侧栏橙点与「全部重置」可用性都看它。
    */
   const hasChanges = computed(() => {
     const isIgnored = (k: string) => IGNORE_FOR_DIRTY.has(k);
-    if (!baseline.value) {
-      for (const p of PARAMS) {
-        if (isIgnored(p.key)) continue;
-        if (values[p.key] !== p.default) return true;
-      }
-      return false;
-    }
-    const b = baseline.value.values;
-    // PARAM_KEYS 为模块级常量表：这里只需并入基线里多出的键（预设文件可能含已删参数）
-    const keys = new Set<string>(PARAM_KEYS);
-    for (const k of Object.keys(b)) keys.add(k);
-    for (const k of keys) {
-      if (isIgnored(k)) continue;
-      if (String(values[k] ?? '') !== String(b[k] ?? '')) return true;
+    for (const k of PARAM_KEYS) {
+      const def = findParamDef(k);
+      if (!def || isIgnored(k)) continue;
+      if (values[k] !== def.default) return true;
     }
     return false;
   });
 
-  /** 建立基线：以当前参数快照为基线（presetName 空 = 自定义参数集/无命名基线），并持久化会话。 */
-  function markBaseline(presetName: string) {
-    baseline.value = { preset_name: presetName, values: snapshot() };
-    persistSession();
-  }
-
-  /** 清除会话（=「全部重置」）：回当前参数表默认值并清空基线（仅由「全部重置」确认后调用）。
-   *  模型选择不属于「会话参数」——保留当前模型，否则清空后显存估算/目标选择器
-   *  失去模型输入而持续不可用（GGUF 元数据仍有效，无需重新加载）。
-   *  2026-10-08 交互收敛：原「恢复基线」（回基线快照）与本动作并排双钮，回退目标不同但
-   *  外观一致，用户体感混淆——收敛为单钮后「恢复基线」动作连同按钮一并移除，
-   *  基线本身仍由 hasChanges / confirmDiscardDirty 使用。 */
-  function clearSession() {
+  /** 全部重置：当前模型参数回出厂默认（保留模型选择），随后自动持久化覆盖该模型的参数集。 */
+  function resetCurrentModel() {
     const model = String(values[MODEL_KEY] ?? '');
-    baseline.value = null;
     resetAll();
-    if (model) values[MODEL_KEY] = model;
-    persistSession();
-  }
-
-  /** 恢复会话（启动链）：以上次会话参数为当前状态 + 恢复基线，再补运行时检测。 */
-  async function restoreSession(sessionValues: PresetValues, baselineInfo: SessionBaseline | null) {
-    resetAll();
-    for (const [k, v] of Object.entries(sessionValues)) values[k] = v;
-    baseline.value = baselineInfo ? structuredClone(baselineInfo) : null;
-    const settings = useSettingsStore();
-    if (settings.settings && values[MODEL_KEY]) {
-      settings.settings.selected_model = String(values[MODEL_KEY]);
+    if (model) {
+      values[MODEL_KEY] = model;
+      values['alias'] = modelBaseName(model);
     }
-    persistSession();
-    const model = String(values[MODEL_KEY] ?? '');
-    await Promise.all([detectMmproj(model), detectDraftModel(model), loadGguf(model)]);
+    persistModelParams();
   }
 
-  /** 切换模型/应用完整参数集前的防丢确认：相对基线有未固化修改时询问丢弃。 */
-  async function confirmDiscardDirty(): Promise<boolean> {
-    if (!hasChanges.value) return true;
+  /**
+   * 应用模型（唯一入口，2026-10-08 起每模型自动持久化）：
+   *  1. 回出厂默认并设定模型（派生别名、写回 selected_model）；
+   *  2. 载入该模型的已存参数集（有则覆盖叠加——参数跟模型走）；
+   *  3. 补运行时检测（mmproj/草稿模型只在字段为空时探测，不覆盖已存值）；
+   *  4. 首次见面（无已存参数集）且模型元数据带推荐参数时自动应用——
+   *     每个「任一模型」都能自动匹配到属于它的配置参数，全程无需手动保存。
+   * 调整即保存：应用完成后 800ms 节流把最终状态写回该模型名下（见底部 watch）。
+   * 注：旧版「清上一模型目录里的伴随残留」规则随之消亡——伴随路径本就自动存进
+   * 各自模型的参数集，切换 = 回到该模型自己的状态，不存在跨模型残留。
+   */
+  async function applyModel(path: string): Promise<boolean> {
+    const server = useServerStore();
     const i18n = useI18nStore();
-    // 无基线（出厂默认轨道）时脏 = 偏离默认值，来源显示「默认参数」
-    const from = baseline.value
-      ? baseline.value.preset_name
-        ? i18n.t('baseline_preset', [baseline.value.preset_name])
-        : i18n.t('baseline_custom')
-      : i18n.t('baseline_default');
-    return (await confirm({
-      title: i18n.t('msg_discard_dirty_title'),
-      message: i18n.t('msg_discard_dirty', [from]),
-      variant: 'warning',
-    })) === true;
+    const prev = String(values[MODEL_KEY] ?? '');
+    if (path && path !== prev) {
+      server.clearOutputs();
+    }
+    resetAll();
+    set(MODEL_KEY, path);
+
+    let storedChanged: number | null = null;
+    if (path && typeof window?.api?.modelParams?.load !== 'undefined') {
+      try {
+        const stored = await window.api.modelParams.load(path);
+        if (stored) storedChanged = applyStoredValues(stored.values);
+      } catch {
+        // 读取失败按无已存参数处理（回落默认 + GGUF 建议）
+      }
+    }
+
+    await Promise.all([detectMmproj(path), detectDraftModel(path), loadGguf(path)]);
+
+    if (path) {
+      if (storedChanged !== null) {
+        server.pushOutput({
+          kind: 'info',
+          data: `[params] ${i18n.t('msg_model_params_loaded', [
+            path.split(/[\\/]/).pop() ?? path,
+            String(storedChanged),
+          ])}\n`,
+          ts: Date.now(),
+        });
+      } else if (ggufSuggestions.value.length > 0) {
+        let count = 0;
+        for (const s of ggufSuggestions.value) {
+          set(s.key, s.value);
+          count++;
+        }
+        server.pushOutput({
+          kind: 'success',
+          data: `[gguf] ${i18n.t('msg_gguf_applied', [String(count)])}\n`,
+          ts: Date.now(),
+        });
+      }
+    }
+    return true;
   }
 
-  function setGgufInfo(info: GgufModelInfo | null, suggestions: GgufSuggestedParam[]) {
-    ggufInfo.value = info;
-    ggufSuggestions.value = suggestions;
+  /** 应用模型 + GGUF 建议参数（用户显式动作，可用于重新应用建议）：应用后自动持久化。 */
+  async function applyModelWithSuggestions(path: string): Promise<boolean> {
+    const server = useServerStore();
+    const i18n = useI18nStore();
+    const prev = String(values[MODEL_KEY] ?? '');
+    if (path && path !== prev) server.clearOutputs();
+    resetAll();
+    set(MODEL_KEY, path);
+    await Promise.all([detectMmproj(path), detectDraftModel(path), loadGguf(path)]);
+    let count = 0;
+    for (const s of ggufSuggestions.value) {
+      set(s.key, s.value);
+      count++;
+    }
+    if (count > 0) {
+      server.pushOutput({
+        kind: 'success',
+        data: `[gguf] ${i18n.t('msg_gguf_applied', [String(count)])}\n`,
+        ts: Date.now(),
+      });
+    }
+    return true;
   }
 
   /** 联动清理：依赖不满足的参数恢复到默认（文件/目录保留用户路径，由命令构建器跳过发射）。 */
@@ -362,30 +357,6 @@ export const useParamsStore = defineStore('params', () => {
       return;
     }
     values[p.key] = p.default;
-  }
-
-  /** 目录归一（分隔符与大小写）：判「这个路径是否落在那个模型所在目录里」用。 */
-  function dirOf(p: string): string {
-    const norm = p.replace(/\\/g, '/');
-    const cut = norm.lastIndexOf('/');
-    return cut > 0 ? norm.slice(0, cut).toLowerCase() : '';
-  }
-
-  /**
-   * 换模型时的伴随文件清理（用户标注：切换模型后智能处理模态权重的路径）。
-   * `mmproj` / `spec_draft_model` 是跟着模型走的**伴随文件**，而 detect* 只在字段为空时才探测
-   * （不覆盖用户手挑的值）——于是换模型后，旧模型目录里那两条会一直留着，指着一个新模型用不上的
-   * 伴随文件，界面上还看不出异常。这里只清「落在**上一个模型所在目录**里」的那些：那是旧模型的
-   * 残留，清掉后下面的 detect* 会为新模型重探；用户手挑到别处（跨目录复用）的路径保留不动——
-   * 那是显式选择，不是陈旧残留。
-   */
-  function dropStaleCompanions(prevModel: string): void {
-    const prevDir = dirOf(prevModel);
-    if (!prevDir) return;
-    for (const key of ['mmproj', 'spec_draft_model']) {
-      const v = String(values[key] ?? '').trim();
-      if (v && dirOf(v) === prevDir) values[key] = '';
-    }
   }
 
   async function detectMmproj(modelPathValue: string): Promise<void> {
@@ -492,77 +463,24 @@ export const useParamsStore = defineStore('params', () => {
     }
   }
 
-  /** 应用模型（用户切换动作）：有未固化临时调整时先确认丢弃；false = 用户取消。 */
-  async function applyModel(path: string): Promise<boolean> {
-    if (!(await confirmDiscardDirty())) return false;
-    const server = useServerStore();
-    const prev = String(values[MODEL_KEY] ?? '');
-    if (path && path !== prev) {
-      server.clearOutputs();
-    }
-    set(MODEL_KEY, path);
-    // 旧模型目录里的伴随文件先清掉，下面的 detect* 才会为新模型重新探（见 dropStaleCompanions）
-    if (path !== prev) dropStaleCompanions(prev);
-    // 无预设基线轨道：应用模型即重建"临时"基线（该模型的当前参数；
-    // 若随后智能预设匹配命中，applyPreset 会以预设名重建基线）
-    markBaseline('');
-    await Promise.all([detectMmproj(path), detectDraftModel(path), loadGguf(path)]);
-    return true;
-  }
-
-  /**
-   * 启动补检测（非用户切换）：为已恢复的模型补齐 mmproj/draft 检测与 GGUF 元数据。
-   * 不确认、不重建基线、不重派生别名（会话里的自定义别名不被覆盖）。
-   */
-  async function reattachModelRuntime(path: string): Promise<void> {
-    values[MODEL_KEY] = path;
-    await Promise.all([detectMmproj(path), detectDraftModel(path), loadGguf(path)]);
-  }
-
-  /** 应用模型 + GGUF 建议参数（用户动作）：确认防丢；false = 用户取消。 */
-  async function applyModelWithSuggestions(path: string): Promise<boolean> {
-    if (!(await confirmDiscardDirty())) return false;
-    const server = useServerStore();
-    const i18n = useI18nStore();
-    resetAll();
-    set(MODEL_KEY, path);
-    await Promise.all([detectMmproj(path), detectDraftModel(path), loadGguf(path)]);
-    let count = 0;
-    for (const s of ggufSuggestions.value) {
-      set(s.key, s.value);
-      count++;
-    }
-    // GGUF 建议应用 = 重建"临时"基线（建议值即该模型的起始参数）
-    markBaseline('');
-    if (count > 0) {
-      server.pushOutput({
-        kind: 'success',
-        data: i18n.t('msg_gguf_applied', [String(count)]) + '\n',
-        ts: Date.now(),
-      });
-    }
-    return true;
-  }
-
-  // 自动保存（临时轨道）：参数变化时节流写入 settings.session_values——
-  // 重启可恢复会话，但**永不写入预设文件**（预设文件只由显式保存写入，
-  // 消除旧 autoSave 静默覆盖预设导致的临时/预设混杂）。
+  // 自动保存（每模型轨道）：参数变化时节流写入该模型名下的参数集——
+  // 参数永远已保存，切模型/重启即自动载回（2026-10-08 取代 session_values + 手存预设双轨）。
+  // 节流窗口 800ms 沿用历史契约（原双轨自动保存同值），改这里须同步文档。
   let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
-  // 节流窗口 800ms 是 AGENTS.md 双轨参数逻辑里写明的契约，改这里须同步文档
   const SESSION_SAVE_THROTTLE_MS = 800;
-  watch(values, async () => {
+  watch(values, () => {
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
-    if (typeof window?.api?.settings?.save === 'undefined') return;
+    if (typeof window?.api?.modelParams?.save === 'undefined') return;
     autoSaveTimer = setTimeout(() => {
-      persistSession();
+      persistModelParams();
     }, SESSION_SAVE_THROTTLE_MS);
   }, { deep: true });
 
   return {
-    values, baseline, ggufInfo, ggufSuggestions, ggufLoading, ggufError,
+    values, ggufInfo, ggufSuggestions, ggufLoading, ggufError,
     get, set, resetParam, resetGroup, resetAll,
-    applyPreset, applyPresetEntity, snapshot, hasChanges, countDiffers,
-    markBaseline, clearSession, restoreSession, confirmDiscardDirty, reattachModelRuntime,
-    setGgufInfo, detectMmproj, detectDraftModel, loadGguf, applyModel, applyModelWithSuggestions,
+    snapshot, hasChanges, countDiffers,
+    resetCurrentModel, applyModel, applyModelWithSuggestions,
+    detectMmproj, detectDraftModel, loadGguf,
   };
 });

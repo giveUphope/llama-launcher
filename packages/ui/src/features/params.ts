@@ -1,6 +1,6 @@
 // 参数设置功能条目（含旧路由重定向）。
-// 单页 + 页内 tab-strip 切换（参数预设 / 自定义参数，与设置页同一体例）；
-// 2026-09 移除侧栏子树展开——次级页面统一回归页内切换。
+// 单页直出（2026-10-08 起无页内页签——参数预设页签随每模型自动持久化移除）；
+// 2026-09 移除侧栏子树展开——次级页面统一回归单页。
 import type { FeatureDef } from './types.js';
 import { useParamsStore } from '@/stores/params';
 
@@ -11,7 +11,7 @@ export const paramsFeature: FeatureDef = {
     labelKey: 'nav_params',
     to: '/params',
     order: 3,
-    // 自定义参数有未保存改动时橙点提示
+    // 当前模型存在与出厂默认不同的参数时橙点提示（每模型自动持久化：即「该模型有自定义参数」）
     dot: () => useParamsStore().hasChanges,
   },
   routes: [
@@ -21,6 +21,6 @@ export const paramsFeature: FeatureDef = {
     { path: '/advanced', redirect: { path: '/params' } },
     { path: '/server', redirect: { path: '/params' } },
     { path: '/sampling', redirect: { path: '/params' } },
-    { path: '/presets', redirect: { path: '/params', query: { tab: 'presets' } } },
+    { path: '/presets', redirect: { path: '/params' } },
   ],
 };

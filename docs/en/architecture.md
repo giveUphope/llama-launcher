@@ -6,7 +6,7 @@
 
 ## 1. Project overview
 
-llama\_launcher is a desktop launcher for the `llama-server` binary of llama.cpp. It can: pick `.gguf` models, read GGUF metadata to derive suggested parameters automatically, configure 60 startup parameters, start/stop/restart the service, watch output live, save/load presets, download models online, and switch between light/dark themes and Chinese/English. The app does not bundle the llama.cpp binary — the user selects the directory holding llama-server and the executable is auto-detected.
+llama\_launcher is a desktop launcher for the `llama-server` binary of llama.cpp. It can: pick `.gguf` models, read GGUF metadata to derive suggested parameters automatically, configure 60 startup parameters, start/stop/restart the service, watch output live, remember and restore parameters per model automatically, download models online, and switch between light/dark themes and Chinese/English. The app does not bundle the llama.cpp binary — the user selects the directory holding llama-server and the executable is auto-detected.
 
 There is only one actively maintained line today: `apps/desktop` + `packages/*` (Electron + TypeScript + Vue 3 + Vite + Pinia). The whole project is managed with pnpm workspace + turborepo, and every build artifact is orchestrated by turbo.
 
@@ -21,12 +21,12 @@ llama_launcher/
 │       ├── src/
 │       │   ├── main/                  # Main process
 │       │   │   ├── index.ts           # Entry point: single-instance lock, window creation, lifecycle, transport injection
-│       │   │   ├── ipc/               # IPC registry per feature domain (58 channels, register*Ipc + index aggregation)
+│       │   │   ├── ipc/               # IPC registry per feature domain (56 channels, register*Ipc + index aggregation)
 │       │   │   │   ├── index.ts       #   aggregate wiring of the ipcRegistrars array (registerIpcHandlers)
 │       │   │   │   ├── settings.ts    #   settings:load/save
 │       │   │   │   ├── models.ts      #   models:scan/detectMmproj/detectDraft/readGgufMeta/remove
 │       │   │   │   ├── models-watcher.ts # models:watch directory-watch singleton (watchModelsDir/notifyModelsChanged)
-│       │   │   │   ├── presets.ts     #   presets:list/save/load/delete
+│       │   │   │   ├── model-params.ts #   modelParams:load/save/clear
 │       │   │   │   ├── server.ts      #   server:start/stop/restart/status/preview/output
 │       │   │   │   ├── logs.ts        #   logs:list/clear/onlog
 │       │   │   │   ├── system.ts      #   system:checkPort/killProcess/findFreePort/fileExists/findLlamaExe/detectTrash/cleanTrash/estimateVram/benchLlamaRun/benchLlamaStatus/estimateModelFit
@@ -49,9 +49,10 @@ llama_launcher/
 │   ├── core/                          # Core business logic
 │   │   └── src/
 │   │       ├── index.ts               # Package export aggregate
-│   │       ├── paths.ts               # llama-server path resolution + presets directory resolution
+│   │       ├── paths.ts               # llama-server path resolution + params/migration-source directory constants
 │   │       ├── settings-store.ts      # Settings read/write (CAS merge guard + atomic replace)
-│   │       ├── presets-store.ts       # Presets read/write (dynamic directory argument, v2 structure)
+│   │       ├── model-params-store.ts  # Per-model params read/write (path-derived key, auto-persisted)
+│   │       ├── model-params-repository.ts # Params domain layer (load/save/clear + legacy preset migration)
 │   │       ├── models-scanner.ts      # Recursive .gguf scan + mmproj/draft detection + removal
 │   │       ├── command-builder.ts     # Executor-side wrapper for the startup command (exe existence check; the emission rule lives in shared/params/command.ts)
 │   │       ├── server-props.ts        # Post-readiness GET /props read-back, reconciled against what we sent (injectable transport so tests never touch the network)
@@ -74,7 +75,7 @@ llama_launcher/
 │   │       └── types.ts               # Core-internal types
 │   ├── shared/                    # Shared layer (the single source for types / the param table / i18n)
 │   │   └── src/
-│   │       ├── types/             # Type definitions (settings/param/preset/server/gguf/download/trash/vram/ipc)
+│   │       ├── types/             # Type definitions (settings/param/model-params/server/gguf/download/trash/vram/ipc)
 │   │       ├── params/definitions.ts # Param table (3 groups / 69 params)
 │   │       ├── params/engine-baseline.ts # Engine-default baseline (engineDefault / sentinel / note, cross-checked against help)
 │   │       ├── params/command.ts    # The one param-table → argv emitter (buildArgv, shared by presenter and executor)
@@ -89,8 +90,8 @@ llama_launcher/
 │           ├── stores/            # Pinia stores (settings/i18n/params/server/download/appLog)
 │           ├── pages/             # 7 pages (Dashboard/Models/Service/Params/Logs/Built-in Web UI/Settings; 7-item first-level sidebar nav, old page routes redirect)
 │           ├── features/          # Feature registry (FeatureDef: sidebar nav + route assembly)
-│           ├── components/        # Shared components + param controls (common/layout/models/params/presets/service/settings)
-│           ├── composables/       # useIPC / useTheme / useStartServer / useAutoPresetName / useModelPreset / useConfirm / useFilePicker / useUrlHistory
+│           ├── components/        # Shared components + param controls (common/layout/models/params/service/settings)
+│           ├── composables/       # useIPC / useTheme / useStartServer / useConfirm / useFilePicker / useUrlHistory
 │           ├── dev/               # demo-mock (browser preview environment injected in the absence of the Electron preload)
 │           └── styles/            # reset / theme (holds the Arco token compatibility layer and the business semantic colors)
 ├── scripts/                           # Build helper scripts

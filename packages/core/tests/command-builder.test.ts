@@ -11,7 +11,6 @@ const baseSettings: AppSettings = {
   server_exe: EXE_PATH,
   models_dir: './models',
   selected_model: '',
-  last_preset: '',
   window_geometry: '1280x800',
   theme_mode: 'dark',
   close_behavior: 'ask',

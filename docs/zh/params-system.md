@@ -17,15 +17,14 @@
 - **ggufField 映射**：参数可声明 `ggufField` 映射到 `GgufModelInfo` 的字段，参数行内联显示模型内置值；`buildSuggestions` 从元数据推导建议参数，点击可一键应用。映射按实际用途分类（2026-09 梳理）：仅**确定性事实映射**（`nextn_predict_layers → spec_type` 采样推荐等）与**启发式规则**（量化权重 → KV q8_0 等）进入建议；**纯参考信息**（`context_length` 训练上限、`rope.freq_base` 等）只在行内/信息卡展示，不产生建议（`-c` 默认 0 = 从模型加载，逐项建议属混淆源）；`cache_type_k/v`/`jinja`/`alias` 已移除语义错挂的 ggufField。
 - **显存占用估算与性能目标**：core `devices.ts`（`--list-devices` 显存探测）+ `vram-estimate.ts`（KV 内存模型与显存/内存双侧占用 `estimateOccupancy`、无 OOM 最大上下文求解 `solveMaxContext`）+ `target-recommend.ts`（四档性能目标联动建议），经 `system:estimateVram` 暴露；参数页状态条「显存占用(估算)」stat 与目标选择器为唯一 UI 入口（详见前端 §7.3 / core-modules §4 模块表）。
 
-### 5.2 参数双轨机制（临时会话 / 预设）
+### 5.2 每模型自动持久化（2026-10-08 起，取代双轨机制）
 
-参数**没有独立启用/禁用状态**——命令行发射规则是「**值 ≠ 引擎缺省（`engineDefault`）才发射**，且不属于该参数的 `sentinel` 哨兵值」（checkbox 勾选发 `flag`、取消发 `invert_flag`，无 `invert_flag` 且 default false 的开关取消时不发射；空串跳过；依赖不满足跳过——详见 [core-modules.md](core-modules.md) §4.3）；旧版 `_enabled` JSON 启用机制已随双轨逻辑移除（`buildCommand` 读到 legacy `_enabled` 直接忽略）。
+参数**没有独立启用/禁用状态**——命令行发射规则是「**值 ≠ 引擎缺省（`engineDefault`）才发射**，且不属于该参数的 `sentinel` 哨兵值」（checkbox 勾选发 `flag`、取消发 `invert_flag`，无 `invert_flag` 且 default false 的开关取消时不发射；空串跳过；依赖不满足跳过——详见 [core-modules.md](core-modules.md) §4.3）；旧版 `_enabled` JSON 启用机制已移除（`buildCommand` 读到 legacy `_enabled` 直接忽略）。
 
 - **回读校验（2026-09-26 起）**：「值等于引擎缺省就不发射」有两个界面看不见的前提——引擎默认值可能与我们登记的基线不符（跨版本漂移），以及用户环境里可能有 `LLAMA_ARG_*` 改写缺省值。因此服务就绪后 core 会 `GET /props` 把引擎**实际生效值**读回来逐项对账，并做可见驱动的自动复检（展示面板重新可见时计入；结果变化才补发事件，`checkedAt` 标注新鲜度）；映射与比对规则在 `shared/params/props-mapping.ts`，详见 [core-modules.md](core-modules.md) §4.11：映射表 **15 项**，同一份真机夹具按现行规则是 **9 项校验 / 6 项跳过 / 0 假报**，其余约 54 项引擎不回读，故设置页引擎行下方的提示**只在真的不一致时出声**（2026-10-07 自服务页命令预览卡迁入）。其中六个采样项是 `modelDerived`（模型文件自带的 `general.sampling.*` 会把未发射的缺省顶掉，只有 `envOverrides` 命中对应 env 通道才参与比对——详见 §5.5 第 3 条与 §4.11）。同一链路还捎带比对 `build_info` 与常量 `ENGINE_BASELINE_BUILD`（基线所钉引擎构建），**引擎比基线旧**即提示"参数基线可能已过期"。
-- **临时轨道（会话）**：所有参数编辑自动持久化到 `~/.llama_launcher/settings.json` 的 `session_values` + `session_baseline`（`autoSave` watch 800ms 节流，**只写 settings、永不写预设文件**）；应用启动时经 `restoreSession` 恢复上次会话（参数值 + 基线一并还原）。
-- **预设轨道**：预设文件统一存放在 `~/.llama_launcher/presets/`（2026-10-08 起与模型目录解耦，旧版 `<models_dir>/presets` 启动时自动搬入；结构 v3、稳定 id 主键，见 [data-persistence.md](data-persistence.md) §10），仅在用户显式「保存预设」时写入（upsert：同名即覆盖、继承其 id 与 created_at；带 id 保存可同时改名）；应用预设以「预设名 + 参数快照」建立新会话基线（`markBaseline`）。「当前预设」以 `settings.last_preset_id` 引用（旧版按名的 `last_preset` 仅在启动链兜底一次并迁移为 id）；预设面板支持行内重命名（id 恒定，「当前」标记不失效）。智能预设匹配（换模型时静默应用该模型的预设）按**绑定的模型文件身份**匹配（全路径一致优先、文件名退化），旧版「预设名 = 模型名」命名约定匹配已废除——未绑定模型的纯参数集预设不会被自动应用。
-- **基线**：`SessionBaseline { preset_name, values }`——`hasChanges`（改动行 `--warn` 橙描边 / 侧栏橙点）有基线时相对基线快照逐键对比，无基线时对比出厂默认。基线不再以徽章展示（2026-09 移除，与「已调整」统计重复）；基线本身仍由 `hasChanges` / `confirmDiscardDirty` 使用。参数页状态条只保留单一**「全部重置」**入口（`clearSession`，带确认；2026-10-08 由「恢复基线 / 清除会话参数」双钮收敛而来——两者回退目标不同但外观一致，体感混淆）：重置目标即当前参数表全部条目的 `default`，保留模型选择、清空基线；原「恢复基线」（回基线快照）动作随双钮移除。
-- **防丢确认**：切换模型（`applyModel`）与应用 GGUF 建议参数（`applyModelWithSuggestions`）前检测 `hasChanges`，未保存修改时弹 `confirmDiscardDirty` 确认，确认后应用并重建临时基线；应用启动重挂上次模型走 `reattachModelRuntime`（直接赋值、不确认、不重建基线、别名不重派生）。
+- **持久化模型（参数跟模型走）**：每个模型在 `~/.llama_launcher/model-params/` 下有一份自己的参数集（LM Studio per-model defaults 同型）——`applyModel` 切换模型时载入该模型的已存参数集，没有则回落出厂默认；参数一经调整即自动持久化到该模型名下（800ms 节流，见下），切换/重启即自动载回。**全程无手动保存**：旧双轨机制（`session_values` 临时会话 + 手存预设 + 基线/脏确认）已整体移除，`settings.json` 里的旧字段由 schema 剥除静默忽略，存量预设由启动迁移一次性并入（同模型多条取 `saved_at` 最新，见 [data-persistence.md](data-persistence.md) §10）。
+- **首载自动匹配**：模型第一次使用（无已存参数集）且 GGUF 元数据带推荐参数（`general.sampling.*` 等）时自动应用——任一模型都能自动匹配到属于它的配置参数；此后调整即覆盖保存。显式「应用模型 + 建议参数」动作保留，可用于重新应用建议。
+- **调整即保存（800ms 契约）**：参数变化经 `autoSave` watch 以 800ms 节流写入 `modelParams:save`（渲染层唯一持久化出口，写当前模型名下）；没有「未固化修改」概念，切模型/关应用不丢任何调整，也因此不再有防丢确认弹窗。`hasChanges` 语义改为「当前参数相对出厂默认的偏离」（忽略 mmproj/草稿模型路径/别名三个自动管理字段）：侧栏橙点 = 该模型有自定义参数，「全部重置」（`resetCurrentModel`，带确认）只在此时可用——重置回默认并自动持久化覆盖该模型参数集，保留模型选择。
 - **`MODEL_KEY`（`model`）** 恒随命令携带 `-m`；`set(MODEL_KEY)` 自动派生 `alias`（`modelBaseName`，文件名去 `.gguf` 后缀）。
 
 ### 5.3 参数控件组件 (ui/components/params/)

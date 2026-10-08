@@ -1,10 +1,10 @@
 # IPC 通道清单
 
 > 语言：中文 · [English](../en/ipc-channels.md)
-> 范围：IPC 通道完整清单（共 58 个），按类别分组。改 IPC 前必读。常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧常量由 `scripts/generate-preload.cjs` 生成（改完运行 `pnpm generate:ipc`），`scripts/verify-ipc-sync.cjs` 在 lint 阶段检查产物未过期。
+> 范围：IPC 通道完整清单（共 56 个），按类别分组。改 IPC 前必读。常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧常量由 `scripts/generate-preload.cjs` 生成（改完运行 `pnpm generate:ipc`），`scripts/verify-ipc-sync.cjs` 在 lint 阶段检查产物未过期。
 > 索引：[README.md](../../README.md) · 相关：[desktop-main.md](desktop-main.md)
 
-共 58 个 IPC 通道，按类别分组如下：
+共 56 个 IPC 通道，按类别分组如下：
 
 ### Settings（2）
 
@@ -25,17 +25,15 @@
 | `models:remove`       | 按模型文件移除（目录有其他量化版本/文件时仅删选中文件；否则连同 mmproj/mtp/dflash 伴随文件与空目录删除；仅允许删除 models\_dir 内路径；同步清理关联预设） |
 | `models:changed`      | 模型变化通知（主进程 → 渲染进程）                                                                            |
 
-### Presets（5）
+### ModelParams（3）
 
-预设文件存于 `~/.llama_launcher/presets`（2026-10-08 起与模型目录解耦，旧版 `<models_dir>/presets` 在启动时自动搬入）；主键为稳定 id，改名/搬移不使引用失效。全部读写走 core 的 `PresetRepository`，通道载荷不暴露目录与文件布局。
+每模型参数集（2026-10-08 起取代手存预设：参数跟模型走，调整即自动持久化、切换/重启即自动载回）。文件存于 `~/.llama_launcher/model-params/`，按模型路径派生存储键；存量预设由启动迁移一次性并入（同模型取最新）。全部读写走 core 的 `ModelParamsRepository`，通道载荷不暴露目录与文件布局。
 
 | 通道 | 用途 |
 | --- | --- |
-| `presets:list` | 预设列表（载荷 `PresetSummary[]`：id/名称/时间/绑定模型的轻量摘要，**不含参数值**——展示层对预设的认知到此为止） |
-| `presets:save` | 保存预设（upsert，载荷 `{ name, values, id? }`：id 缺省 = 按名新建、同名即覆盖（继承其 id 与 created_at）；id 传入 = 更新指定预设（可同时改名）；返回落盘后的摘要） |
-| `presets:load` | 按稳定主键 id 取完整预设（含 values）；不存在返回 null |
-| `presets:rename` | 重命名（id 恒定，仅改展示名；重名/不存在以错误码 `preset-name-exists` / `preset-not-found` 抛出） |
-| `presets:delete` | 按主键删除；删除了文件返回 true |
+| `modelParams:load` | 读取某模型的已存参数集（载荷 `ModelParams \| null`：模型路径 + 参数值；未存储返回 null，调用方回落出厂默认 + GGUF 建议自动应用） |
+| `modelParams:save` | 自动持久化某模型的当前参数（渲染层参数变化按 800ms 节流调用；upsert） |
+| `modelParams:clear` | 清除某模型的已存参数集；删除了文件返回 true |
 
 ### Server（6）
 
