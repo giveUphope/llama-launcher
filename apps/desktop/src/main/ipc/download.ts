@@ -133,12 +133,12 @@ export function registerDownloadIpc(ipcMain: IpcMain): void {
     }
   });
 
-  // 启动下载
+  // 启动下载（返回任务快照：去重命中时快照即既有任务的真实状态，渲染层据此采纳）
   ipcMain.handle(IPC.DOWNLOAD_START, async (_e, req: StartDownloadRequest) => {
     try {
-      const id = await downloadManager.startDownload(req);
+      const task = await downloadManager.startDownload(req);
       logApp('info', `Download started: ${req.filePath}`);
-      return { ok: true, data: id };
+      return { ok: true, data: task };
     } catch (err: any) {
       logApp('error', `Download start failed: ${req.filePath} — ${err?.message ?? String(err)}`);
       return { ok: false, error: err?.message ?? String(err) };

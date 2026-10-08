@@ -331,7 +331,7 @@ export const en: Dict = {
   btn_resume_download: 'Resume',
   btn_retry_download: 'Retry',
   lbl_eta: 'ETA',
-  btn_clear_completed: 'Clear Completed',
+  btn_clear_completed: 'Clear Finished Tasks',
   msg_open_dir_failed: 'Failed to open folder: {0}',
   msg_select_files: 'Please select files to download first',
   msg_download_already_in_queue: 'This file is already in the download queue (queued/downloading/paused). Auto-unchecked',

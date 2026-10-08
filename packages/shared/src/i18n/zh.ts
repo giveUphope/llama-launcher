@@ -330,7 +330,7 @@ export const zh = {
   btn_resume_download: '恢复',
   btn_retry_download: '重试',
   lbl_eta: '剩余',
-  btn_clear_completed: '清除已完成',
+  btn_clear_completed: '清除已结束任务',
   msg_open_dir_failed: '打开目录失败: {0}',
   msg_select_files: '请先选择要下载的文件',
   msg_download_already_in_queue: '该文件已在下载队列中（排队中/下载中/已暂停），已自动取消勾选',

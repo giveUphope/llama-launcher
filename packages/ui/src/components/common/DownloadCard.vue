@@ -427,14 +427,17 @@ async function enqueueFiles(
         expectedChecksum: file.sha256 ?? null,
       });
       if (resp && resp.ok) {
-        // 用后端返回的真实 ID 替换临时 ID
+        // 采纳后端返回的任务快照：快照 id 已在列表中则只移除本地占位行（以既有行为准，
+        // 其状态已随事件演进）；否则用快照整体替换临时行（真实 id 与状态——此前只换 id
+        // 不同步状态，被清除列表的 paused 任务重新添加后会渲染成永远「排队中」的僵尸行）
+        const backend = resp.data;
         const idx = download.tasks.findIndex((t) => t.id === task.id);
         if (idx >= 0) {
-          // 后端返回的 ID 可能来自已有任务（去重命中），此时移除重复的本地任务
-          if (download.tasks.some((t) => t.id === resp.data && t.id !== task.id)) {
+          const dupIdx = download.tasks.findIndex((t) => t.id === backend.id);
+          if (dupIdx >= 0 && dupIdx !== idx) {
             download.tasks.splice(idx, 1);
           } else {
-            download.tasks[idx].id = resp.data;
+            download.tasks[idx] = backend;
           }
         }
       } else {

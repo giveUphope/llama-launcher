@@ -59,6 +59,6 @@
   - **模型目录** `models_dir`：`*.part`（下载临时文件）、`*.llama_dl.jsonl`（续传事件日志）、`*.llama_dl.json`（旧版周期快照）→ 无活动任务占用时列 `download_orphan`。参数集在 `~/.llama_launcher/model-params`，模型目录内没有参数集扫描；两代历史遗留的预设目录（`<models_dir>/presets` 与 `~/.llama_launcher/presets`）**不扫描、不列入清理**（启动迁移搬空它们，搬不动的同名冲突/损坏/无绑定文件属于用户数据，宁可保留不冒误删风险）。
   - **保护与再校验**：`queued/downloading/paused/error` 状态任务占用的 localPath/partPath/续传日志由 `DownloadManager.getProtectedPaths()` 传入保护，检测与清理时刻双重排除；`cleanTrash` 对每个传入项按声明 kind 复核根归属（config → CONFIG_DIR，models → modelsDir）、路径特征与内容（孤儿参数集清理时刻重读，模型重新出现即放弃删除），未识别文件一律不列入（保守策略）。
 - **`stats.jsonl`（下载统计）**：已随「累计下载」展示移除一并停用（2026-08-14 起不再落盘，`download:stats` IPC 与 `download-stats.ts` 模块删除）。
-- **下载续传日志**：`.llama_dl.jsonl`（与下载文件同目录）是下载任务的事件日志（JSONL 事实源）——`start`（含段布局）/`segment`（段进度，逐事件落盘）/`done`（终态）三类事件 append-only 写入；崩溃/重启后重放日志精确重建段进度（无周期快照窗口），`start` 前旧版 `.llama_dl.json` 周期快照由 `migrateLegacyMeta` 一次性迁移。下载完成后日志删除。
+- **下载续传日志**：`.llama_dl.jsonl`（与下载文件同目录）是下载任务的事件日志（JSONL 事实源）——`start`（含段布局）/`segment`（段进度，逐事件落盘）/`done`（终态）三类事件 append-only 写入；崩溃/重启后重放日志精确重建段进度（无周期快照窗口），`start` 前旧版 `.llama_dl.json` 周期快照由 `migrateLegacyMeta` 一次性迁移。下载完成后日志删除；`checksum_mismatch` 失败时同样删除（校验失败的字节不可信、不可续传），`.part` 一并清理并回填期望校验和，重试即干净的全量重下。
 - **`server_exe`**：由 `llama_dir` 内联检测自动填充（`system:findLlamaExe` 查找目录及一级子目录中的 `llama-server.exe`）。
 - **默认 `server_exe`**：开发模式下由 `paths.ts` 动态查找；生产模式下返回空字符串，由用户配置。

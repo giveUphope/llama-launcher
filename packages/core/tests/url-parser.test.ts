@@ -102,6 +102,12 @@ describe('parseModelUrl', () => {
     expect(parseModelUrl('https://example.com/foo')).toBeNull();
   });
 
+  it('非 http(s) 协议链接按未识别处理（不切成垃圾 author/model，G1）', () => {
+    // 此前 lmstudio:// 会被当 author/model 切成「lmstudio: / lmstudio.ai」拿去搜索误报「无匹配」
+    expect(parseModelUrl('lmstudio://lmstudio.ai/models/x/y')).toBeNull();
+    expect(parseModelUrl('ftp://example.com/model.gguf')).toBeNull();
+  });
+
   it('空/空白输入返回 null（不抛错）', () => {
     expect(parseModelUrl('')).toBeNull();
     expect(parseModelUrl('   ')).toBeNull();

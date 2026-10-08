@@ -10,6 +10,15 @@ import type {
 export const useDownloadStore = defineStore('download', () => {
   const tasks = ref<DownloadTask[]>([]);
   let subscribed = false;
+  // 进度静默门控（G3）：面板失活（停在别的页签）时跳过高频进度应用——隐藏的任务行
+  // 不再随每次进度推送重渲染；终态事件（complete/error/取消移除）照常应用保证状态正确，
+  // 恢复激活后 ≤120ms（core 采样节拍）内下一个进度帧即自愈字节计数
+  let progressMuted = false;
+
+  /** 面板可见性门控：模型库页签 deactivated 时置 true、onActivated 置 false */
+  function setProgressMuted(muted: boolean) {
+    progressMuted = muted;
+  }
 
   /** 确保 IPC 监听已注册（仅一次） */
   function ensureSubscribed() {
@@ -20,12 +29,14 @@ export const useDownloadStore = defineStore('download', () => {
       window.api.download.onProgress((payload: DownloadProgressPayload) => {
         const task = tasks.value.find((t) => t.id === payload.id);
         if (!task) return;
-        // 取消的任务从任务列表中移除（不占用列表位置）
+        // 取消的任务从任务列表中移除（不占用列表位置）——列表卫生不受静默门控影响
         if (payload.status === 'canceled') {
           const idx = tasks.value.indexOf(task);
           if (idx >= 0) tasks.value.splice(idx, 1);
           return;
         }
+        // 静默期跳过高频字段应用（字节/速度/状态）；终态由 complete/error 事件驱动
+        if (progressMuted) return;
         task.downloadedSize = payload.downloadedSize;
         task.totalSize = payload.totalSize;
         task.speed = payload.speed;
@@ -86,13 +97,17 @@ export const useDownloadStore = defineStore('download', () => {
     }
   }
 
-  /** 恢复下载（含失败重试） */
+  /** 恢复下载（含失败重试）：后端拒绝（任务不存在/状态不允许）时保持现状——
+   *  此前无条件把行置 queued，被拒的任务会停在「永远排队中」 */
   async function resumeTask(id: string) {
+    let resumed = false;
     try {
-      await window.api.download.resume(id);
+      const resp = await window.api.download.resume(id);
+      resumed = resp?.ok === true && resp.data === true;
     } catch {
       // 忽略
     }
+    if (!resumed) return;
     const task = tasks.value.find((t) => t.id === id);
     if (task) {
       task.status = 'queued';
@@ -100,10 +115,11 @@ export const useDownloadStore = defineStore('download', () => {
     }
   }
 
-  /** 清除已完成/已取消/已失败的任务 */
+  /** 清除已结束（completed/canceled/error）的任务；paused 保留——core 侧任务仍可恢复，
+   *  从列表清掉会制造不可达的孤儿任务（重新添加同一文件 → 去重命中 → 「永远排队中」僵尸行） */
   function clearFinished() {
     tasks.value = tasks.value.filter(
-      (t) => t.status === 'downloading' || t.status === 'queued',
+      (t) => t.status === 'downloading' || t.status === 'queued' || t.status === 'paused',
     );
   }
 
@@ -121,5 +137,6 @@ export const useDownloadStore = defineStore('download', () => {
     clearFinished,
     activeCount,
     ensureSubscribed,
+    setProgressMuted,
   };
 });

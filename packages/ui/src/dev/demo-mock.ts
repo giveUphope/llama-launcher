@@ -6,7 +6,7 @@ import type {
   AppSettings, ModelInfo, ModelParams, GgufReadResult,
   ParsedModelUrl, OutputEntry, AppLogEntry, AppLogKind,
   ModelScopeSearchResult, ModelScopeFileListResult,
-  DownloadProgressPayload, DownloadCompletePayload,
+  DownloadTask, DownloadProgressPayload, DownloadCompletePayload,
   TargetRecommendation,
   DeviceMemInfo, HardwareOccupancy, OccupancySide, PerfTarget, VramEstimateResult,
   ServerStatus, ServerStatusEvent, ServerStopInfo,
@@ -857,14 +857,29 @@ export function createDemoApi() {
           modelName: 'Qwen3-8B',
           modelId: 'Qwen/Qwen3-8B',
           filePath: '',
+          fileName: '',
         } as never as ParsedModelUrl,
       }),
       search: (_author: string, modelName: string) => Promise.resolve({
         ok: true,
         data: {
           totalCount: 3,
+          // 字段与 ModelScopeSearchItem 全量对齐（此前缺 id/path/downloads 等八项，
+          // 模型库页搜索结果行渲染成「/name」、:key 三项同为 undefined、meta 行恒隐）
           models: [modelName, `${modelName}-Instruct`, `${modelName}-GGUF`].map((n, i) => ({
-            modelId: `Qwen/${n}`, name: n, author: 'Qwen', description: 'Demo search result', starCount: 12800 - i * 100, downloadCount: 990000 - i * 1000,
+            id: `Qwen/${n}`,
+            path: 'Qwen',
+            name: n,
+            chineseName: '',
+            description: 'Demo search result',
+            downloads: 990000 - i * 1000,
+            stars: 12800 - i * 100,
+            license: 'apache-2.0',
+            libraries: ['transformer'],
+            architectures: ['Qwen3ForCausalLM'],
+            modelType: ['llm'],
+            storageSize: 8624000000,
+            tasks: ['text-generation'],
           })) as never,
         } as never as ModelScopeSearchResult,
       }),
@@ -896,7 +911,26 @@ export function createDemoApi() {
           timer: null,
         });
         startFeed(id);
-        return Promise.resolve({ ok: true, data: id });
+        // 契约与真实 IPC 对齐（2026-10-09 起 start 回传任务快照而非裸 id，B1）：
+        // 去重命中时快照即既有任务的真实状态，渲染层据此采纳而非只换 id
+        const task: DownloadTask = {
+          id,
+          modelId: req.modelId,
+          filePath: req.filePath,
+          fileName: req.fileName,
+          totalSize: req.fileSize || 4900000000,
+          downloadedSize: 0,
+          speed: 0,
+          status: 'queued',
+          source: req.source === 'huggingface' ? 'huggingface' : 'modelscope',
+          localPath: '',
+          partPath: '',
+          error: '',
+          errorType: null,
+          createdAt: Date.now(),
+          completedAt: null,
+        };
+        return Promise.resolve({ ok: true, data: task });
       },
       cancel: (id: string) => {
         const dl = demoDownloads.get(id);

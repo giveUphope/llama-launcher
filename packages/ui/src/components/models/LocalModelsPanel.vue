@@ -196,6 +196,10 @@ onActivated(() => {
   subscribeBench();
   // 失活期间的迁移不会补发，回来时对在跑的作业补一次状态
   void resyncBench();
+  // 失活期间文件变更订阅已退订：模型库页签下的下载完成（MODELS_CHANGED）不会补发，
+  // 回来时补一次扫描（core 有扫描缓存，非全量代价）——否则「模型库下完模型 → 切回本地模型」
+  // 新文件不可见，要等下一次 .gguf 文件事件或重启（此前无手动刷新入口）
+  void onRefresh();
 });
 
 onDeactivated(() => {

@@ -370,11 +370,12 @@ export class DownloadManager extends EventEmitter {
   }
 
   /**
-   * 启动一个下载任务
+   * 启动一个下载任务,返回任务快照(去重命中时返回既有任务的快照——渲染层据此采纳
+   * 真实状态;此前只回传 id,被清除列表的 paused 任务重新添加后会渲染成「永远排队中」)
    * 目录结构:models_dir/作者/模型仓库名/fileName
    * 同一模型仓库的所有文件(权重、mmproj 等)都放在同一子目录下
    */
-  async startDownload(req: StartDownloadRequest): Promise<string> {
+  async startDownload(req: StartDownloadRequest): Promise<DownloadTask> {
     const id = randomUUID();
 
     // 计算目标目录:模型目录/作者/模型仓库名(而非文件名)
@@ -387,13 +388,13 @@ export class DownloadManager extends EventEmitter {
     const localPath = path.join(targetDir, req.fileName);
     const partPath = localPath + PART_SUFFIX;
 
-    // 去重：同一目标文件已有 queued/downloading/paused 任务时返回其 ID，避免重复下载写冲突
+    // 去重：同一目标文件已有 queued/downloading/paused 任务时返回其快照，避免重复下载写冲突
     for (const [, existingTask] of this.tasks) {
       if (
         existingTask.localPath === localPath &&
         (existingTask.status === 'queued' || existingTask.status === 'downloading' || existingTask.status === 'paused')
       ) {
-        return existingTask.id;
+        return { ...existingTask };
       }
     }
 
@@ -453,7 +454,7 @@ export class DownloadManager extends EventEmitter {
             error: task.error,
             errorType: 'checksum_mismatch',
           } satisfies DownloadErrorPayload);
-          return id;
+          return { ...task };
         }
       }
       // 清理可能残留的续传日志(文件已完整,日志无意义)
@@ -465,7 +466,7 @@ export class DownloadManager extends EventEmitter {
         fileName: req.fileName,
         checksum,
       } satisfies DownloadCompletePayload);
-      return id;
+      return { ...task };
     }
 
     const task: DownloadTask = {
@@ -491,7 +492,7 @@ export class DownloadManager extends EventEmitter {
     // 尝试开始下载(若并发已满,保持 queued 状态)
     this.tryStartNext();
 
-    return id;
+    return { ...task };
   }
 
   /** 取消下载任务 */
@@ -996,10 +997,12 @@ export class DownloadManager extends EventEmitter {
         if (task.status === 'canceled') {
           deleteDownloadLog(task.localPath);
           await this.deletePartials(task.partPath);
+          this.expectedChecksums.delete(id);
         }
         this.taskSegments.delete(id);
         this.stopSpeedTracker(id);
-        this.expectedChecksums.delete(id);
+        // 暂停:保留 expectedChecksums——续传重下完成后仍须做强校验
+        // (此前在暂停即消费,恢复后的完成路径 expected 落空,强校验静默降级为信息性哈希)
         return;
       }
 
@@ -1015,20 +1018,28 @@ export class DownloadManager extends EventEmitter {
       // 并比对,不匹配则显式失败,可归因而非静默。无期望值时读盘不产生校验价值,
       // 仅对小文件补一个信息性哈希上报(见 INFO_CHECKSUM_MAX_BYTES),大文件上报 null。
       const expected = this.expectedChecksums.get(id) ?? null;
-      this.expectedChecksums.delete(id);
       let checksum: string | null = null;
       if (expected || worthHashingForInfo(task.partPath)) {
         checksum = await computeFileSha256(task.partPath);
       }
       if (expected && checksum && checksum !== expected) {
+        // 校验失败:已下载的字节不可信,断点续传只会原样复现同一个错——
+        // 清掉续传日志与 .part 让重试成为干净的全量重下;期望值塞回,重下完成后仍做强校验。
+        // (此前 expected 在此先消费后判失败:重试第一次原样空转,第二次静默丢强校验)
+        this.expectedChecksums.set(id, expected);
+        await this.deletePartials(task.partPath);
         this.failTask(
           id,
           `Checksum mismatch: expected ${expected}, got ${checksum}`,
           undefined,
           'checksum_mismatch',
         );
+        // failTask 会往日志补写 error 尾巴——最后删干净,重试无 start 事件不可重放,只能从零开始
+        deleteDownloadLog(task.localPath);
         return;
       }
+      // 校验通过(或无期望值)才消费期望值
+      this.expectedChecksums.delete(id);
 
       // 完整性校验通过:把 part 临时文件改名成最终的 .gguf(同目录重命名)。
       // 未完成阶段文件始终是 .part 后缀,模型管理扫描/监听不会检出损坏文件;

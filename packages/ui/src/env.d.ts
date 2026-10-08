@@ -3,7 +3,7 @@ import type {
   AppSettings, ModelInfo, OutputEntry, PresetValues, ModelParams,
   ServerInfo, ServerStatusEvent, GgufReadResult,
   ParsedModelUrl, ModelScopeSearchResult, ModelScopeFileListResult,
-  StartDownloadRequest, DownloadProgressPayload, DownloadCompletePayload, DownloadErrorPayload,
+  StartDownloadRequest, DownloadTask, DownloadProgressPayload, DownloadCompletePayload, DownloadErrorPayload,
   DownloadSource,
   TrashItem, DetectResult, CleanResult,
   CloseDialogRequest, CloseDialogResult,
@@ -90,7 +90,7 @@ export interface ElectronAPI {
     parseUrl: (url: string) => Promise<IpcResponse<ParsedModelUrl | null>>;
     search: (author: string, modelName: string) => Promise<IpcResponse<ModelScopeSearchResult>>;
     listFiles: (namespace: string, name: string, source: DownloadSource) => Promise<IpcResponse<ModelScopeFileListResult>>;
-    start: (req: StartDownloadRequest) => Promise<IpcResponse<string>>;
+    start: (req: StartDownloadRequest) => Promise<IpcResponse<DownloadTask>>;
     cancel: (id: string) => Promise<IpcResponse<boolean>>;
     pause: (id: string) => Promise<IpcResponse<boolean>>;
     resume: (id: string) => Promise<IpcResponse<boolean>>;

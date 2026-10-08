@@ -25,6 +25,7 @@ vi.mock('node:https', () => {
 
 import https from 'node:https';
 import { DownloadManager } from '../src/download-manager.js';
+import { downloadLogPath } from '../src/download-log.js';
 
 class MockResponse extends EventEmitter {
   statusCode: number;
@@ -436,7 +437,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
-    const id = await manager.startDownload(req);
+    const id = (await manager.startDownload(req)).id;
 
     // Wait for download to start
     await new Promise((resolve) => manager.once('progress', resolve));
@@ -489,7 +490,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
-    const id = await manager.startDownload(req);
+    const id = (await manager.startDownload(req)).id;
 
     // Wait for progress
     await new Promise((resolve) => manager.once('progress', resolve));
@@ -533,7 +534,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
-    const id = await manager.startDownload(req);
+    const id = (await manager.startDownload(req)).id;
 
     // Wait for progress (download is active)
     await new Promise((resolve) => manager.once('progress', resolve));
@@ -598,7 +599,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
-    const id = await manager.startDownload(req);
+    const id = (await manager.startDownload(req)).id;
 
     // Wait for progress
     await new Promise((resolve) => manager.once('progress', resolve));
@@ -647,7 +648,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
-    const id = await manager.startDownload(req);
+    const id = (await manager.startDownload(req)).id;
 
     await new Promise((resolve) => manager.once('progress', resolve));
 
@@ -691,7 +692,7 @@ describe('DownloadManager', () => {
 
     const manager = new DownloadManager();
     const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
-    const id = await manager.startDownload(req);
+    const id = (await manager.startDownload(req)).id;
 
     // Wait for failure
     await new Promise((resolve) => manager.once('error', resolve));
@@ -773,12 +774,99 @@ describe('DownloadManager', () => {
       ...makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize),
       expectedChecksum: '0'.repeat(64),
     };
-    const id = await manager.startDownload(req);
+    const id = (await manager.startDownload(req)).id;
 
     const error = await new Promise<any>((resolve) => manager.once('error', resolve));
     expect(error.errorType).toBe('checksum_mismatch');
     expect(manager.getTask(id)?.status).toBe('error');
 
+    manager.dispose();
+  });
+
+  it('checksum_mismatch discards the resume point and re-arms strong verification for retry', async () => {
+    // 修复回归（B2）：校验失败后,已下载字节不可信——续传日志与 .part 必须清掉
+    //（否则重试第一次原样复现同一个错）,期望值必须回填（否则第二次重试静默丢强校验,
+    // 坏文件会改名落盘「完成」）
+    const badContent = Buffer.from('payload that must fail verification');
+    const totalSize = badContent.length;
+
+    const serve = (body: Buffer) => (options: { headers: Record<string, string | string[]> }) => {
+      const range = parseRange(options.headers['Range']);
+      if (!range) return { statusCode: 500, headers: {} };
+      if (range.start === 0 && range.end === 0) {
+        return {
+          statusCode: 206,
+          headers: { 'Content-Range': `bytes 0-0/${totalSize}`, 'Accept-Ranges': 'bytes' },
+          body: Buffer.alloc(1),
+        };
+      }
+      const end = range.end ?? totalSize - 1;
+      return {
+        statusCode: 206,
+        headers: { 'Content-Range': `bytes ${range.start}-${end}/${totalSize}`, 'Accept-Ranges': 'bytes' },
+        body: body.subarray(range.start, end + 1),
+      };
+    };
+    currentResolver = serve(badContent);
+
+    const manager = new DownloadManager();
+    const req: StartDownloadRequest = {
+      ...makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize),
+      expectedChecksum: '0'.repeat(64),
+    };
+    const first = await manager.startDownload(req);
+    const error1 = await new Promise<any>((resolve) => manager.once('error', resolve));
+    expect(error1.errorType).toBe('checksum_mismatch');
+
+    // 断点已清:日志与 .part 都不存在
+    expect(fs.existsSync(downloadLogPath(first.localPath))).toBe(false);
+    expect(fs.existsSync(first.partPath)).toBe(false);
+
+    // 重试(同样的坏内容):必须再次因校验失败而报错——而不是静默完成把坏文件改名落盘
+    const errorPromise = new Promise<any>((resolve) => manager.once('error', resolve));
+    manager.resumeDownload(first.id);
+    const error2 = await errorPromise;
+    expect(error2.errorType).toBe('checksum_mismatch');
+    expect(fs.existsSync(first.localPath)).toBe(false);
+    expect(fs.existsSync(first.partPath)).toBe(false);
+    expect(fs.existsSync(downloadLogPath(first.localPath))).toBe(false);
+
+    manager.dispose();
+  });
+
+  it('startDownload returns the existing task snapshot on dedupe hit (paused state preserved)', async () => {
+    // 用 hang 住不结束的响应把首个任务钉在 downloading,再暂停成 paused
+    const totalSize = 200 * 1024 * 1024;
+    currentResolver = (options) => {
+      const range = parseRange(options.headers['Range']);
+      if (!range) return { statusCode: 500, headers: {} };
+      if (range.start === 0 && range.end === 0) {
+        return {
+          statusCode: 206,
+          headers: { 'Content-Range': `bytes 0-0/${totalSize}`, 'Accept-Ranges': 'bytes' },
+          body: Buffer.alloc(1),
+        };
+      }
+      return {
+        statusCode: 206,
+        headers: { 'Content-Range': `bytes ${range.start}-.../${totalSize}`, 'Accept-Ranges': 'bytes' },
+        body: Buffer.alloc(1024),
+        hang: true,
+      };
+    };
+
+    const manager = new DownloadManager();
+    const req = makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize);
+    const first = await manager.startDownload(req);
+    await new Promise((resolve) => manager.once('progress', resolve));
+    manager.pauseDownload(first.id);
+    expect(manager.getTask(first.id)?.status).toBe('paused');
+
+    // 同一目标文件再次 startDownload:返回既有任务快照(而非新 id)——
+    // 渲染层据此采纳真实状态,不产生「永远排队中」的僵尸行
+    const second = await manager.startDownload(req);
+    expect(second.id).toBe(first.id);
+    expect(second.status).toBe('paused');
     manager.dispose();
   });
 
@@ -797,7 +885,7 @@ describe('DownloadManager', () => {
     };
     // 早完成路径同步触发 error,须先挂监听再调用
     const errorPromise = new Promise<any>((resolve) => manager.once('error', resolve));
-    const id = await manager.startDownload(req);
+    const id = (await manager.startDownload(req)).id;
 
     const error = await errorPromise;
     expect(error.errorType).toBe('checksum_mismatch');
@@ -821,7 +909,7 @@ describe('DownloadManager', () => {
       expectedChecksum: createHash('sha256').update(content).digest('hex'),
     };
     const completePromise = new Promise<any>((resolve) => manager.once('complete', resolve));
-    const id = await manager.startDownload(req);
+    const id = (await manager.startDownload(req)).id;
 
     const complete = await completePromise;
     expect(manager.getTask(id)?.status).toBe('completed');

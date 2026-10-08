@@ -61,6 +61,9 @@ export function parseModelUrl(raw: string): ParsedModelUrl | null {
 
   // 直接输入 author/model[...] 格式
   if (!input.startsWith('http')) {
+    // 含协议头的非 http(s) 链接（如 lmstudio://、ftp://）不是可解析的模型页——
+    // 按「未识别」处理而非切成垃圾 author/model（那会拿去 ModelScope 搜索误报「无匹配」）
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(input)) return null;
     const parts = input.split('/').filter(Boolean);
     if (parts.length < 2) return null;
     const author = parts[0];

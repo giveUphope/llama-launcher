@@ -94,7 +94,9 @@ The `Launcher` class (extends `EventEmitter`), implementing a state machine:
 
 - **Temp file naming**: while downloading, bytes go to `<file>.part` (`PART_SUFFIX`); after the integrity check passes, the file is renamed within the same directory to the final `.gguf`. An incomplete download always keeps the `.part` suffix, so the model scan/watch never picks it up as a `.gguf` (incomplete `.gguf` files that older versions wrote directly under the target name are migrated to `.part` on resume); the rename on completion triggers the model directory watcher, and only then does the model appear in the list.
 
-- **Pause/resume**: `pauseDownload(id)` saves the metadata and destroys the active requests; `resumeDownload(id)` recovers from the `paused`/`error` state, so failures can be retried.
+- **Pause/resume**: `pauseDownload(id)` saves the metadata and destroys the active requests; `resumeDownload(id)` recovers from the `paused`/`error` state, so failures can be retried. Pausing **keeps the expected checksum** — the completion path after a resumed re-download still runs strong verification (before 2026-10-09 the value was consumed on pause, degrading the post-resume check to an informational hash).
+
+- **Integrity verification (strong)**: when the source API provides a SHA-256 (the HF LFS oid), the file is streamed in full and compared before completion (constant memory); a mismatch fails as `checksum_mismatch`, which **discards the resume point** (deletes the resume log and the `.part`) and re-arms the expected value — the retry is a clean full re-download that still passes strong verification, so bad content is intercepted again instead of being silently renamed onto disk (before 2026-10-09 the expected value was consumed before the verdict: the first retry replayed the same failure, the second silently lost strong verification). `startDownload` returns a **task snapshot** (on a dedupe hit, the existing task's real state, which the renderer adopts — no more "queued forever" zombie rows).
 
 - **HTTP redirect following**: 30x redirects are handled automatically (for both probing and segment requests).
 
