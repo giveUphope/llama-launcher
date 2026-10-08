@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **参数页状态条减噪：删「参数总数 / 分组」两个静态统计（用户批注「优化减少无效提示，例如总数、分组等内容」）**：出了什么事——状态条左侧四个统计里有两个永远不变：「参数总数 69」「分组 14」——它们是对参数表的描述性计数，不随任何操作变化，对调参没有信息量，却常驻占掉状态条一半宽度。**改法**：`ParamsPage.vue` 状态条只留会随操作变化的信号——「已调整 N」（驱动全部重置可用性）与「显存占用(估算)」（带构成明细 tooltip）；两个静态统计块与 `totalParamCount`/`groupCount` 计算属性删除，随之失效的 i18n 键 `lbl_total_params`/`lbl_param_groups` 中英同删（`verify-i18n-usage` 确认无悬空引用）。参数总数/分组数的权威声明仍在文档计数门禁（`verify-params-sync`）与 `definitions.ts` 对拍，不受 UI 显示影响。**验证**：`pnpm lint` + ui 90 测试全绿；mock 页目测状态条为「已调整 3 · 显存占用(估算) 56% · 目标： 均衡 · 全部重置」。
+
 - **大小显示精度修正：formatBytes 对 MB 及以上改 2 位小数（用户批注「最终计算的内容大小存在错误」）**：出了什么事——清理卡分类行显示 18.0 KB + 512 B + 1.0 MB，但确认弹窗与「已清理 N 项，释放 X」的总量按精确字节和四舍五入成 1.0 MB，把 ~26 KB 零头抹掉了——各部分加出来（≈1.03 MB）与最终显示对不上，读起来就是最终大小算错。**改法**：`shared/format.ts` 的 `formatBytes` 小数位规则从「KB/MB 1 位、GB+ 2 位」改为「KB 1 位、MB/GB/TB 2 位」——总数与分类行在显示粒度内可加可核（实测 18.0 KB + 512 B + 1.01 MB = 1.03 MB）。影响面：全站用 formatBytes 的尺寸显示多一位精度（模型列表/下载卡的 `size_str` 为服务端字符串不受影响）；format 测试重写并以真实案例（18428+512+1057418=1076358 B）钉死口径。**验证**：core 433 / ui 90 全绿；mock 页目测分类行、确认弹窗、结果行三处可加算一致。
 
 - **目录清理卡迁至应用设置「高级」面板，文案对齐参数新落点（用户批注「将目录清理功能移动到应用设置内高级页下，并且迭代对齐当前配置文件新落点」）**：出了什么事——清理卡一直挂在服务页，但「清理应用生成文件」是应用数据管理动作，与运行服务无关；且卡片/按钮/确认标题还叫「清理配置目录」，而扫描范围早已是配置目录（settings/model-params/bench-records）+ 模型目录（下载残留）双根。**改法**：`TrashCleanCard` 组件自 `components/service/` 迁至 `components/settings/` 并由 `AdvancedPanel` 承载（服务页只剩命令预览 + 参数摘要两卡）；三键改名——卡片标题 `msg_clean_trash`、按钮 `msg_detect_trash`、确认标题 `msg_trash_confirm_title` → 「清理应用生成文件 / 检测可清理项」（两树）。**文档**：frontend.md（路由表/ServicePage/ParamsPage/SettingsPage/TrashCleanCard 行、params store 行按每模型持久化补齐、删 PresetsPanel 行、§7.5 三处组件示例去死引用——上轮预设移除时 frontend.md 为漏改面，本轮一并补齐）、core-modules 组件行中英两树同轮改写。**验证**：ui 测试 + `pnpm lint` 全绿；mock 页目测设置-高级有卡、服务页无卡。

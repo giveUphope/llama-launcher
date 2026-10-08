@@ -48,9 +48,6 @@ const activeParamCount = computed(() =>
   PARAMS.filter((p) => !INACTIVE_COUNT_KEYS.has(p.key) && params.values[p.key] !== p.default).length,
 );
 
-const totalParamCount = computed(() => PARAMS.length);
-const groupCount = computed(() => subcategoryGroups.value.length);
-
 // ---- 分区折叠（自定义参数页签）----
 // 默认全展开（与折叠前的信息密度一致），折叠状态只活在本页签话期内：
 // 本页 keep-alive 不卸载，ref 天然跨页签保留，应用重启后回到全展开。
@@ -187,26 +184,17 @@ async function onResetAll() {
 
 <template>
   <PageFrame>
-    <!-- 参数预览条：a-statistic 承载统计（warn/muted 态走语义类），a-divider 分隔 -->
+    <!-- 参数预览条：只留会随操作变化的信号（已调整数 / 显存估算），静态总量（参数总数 /
+         分组数）不占位——那是文档计数声明的职责，界面上是永远不变的噪音（2026-10-08） -->
     <div class="params-status-bar">
-      <div class="stat">
-        <Icon name="params" :size="14" />
-        <a-statistic :value="totalParamCount" :title="i18n.t('lbl_total_params')" />
-      </div>
-      <a-divider class="stat-divider" direction="vertical" />
       <div class="stat" :class="{ warn: activeParamCount > 0 }">
         <Icon :name="activeParamCount > 0 ? 'alert' : 'info'" :size="14" />
         <a-statistic :value="activeParamCount" :title="i18n.t('lbl_active_params')" />
       </div>
       <a-divider class="stat-divider" direction="vertical" />
-      <div class="stat">
-        <Icon name="presets" :size="14" />
-        <a-statistic :value="groupCount" :title="i18n.t('lbl_param_groups')" />
-      </div>
       <!-- 硬件占用估算 stat：槽位常驻占位（不可用显示 —），构成明细放 tooltip；
            显存总占用超出设备空闲时由官方预设 tag 警示（范式纯化：值色覆写删除，
            统计值回归官方配色——「跟随库官方观感」豁免延伸至预设配对） -->
-      <a-divider class="stat-divider" direction="vertical" />
       <ToolTip :text="vramTooltip">
         <div class="stat" :class="{ warn: vramWarn }">
           <Icon :name="vramWarn ? 'alert' : 'info'" :size="14" />
@@ -354,7 +342,7 @@ async function onResetAll() {
     font-family: var(--font-mono);
     line-height: 1.3;
     // 「已调整」0 → 12 → 64 的位数变化会撑宽统计块、把后面的分隔线与相邻 stat 顶开：
-    // mono 字体下 2ch 恰为两位数字宽（参数总数与已调整数都不超过两位），预留后位数变化不改几何
+    // mono 字体下 2ch 恰为两位数字宽（参数总数 69，已调整数不超过两位），预留后位数变化不改几何
     display: inline-block;
     min-width: 2ch;
   }
