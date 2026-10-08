@@ -506,6 +506,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：① `subcat-changed` 文字覆写删除 → tag 回归纯 orange 预设；② LocalModelsPanel 四条 `badge-*` 删除 → 徽章回归纯预设（`:color` 预设承载全部配色）；③ ParamsPage 两个 stat 的值色覆写删除 → 统计值回归官方配色，显存超限的警示信号改由官方 `a-tag color="orange"`「超限」（新键 `lbl_vram_over`）承载；④ `ARCO_COLOR_ALLOW` 删 `.stat` / `.subcat-changed` 两条死登记（登记数与实测数恢复相等——账本必须跟着现实走）；⑤ 占位态 `muted` 次级灰覆写一并删除。**保留终态（非组件平行，#104 裁定不变）**：ParamRow `--warn` 描边（与 Arco 表单校验同型的边框态）、中性灰提示行（token 着色文字）、TopBar 关闭钮红 hover（a-button 基座 + 官方 token，窗口铬语义）。
 - **修复效果验证**：`pnpm style:audit` 22/22（`ARCO_COLOR_ALLOW` 登记数与实测数恢复相等）、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿、ui 103 / core 442 测试全绿；all-ram 等 4 个演示场景均不触发 `fits === false`（演示模型永不超限），超限 tag 的 `v-if` 路径与图标绑定对称、真实超限时自然显示。
 
+### 117. GGUF 建议芯片的「点击应用」未走官方 checkable 交互 — 🟡 待确认（可能是有意设计）
+
+- **位置**：`packages/ui/src/components/params/ParamRow.vue`（`.gguf-hint` 芯片，applicable 档 `@click` 触发 `applyGgufHint`）。
+- **描述**：用户要求审查「模型内置值展示是否符合 Arco 官方档」，实测结论分两层。**视觉完全官方**：`color="arcoblue"` 渲染即官方预设原对——浅色底 rgb(232,243,255) / 字 rgb(22,93,255) ≈ 4.6:1，深色底 rgba(104,159,255,.2)（合成底 ≈ rgb(39,50,72)）/ 字 rgb(104,159,255) ≈ 4.9:1，双主题 ≥4.5 达标；DOM 上的 `arco-tag-checked` 是 Arco 给全部非 checkable tag 自挂的类（es/tag/tag.js 非 checkable 分支恒 true），不是手写覆写（#61 那类历史问题不存在）；h20 / 12px / 内距全为官方 `size="small"` 原生；自定义样式仅 mono 字体（§7.5.1 数值 mono）+ ellipsis/nowrap（布局卫生）+ cursor help/pointer（光标词汇），零配色覆写（审计第 1/12/18/20 条全绿）。**交互偏离一档**：可点档承载「点击 = 写入该值」动作却未用官方 `checkable`——悬停无底色反馈（官方 checkable 有 `bg_hover` + transition，非 checkable 分支无任何 ：hover 规则）、span 无 tabindex 键盘不可达；缓解事实：芯片只是快捷路径，旁边参数控件本身键盘完备，无功能排他（规则 16a 合规——点击挂在 Arco 组件上）。
+- **建议修复**（二选一）：① 给 applicable 芯片加 `checkable` 属性——一行、纯官方 prop，即获官方悬停底色反馈与过渡（键盘缺失是 Arco Tag 自身限制，随「快捷路径非唯一路径」豁免）；② 维持现状，以「值提示为主体、点击为快捷路径」登记豁免理由结案。
+- **修复效果验证**：① 改后悬停芯片出现官方 `tag-arcoblue-color-bg_hover` 底色，`pnpm style:audit` 全绿（无新增配色覆写），a11y 命名普查不红（芯片不进 Tab 普查）；② 两案均以本条留档结案。
+
 ### 104. 空态范式统一：五处自绘「图标 + 文案」空态换 a-empty 官方组件 — 🟢 已修复（2026-10-08）
 
 - **位置**：`packages/ui/src/pages/LogsPage.vue`（控制台空态）、`pages/DashboardPage.vue`（应用日志小窗空态）、`components/common/DownloadCard.vue`（任务空态，38 档配对槽）、`components/common/FileBrowserModal.vue`（a-list `#empty` 四态）、`components/service/TrashCleanCard.vue`（扫描空结果）、`components/common/icon-map.ts`（`empty` 字形零读者删除）。
