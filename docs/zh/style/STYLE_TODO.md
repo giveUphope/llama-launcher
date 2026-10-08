@@ -506,12 +506,12 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：① `subcat-changed` 文字覆写删除 → tag 回归纯 orange 预设；② LocalModelsPanel 四条 `badge-*` 删除 → 徽章回归纯预设（`:color` 预设承载全部配色）；③ ParamsPage 两个 stat 的值色覆写删除 → 统计值回归官方配色，显存超限的警示信号改由官方 `a-tag color="orange"`「超限」（新键 `lbl_vram_over`）承载；④ `ARCO_COLOR_ALLOW` 删 `.stat` / `.subcat-changed` 两条死登记（登记数与实测数恢复相等——账本必须跟着现实走）；⑤ 占位态 `muted` 次级灰覆写一并删除。**保留终态（非组件平行，#104 裁定不变）**：ParamRow `--warn` 描边（与 Arco 表单校验同型的边框态）、中性灰提示行（token 着色文字）、TopBar 关闭钮红 hover（a-button 基座 + 官方 token，窗口铬语义）。
 - **修复效果验证**：`pnpm style:audit` 22/22（`ARCO_COLOR_ALLOW` 登记数与实测数恢复相等）、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿、ui 103 / core 442 测试全绿；all-ram 等 4 个演示场景均不触发 `fits === false`（演示模型永不超限），超限 tag 的 `v-if` 路径与图标绑定对称、真实超限时自然显示。
 
-### 117. GGUF 建议芯片的「点击应用」未走官方 checkable 交互 — 🟡 待确认（可能是有意设计）
+### 117. GGUF 建议芯片的「点击应用」未走官方 checkable 交互 — 🟢 已修复（2026-10-08，用户裁定「偏离完全修复」）
 
 - **位置**：`packages/ui/src/components/params/ParamRow.vue`（`.gguf-hint` 芯片，applicable 档 `@click` 触发 `applyGgufHint`）。
 - **描述**：用户要求审查「模型内置值展示是否符合 Arco 官方档」，实测结论分两层。**视觉完全官方**：`color="arcoblue"` 渲染即官方预设原对——浅色底 rgb(232,243,255) / 字 rgb(22,93,255) ≈ 4.6:1，深色底 rgba(104,159,255,.2)（合成底 ≈ rgb(39,50,72)）/ 字 rgb(104,159,255) ≈ 4.9:1，双主题 ≥4.5 达标；DOM 上的 `arco-tag-checked` 是 Arco 给全部非 checkable tag 自挂的类（es/tag/tag.js 非 checkable 分支恒 true），不是手写覆写（#61 那类历史问题不存在）；h20 / 12px / 内距全为官方 `size="small"` 原生；自定义样式仅 mono 字体（§7.5.1 数值 mono）+ ellipsis/nowrap（布局卫生）+ cursor help/pointer（光标词汇），零配色覆写（审计第 1/12/18/20 条全绿）。**交互偏离一档**：可点档承载「点击 = 写入该值」动作却未用官方 `checkable`——悬停无底色反馈（官方 checkable 有 `bg_hover` + transition，非 checkable 分支无任何 ：hover 规则）、span 无 tabindex 键盘不可达；缓解事实：芯片只是快捷路径，旁边参数控件本身键盘完备，无功能排他（规则 16a 合规——点击挂在 Arco 组件上）。
-- **建议修复**（二选一）：① 给 applicable 芯片加 `checkable` 属性——一行、纯官方 prop，即获官方悬停底色反馈与过渡（键盘缺失是 Arco Tag 自身限制，随「快捷路径非唯一路径」豁免）；② 维持现状，以「值提示为主体、点击为快捷路径」登记豁免理由结案。
-- **修复效果验证**：① 改后悬停芯片出现官方 `tag-arcoblue-color-bg_hover` 底色，`pnpm style:audit` 全绿（无新增配色覆写），a11y 命名普查不红（芯片不进 Tab 普查）；② 两案均以本条留档结案。
+- **修复**（按建议①）：applicable 档挂 `:checkable="hasGgufSuggestion"` + `:checked="hasGgufSuggestion"`——checkable 只挂可点档（`checked` 恒 true 保住 arcoblue 配色，点击语义仍由既有 `@click` 承担、`@check` 不接管），即获官方 `tag-arcoblue-color-bg_hover` 悬停底色与过渡；只读档保持非 checkable（不加 hover 假可供性，`cursor: help` 词汇不变）。键盘缺失维持豁免：Arco Tag 渲染不透传 $attrs（源码 createElementBlock 的 props 无 $attrs 展开，tabindex 挂不上），且芯片是快捷路径非唯一路径。
+- **修复效果验证**：`pnpm style:audit` 全绿（无新增配色覆写）、`pnpm lint` + ui 测试 + e2e 81 条全绿；mock 页实测——悬停 applicable 芯片底色变官方 hover 档、移出复原，只读档悬停无反馈（cursor help 不变）、配色几何与修复前逐像素一致，点击应用值链路不变。
 
 ### 104. 空态范式统一：五处自绘「图标 + 文案」空态换 a-empty 官方组件 — 🟢 已修复（2026-10-08）
 
@@ -566,6 +566,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 117 | GGUF 建议芯片走官方 checkable 交互档（用户批注「偏离完全修复」，审查结论「视觉完全官方、交互未走 checkable」）：applicable 档挂 `:checkable` + `:checked`（恒 true 保 arcoblue 配色，点击仍走既有 `@click`），即获官方悬停底色反馈与过渡；只读档保持非 checkable 不加假可供性；键盘缺失随「快捷路径非唯一路径」豁免（Arco Tag 不透传 $attrs，tabindex 挂不上） | 2026-10-08 |
 | 116 | 设置页状态摘要条分隔线退役（用户批注「内容分隔还是使用被淘汰的样式」）：`.status-summary` 三个状态项之间的 `.summary-divider`（自绘 1px×18px 竖条）与统计条/分段组分隔线同族，是全站最后一处自绘分隔——两根分隔节点与样式块删除，项间距由容器既有 `gap: 10px` 承担；全站自此再无任何自绘或 a-divider 分隔线（`grep divider` 零命中） | 2026-10-08 |
 | 115 | 分段单选组全站退役，换切换按钮组（用户批注「按钮分隔还在使用被淘汰的样式」）：按钮型 radio-group（分段样式）的内建钮间分隔线与 #113 退役的统计条分隔线同族——全站仅存两处（日志页级别筛选、设置外观主题三选一）一并换成独立 `a-button` 切换组：选中 = primary 实底、其余 secondary，`role="group"` + `aria-label`（新键 `lbl_level_filter`）+ `aria-pressed` 表达单选按下态，组件间纯 `gap: 8px` 无线；不取 checkable tag 方案（Arco Tag 无 tabindex，键盘用户将无法切换级别）；AppearancePanel 原 `.theme-radio-on` 对比度修正随组消亡（primary 实底白字为 Arco 官方预设自身达标），style-audit 第 20 条登记同步删除 | 2026-10-08 |
 | 114 | 日志页工具条单行编排（用户批注「优化工具条编排为单行」）：`.filter-row` 开着 `flex-wrap: wrap` 而三段内容（级别筛选 353px + 搜索框 min 200px + 两颗带文字按钮 234px + 间距）在 761px 行宽下放不下，按钮掉到第二行、行高 38→70 跳变——「复制输出 / 清空控制台」本就带 ToolTip，收成纯图标方钮（`aria-label` 补无障碍名，全站仅日志页一处、无跨页不一致），省出 ~160px 交给搜索框；`.filter-row` / `.level-filter` 两处 `flex-wrap` 删除（五钮是一组刚性筛选，组内折行只会更难看），搜索框 `min-width` 200→140 兜底。窗口最小宽 1024（window.ts 契约）下三段合计 ~440px，单行恒放得下；narrow-viewport e2e 的 /logs 1024 判据守零溢出 | 2026-10-08 |

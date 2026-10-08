@@ -129,7 +129,11 @@ function onClear() {
         <TextParam v-else :p="p" />
       </div>
       <!-- GGUF 值提示：a-tag 原生外观（中性=默认标签，可点击建议=color="arcoblue"），
-           自定义底/字色/下划线覆盖已移除（与 meta-chip 等非 checkable 标签统一走原生态） -->
+           自定义底/字色/下划线覆盖已移除（与 meta-chip 等非 checkable 标签统一走原生态）。
+           可点档挂官方 checkable（:checked 恒 true 保配色，@check 不接管点击）——
+           即获官方悬停底色反馈与过渡（STYLE_TODO 117 号：裸 @click 无任何 hover 是
+           偏离官方交互档的最后一处）；只读档保持非 checkable（无 hover 假可供性）。
+           checkable 无 tabindex 是 Arco Tag 自身限制：芯片只是快捷路径，旁边控件键盘完备 -->
       <!-- GGUF 值提示常驻槽位（定宽 72px = 提示最大宽）：提示本身 v-if，但槽位恒在——
            否则 8/60 带提示行的控件宽会跟着掉，整列右边缘不齐；且切换模型时
            提示出现/消失会让控件宽度当场跳动（同「槽位常驻防跳动」口径） -->
@@ -137,6 +141,8 @@ function onClear() {
         <ToolTip v-if="ggufHintText !== null" :text="ggufHintTip">
           <a-tag
             size="small"
+            :checkable="hasGgufSuggestion"
+            :checked="hasGgufSuggestion"
             :color="hasGgufSuggestion ? 'arcoblue' : undefined"
             class="gguf-hint"
             :class="{ applicable: hasGgufSuggestion }"

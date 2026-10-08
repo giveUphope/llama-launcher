@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **GGUF 建议芯片对齐官方 checkable 交互档（用户批注「偏离完全修复」，承接上轮审查 #117）**：出了什么事——审查确认参数行的模型建议值芯片视觉完全是官方预设（arcoblue 原对，双主题对比度 4.6 / 4.9 达标），唯一偏离是可点档承载「点击=写入该值」却未用官方 `checkable`：悬停无底色反馈、裸 `@click` 无过渡。**改法**：applicable 档挂 `:checkable` + `:checked`（恒 true 保住 arcoblue 配色，点击语义仍走既有 `@click`，`@check` 不接管）——即获官方 `tag-arcoblue-color-bg_hover` 悬停底色与过渡；只读档保持非 checkable（不加 hover 假可供性，`cursor: help` 不变）；键盘缺失维持豁免（Arco Tag 渲染不透传 $attrs，tabindex 挂不上，且芯片是快捷路径非唯一路径）。**验证**：`pnpm lint` + ui 测试 + `pnpm style:audit` + e2e 81 条全绿；mock 页实测悬停底色变官方 hover 档、移出复原、只读档无反馈、配色几何逐像素不变、点击应用链路不变。STYLE_TODO #117 结案（中英两树）。
+
 - **设置页状态摘要条分隔线退役（用户批注「内容分隔还是使用被淘汰的样式」）**：出了什么事——「常规」页签顶部的状态摘要条（更改即时保存 · 模型目录状态 · 引擎状态）之间还有两根自绘的 1px 竖向分隔线（`.summary-divider`），与 #113 统计条分隔线、#115 分段组分隔线同族，且是全站最后一处。**改法**：两根分隔节点与样式块删除，项间距由容器既有 `gap: 10px` 承担；`grep divider` 全站零命中——分隔线语言至此完全统一为「纯间距分列」。登记 STYLE_TODO #116（中英两树）。**验证**：`pnpm lint` + ui 测试 + `pnpm style:audit` + e2e 全绿；mock 页目测摘要条三态文本纯间距排列。
 
 - **分段单选组全站退役，换切换按钮组（用户批注「按钮分隔还在使用被淘汰的样式」）**：出了什么事——日志页级别筛选还在用按钮型 radio-group（分段样式），它的钮间分隔线与 #113 退役的统计条分隔线同族——「部分组件间有线、部分没有」的反例还没清完。**改法**：全站仅存的两处分段组（日志页级别筛选、设置外观的主题三选一）一并换成独立 `a-button` 切换组——选中 = primary 实底、其余 secondary，`role="group"` + `aria-label`（新键 `lbl_level_filter`）+ `aria-pressed` 表达单选按下态，组件间纯 `gap: 8px` 无线；不取 checkable tag 方案（Arco Tag 无 tabindex，键盘无法切换）；外观面板原 `.theme-radio-on` 对比度修正随组消亡（primary 实底白字是 Arco 官方预设自身达标），style-audit 登记同步删。登记 STYLE_TODO #115（中英两树）。**验证**：`pnpm lint` + ui 测试 + `pnpm style:audit` + e2e 全绿；mock 页目测两组均为纯间距按钮、选中态实底。
