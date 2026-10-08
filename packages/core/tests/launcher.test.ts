@@ -44,6 +44,25 @@ vi.mock('../src/process.js', () => {
       return true;
     }
 
+    // 与 kill() 同语义的同步变体（真实 killSync 是阻塞式杀树 + 轮询确认，测试里
+    // 同步触发 exit 即可——Launcher 侧要测的是 stopRequested 标记，不是杀进程时序）
+    killSync(): boolean {
+      if (!this._running) return false;
+      this._running = false;
+      if (this._listeners.exit) {
+        [...this._listeners.exit].forEach((fn: Function) => fn(0));
+      }
+      return true;
+    }
+
+    forceKill(): void {
+      if (!this._running) return;
+      this._running = false;
+      if (this._listeners.exit) {
+        [...this._listeners.exit].forEach((fn: Function) => fn(0));
+      }
+    }
+
     on(event: string, fn: Function): this {
       if (!this._listeners[event]) this._listeners[event] = [];
       this._listeners[event].push(fn);
@@ -519,6 +538,53 @@ describe('Launcher - exit and restart', () => {
       mockCtl.__setDeferExit(false);
       launcher.stop();
     }
+  });
+
+  it('连点两次 stop()：stopping 只出一次声（第二次因状态已是 stopping 被去重）', () => {
+    const statuses: string[] = [];
+    launcher.on('status', (e: { status: string }) => statuses.push(e.status));
+
+    launcher.start({ values: {}, settings: baseSettings });
+    launcher.stop();
+    // 进程未死（exit 未派发）、状态已是 stopping → 第二次不得重复出声，
+    // 否则界面会收到两条同态事件之外的额外 stopping
+    launcher.stop();
+
+    expect(statuses).toEqual(['starting', 'stopping', 'stopped']);
+  });
+
+  // ---- 应用退出路径的两种同步停止：必须同样标记「用户主动停」，
+  // 否则退出时界面上最后一次停止事实会被判成「异常退出」----
+
+  it('stopSync()（应用退出路径）标记 stopRequested：停止事实是 stopped_by_user', () => {
+    launcher.start({ values: {}, settings: baseSettings });
+    (launcher['proc'] as any)._triggerOutput('llama server is listening');
+    expect(launcher.getStatus().status).toBe('running');
+
+    launcher.stopSync();
+    const info = launcher.getStatus();
+    expect(info.status).toBe('stopped');
+    expect(info.stop?.reason, '同步停止同样由 stopRequested 判定，不得落成 exited').toBe('stopped_by_user');
+    expect(info.stop?.hadBeenReady).toBe(true);
+  });
+
+  it('forceStop()（按名扫杀兜底路径）标记 stopRequested：停止事实是 stopped_by_user', () => {
+    launcher.start({ values: {}, settings: baseSettings });
+    (launcher['proc'] as any)._triggerOutput('llama_server: listening on http://127.0.0.1:8080');
+
+    launcher.forceStop();
+    const info = launcher.getStatus();
+    expect(info.status).toBe('stopped');
+    expect(info.stop?.reason).toBe('stopped_by_user');
+  });
+
+  it('未启动时 stopSync/forceStop 是安全空操作（不得抛错或发事件）', () => {
+    const events: unknown[] = [];
+    launcher.on('status', (e: unknown) => events.push(e));
+    expect(() => launcher.stopSync()).not.toThrow();
+    expect(() => launcher.forceStop()).not.toThrow();
+    expect(events).toEqual([]);
+    expect(launcher.getStatus().status).toBe('stopped');
   });
 });
 

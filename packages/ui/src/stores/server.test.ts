@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
-import type { ServerStatus, ServerStatusEvent, ServerStopInfo, PropsCheck } from '@llama-launcher/shared';
+import type { ServerStatus, ServerStatusEvent, ServerStopInfo, PropsCheck, OutputEntry } from '@llama-launcher/shared';
 import { formatLogTime } from './appLog';
 import { LLAMA_SERVER_NAME_RE, PORT_BUSY_RE, PROPS_POLL_MAX_MS, PROPS_POLL_MAX_STEPS, propsPollDelayMs, useServerStore } from './server';
 
@@ -552,5 +552,160 @@ describe('/props 自动刷新（可见 + 只在 running + 空闲退避）', () =
     await advance(0);
     expect(refreshCalls()).toBeGreaterThan(afterEnter);
     release = rel3;
+  });
+});
+
+// ---- 以下为 2026-10-08 测试补充：控制台批次入队/裁剪、OOM 警示窗口、端口占用提示节流 ----
+
+describe('pushOutputBatch - 批次入队与 5000 行上限裁剪', () => {
+  /** 造一批主进程推送条目（preload 载荷形状：OutputEntry[]） */
+  function batchOf(n: number, prefix = 'line'): OutputEntry[] {
+    return Array.from({ length: n }, (_, i) => ({ kind: 'stderr' as const, data: `${prefix}-${i}\n`, ts: 1 }));
+  }
+
+  it('一批多条一次入队：数组只刷新一次，行按顺序携带派生字段', () => {
+    const server = useServerStore();
+    server.subscribe();
+    outputCb(batchOf(3));
+    expect(server.outputs.map((o) => o.data.trim())).toEqual(['line-0', 'line-1', 'line-2']);
+    expect(server.outputs.map((o) => o.id), '行号随入队顺序单调递增').toEqual([1, 2, 3]);
+  });
+
+  it('超过 5000 行从头部裁掉，只留最新段；后续行号不复用被裁的 id', () => {
+    const server = useServerStore();
+    server.subscribe();
+    // MAX_LINES=5000 是 store 私有常量：溢出 10 行，头部 10 条应被裁
+    outputCb(batchOf(5000 + 10));
+    expect(server.outputs).toHaveLength(5000);
+    expect(server.outputs[0].data.trim(), '头部溢出量被精确裁掉').toBe('line-10');
+    expect(server.outputs.at(-1)?.data.trim()).toBe('line-5009');
+
+    const maxIdAfterTrim = server.outputs.at(-1)!.id;
+    outputCb(batchOf(1, 'later'));
+    expect(server.outputs.at(-1)!.id, '裁剪后行号继续递增（v-for 的稳定 key 不与旧行撞车）').toBeGreaterThan(
+      maxIdAfterTrim,
+    );
+    expect(server.outputs).toHaveLength(5000);
+  });
+
+  it('空批次是空操作：不炸也不消耗行号', () => {
+    const server = useServerStore();
+    server.subscribe();
+    expect(() => {
+      outputCb([]);
+      server.pushOutputBatch([]);
+    }).not.toThrow();
+    expect(server.outputs).toHaveLength(0);
+    // 主进程 16ms 合并窗口里没有新行时就会发空批，这条路径必须完全静默
+    outputCb([]);
+    expect(server.outputs).toHaveLength(0);
+  });
+});
+
+describe('oomDetected - 显存/内存耗尽警示（最近 300 行窗口）', () => {
+  /** 真机出现过的 OOM 原文措辞（跨后端：CUDA / Vulkan / 分配器） */
+  const OOM_LINES = [
+    'llama_new_context_with_model: CUDA error: out of memory',
+    'ggml_vulkan: Fatal error: VK_ERROR_OUT_OF_DEVICE_MEMORY',
+    'load_model: failed to allocate compute buffer of 1024.00 MiB',
+    'terminate called after throwing an instance of std::bad_alloc',
+  ];
+
+  it('窗口内出现 OOM 关键词行 → true（多种措辞/后端都命中）', () => {
+    const server = useServerStore();
+    server.subscribe();
+    statusCb(ev('running'));
+    for (const line of OOM_LINES) out(line);
+    expect(server.oomDetected, '四种措辞各推一行，窗口内必须亮警示').toBe(true);
+    expect(server.outputs.filter((o) => o.oom)).toHaveLength(OOM_LINES.length);
+  });
+
+  it('普通输出不误报', () => {
+    const server = useServerStore();
+    server.subscribe();
+    out('llama_server: listening on http://127.0.0.1:8080\n');
+    out('error while loading model: mmap failed\n');
+    expect(server.oomDetected).toBe(false);
+  });
+
+  it('OOM 行滚出最近 300 行窗口后警示自动解除', () => {
+    const server = useServerStore();
+    server.subscribe();
+    out('ggml_vulkan: Fatal error: VK_ERROR_OUT_OF_DEVICE_MEMORY\n');
+    expect(server.oomDetected).toBe(true);
+    // 恰好再推 300 行普通输出：OOM 行恰好落在窗口外一格
+    outputCb(
+      Array.from({ length: 300 }, (_, i) => ({ kind: 'stdout' as const, data: `noise-${i}\n`, ts: 1 })),
+    );
+    expect(server.oomDetected, '警示窗口必须随滚动解除，不能整轮常亮').toBe(false);
+  });
+});
+
+describe('端口占用友好提示（portBusyHint：只在启动/运行期 + 同端口 5s 节流）', () => {
+  /** 数一下 svc_port_busy_hint 提示行（不含原始输出行） */
+  function hintCount(server: ReturnType<typeof useServerStore>): number {
+    return server.outputs.filter((o) => o.data.includes('svc_port_busy_hint')).length;
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('running 期命中端口占用原文 → 追加一条友好提示（kind=error）', () => {
+    const server = useServerStore();
+    server.subscribe();
+    statusCb(ev('running'));
+    const before = server.outputs.length;
+    out('bind() failed: Address already in use (OS Error: 10048)\n');
+    expect(server.outputs.length, '原始行之外恰好多一条提示').toBe(before + 2);
+    const hint = server.outputs.at(-1)!;
+    expect(hint.data).toContain('svc_port_busy_hint');
+    // 注：本文件的 i18n 桩 t(key) 丢弃插值参数，端口号经 t(key, [port]) 传入但不出现在桩文案里，
+    // 端口进文案的断言放在下方「换端口」用例里也只验节流语义，不验文案内容
+    expect(hint.kind).toBe('error');
+  });
+
+  it('同一端口 5s 内重复命中只提示一次；跨过 5s 窗口再提示', () => {
+    const server = useServerStore();
+    server.subscribe();
+    statusCb(ev('running'));
+    out('http: bind: address already in use\n');
+    out('EADDRINUSE\n');
+    expect(hintCount(server), '5s 内第二条命中不再刷屏').toBe(1);
+
+    vi.advanceTimersByTime(4999);
+    out('bind() failed\n');
+    expect(hintCount(server), '还差 1ms 到窗口边界，仍被节流').toBe(1);
+    vi.advanceTimersByTime(1);
+    out('bind() failed\n');
+    expect(hintCount(server), '跨过 5000ms 后允许再次提示（用户可能需要新提醒）').toBe(2);
+  });
+
+  it('stopped 态不提示：端口冲突提示只在「我们想启动」的语境下有意义', () => {
+    const server = useServerStore();
+    server.subscribe();
+    expect(server.status).toBe('stopped');
+    out('bind() failed: Address already in use\n');
+    expect(hintCount(server)).toBe(0);
+    expect(server.outputs, '原始行照常入队，只是不加提示').toHaveLength(1);
+  });
+
+  it('换端口后节流立即放开（提示按端口区分）', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    statusCb(ev('running'));
+    out('bind() failed: Address already in use\n');
+    expect(hintCount(server)).toBe(1);
+
+    // 主进程改监听端口（refreshStatus 拉回 host/port；必须等拉取落地后再推冲突行）
+    mainStatus = { ...mainStatus, status: 'running', port: 8081 };
+    await server.refreshStatus();
+    expect(server.port).toBe(8081);
+    out('bind() failed: Address already in use\n');
+    expect(hintCount(server), '新端口不得沿用旧端口的时间戳，第一次命中就要提示').toBe(2);
+    expect(server.outputs.filter((o) => o.data.includes('svc_port_busy_hint')).at(-1)?.kind).toBe('error');
   });
 });

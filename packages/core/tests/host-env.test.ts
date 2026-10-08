@@ -2,7 +2,7 @@
 // 这两组判定都是 b11178 基线审计引出的：`--host` 新支持逗号分隔多地址，且 57/60 个应用
 // 参数带 `(env: LLAMA_ARG_*)` 覆写通道——两者都会让「界面值 / 命令行」与「引擎实际接受的」分叉。
 import { describe, it, expect } from 'vitest';
-import { hostList, displayHost, tcpHosts, isUnixSocketHost, detectLlamaEnvOverrides, DEFAULT_HOST } from '@llama-launcher/shared';
+import { hostList, displayHost, tcpHosts, isUnixSocketHost, detectLlamaEnvOverrides, DEFAULT_HOST, normalizeMirrorHost } from '@llama-launcher/shared';
 
 describe('hostList / displayHost / tcpHosts', () => {
   it('单地址原样可用，空输入回落到默认回环地址', () => {
@@ -44,5 +44,24 @@ describe('detectLlamaEnvOverrides', () => {
 
   it('没有任何引擎侧变量时返回空数组（发射规则的「不发射=引擎缺省」前提成立）', () => {
     expect(detectLlamaEnvOverrides({ HOME: '/x', LANG: 'zh_CN' })).toEqual([]);
+  });
+});
+
+describe('normalizeMirrorHost（settings.hf_mirror_host → 实际生效 host）', () => {
+  it('空值/null 回落默认镜像站', () => {
+    expect(normalizeMirrorHost('')).toBe('hf-mirror.com');
+    expect(normalizeMirrorHost('   ')).toBe('hf-mirror.com');
+    expect(normalizeMirrorHost(null)).toBe('hf-mirror.com');
+    expect(normalizeMirrorHost(undefined)).toBe('hf-mirror.com');
+  });
+
+  it('剥协议前缀与尾部斜杠（设置里粘贴完整 URL 也能用）', () => {
+    expect(normalizeMirrorHost('https://hf-mirror.com/')).toBe('hf-mirror.com');
+    expect(normalizeMirrorHost('http://mirror.example.com')).toBe('mirror.example.com');
+    expect(normalizeMirrorHost('mirror.example.com/')).toBe('mirror.example.com');
+  });
+
+  it('已规范的 host 原样通过（不自作聪明补协议）', () => {
+    expect(normalizeMirrorHost('mirror.example.com')).toBe('mirror.example.com');
   });
 });

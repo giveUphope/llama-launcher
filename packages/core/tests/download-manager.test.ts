@@ -991,3 +991,112 @@ describe('DownloadManager', () => {
     manager.dispose();
   });
 });
+
+// ---- 并发上限与排队纪律 ----
+// tryStartNext 的三条规则：并发满 → 新任务留在 queued；有位子 → 按 tasks 表插入顺序
+// 补位（渲染层按 createdAt 排序展示，乱序补位会让「先点的任务后下载」）；上限被
+// clampDownloadConcurrency 夹在 [1,5]，非法值原样忽略。用 hang 住不结束的段响应把
+// 任务钉在 downloading——队列纪律只关心任务在不在飞，取消即「让位」，无需等真实完成。
+describe('DownloadManager - 并发上限与排队（tryStartNext 队列纪律）', () => {
+  const SMALL = 50 * 1024 * 1024; // < 100MB → 单段，每任务恰好 1 个挂起请求
+
+  function hangResolver(): void {
+    currentResolver = (options) => {
+      const range = parseRange(options.headers['Range']);
+      if (!range) return { statusCode: 500, headers: {} };
+      if (range.start === 0 && range.end === 0) {
+        return {
+          statusCode: 206,
+          headers: { 'Content-Range': `bytes 0-0/${SMALL}`, 'Accept-Ranges': 'bytes' },
+          body: Buffer.alloc(1),
+        };
+      }
+      return {
+        statusCode: 206,
+        headers: { 'Content-Range': `bytes 0-${SMALL - 1}/${SMALL}` },
+        body: Buffer.alloc(1024),
+        hang: true,
+      };
+    };
+  }
+
+  async function startHangingTask(manager: DownloadManager, i: number): Promise<{ id: string }> {
+    const req = makeRequest(`test/model${i}`, `m${i}.gguf`, `m${i}.gguf`, SMALL);
+    const t = await manager.startDownload(req);
+    // probe 响应与段请求各隔一层 setImmediate：等它们落地，任务才真正停在 downloading
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    return t;
+  }
+
+  it('默认并发 3：超出的任务保持 queued，取消一个才按入队顺序补位', async () => {
+    hangResolver();
+    const manager = new DownloadManager();
+    const t1 = await startHangingTask(manager, 1);
+    const t2 = await startHangingTask(manager, 2);
+    const t3 = await startHangingTask(manager, 3);
+    const t4 = await startHangingTask(manager, 4);
+
+    expect(manager.getTask(t1.id)?.status).toBe('downloading');
+    expect(manager.getTask(t2.id)?.status).toBe('downloading');
+    expect(manager.getTask(t3.id)?.status).toBe('downloading');
+    expect(manager.getTask(t4.id)?.status, '并发已满，第 4 个任务必须留在排队中').toBe('queued');
+
+    // 取消（而非完成）一个在飞任务同样让位：activeCount 递减 → 队首补位
+    manager.cancelDownload(t1.id);
+    await new Promise((r) => setImmediate(r));
+    expect(manager.getTask(t1.id)?.status).toBe('canceled');
+    expect(manager.getTask(t4.id)?.status, '取消一个在飞任务后，排队的第 4 个应立即补位').toBe('downloading');
+    expect(manager.getTask(t2.id)?.status).toBe('downloading');
+    manager.dispose();
+  });
+
+  it('setMaxConcurrent 调高立即放行排队任务；上限夹在 [1,5]，非法值原样忽略', async () => {
+    hangResolver();
+    const manager = new DownloadManager();
+    const t1 = await startHangingTask(manager, 1);
+    // t2/t3 只需占住并发名额，快照无人消费：下划线前缀（oxlint no-unused-vars）
+    const _t2 = await startHangingTask(manager, 2);
+    const _t3 = await startHangingTask(manager, 3);
+    const t4 = await startHangingTask(manager, 4);
+    expect(manager.getTask(t4.id)?.status).toBe('queued');
+
+    // 调高上限 → 队列里的任务立刻补位，无需等其他任务结束
+    manager.setMaxConcurrent(5);
+    await new Promise((r) => setImmediate(r));
+    expect(manager.getTask(t4.id)?.status, '调高并发上限后排队任务应立即启动').toBe('downloading');
+
+    // clamp 上界：99 → 5。t1..t4 已在飞，t5 补到 5 个在飞；t6/t7 只能排队
+    const t5 = await startHangingTask(manager, 5);
+    const t6 = await startHangingTask(manager, 6);
+    const t7 = await startHangingTask(manager, 7);
+    expect(manager.getTask(t5.id)?.status, '第 5 个在飞：clamp 后的上界').toBe('downloading');
+    expect(manager.getTask(t6.id)?.status, '超出 clamp 上界（5）的任务必须排队').toBe('queued');
+    expect(manager.getTask(t7.id)?.status).toBe('queued');
+
+    // 非法值忽略（cap 仍是 5，而不是被钳成 1）：取消一个在飞后队列按序补位一个。
+    // 若 0 被误当成「clamp 后 1」收下，此刻 activeCount 4 ≥ 1，t6 永远起不来
+    manager.setMaxConcurrent(0);
+    manager.cancelDownload(t1.id);
+    await new Promise((r) => setImmediate(r));
+    expect(manager.getTask(t6.id)?.status, 'setMaxConcurrent(0) 必须被忽略：cap 保持 5，取消后照常补位').toBe('downloading');
+    expect(manager.getTask(t7.id)?.status, '补位一次只有一个，t7 仍在排队').toBe('queued');
+    manager.dispose();
+  });
+
+  it('收窄上限不在飞的任务间强停：cap 降到 1 后一次只补一个', async () => {
+    hangResolver();
+    const manager = new DownloadManager();
+    const t1 = await startHangingTask(manager, 1);
+    const t2 = await startHangingTask(manager, 2);
+    const t3 = await startHangingTask(manager, 3);
+    expect(manager.getTask(t3.id)?.status).toBe('downloading');
+
+    // 收窄不暂停在飞任务（只影响后续补位节奏）：cap=1 时取消一个，队列一次只放一个
+    manager.setMaxConcurrent(1);
+    manager.cancelDownload(t1.id);
+    await new Promise((r) => setImmediate(r));
+    expect(manager.getTask(t2.id)?.status).toBe('downloading');
+    manager.dispose();
+  });
+});
