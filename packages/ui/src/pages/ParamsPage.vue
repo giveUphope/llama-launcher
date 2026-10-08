@@ -191,7 +191,6 @@ async function onResetAll() {
         <Icon :name="activeParamCount > 0 ? 'alert' : 'info'" :size="14" />
         <a-statistic :value="activeParamCount" :title="i18n.t('lbl_active_params')" />
       </div>
-      <a-divider class="stat-divider" direction="vertical" />
       <!-- 硬件占用估算 stat：槽位常驻占位（不可用显示 —），构成明细放 tooltip；
            显存总占用超出设备空闲时由官方预设 tag 警示（范式纯化：值色覆写删除，
            统计值回归官方配色——「跟随库官方观感」豁免延伸至预设配对） -->
@@ -341,7 +340,7 @@ async function onResetAll() {
     font-weight: 700;
     font-family: var(--font-mono);
     line-height: 1.3;
-    // 「已调整」0 → 12 → 64 的位数变化会撑宽统计块、把后面的分隔线与相邻 stat 顶开：
+    // 「已调整」0 → 12 → 64 的位数变化会撑宽统计块、把相邻 stat 顶开：
     // mono 字体下 2ch 恰为两位数字宽（参数总数 69，已调整数不超过两位），预留后位数变化不改几何
     display: inline-block;
     min-width: 2ch;
@@ -352,11 +351,8 @@ async function onResetAll() {
 }
 
 // （占位态的次级灰覆写已随 #105 范式纯化删除：占位「—」回归官方配色）
-
-.stat-divider.arco-divider-vertical {
-  height: 22px;
-  margin: 0;
-}
+// （stat 间分隔线已删：分隔线只覆盖前两个统计、后面按钮区没有，半有半无不合统一语言；
+// 组件间距由容器 gap 承担，模型管理统计条同轮收口，见 STYLE_TODO #113）
 
 // 性能目标按钮尾箭头：间距镜像官方前导图标 margin（size-small 为 6px）
 .target-caret {

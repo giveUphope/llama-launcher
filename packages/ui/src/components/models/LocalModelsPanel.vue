@@ -481,13 +481,13 @@ watch(models, () => writeRowMeta());
 <template>
   <PageFrame>
     <div class="content">
-      <!-- 统计横条：a-statistic 承载数值+标题，a-divider 分隔（原生统计组件） -->
+      <!-- 统计横条：a-statistic 承载数值+标题（原生统计组件）；组件间距交容器 gap，
+           不用分隔线（分隔只在部分相邻组件间出现 = 半有半无，不合统一语言，登记 STYLE_TODO 113 号） -->
       <div class="stats-row">
         <div class="stat">
           <Icon name="models" :size="14" />
           <a-statistic :value="models.length" :title="i18n.t('lbl_model_count')" />
         </div>
-        <a-divider class="stat-divider" direction="vertical" />
         <div class="stat">
           <Icon name="disk" :size="14" />
           <a-statistic :title="i18n.t('lbl_total_size')" :value="totalSize.num">
@@ -632,7 +632,7 @@ watch(models, () => writeRowMeta());
   color: var(--color-text-2);
 
   // 单行统计条：a-statistic 的 title 块默认在 value 上方竖排（行高 ~54px），
-  // 改为 title 与 value 同行横排，图标 + 标题 + 数值压到单行（divider 24px 对齐）
+  // 改为 title 与 value 同行横排，图标 + 标题 + 数值压到单行
   :deep(.arco-statistic-title),
   :deep(.arco-statistic-content) {
     display: inline-block;
@@ -650,11 +650,6 @@ watch(models, () => writeRowMeta());
     font-family: var(--font-mono);
     line-height: 1.3;
   }
-}
-
-.stat-divider.arco-divider-vertical {
-  height: 24px;
-  margin: 0;
 }
 
 /* 统计条与搜索行 */
