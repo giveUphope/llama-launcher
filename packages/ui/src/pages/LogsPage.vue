@@ -125,18 +125,22 @@ function onClear() {
          （ToolTip 承担说明 + aria-label 补无障碍名），省出的宽度交给搜索框；
          不许折行：窗口最小宽 1024 下三段合计约 440px（图标钮后），单行恒放得下 -->
     <div class="filter-row">
-      <a-radio-group
-        class="level-filter"
-        type="button"
-        size="small"
-        :model-value="levelFilter"
-        @change="(v) => (levelFilter = v as Level)"
-      >
-        <a-radio v-for="l in LEVELS" :key="l.key" :value="l.key">
-          <Icon :name="l.icon" :size="11" />
-          <span>{{ l.label }}</span>
-        </a-radio>
-      </a-radio-group>
+      <!-- 级别筛选：切换按钮组（2026-10-08 用户裁定「按钮分隔还在使用被淘汰的样式」——
+           分段单选组的内建钮间分隔线与统计条分隔线同族一并退役；独立 a-button +
+           aria-pressed 承担单选语义，键盘可达（tag 方案无 tabindex 故不取），组件间纯 gap 无线 -->
+      <div class="level-filter" role="group" :aria-label="i18n.t('lbl_level_filter')">
+        <a-button
+          v-for="l in LEVELS"
+          :key="l.key"
+          size="small"
+          :type="levelFilter === l.key ? 'primary' : 'secondary'"
+          :aria-pressed="levelFilter === l.key"
+          @click="levelFilter = l.key"
+        >
+          <template #icon><Icon :name="l.icon" :size="11" /></template>
+          {{ l.label }}
+        </a-button>
+      </div>
       <div class="search-box">
         <a-input
           v-model="searchQuery"
@@ -220,17 +224,12 @@ function onClear() {
   margin-bottom: 8px;
 }
 
-// 级别筛选：Arco radio-group（button 型）替代自绘筛选 chip；
-// 仅保留图标对齐覆盖，其余走 Arco 默认（wrap 已随单行编排删除——
-// 五钮是一组刚性筛选，组内折行只会更难看）。
-// 图标+文本在 .arco-radio-button-content 内（content 默认 block：图标与文本
-// baseline 对齐偏下 2px 且无间距），需显式 inline-flex + gap 对齐
+// 级别筛选：独立切换按钮组（选中 = primary 实底，其余 secondary），
+// 组件间距交容器 gap——分段单选组的钮间分隔线是被淘汰的样式（#113/#115 同族）
 .level-filter {
-  :deep(.arco-radio-button-content) {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* 卡片化（2026-10-08）：无标题卡撑满页面剩余高，卡体转弹性列让控制台填充。

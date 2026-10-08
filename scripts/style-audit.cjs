@@ -600,8 +600,8 @@ const ARCO_COLOR_ALLOW = [
     why: 'descriptions 标签库内取 text-3（实测压卡片底 3.24 不达标），提到 text-2 达标' },
   { file: 'packages/ui/src/components/settings/AboutPanel.vue', marker: '.about-desc', expect: 1,
     why: '同上：descriptions 标签从 text-3 提到角色档 --fg-hint 才达 4.5' },
-  { file: 'packages/ui/src/components/settings/AppearancePanel.vue', marker: '.theme-radio-on', expect: 1,
-    why: '选中主题的字色：库给 checked 单选按钮铺 primary-1 底 + primary-6 字，深色下 4.2 不达标；换 --primary-6 会连带改圆点填充，故只改文字' },
+  // （AppearancePanel .theme-radio-on 登记已随 #115 删除：分段单选组退役换切换按钮组，
+  //   选中态 = primary 实底白字，Arco 官方预设自身达标，零覆写）
   // （ParamsPage 的 .stat / .subcat-changed 两条登记已随 #105 范式纯化删除：
   //   统计值色覆写与 tag 文字角色色移除，回归官方预设对——「跟随库官方观感」豁免延伸）
   { file: 'packages/ui/src/pages/ParamsPage.vue', marker: '.target-item.active', expect: 1,

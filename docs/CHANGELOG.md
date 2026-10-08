@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **分段单选组全站退役，换切换按钮组（用户批注「按钮分隔还在使用被淘汰的样式」）**：出了什么事——日志页级别筛选还在用按钮型 radio-group（分段样式），它的钮间分隔线与 #113 退役的统计条分隔线同族——「部分组件间有线、部分没有」的反例还没清完。**改法**：全站仅存的两处分段组（日志页级别筛选、设置外观的主题三选一）一并换成独立 `a-button` 切换组——选中 = primary 实底、其余 secondary，`role="group"` + `aria-label`（新键 `lbl_level_filter`）+ `aria-pressed` 表达单选按下态，组件间纯 `gap: 8px` 无线；不取 checkable tag 方案（Arco Tag 无 tabindex，键盘无法切换）；外观面板原 `.theme-radio-on` 对比度修正随组消亡（primary 实底白字是 Arco 官方预设自身达标），style-audit 登记同步删。登记 STYLE_TODO #115（中英两树）。**验证**：`pnpm lint` + ui 测试 + `pnpm style:audit` + e2e 全绿；mock 页目测两组均为纯间距按钮、选中态实底。
+
 - **e2e 存量修复：预设页签移除后 6 个 spec 的陈旧引用清零，81 条全绿**：出了什么事——「参数页单视图」那轮删了预设页签，但 e2e 只跑了单测没跑 e2e，6 条用例还在等 `.page-tabs` 里的「自定义参数」页签（app/a11y/logs-scroll/layout-stability/narrow-viewport/params 六个 spec），30s 超时假红；`arco-locale` 找的「预设行删除按钮」宿主也随面板消亡。**改法**：所有指向参数页页签的点击删除（参数页直出 69 行，原页签点击兼任的「行已挂载」等待改为显式 `expect(.param-row-wrapper).toBeVisible()`）；`arco-locale` 的 popconfirm 腿删除——全站已无 `a-popconfirm` 宿主，不能为测试造一个生产没有的浮层，Arco 内建文案一致性仍由表格空态腿（暂无数据 / No data）+ 七页 CJK 残留扫描（中文态正对照）守护。**验证**：`pnpm e2e:web` 81 passed / 0 failed。
 
 - **日志页工具条单行编排（用户批注「优化工具条编排为单行」）**：出了什么事——筛选行的 `flex-wrap: wrap` 让「级别筛选 + 搜索框 + 两颗带文字按钮」在 761px 行宽下放不下，「复制输出 / 清空控制台」掉到第二行，行高从 38 跳到 70。**改法**：两颗按钮本就带 ToolTip，收成纯图标方钮（`aria-label` 补无障碍名；该两钮全站仅日志页一处，无跨页不一致），省出的宽度交给搜索框；`.filter-row` / `.level-filter` 两处 `flex-wrap` 删除，搜索框 `min-width` 200→140 兜底——窗口最小宽 1024（window.ts 契约）下三段合计 ~440px，单行恒放得下。登记 STYLE_TODO #114（中英两树）。**验证**：`pnpm lint` + ui 测试 + `pnpm style:audit` 全绿；narrow-viewport e2e /logs 1024 判据零溢出；mock 页实测单行（行高 38、不随宽度折行）。

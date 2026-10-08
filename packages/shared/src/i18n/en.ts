@@ -24,6 +24,7 @@ export const en: Dict = {
   lbl_manage_models: 'Manage Models',
   lbl_search_models: 'Search models...',
   lbl_search_logs: 'Search logs...',
+  lbl_level_filter: 'Level filter',
   lbl_all: 'All',
   lbl_level_info: 'Info',
   lbl_level_success: 'Success',

@@ -22,6 +22,7 @@ export const zh = {
   lbl_manage_models: '管理模型',
   lbl_search_models: '搜索模型...',
   lbl_search_logs: '搜索日志...',
+  lbl_level_filter: '级别筛选',
   lbl_all: '全部',
   lbl_level_info: '信息',
   lbl_level_success: '成功',

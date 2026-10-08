@@ -33,16 +33,21 @@ const language = computed<Language>({
             :label-col-style="{ flex: '0 0 110px', minWidth: '0', marginRight: '8px', paddingRight: '0' }"
             :wrapper-col-style="{ flex: '1 1 0', minWidth: '0' }">
       <a-form-item :label="i18n.t('lbl_theme_mode')">
-        <a-radio-group class="theme-radio-group" type="button" size="small" :model-value="themeMode" @change="(v: any) => (themeMode = v)">
-          <a-radio
+        <!-- 主题三选一：切换按钮组（选中 = primary 实底）——分段单选组的钮间分隔线是
+             被淘汰的样式（STYLE_TODO 115 号，与日志页级别筛选同轮退役），组件间纯 gap 无线；
+             Arco 的 primary 实底白字自身达标，无需再挂对比度修正（原 .theme-radio-on 随组删除） -->
+        <div class="theme-filter" role="group" :aria-label="i18n.t('lbl_theme_mode')">
+          <a-button
             v-for="opt in THEME_OPTIONS"
             :key="opt.value"
-            :value="opt.value"
-            :class="{ 'theme-radio-on': themeMode === opt.value }"
+            size="small"
+            :type="themeMode === opt.value ? 'primary' : 'secondary'"
+            :aria-pressed="themeMode === opt.value"
+            @click="themeMode = opt.value"
           >
             {{ i18n.t(opt.labelKey) }}
-          </a-radio>
-        </a-radio-group>
+          </a-button>
+        </div>
       </a-form-item>
       <a-form-item :label="i18n.t('lbl_language')" v-inner-aria-label="i18n.t('lbl_language')">
         <a-select class="fc-select" v-model="language" :aria-label="i18n.t('lbl_language')" :style="{ width: '140px' }">
@@ -55,10 +60,12 @@ const language = computed<Language>({
 </template>
 
 <style scoped lang="scss">
-/* 段式单选「选中项」的文字：Arco 取 primary-6，深色下压卡片底实测 4.2，不达 §7.5.8 的 4.5。
-   由组件自身的选中态挂私有类（不覆写 Arco 的 .arco-radio-checked 内部态类），只换文字取值，
-   选中底色与边框仍由 Arco 承载 */
-.theme-radio-group .theme-radio-on :deep(.arco-radio-button-content) {
-  color: var(--fg-accent);
+/* 主题切换按钮组：间距交 gap（分段组的钮间分隔线已随 #115 退役）。
+   选中态 = primary 实底白字，Arco 官方预设自身达标（原 .theme-radio-on
+   对比度修正已无宿主），零覆写 */
+.theme-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>
