@@ -508,6 +508,13 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：① `subcat-changed` 文字覆写删除 → tag 回归纯 orange 预设；② LocalModelsPanel 四条 `badge-*` 删除 → 徽章回归纯预设（`:color` 预设承载全部配色）；③ ParamsPage 两个 stat 的值色覆写删除 → 统计值回归官方配色，显存超限的警示信号改由官方 `a-tag color="orange"`「超限」（新键 `lbl_vram_over`）承载；④ `ARCO_COLOR_ALLOW` 删 `.stat` / `.subcat-changed` 两条死登记（登记数与实测数恢复相等——账本必须跟着现实走）；⑤ 占位态 `muted` 次级灰覆写一并删除。**保留终态（非组件平行，#104 裁定不变）**：ParamRow `--warn` 描边（与 Arco 表单校验同型的边框态）、中性灰提示行（token 着色文字）、TopBar 关闭钮红 hover（a-button 基座 + 官方 token，窗口铬语义）。
 - **修复效果验证**：`pnpm style:audit` 22/22（`ARCO_COLOR_ALLOW` 登记数与实测数恢复相等）、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿、ui 103 / core 442 测试全绿；all-ram 等 4 个演示场景均不触发 `fits === false`（演示模型永不超限），超限 tag 的 `v-if` 路径与图标绑定对称、真实超限时自然显示。
 
+### 120. 设置页摘要条预留宽死区（首项静态提示也被 132px 预留）— 🟢 已修复（2026-10-09，用户批注「优化间距」）
+
+- **位置**：`packages/ui/src/pages/SettingsPage.vue`（`.status-summary` 三条摘要项）。
+- **描述**：`.summary-label` 全局 `min-width: 132px` 防状态切换抖动，但首项「更改即时保存」是**静态提示**（从不换状态）——132px 预留成了它与下一项之间 ~48px 的死区，实测三项视觉间距 58/44/48 不齐。
+- **修复**：**二次修正**——首版把预留收窄到 2/3 项仍不齐：预留箱宽于当前文案时死区落在项间（132px 箱 vs 「模型目录不存在」84px 文案 = 视觉间距 10/44），预留宽与均间距在流式布局里不可兼得；终案**彻底去掉 min-width 预留**，三条 label 全部贴合自然宽度，状态文案切换（检测中 → 就绪/缺失）时末项一次性横移文案宽度差（≤ ~24px），作为代价明示接受。
+- **修复效果验证**：mock 页实测三条 label 全自然宽（72/84/72）、文字到图标的视觉 gap = 10/10 完全齐平；`pnpm lint` + `pnpm style:audit` 全绿。
+
 ### 119. 下载卡文件行徽章列错位 + 来源徽章混入标题体例 — 🟢 已修复（2026-10-09，用户批注「修复内容错位，并确保该问题不会影响到生产环境」）
 
 - **位置**：`packages/ui/src/components/common/DownloadCard.vue`（`.file-item` 文件行与 `.files-header`）。
@@ -582,6 +589,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 120 | 设置页摘要条间距优化（用户批注「优化间距」→「明显出现摘要间距不同的问题」）：`.summary-label` 全局 132px 防抖预留制造死区（视觉间距 58/44/48）；首版收窄预留到 2/3 项仍不齐（10/44）——终案彻底去掉预留，label 贴合自然宽（gap 10/10 齐平），状态切换时末项一次性横移 ≤24px 作为明示代价 | 2026-10-09 |
 | 119 | 下载卡文件行徽章列错位修复 + e2e 列对齐判据（用户批注「修复内容错位，并确保该问题不会影响到生产环境」）：`.file-name` 的 flex:1 被 ToolTip 宿主架空 + 行继承 Arco space-between，徽章列随名字长短漂移（cat 列实测散布 109px）——`.file-item` 显式 flex-start、名字宿主 `:deep + :has` 反查赋弹性（宿主 span 只带 ToolTip scope 属性，裸选择器够不到）、推荐徽章前移、size 定宽右对齐；来源徽章移出 uppercase 标题（不再渲染成 MODELSCOPE 混进标题）。**生产防波 = e2e 新增 ⑥ 列对齐判据（中英双语，跑生产构建）**，删除实验双向通过 | 2026-10-09 |
 | 118 | 清理卡失败明细原生 title 残留清零 + 门禁固化（用户批注「修复，不允许维护两套逻辑」，子代理全站交互审查的唯一确认残留）：`TrashCleanCard` 截断路径外包 `ToolTip` 删 `:title`（#101 同日新写代码漏网，其计数声明当场失真）；`style-audit` 新增第 24 条「原生 title 禁令」——模板内 title/`:title` 宿主只允许 `a-*` 组件与 iframe，自证解析规模（合法命中 <6 即红）；frontend.md §7.5.6 计数声明修订为实测 6 处、并补记 #115 漏改的「⑥ 级别筛选仍写分段单选组」 | 2026-10-08 |
 | 117 | GGUF 建议芯片走官方 checkable 交互档（用户批注「偏离完全修复」，审查结论「视觉完全官方、交互未走 checkable」）：applicable 档挂 `:checkable` + `:checked`（恒 true 保 arcoblue 配色，点击仍走既有 `@click`），即获官方悬停底色反馈与过渡；只读档保持非 checkable 不加假可供性；键盘缺失随「快捷路径非唯一路径」豁免（Arco Tag 不透传 $attrs，tabindex 挂不上） | 2026-10-08 |

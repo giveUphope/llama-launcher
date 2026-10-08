@@ -182,10 +182,10 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
 .summary-label {
   font-size: var(--fs-sm);
   color: var(--color-text-1);
-  // 状态三态文案长短不一（zh「模型目录不存在」/「模型目录未设置」，en「Model dir not found」）：
-  // min-width 按双语最宽态预留，同行项不再随状态切换横向抖动
-  min-width: 132px;
   white-space: nowrap;
+  // 不做 min-width 预留（2026-10-09 二次修正）：预留宽与均间距在流式布局里不可兼得——
+  // 预留箱宽于当前文案时，死区落在项间（132 箱 vs 98px 文案 = 44px 视觉间距 vs 首项 10px）。
+  // 代价：状态文案切换（检测中 → 就绪/缺失）时末项一次性横移文案宽度差（≤ ~24px），可接受
 }
 
 // （summary-divider 自绘分隔线已删：与统计条分隔线同族的被淘汰样式（STYLE_TODO 116 号），
