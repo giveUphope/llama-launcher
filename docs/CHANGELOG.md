@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **清理卡失败明细原生 title 清零 + 原生 title 门禁固化（用户批注「修复，不允许维护两套逻辑」，承接子代理全站交互审查 #118）**：出了什么事——审查确认的全站唯一未迁移点：`TrashCleanCard` 失败明细的截断路径用原生 `:title` 承载完整值，且是 #101「原生 title 清零」提交**同日新写**的代码——人工清扫无门禁兜底，残留得以存活（#101 的计数声明当场失真：声明 4 处、修复前实测 7 处）。**改法**：① span 外包 `ToolTip` 删 `:title`（`.tooltip-host` 宿主盒，flex 收缩与 ellipsis 不变）；② **`style-audit` 新增第 24 条「原生 title 禁令」**——模板内 title/`:title` 宿主只允许 `a-*` 组件（官方 title prop）与 iframe，其余即报并指认标签名，自证解析规模（合法命中 <6 即红，修复后实测 6 处）；③ frontend.md §7.5.6 计数声明修订为实测值，并补改 #115 轮漏改的「⑥ 固定高筛选控件仍写分段单选组」一句。**验证**：删除实验（`:title` 贴回 ⇒ 第 24 条红并指认 span，撤掉 ⇒ 绿）；`pnpm lint` + ui 测试 + `pnpm style:audit` 24 条 + e2e 81 条全绿。STYLE_TODO #118 结案（中英两树）。
+
 - **GGUF 建议芯片对齐官方 checkable 交互档（用户批注「偏离完全修复」，承接上轮审查 #117）**：出了什么事——审查确认参数行的模型建议值芯片视觉完全是官方预设（arcoblue 原对，双主题对比度 4.6 / 4.9 达标），唯一偏离是可点档承载「点击=写入该值」却未用官方 `checkable`：悬停无底色反馈、裸 `@click` 无过渡。**改法**：applicable 档挂 `:checkable` + `:checked`（恒 true 保住 arcoblue 配色，点击语义仍走既有 `@click`，`@check` 不接管）——即获官方 `tag-arcoblue-color-bg_hover` 悬停底色与过渡；只读档保持非 checkable（不加 hover 假可供性，`cursor: help` 不变）；键盘缺失维持豁免（Arco Tag 渲染不透传 $attrs，tabindex 挂不上，且芯片是快捷路径非唯一路径）。**验证**：`pnpm lint` + ui 测试 + `pnpm style:audit` + e2e 81 条全绿；mock 页实测悬停底色变官方 hover 档、移出复原、只读档无反馈、配色几何逐像素不变、点击应用链路不变。STYLE_TODO #117 结案（中英两树）。
 
 - **设置页状态摘要条分隔线退役（用户批注「内容分隔还是使用被淘汰的样式」）**：出了什么事——「常规」页签顶部的状态摘要条（更改即时保存 · 模型目录状态 · 引擎状态）之间还有两根自绘的 1px 竖向分隔线（`.summary-divider`），与 #113 统计条分隔线、#115 分段组分隔线同族，且是全站最后一处。**改法**：两根分隔节点与样式块删除，项间距由容器既有 `gap: 10px` 承担；`grep divider` 全站零命中——分隔线语言至此完全统一为「纯间距分列」。登记 STYLE_TODO #116（中英两树）。**验证**：`pnpm lint` + ui 测试 + `pnpm style:audit` + e2e 全绿；mock 页目测摘要条三态文本纯间距排列。

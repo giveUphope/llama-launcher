@@ -764,6 +764,39 @@ const a23 = new Audit();
   }
 }
 
+// ---------- 24. 原生 title 禁令（浮层提示一律 ToolTip，§7.5.6） ----------
+// 实案（2026-10-08，STYLE_TODO #118）：#101 声称「原生 title 清零」的同一提交里新写的
+// 截断路径又挂了 :title——一次性人工清扫没有门禁兜底，残留就活了下来。本条把边界固化：
+// 模板里的 title / :title 属性只允许两类宿主——Arco 组件（a-* 的官方 title prop，
+// 如 a-statistic / a-dgroup）与 iframe（无障碍名）；其余元素（含自有组件透传）一律
+// 走 ToolTip 组件（悬浮多段文本、主题化、可登记宿主盒）。
+const a24 = new Audit();
+{
+  let hits = 0;
+  for (const f of files) {
+    if (!f.endsWith('.vue')) continue;
+    const text = readLines(f).join('\n');
+    const start = text.indexOf('<template>');
+    if (start < 0) continue;
+    const body = text.slice(start).replace(/<!--[\s\S]*?-->/g, '');
+    for (const m of body.matchAll(/(?<![\w:.:-])(:?)title=(["'])/g)) {
+      hits++;
+      // 回溯最近的 < 取宿主标签名（属性串允许跨行；前瞻保证跳过已闭合的早先标签）
+      const before = body.slice(Math.max(0, m.index - 2000), m.index);
+      const tagOpen = /<([A-Za-z][\w-]*)\b(?![^<]*>)/.exec(before);
+      const tag = tagOpen ? tagOpen[1] : '';
+      if (tag.startsWith('a-') || tag === 'iframe') continue;
+      const line = text.slice(0, start + m.index).split('\n').length;
+      a24.add(f, line, `原生 title 属性挂在 <${tag || '?'}> 上——浮层提示一律走 ToolTip 组件（豁免：a-* 组件 title prop / iframe title）`);
+    }
+  }
+  // 自证解析规模：修复后全站 6 处合法命中（5 处 a-* prop + 1 处 iframe，2026-10-08 实测），
+  // 解析到过少说明模板形状变了或尺子失灵，「零命中」不再等于「干净」
+  if (hits < 6) {
+    a24.add(path.join(ROOT, 'scripts/style-audit.cjs'), 0, `只扫到 ${hits} 处 title 属性（实测 6 处合法命中）：解析器与文件形状脱节，本条判据不可信`);
+  }
+}
+
 // ---------- 输出 ----------
 const out = [
   render('1. 组件内裸颜色（token 禁令）', a1.items),
@@ -792,12 +825,13 @@ const out = [
   render('21. 图标语义表一对一且有读者（icon-map.ts）', a21.items),
   render('22. 控制台 token 家族（--log-kind-* / --console-*）有定义且有读者', a22.items),
   render('23. a-button 无 #suffix 死槽（只有 icon/default，尾图标进默认槽）', a23.items),
+  render('24. 原生 title 禁令（浮层提示一律 ToolTip；豁免 a-* 组件 prop / iframe）', a24.items),
   `\n扫描 ${files.length} 个文件 · 规范依据 docs/zh/frontend.md §7.5`,
 ];
 
 console.log(out.join('\n'));
 
 const failed =
-  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19, a20, a21, a22, a23]
+  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19, a20, a21, a22, a23, a24]
     .some((a) => a.items.length > 0) || STATE_UNREG.length > 0;
 process.exit(failed ? 1 : 0);

@@ -8,6 +8,7 @@
 import { computed, ref } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
+import ToolTip from '@/components/common/ToolTip.vue';
 import { useI18nStore } from '@/stores/i18n';
 import { confirm } from '@/composables/useConfirm';
 import { formatBytes } from '@llama-launcher/shared';
@@ -160,7 +161,11 @@ async function onCleanSelected() {
       </a-tag>
       <div v-if="result && result.failures.length" class="trash-failures">
         <div v-for="f in result.failures" :key="f.path" class="trash-fail-row">
-          <span class="trash-fail-path" :title="f.path">{{ f.path }}</span>
+          <!-- 截断路径的完整值走 ToolTip（全站唯一提示通道，原生 title 禁令已入审计第 24 条，
+               本行正是 STYLE_TODO 118 号的漏网残留） -->
+          <ToolTip :text="f.path">
+            <span class="trash-fail-path">{{ f.path }}</span>
+          </ToolTip>
           <span class="trash-fail-reason">{{ i18n.t(FAIL_REASON_KEY[f.reason]) }}<template v-if="f.detail">：{{ f.detail }}</template></span>
         </div>
       </div>

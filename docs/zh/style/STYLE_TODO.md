@@ -39,6 +39,8 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 20. 给 Arco 内部节点写配色必须逐条登记：选择器含 `.arco-*` 或命中挂在 Arco 组件类上的 class、且声明 `color` / `background` / `border` / `box-shadow` 即报（按钮侧归第 18 条、token 本体层归第 17 条），例外进 `ARCO_COLOR_ALLOW` 带 `why` 与 `expect` 条数（17 条登记共 23 处，见 #96）
 21. 图标语义表必须一对一且有读者（`components/common/icon-map.ts`）：一个 Arco 字形挂多个语义名即报（历史缺陷：`folder` 与 `folder_open` 同为纯文件夹，「上一级」与「打开目录」长得一样），语义名在 `ui/src` 里没有读者也即报（连带 import 一起删）；名字写错另有 `IconName` 类型在 `vue-tsc` 阶段拦（见 #97）
 22. 控制台 token 家族（`--log-kind-*` / `--console-*`）有定义且有读者：`var(--x)` 无定义时浏览器**静默回退继承色**——实案是 1e73a17 把 `theme.scss` 的四个级别色定义当属性覆写误删，控制台着色整体失效而既有各条「颜色写对没有」的检查全绿；本条对家族双向核对（消费必有定义、定义必有读者）并自证解析规模（解析不到 6 条定义即报尺子变形）
+23. `a-button` 无 `#suffix` 死槽（只有 icon/default，尾图标进默认槽，#110）
+24. 原生 `title` 禁令（浮层提示一律 `ToolTip`，#118）：模板内 `title` / `:title` 的宿主只允许 `a-*` 组件（官方 title prop）与 `iframe`，其余元素即报并指认标签名；自证解析规模（合法命中 < 6 即报尺子变形）
 
 ***
 
@@ -506,12 +508,12 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 - **修复**：① `subcat-changed` 文字覆写删除 → tag 回归纯 orange 预设；② LocalModelsPanel 四条 `badge-*` 删除 → 徽章回归纯预设（`:color` 预设承载全部配色）；③ ParamsPage 两个 stat 的值色覆写删除 → 统计值回归官方配色，显存超限的警示信号改由官方 `a-tag color="orange"`「超限」（新键 `lbl_vram_over`）承载；④ `ARCO_COLOR_ALLOW` 删 `.stat` / `.subcat-changed` 两条死登记（登记数与实测数恢复相等——账本必须跟着现实走）；⑤ 占位态 `muted` 次级灰覆写一并删除。**保留终态（非组件平行，#104 裁定不变）**：ParamRow `--warn` 描边（与 Arco 表单校验同型的边框态）、中性灰提示行（token 着色文字）、TopBar 关闭钮红 hover（a-button 基座 + 官方 token，窗口铬语义）。
 - **修复效果验证**：`pnpm style:audit` 22/22（`ARCO_COLOR_ALLOW` 登记数与实测数恢复相等）、`pnpm lint` 全绿、`pnpm e2e:web` 81 条全绿、ui 103 / core 442 测试全绿；all-ram 等 4 个演示场景均不触发 `fits === false`（演示模型永不超限），超限 tag 的 `v-if` 路径与图标绑定对称、真实超限时自然显示。
 
-### 118. 清理卡失败明细的原生 title 残留（#101 同日新增代码漏网）— 🔴 待修复
+### 118. 清理卡失败明细的原生 title 残留（#101 同日新增代码漏网）— 🟢 已修复（2026-10-08，用户裁定「修复，不允许维护两套逻辑」）
 
 - **位置**：`packages/ui/src/components/settings/TrashCleanCard.vue:163`（`<span class="trash-fail-path" :title="f.path">`——清理结果失败明细的截断路径）。
-- **描述**：子代理全站审查（2026-10-08，用户要求「审查是否还有交互未迁移 Arco 官方档」）确认的全站唯一残留：超长路径 CSS 截断（ellipsis）后用**原生 `title`** 承载完整值，且处在 `v-for` 数据条目上——恰是 §7.5.6 收窄边界（#101）明令清零的「截断值提示」类。考证 `git show 5829030`：这块失败明细是 #101 迁移提交**同日新写**的代码，迁移扫描漏掉了自己新增的行，提交里「现存 `:title=` 仅 3 处组件 prop + 1 iframe」的声明当场失真（今日实测 7 处：合规组件 prop 5——DownloadCard a-dgroup 与 4 处 a-statistic + 违规 span 1 + 合规 iframe 1）。`style-audit` 对原生 title 零规则，#101 属一次性人工清扫无门禁兜底，正是残留存活的结构原因。其余类别（裸元素点击/原生表单控件/自绘浮层/手搓选择语义/裸超链接/控制台区交互）经全量正则扫描全部干净。
-- **建议修复**：span 外包 `ToolTip`（同 #99/#101 已验证的 `.tooltip-host` inline-flex + min-width:0 宿主盒式样），删除 `:title`；顺带把 #101 与 frontend.md §7.5.6 的计数声明修订为实测值；评估给 `style-audit` 补原生 title 门禁（豁免登记「Arco 组件 title prop + iframe title」两类）。
-- **修复效果验证**：mock 页制造一条清理失败项，悬浮路径出现 ToolTip、无原生 title 属性；`.trash-fail-path` 在 `.trash-fail-row` flex 链中的收缩行为目测不破（它自带 `flex: 0 1 auto + min-width: 0`）；`pnpm style:audit` / `pnpm lint` 全绿；若补门禁，删除实验（贴回 `:title` ⇒ 红）通过。
+- **描述**：子代理全站审查（2026-10-08，用户要求「审查是否还有交互未迁移 Arco 官方档」）确认的全站唯一残留：超长路径 CSS 截断（ellipsis）后用**原生 `title`** 承载完整值，且处在 `v-for` 数据条目上——恰是 §7.5.6 收窄边界（#101）明令清零的「截断值提示」类。考证 `git show 5829030`：这块失败明细是 #101 迁移提交**同日新写**的代码，迁移扫描漏掉了自己新增的行，提交里「现存 `:title=` 仅 3 处组件 prop + 1 iframe」的声明当场失真（修复前实测 7 处：合规组件 prop 5——DownloadCard a-dgroup 与 4 处 a-statistic + 违规 span 1 + 合规 iframe 1）。`style-audit` 对原生 title 零规则，#101 属一次性人工清扫无门禁兜底，正是残留存活的结构原因。其余类别（裸元素点击/原生表单控件/自绘浮层/手搓选择语义/裸超链接/控制台区交互）经全量正则扫描全部干净。
+- **修复**：① span 外包 `ToolTip`（`:text="f.path"`，`.tooltip-host` inline-flex + min-width:0 宿主盒；`.trash-fail-path` 原有 flex 收缩与 ellipsis 不变），删除 `:title`；② **门禁固化**——`style-audit` 新增第 24 条「原生 title 禁令」：模板内 title/`:title` 宿主只允许 `a-*` 组件（官方 title prop）与 iframe，其余一律报错并指认标签名；自证解析规模（合法命中 < 6 即报尺子变形，修复后实测 6 处）；③ frontend.md §7.5.6 与本条计数声明修订为实测值（6 处），并补记 #115 轮漏改的「⑥ 固定高筛选控件仍写分段单选组」一句。
+- **修复效果验证**：删除实验——`:title` 贴回 ⇒ 第 24 条红并指认 `TrashCleanCard.vue` 的 `<span>`，撤掉 ⇒ 绿；`pnpm style:audit` 24 条全绿、`pnpm lint` + ui 测试 + e2e 全绿；失败明细行仅在清理出现失败时渲染（mock 恒成功，视觉路径由模板与 ToolTip 既有范式保证，ToolTip 组件的宿主盒几何已有 #99/#101 两轮实测）。
 
 ### 117. GGUF 建议芯片的「点击应用」未走官方 checkable 交互 — 🟢 已修复（2026-10-08，用户裁定「偏离完全修复」）
 
@@ -573,6 +575,7 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 
 | # | 条目 | 修复日期 |
 | --- | --- | --- |
+| 118 | 清理卡失败明细原生 title 残留清零 + 门禁固化（用户批注「修复，不允许维护两套逻辑」，子代理全站交互审查的唯一确认残留）：`TrashCleanCard` 截断路径外包 `ToolTip` 删 `:title`（#101 同日新写代码漏网，其计数声明当场失真）；`style-audit` 新增第 24 条「原生 title 禁令」——模板内 title/`:title` 宿主只允许 `a-*` 组件与 iframe，自证解析规模（合法命中 <6 即红）；frontend.md §7.5.6 计数声明修订为实测 6 处、并补记 #115 漏改的「⑥ 级别筛选仍写分段单选组」 | 2026-10-08 |
 | 117 | GGUF 建议芯片走官方 checkable 交互档（用户批注「偏离完全修复」，审查结论「视觉完全官方、交互未走 checkable」）：applicable 档挂 `:checkable` + `:checked`（恒 true 保 arcoblue 配色，点击仍走既有 `@click`），即获官方悬停底色反馈与过渡；只读档保持非 checkable 不加假可供性；键盘缺失随「快捷路径非唯一路径」豁免（Arco Tag 不透传 $attrs，tabindex 挂不上） | 2026-10-08 |
 | 116 | 设置页状态摘要条分隔线退役（用户批注「内容分隔还是使用被淘汰的样式」）：`.status-summary` 三个状态项之间的 `.summary-divider`（自绘 1px×18px 竖条）与统计条/分段组分隔线同族，是全站最后一处自绘分隔——两根分隔节点与样式块删除，项间距由容器既有 `gap: 10px` 承担；全站自此再无任何自绘或 a-divider 分隔线（`grep divider` 零命中） | 2026-10-08 |
 | 115 | 分段单选组全站退役，换切换按钮组（用户批注「按钮分隔还在使用被淘汰的样式」）：按钮型 radio-group（分段样式）的内建钮间分隔线与 #113 退役的统计条分隔线同族——全站仅存两处（日志页级别筛选、设置外观主题三选一）一并换成独立 `a-button` 切换组：选中 = primary 实底、其余 secondary，`role="group"` + `aria-label`（新键 `lbl_level_filter`）+ `aria-pressed` 表达单选按下态，组件间纯 `gap: 8px` 无线；不取 checkable tag 方案（Arco Tag 无 tabindex，键盘用户将无法切换级别）；AppearancePanel 原 `.theme-radio-on` 对比度修正随组消亡（primary 实底白字为 Arco 官方预设自身达标），style-audit 第 20 条登记同步删除 | 2026-10-08 |
