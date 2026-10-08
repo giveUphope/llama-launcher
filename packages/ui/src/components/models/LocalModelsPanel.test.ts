@@ -69,7 +69,6 @@ vi.mock('@/stores/settings', () => ({ useSettingsStore: () => settingsMock }));
 vi.mock('@/stores/params', () => ({ useParamsStore: () => paramsMock }));
 vi.mock('@/stores/server', () => ({ useServerStore: () => serverMock }));
 vi.mock('@/composables/useConfirm', () => ({ confirm: async () => true }));
-vi.mock('@/composables/useModelPreset', () => ({ useModelPreset: () => ({ applyModelPresetIfAny: async () => {} }) }));
 
 // ---- window.api 桩 ----
 let scanList: ModelInfo[] = [];
@@ -119,11 +118,26 @@ function benchButton(row: Element): HTMLButtonElement {
 let wrapper: ReturnType<typeof mount>;
 
 async function mountPanel() {
-  // 包进 KeepAlive：onActivated 才会触发（面板的 fit/体检订阅都配对在 activate/deactivate 上）
+  // 包进 KeepAlive：onActivated 才会触发（面板的 fit/体检订阅都配对在 activate/deactivate 上）。
+  // show 开关供 deactivate/activate 循环使用（v-if=false 是「失活缓存」而非卸载——
+  // 正是「切到模型库页签再切回本地模型」的测试态）。
   wrapper = mount(
-    { components: { LocalModelsPanel }, template: '<KeepAlive><LocalModelsPanel /></KeepAlive>' },
+    {
+      components: { LocalModelsPanel },
+      template: '<KeepAlive><LocalModelsPanel v-if="show" /></KeepAlive>',
+      data: () => ({ show: true }),
+    },
     { global: { plugins: [ArcoVue] } },
   );
+  await flushPromises();
+  await nextTick();
+  await flushPromises();
+}
+
+/** KeepAlive 失活/重入（模拟「切到模型库页签 / 切回本地模型」） */
+async function setActive(show: boolean) {
+  (wrapper.vm as unknown as { show: boolean }).show = show;
+  await nextTick();
   await flushPromises();
   await nextTick();
   await flushPromises();
@@ -244,5 +258,27 @@ describe('模型表行内徽章：派生值随条目携带（frontend.md §7.1 �
     await nextTick();
     await flushPromises();
     expect(badgeTexts(modelRows()[0].element)).toEqual(['✓ fit_full|en|0']);
+  });
+
+  it('onActivated 重入补扫：失活期完成的下载切回即重扫（B3，订阅失活期不补发）', async () => {
+    scanList = [A];
+    await mountPanel();
+    const scansAfterMount = api.models.scan.mock.calls.length;
+    expect(scansAfterMount).toBeGreaterThan(0);
+    expect(changedCb, '挂载即订阅文件变更').toBeTypeOf('function');
+
+    // 失活（切到模型库页签）：文件变更订阅退订——下载完成的 MODELS_CHANGED 不会补发
+    await setActive(false);
+    expect(changedCb).toBeNull();
+
+    // 失活期间下载完成：本地多了一个新模型
+    scanList = [A, B];
+
+    // 切回：onActivated 重入立即补扫（core 有扫描缓存，非全量代价），
+    // 不需要等下一次 .gguf 文件事件或重启
+    await setActive(true);
+    expect(changedCb, '重入即恢复订阅').toBeTypeOf('function');
+    expect(api.models.scan.mock.calls.length).toBeGreaterThan(scansAfterMount);
+    expect(modelRows().length).toBe(2);
   });
 });

@@ -73,6 +73,17 @@ export const useDownloadStore = defineStore('download', () => {
     ensureSubscribed();
   }
 
+  /** 启动结果采纳（B1）：去重命中（快照 id 已在列表）则移除本地占位行、保留既有行
+   *  （它已随事件演进）；否则把占位行整体替换为后端快照（真实 id 与状态——
+   *  此前只换 id 不同步状态，被清除列表的 paused 任务重新添加后渲染成「永远排队中」） */
+  function applyStartResult(placeholderId: string, backend: DownloadTask) {
+    const idx = tasks.value.findIndex((t) => t.id === placeholderId);
+    if (idx < 0) return;
+    const dupIdx = tasks.value.findIndex((t) => t.id === backend.id);
+    if (dupIdx >= 0 && dupIdx !== idx) tasks.value.splice(idx, 1);
+    else tasks.value[idx] = backend;
+  }
+
   /** 取消下载 */
   async function cancelTask(id: string) {
     // 立即从列表中移除（同步），避免取消后仍占用列表位置；
@@ -131,6 +142,7 @@ export const useDownloadStore = defineStore('download', () => {
   return {
     tasks,
     addTask,
+    applyStartResult,
     cancelTask,
     pauseTask,
     resumeTask,

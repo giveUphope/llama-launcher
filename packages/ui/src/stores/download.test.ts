@@ -105,6 +105,22 @@ describe('download store 恢复被后端拒绝时不再乐观翻转（G2）', ()
   });
 });
 
+  it('start 结果采纳：占位行整体替换为后端快照（paused 状态不丢，B1）', () => {
+    const store = useDownloadStore();
+    store.addTask(makeTask({ id: 'tmp', status: 'queued' }));
+    store.applyStartResult('tmp', makeTask({ id: 'real', status: 'paused', downloadedSize: 300 }));
+    expect(store.tasks.length).toBe(1);
+    expect(store.tasks[0]).toMatchObject({ id: 'real', status: 'paused', downloadedSize: 300 });
+  });
+
+  it('start 结果去重命中：移除本地占位行，保留随事件演进的既有行（B1）', () => {
+    const store = useDownloadStore();
+    store.addTask(makeTask({ id: 'existing', status: 'downloading', downloadedSize: 10 }));
+    store.addTask(makeTask({ id: 'tmp', status: 'queued' }));
+    store.applyStartResult('tmp', makeTask({ id: 'existing', status: 'downloading' }));
+    expect(store.tasks.map((t) => t.id)).toEqual(['existing']);
+  });
+
 describe('download store 进度静默门控（G3）', () => {
   it('静默期跳过高频进度应用，解除后下一帧自愈；取消移除不受门控影响', () => {
     const store = useDownloadStore();

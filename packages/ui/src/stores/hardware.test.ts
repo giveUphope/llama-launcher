@@ -26,7 +26,6 @@ let estimateResult: VramEstimateResult | null = null;
 
 (globalThis as any).window = (globalThis as any).window ?? {};
 (globalThis as any).window.api = (globalThis as any).window.api ?? {
-  presets: { list: () => Promise.resolve([]), save: () => Promise.resolve() },
   models: {
     detectMmproj: () => Promise.resolve(''),
     detectDraft: () => Promise.resolve(''),

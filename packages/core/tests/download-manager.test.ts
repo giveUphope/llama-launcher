@@ -834,6 +834,49 @@ describe('DownloadManager', () => {
     manager.dispose();
   });
 
+  it('pause keeps the expected checksum: resume + full re-download still verifies strongly (B2 暂停半)', async () => {
+    const bad = Buffer.from('corrupt payload that must fail verification!');
+    const totalSize = bad.length;
+    const serve = (hang: boolean) => (options: { headers: Record<string, string | string[]> }) => {
+      const range = parseRange(options.headers['Range']);
+      if (!range) return { statusCode: 500, headers: {} };
+      if (range.start === 0 && range.end === 0) {
+        return {
+          statusCode: 206,
+          headers: { 'Content-Range': `bytes 0-0/${totalSize}`, 'Accept-Ranges': 'bytes' },
+          body: Buffer.alloc(1),
+        };
+      }
+      const end = range.end ?? totalSize - 1;
+      return {
+        statusCode: 206,
+        headers: { 'Content-Range': `bytes ${range.start}-${end}/${totalSize}`, 'Accept-Ranges': 'bytes' },
+        body: bad.subarray(range.start, end + 1),
+        hang,
+      };
+    };
+
+    // hang 住把任务钉在 downloading，再暂停成 paused
+    currentResolver = serve(true);
+    const manager = new DownloadManager();
+    const req: StartDownloadRequest = {
+      ...makeRequest('test/model', 'model.gguf', 'model.gguf', totalSize),
+      expectedChecksum: createHash('sha256').update('correct payload').digest('hex'),
+    };
+    const first = await manager.startDownload(req);
+    await new Promise((resolve) => manager.once('progress', resolve));
+    expect(manager.pauseDownload(first.id)).toBe(true);
+
+    // 恢复（同样的坏内容）：旧行为在暂停即消费期望校验和 → 完成路径会静默把坏文件改名落盘；
+    // 修复后必须仍做强校验，报 checksum_mismatch
+    currentResolver = serve(false);
+    const errorPromise = new Promise<any>((resolve) => manager.once('error', resolve));
+    manager.resumeDownload(first.id);
+    const error = await errorPromise;
+    expect(error.errorType).toBe('checksum_mismatch');
+    manager.dispose();
+  });
+
   it('startDownload returns the existing task snapshot on dedupe hit (paused state preserved)', async () => {
     // 用 hang 住不结束的响应把首个任务钉在 downloading,再暂停成 paused
     const totalSize = 200 * 1024 * 1024;

@@ -62,7 +62,7 @@ function stopOf(part: Partial<ServerStopInfo> & { reason: ServerStopInfo['reason
     start: () => Promise.resolve({ ok: true }),
     stop: () => Promise.resolve({ ok: true }),
     restart: () => Promise.resolve({ ok: true }),
-    previewCommand: () => Promise.resolve({ ok: true, data: '' }),
+    previewCommand: () => Promise.resolve({ ok: true, data: [] }),
   },
   system: {
     checkPort: () => Promise.resolve(checkPortResult),
