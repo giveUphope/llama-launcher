@@ -241,7 +241,7 @@ export const en: Dict = {
   msg_trash_fail_error: 'Delete failed',
   lbl_vram_over: 'Over',
   msg_trash_confirm: 'Found {0} item(s) to clean ({1}). Proceed?\n\nStrict validation: only identified app-generated leftovers (config + model dirs) are cleaned. settings.json and valid model params are never removed; active/paused/retryable downloads are protected.',
-  msg_trash_empty: 'Config directory is clean, nothing to clean',
+  msg_trash_empty: 'No cleanable items found',
   msg_trash_cleaned: 'Cleaned {0} item(s), freed {1}',
   msg_trash_failed: 'Clean finished: {0} succeeded, {1} failed',
   msg_trash_detect_failed: 'Detection failed: {0}',

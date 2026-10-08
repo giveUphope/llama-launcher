@@ -173,7 +173,7 @@ async function onCleanSelected() {
 </template>
 
 <style scoped lang="scss">
-// 两态文案宽窄不同（zh「检测配置目录」/「检测中…」，en「Scan Config Dir」/「Detecting…」）：
+// 两态文案宽窄不同（zh「检测可清理项」/「检测中…」，en「Scan Cleanables」/「Detecting…」）：
 // 按较宽态定 min-width，按钮不再随检测状态换文案而撑宽，卡片头操作区不横向抖动
 .trash-detect-btn {
   min-width: 142px;

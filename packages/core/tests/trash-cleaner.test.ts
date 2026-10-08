@@ -144,6 +144,25 @@ describe('trash-cleaner', () => {
     expect(existsSync(paramsTmp)).toBe(false);
   });
 
+  it('totalSize 只累计成功清理项的字节数（检测总量 = 各项之和；失败项不计入）', () => {
+    writeFileSync(tmpSettingsFile, '{}');
+    const tmpFile = join(tmpConfigDir, 'cache.tmp');
+    const bakFile = join(tmpConfigDir, 'backup.bak');
+    writeFileSync(tmpFile, '1234');      // 4 字节
+    writeFileSync(bakFile, '1234567');   // 7 字节
+
+    const detected = detectTrash();
+    expect(detected.totalSize).toBe(11); // 检测总量 = 各项大小之和
+
+    // 伪造一个已不存在的清理项（他人已删）：跳过而非失败，也不计入释放量
+    const ghost = { relPath: 'ghost.tmp', absPath: join(tmpConfigDir, 'ghost.tmp'), root: 'config' as const, kind: 'temp_file' as const, size: 9999 };
+
+    const result = cleanTrash([...detected.items, ghost]);
+    expect(result.cleaned).toBe(2);
+    expect(result.failed).toBe(0);
+    expect(result.totalSize).toBe(11);   // 只数真实删除的 4 + 7
+  });
+
   it('cleanTrash preserves settings.json', () => {
     writeFileSync(tmpSettingsFile, '{"key": "value"}');
 

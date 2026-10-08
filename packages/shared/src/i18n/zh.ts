@@ -239,7 +239,7 @@ export const zh = {
   msg_trash_fail_error: '删除失败',
   lbl_vram_over: '超限',
   msg_trash_confirm: '检测到 {0} 项可清理内容（共 {1}），是否清理？\n\n强校验：仅清理明确识别的应用生成残留（配置目录 + 模型目录），settings.json 与有效模型参数永不清理，进行中/暂停/可重试的下载任务自动保护。',
-  msg_trash_empty: '配置目录干净，无需清理',
+  msg_trash_empty: '未发现可清理项',
   msg_trash_cleaned: '已清理 {0} 项，释放 {1}',
   msg_trash_failed: '清理完成：成功 {0} 项，失败 {1} 项',
   msg_trash_detect_failed: '检测失败：{0}',

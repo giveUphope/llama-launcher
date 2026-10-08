@@ -108,6 +108,16 @@ const DEMO_MODEL_PARAMS = new Map<string, ModelParams>([
   }],
 ]);
 
+// ---- 可清理项演示集（设置-高级「清理应用生成文件」） ----
+// 有状态：cleanTrash 把所选条目标记 cleaned，detectTrash 只返回未清理的——
+// 再点检测看到的是剩余，不会对同一批条目反复「释放 N」；__mockResetTrash() 恢复。
+interface DemoTrashItem { relPath: string; absPath: string; root: 'config' | 'models'; kind: string; size: number; cleaned: boolean }
+const DEMO_TRASH_ITEMS: DemoTrashItem[] = [
+  { relPath: 'stats.jsonl', absPath: 'C:/Users/demo/.llama_launcher/stats.jsonl', root: 'config', kind: 'legacy_stats', size: 18428, cleaned: false },
+  { relPath: 'model-params/old-model-abc12345.tmp', absPath: 'C:/Users/demo/.llama_launcher/model-params/old-model-abc12345.tmp', root: 'config', kind: 'temp_file', size: 512, cleaned: false },
+  { relPath: 'llama-demo.gguf.part', absPath: 'D:/Models/llama-demo.gguf.part', root: 'models', kind: 'download_orphan', size: 1057418, cleaned: false },
+];
+
 // ---- 应用日志（日志页初始内容） ----
 const DEMO_APP_LOGS: AppLogEntry[] = [
   { kind: 'info', data: 'Service start requested (model: Qwen3-32B-A3B-Instruct-Q4_K_M.gguf)', ts: Date.now() - 62000 },
@@ -140,6 +150,16 @@ function pushAppLog(entry: AppLogEntry) {
       data: `demo app log #${i + 1} — streamed from mock push hook`,
       ts: now + i,
     });
+  }
+  return n;
+};
+
+// 可清理项演示集复位钩子（目测「检测→清理→复位→再检测」全流程用）：
+// (globalThis as any).__mockResetTrash()
+(globalThis as unknown as { __mockResetTrash?: () => number }).__mockResetTrash = () => {
+  let n = 0;
+  for (const i of DEMO_TRASH_ITEMS) {
+    if (i.cleaned) { i.cleaned = false; n++; }
   }
   return n;
 };
@@ -728,18 +748,26 @@ export function createDemoApi() {
         (globalThis as unknown as { __mockEngineFileExists?: boolean }).__mockEngineFileExists === true,
       ),
       findLlamaExe: () => Promise.resolve(`${ENGINE_DIR}/llama-server.exe`),
-      // 清理配置目录演示桩：返回三类各一条（形状与 shared DetectResult/CleanResult 同构——
-      // 此前这里残留的是更早一版的 trashCount/trashFiles 旧形状，mock 下点检测必然报错）
+      // 清理配置目录演示桩（有状态，与真实侧同一契约）：检测返回「尚未清理」的条目，
+      // 清理把所选条目从演示集中移除——再点检测只看剩余，不会对同一批幻影文件反复
+      // 「释放 1.0 MB」（此前无状态桩每次都全量返回，清理结果看起来像大小算错）。
+      // 形状与 shared DetectResult/CleanResult 同构。__mockResetTrash() 恢复演示集
+      // （既有范式：globalThis.__mockPushAppLog）。
       detectTrash: () => {
-        const items = [
-          { relPath: 'stats.jsonl', absPath: 'C:/Users/demo/.llama_launcher/stats.jsonl', root: 'config', kind: 'legacy_stats', size: 2048 },
-          { relPath: 'model-params/old-model-abc12345.tmp', absPath: 'C:/Users/demo/.llama_launcher/model-params/old-model-abc12345.tmp', root: 'config', kind: 'temp_file', size: 512 },
-          { relPath: 'llama-demo.gguf.part', absPath: 'D:/Models/llama-demo.gguf.part', root: 'models', kind: 'download_orphan', size: 1048576 },
-        ];
+        const items = DEMO_TRASH_ITEMS.filter((i) => !i.cleaned);
         return Promise.resolve({ items, totalSize: items.reduce((s, i) => s + i.size, 0) } as never);
       },
-      cleanTrash: (items: Array<{ size: number }>) =>
-        Promise.resolve({ cleaned: items.length, failed: 0, totalSize: items.reduce((s, i) => s + i.size, 0), failures: [] } as never),
+      cleanTrash: (items: Array<{ absPath: string; size: number }>) => {
+        const wanted = new Set(items.map((i) => i.absPath));
+        const cleaned = DEMO_TRASH_ITEMS.filter((i) => wanted.has(i.absPath) && !i.cleaned);
+        for (const i of cleaned) i.cleaned = true;
+        return Promise.resolve({
+          cleaned: cleaned.length,
+          failed: 0,
+          totalSize: cleaned.reduce((s, i) => s + i.size, 0),
+          failures: [],
+        } as never);
+      },
       listDir: () => Promise.resolve({ path: null, parent: null, entries: [], exists: true }),
       mkdir: () => Promise.resolve(true),
       /**
