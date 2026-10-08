@@ -410,8 +410,8 @@ export const zh = {
   msg_cmd_preview_error: '命令预览生成失败：{0}',
   lbl_cmd_builtin: '内置参数命令（自动生成，只读）',
   lbl_cmd_extra: '扩展参数（自定义，持久化）',
-  cmd_extra_placeholder: '追加到命令末尾的自定义参数，如：--no-warmup --special',
-  cmd_extra_hint: '内置命令只读、随参数实时生成（改参数请去参数设置页）；扩展参数原样追加到实际启动命令末尾并持久保存',
+  cmd_extra_placeholder: '追加到命令末尾的自定义参数，一行一个：\n--no-warmup\n--special',
+  cmd_extra_hint: '内置命令只读、随参数实时生成（改参数请去参数设置页）；预览按「一行一个参数」展示，复制得到单行可直接执行的命令；扩展参数原样追加到命令末尾并持久保存',
   // 预览可信度：预览 = 下次启动会用的命令，运行中的服务用的是启动那一刻的参数
   cmd_stale_running: '命令预览按【当前参数】生成；运行中的服务仍在用启动那一刻的参数，两者有 {0} 项不同，重启后生效',
   cmd_env_overrides: '引擎侧环境变量 {0} 会改写界面上未设置的参数缺省值，这些改写不会出现在命令里',

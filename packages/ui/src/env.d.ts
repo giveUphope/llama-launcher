@@ -51,7 +51,7 @@ export interface ElectronAPI {
     stop: () => Promise<IpcResponse>;
     restart: (values: PresetValues, settings: AppSettings) => Promise<IpcResponse>;
     getStatus: (refresh?: boolean) => Promise<ServerInfo>;
-    previewCommand: (values: PresetValues, settings: AppSettings) => Promise<IpcResponse<string>>;
+    previewCommand: (values: PresetValues, settings: AppSettings) => Promise<IpcResponse<string[]>>;
     onOutputBatch: (cb: (entries: OutputEntry[]) => void) => () => void;
     onStatus: (cb: (e: ServerStatusEvent) => void) => () => void;
   };

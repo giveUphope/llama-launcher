@@ -440,7 +440,7 @@ export const useServerStore = defineStore('server', () => {
     }
   }
 
-  async function previewCommand(values: PresetValues, settings: AppSettings): Promise<string> {
+  async function previewCommand(values: PresetValues, settings: AppSettings): Promise<string[]> {
     return invokeOk(api.server.previewCommand(toPlain(values), toPlain(settings)));
   }
 

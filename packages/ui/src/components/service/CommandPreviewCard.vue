@@ -15,25 +15,36 @@ import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
+import { formatCommand, formatCommandLines, tokenizeArgs } from '@llama-launcher/shared';
 
 const settings = useSettingsStore();
 const server = useServerStore();
 const params = useParamsStore();
 const i18n = useI18nStore();
 
-// 内置参数命令（只读展示，随参数实时自动生成）
-const commandPreview = ref('');
+// 内置参数命令（只读展示，随参数实时自动生成）。IPC 回传 **argv 数组**（发射唯一实现的
+// 产物），两种展示形态都从它格式化——预览框 = formatCommandLines（一行一个参数），
+// 复制 = formatCommand（单行，跨 shell 可直接执行）。
+const commandArgv = ref<string[]>([]);
+const parseFailed = ref('');
+
+// 预览框：一行一个参数（业界惯例——llama.cpp 官方 README / Dockerfile / apt 均以
+// 行尾续行符拆参数提升可读性；本框是只读查看器，不加续行符，逐行即等价 argv）
+const commandPreview = computed(() => formatCommandLines(commandArgv.value));
 
 async function updatePreview() {
   if (!settings.settings) {
-    commandPreview.value = '';
+    commandArgv.value = [];
+    parseFailed.value = '';
     return;
   }
   try {
-    commandPreview.value = await server.previewCommand(params.snapshot(), settings.settings);
+    commandArgv.value = await server.previewCommand(params.snapshot(), settings.settings);
+    parseFailed.value = '';
   } catch (err: any) {
     // 生成失败时给出友好提示（i18n），不直接暴露底层错误文本
-    commandPreview.value = i18n.t('msg_cmd_preview_error', [err?.message ?? String(err)]);
+    commandArgv.value = [];
+    parseFailed.value = i18n.t('msg_cmd_preview_error', [err?.message ?? String(err)]);
   }
 }
 
@@ -62,10 +73,12 @@ const extraArgs = computed<string>({
   },
 });
 
-// 复制/展示用完整命令 = 内置 + 扩展
+// 复制/展示用完整命令 = 内置 argv + 扩展参数词法切分后合并，**复制的是单行形态**
+// （跨 shell 可直接执行；预览框的一行一个参数是查看形态，二者同源等价）
 const fullCommand = computed(() => {
-  const extra = extraArgs.value.trim();
-  return extra ? `${commandPreview.value} ${extra}` : commandPreview.value;
+  if (parseFailed.value || commandArgv.value.length === 0) return '';
+  const extra = tokenizeArgs(extraArgs.value.trim());
+  return formatCommand([...commandArgv.value, ...extra]);
 });
 
 async function onCopyCmd() {
@@ -93,9 +106,9 @@ onUnmounted(() => {
         <span class="cmd-section-label">{{ i18n.t('lbl_cmd_builtin') }}</span>
         <a-textarea
           class="cmd-preview"
-          :model-value="commandPreview"
+          :model-value="parseFailed || commandPreview"
           :placeholder="i18n.t('msg_cmd_preview_placeholder')"
-          :auto-size="{ minRows: 4, maxRows: 12 }"
+          :auto-size="{ minRows: 4, maxRows: 20 }"
           :textarea-attrs="{ readonly: true, spellcheck: false }"
         />
       </div>
@@ -107,7 +120,7 @@ onUnmounted(() => {
           class="cmd-preview"
           v-model="extraArgs"
           :placeholder="i18n.t('cmd_extra_placeholder')"
-          :auto-size="{ minRows: 2, maxRows: 8 }"
+          :auto-size="{ minRows: 3, maxRows: 8 }"
           :textarea-attrs="{ spellcheck: false }"
         />
         <div class="cmd-hint">

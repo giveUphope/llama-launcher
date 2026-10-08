@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildCommand, previewCommand } from '../src/command-builder.js';
 // 发射规则与纯字符串工具已收敛到 shared（预览方与执行方共用同一实现）
-import { formatCommand, quoteArg, tokenizeArgs } from '@llama-launcher/shared';
+import { formatCommand, formatCommandLines, quoteArg, tokenizeArgs } from '@llama-launcher/shared';
 import type { AppSettings } from '@llama-launcher/shared';
 
 // 使用真实存在的可执行文件路径，以便通过 buildCommand 的存在性校验
@@ -218,12 +218,12 @@ describe('formatCommand', () => {
 });
 
 describe('previewCommand', () => {
-  it('formats full command from settings and values', () => {
+  it('returns the argv array (single-line / one-per-line rendering is the renderer job)', () => {
     const preview = previewCommand({
       values: { model: 'm.gguf', ctx_size: 2048, port: 8081 },
       settings: baseSettings,
     });
-    expect(preview).toBe(`${quoteArg(EXE_PATH)} -m m.gguf --port 8081 -c 2048`);
+    expect(preview).toEqual([EXE_PATH, '-m', 'm.gguf', '--port', '8081', '-c', '2048']);
   });
 
   it('includeCustomArgs:false 预览不含扩展参数（内置命令框用）', () => {
@@ -232,7 +232,23 @@ describe('previewCommand', () => {
       settings: { ...baseSettings, custom_args: '--no-warmup' },
       includeCustomArgs: false,
     });
-    expect(preview).toBe(`${quoteArg(EXE_PATH)} -m m.gguf`);
+    expect(preview).toEqual([EXE_PATH, '-m', 'm.gguf']);
+  });
+});
+
+describe('formatCommandLines（一行一个参数的查看形态，#121）', () => {
+  it('exe 独占一行，flag 连同其值一行，续行缩进两格；纯 flag 不带值', () => {
+    expect(formatCommandLines([EXE_PATH, '-m', 'm.gguf', '-c', '2048', '--no-warmup']))
+      .toBe(`${quoteArg(EXE_PATH)}\n  -m m.gguf\n  -c 2048\n  --no-warmup`);
+  });
+
+  it('含空格的 token（exe 路径/模型路径）按 quoteArg 加引号', () => {
+    expect(formatCommandLines(['C:/My Tools/server.exe', '-m', 'My Model.gguf']))
+      .toBe('"C:/My Tools/server.exe"\n  -m "My Model.gguf"');
+  });
+
+  it('空 argv 返回空字符串', () => {
+    expect(formatCommandLines([])).toBe('');
   });
 });
 

@@ -150,3 +150,19 @@ export function quoteArg(s: string): string {
 export function formatCommand(cmd: string[]): string {
   return cmd.map(quoteArg).join(' ');
 }
+
+/**
+ * argv → 「一行一个参数」的查看形态（服务页命令预览用）：exe 独占一行，
+ * 之后每个 flag 连同其值一行、续行缩进两格。与 formatCommand 并列的**纯展示函数**——
+ * 同为 argv 的格式化，不含第二套发射规则（发射唯一实现仍是 buildArgv）。
+ * 值判定：flag 之后的非 flag token 即其值（含空格的 token 由 quoteArg 加引号）。
+ */
+export function formatCommandLines(cmd: string[]): string {
+  if (cmd.length === 0) return '';
+  const lines: string[] = [quoteArg(cmd[0])];
+  for (let i = 1; i < cmd.length; i++) {
+    if (cmd[i].startsWith('-')) lines.push('  ' + quoteArg(cmd[i]));
+    else lines[lines.length - 1] += ' ' + quoteArg(cmd[i]);
+  }
+  return lines.join('\n');
+}

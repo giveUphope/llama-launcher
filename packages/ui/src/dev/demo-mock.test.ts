@@ -5,7 +5,7 @@
 // 而真实启动是另一套规则。发射逻辑现已收敛到 shared/params/command.ts，这里钉住
 // 「预览里的值真会进命令行」这一用户可见结论，副本若再长出来即失败。
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { PARAMS, argvFromPreviewOptions, buildArgv, formatCommand } from '@llama-launcher/shared';
+import { PARAMS, argvFromPreviewOptions, buildArgv } from '@llama-launcher/shared';
 import type { AppSettings, PresetValues } from '@llama-launcher/shared';
 import { createDemoApi } from './demo-mock';
 
@@ -36,18 +36,14 @@ function defaultValues(overrides: PresetValues = {}): PresetValues {
 }
 
 /** 命令行 token 序列（预览是一整串，按空白切分后逐项比对更稳） */
-function tokens(cmd: string): string[] {
-  return cmd.split(' ').filter(Boolean);
-}
-
 describe('demo-mock 参数预览', () => {
   // createDemoApi() 会挂日志回放定时器；用假时钟拦住，避免测试进程被悬挂句柄拖住
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); });
 
-  async function preview(values: PresetValues, s: AppSettings = settings): Promise<string> {
+  async function preview(values: PresetValues, s: AppSettings = settings): Promise<string[]> {
     const api = createDemoApi() as unknown as {
-      server: { previewCommand: (v: PresetValues, st: AppSettings) => Promise<{ ok: boolean; data: string }> };
+      server: { previewCommand: (v: PresetValues, st: AppSettings) => Promise<{ ok: boolean; data: string[] }> };
     };
     const res = await api.server.previewCommand(values, s);
     expect(res.ok).toBe(true);
@@ -55,7 +51,7 @@ describe('demo-mock 参数预览', () => {
   }
 
   it('初值态把启动器的基线推荐值发给引擎', async () => {
-    const t = tokens(await preview(defaultValues()));
+    const t = await preview(defaultValues());
     expect(t).toContain('--load-mode');
     expect(t).toContain('none');
     expect(t).toContain('--fit');
@@ -68,7 +64,7 @@ describe('demo-mock 参数预览', () => {
   });
 
   it('哨兵值不发射，把决定权留给引擎', async () => {
-    const t = tokens(await preview(defaultValues()));
+    const t = await preview(defaultValues());
     // chat_template 初值 'none' 既是默认也是哨兵：命令行里不该出现它（后端用模型元数据模板）
     expect(t).not.toContain('--chat-template');
     // -c 初值 0 / -np 初值 -1 同理
@@ -78,7 +74,7 @@ describe('demo-mock 参数预览', () => {
 
   it('手改值照原样进命令，扩展参数不进内置命令框', async () => {
     // 20 ≠ 引擎缺省 40 → 必须发射（初值 40 恰好也是引擎缺省，见上一条用例的不发射）
-    const t = tokens(await preview(defaultValues({ top_k: 20 })));
+    const t = await preview(defaultValues({ top_k: 20 }));
     expect(t).toContain('--top-k');
     expect(t[t.indexOf('--top-k') + 1]).toBe('20');
     // 与真实侧一致：SERVER_PREVIEW 传 includeCustomArgs:false，扩展参数只进完整命令
@@ -88,9 +84,7 @@ describe('demo-mock 参数预览', () => {
 
   it('预览与 shared 发射实现逐字相等（防 mock 另抄一套）', async () => {
     const values = defaultValues({ flash_attn: 'on', ngl: 99 });
-    const expected = formatCommand(
-      buildArgv(argvFromPreviewOptions({ values, settings, includeCustomArgs: false })),
-    );
-    expect(await preview(values)).toBe(expected);
+    const expected = buildArgv(argvFromPreviewOptions({ values, settings, includeCustomArgs: false }));
+    expect(await preview(values)).toEqual(expected);
   });
 });

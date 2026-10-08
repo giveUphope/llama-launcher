@@ -1,7 +1,7 @@
 // 开发预览演示数据（仅浏览器 mock 环境注入，Electron 真实 api 不受影响）。
 // main.ts 在无 Electron preload 时调用 createDemoApi()，让预览环境呈现完整业务状态，
 // 便于目测 UI 布局与交互。数据为静态仿真 + 周期性模拟服务日志/下载进度。
-import { PARAMS, MODEL_KEY, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, checkEngineProps, formatCommand, ENGINE_BASELINE_BUILD } from '@llama-launcher/shared';
+import { PARAMS, MODEL_KEY, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, checkEngineProps, ENGINE_BASELINE_BUILD } from '@llama-launcher/shared';
 import type {
   AppSettings, ModelInfo, ModelParams, GgufReadResult,
   ParsedModelUrl, OutputEntry, AppLogEntry, AppLogKind,
@@ -694,11 +694,12 @@ export function createDemoApi() {
       // 与真实侧同一发射规则：apps/desktop 的 SERVER_PREVIEW 走 core 的 previewCommand，
       // 那里只多一层 exe 存在性校验（浏览器没有文件系统），argv 本身两边共用 shared 的实现。
       // includeCustomArgs:false 与真实侧一致——内置参数命令框不含扩展参数。
+      // 返回 argv 数组（单行/一行一参数两种展示形态由渲染层格式化），与真实 IPC 对齐。
       previewCommand: (values: PresetValues, settings: AppSettings) => {
         lastSeenValues = { ...values };
         return Promise.resolve({
           ok: true,
-          data: formatCommand(buildArgv(argvFromPreviewOptions({ values, settings, includeCustomArgs: false }))),
+          data: buildArgv(argvFromPreviewOptions({ values, settings, includeCustomArgs: false })),
         });
       },
       bench: () => Promise.resolve({

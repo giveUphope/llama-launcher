@@ -411,8 +411,8 @@ export const en: Dict = {
   msg_cmd_preview_error: 'Failed to build command preview: {0}',
   lbl_cmd_builtin: 'Built-in command (auto-generated, read-only)',
   lbl_cmd_extra: 'Extra args (custom, persisted)',
-  cmd_extra_placeholder: 'Custom flags appended to the command, e.g. --no-warmup --special',
-  cmd_extra_hint: 'The built-in command is read-only and regenerates live (edit params on the Parameters page); extra args are appended verbatim to the actual launch command and persisted',
+  cmd_extra_placeholder: 'Custom flags appended to the command, one per line:\n--no-warmup\n--special',
+  cmd_extra_hint: 'The built-in command is read-only and regenerates live (edit params on the Parameters page); the preview shows one argument per line, while Copy yields a single-line ready-to-run command; extra args are appended verbatim to the command and persisted',
   // Preview trust: the preview is what the NEXT launch will use; the running service uses launch-time params
   cmd_stale_running: 'The preview uses the CURRENT parameters; the running service still uses the ones captured at launch — {0} differ, they apply after a restart',
   cmd_env_overrides: 'Engine-side env vars {0} override the defaults of parameters you left unset; those overrides never appear in the command',
