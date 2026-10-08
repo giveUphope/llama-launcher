@@ -8,7 +8,7 @@ import {
   removeModelFile,
   invalidateScanCache,
   loadSettings,
-  deletePresetsForModel,
+  getPresetRepository,
 } from '@llama-launcher/core';
 import { IPC } from '@llama-launcher/shared';
 import { watchModelsDir, notifyModelsChanged } from './models-watcher.js';
@@ -79,7 +79,7 @@ export function registerModelsIpc(ipcMain: IpcMain): void {
       // 整目录移除时按目录前缀匹配（覆盖该目录下所有模型/伴随文件引用的预设）；
       // 仅移除单个模型文件时按文件路径匹配（只清理引用该文件的预设）
       try {
-        const removedPresets = deletePresetsForModel(settings.models_dir, result.removedDir ?? modelPath);
+        const removedPresets = getPresetRepository().deleteForModel(result.removedDir ?? modelPath);
         if (removedPresets.length > 0) {
           console.log(`[models] removed ${removedPresets.length} preset(s) for deleted model: ${removedPresets.join(', ')}`);
         }

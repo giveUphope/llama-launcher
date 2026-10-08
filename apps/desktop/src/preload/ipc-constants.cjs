@@ -16,6 +16,7 @@ const IPC = {
   PRESETS_SAVE: 'presets:save',
   PRESETS_DELETE: 'presets:delete',
   PRESETS_LOAD: 'presets:load',
+  PRESETS_RENAME: 'presets:rename',
   SERVER_START: 'server:start',
   SERVER_STOP: 'server:stop',
   SERVER_RESTART: 'server:restart',

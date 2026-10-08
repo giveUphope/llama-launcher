@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import type {
-  AppSettings, ModelInfo, OutputEntry, Preset, PresetValues,
+  AppSettings, ModelInfo, OutputEntry, Preset, PresetValues, PresetSummary, PresetSaveInput,
   ServerInfo, ServerStatusEvent, GgufReadResult,
   ParsedModelUrl, ModelScopeSearchResult, ModelScopeFileListResult,
   StartDownloadRequest, DownloadProgressPayload, DownloadCompletePayload, DownloadErrorPayload,
@@ -39,10 +39,16 @@ export interface ElectronAPI {
     onChanged: (cb: () => void) => () => void;
   };
   presets: {
-    list: () => Promise<Preset[]>;
-    save: (name: string, values: PresetValues) => Promise<void>;
-    delete: (name: string) => Promise<void>;
-    load: (name: string) => Promise<Preset>;
+    /** 预设列表（视图模型：仅元数据，不含 values） */
+    list: () => Promise<PresetSummary[]>;
+    /** upsert 保存（语义见 shared PresetSaveInput）；返回落盘后的摘要 */
+    save: (input: PresetSaveInput) => Promise<PresetSummary>;
+    /** 重命名（id 恒定，仅改展示名） */
+    rename: (id: string, name: string) => Promise<PresetSummary>;
+    /** 按主键删除；删除了文件返回 true */
+    delete: (id: string) => Promise<boolean>;
+    /** 按主键取完整预设（含 values）；不存在返回 null */
+    load: (id: string) => Promise<Preset | null>;
   };
   server: {
     start: (values: PresetValues, settings: AppSettings) => Promise<IpcResponse>;

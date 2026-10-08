@@ -1,9 +1,9 @@
 // 开发预览演示数据（仅浏览器 mock 环境注入，Electron 真实 api 不受影响）。
 // main.ts 在无 Electron preload 时调用 createDemoApi()，让预览环境呈现完整业务状态，
 // 便于目测 UI 布局与交互。数据为静态仿真 + 周期性模拟服务日志/下载进度。
-import { APP_VERSION, PARAMS, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, checkEngineProps, formatCommand, ENGINE_BASELINE_BUILD } from '@llama-launcher/shared';
+import { APP_VERSION, PARAMS, MODEL_KEY, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, checkEngineProps, formatCommand, ENGINE_BASELINE_BUILD } from '@llama-launcher/shared';
 import type {
-  AppSettings, ModelInfo, Preset, GgufReadResult,
+  AppSettings, ModelInfo, Preset, PresetSummary, PresetSaveInput, GgufReadResult,
   ParsedModelUrl, OutputEntry, AppLogEntry, AppLogKind,
   ModelScopeSearchResult, ModelScopeFileListResult,
   DownloadProgressPayload, DownloadCompletePayload,
@@ -91,26 +91,58 @@ const DEMO_GGUF: GgufReadResult = {
 };
 
 // ---- 参数预设（参数设置页「预设」） ----
+// v3 内存仓储：与真实侧同一 API 面（list=摘要 / save=upsert / rename / delete / load=按 id），
+// 目录、文件名、JSON 布局等存储细节在此不存在——mock 只是一块内存，不再手抄文件布局
+// （此前 DEMO_PRESETS 手写 v2 JSON 结构是布局外泄进展示层的第三份副本）。
 const DEMO_PRESETS: Preset[] = [
   {
-    preset_version: 2, name: 'qwen3-32b-chat',
+    preset_version: 3, id: 'demo-preset-qwen-chat', name: 'qwen3-32b-chat',
     created_at: '2026-08-20T09:00:00.000Z', saved_at: '2026-08-26T18:30:00.000Z',
     app_version: APP_VERSION, model: 'D:/models/qwen3-32b/qwen3-32b-q4_k_m.gguf',
     values: { ctx_size: 32768, n_gpu_layers: 99, temperature: 0.7 },
   },
   {
-    preset_version: 2, name: '高占用-双卡',
+    preset_version: 3, id: 'demo-preset-dual-gpu', name: '高占用-双卡',
     created_at: '2026-08-19T14:00:00.000Z', saved_at: '2026-08-21T10:05:00.000Z',
     app_version: APP_VERSION, model: 'D:/models/qwen3-32b/qwen3-32b-q4_k_m.gguf',
     values: { ctx_size: 16384, n_gpu_layers: 99, tensor_split: '1,1' },
   },
   {
-    preset_version: 2, name: '低内存模式',
+    preset_version: 3, id: 'demo-preset-low-mem', name: '低内存模式',
     created_at: '2026-08-10T09:00:00.000Z', saved_at: '2026-08-10T09:00:00.000Z',
     app_version: APP_VERSION, model: null,
     values: { ctx_size: 4096, n_gpu_layers: 12 },
   },
 ];
+
+const toSummary = (p: Preset) => ({ id: p.id, name: p.name, created_at: p.created_at, saved_at: p.saved_at, model: p.model });
+
+/** upsert 保存/改名共用：同名冲突时保持既有 id 与 created_at（与 core 仓储语义一致） */
+function upsertDemoPreset(name: string, values: PresetValues, id?: string): Preset {
+  const existing = id ? DEMO_PRESETS.find((p) => p.id === id) : DEMO_PRESETS.find((p) => p.name === name);
+  const now = new Date().toISOString();
+  if (existing) {
+    existing.name = name;
+    existing.saved_at = now;
+    existing.values = { ...values };
+    const m = values[MODEL_KEY];
+    existing.model = typeof m === 'string' && m ? m : null;
+    return existing;
+  }
+  const created: Preset = {
+    preset_version: 3,
+    id: id ?? `demo-preset-${Math.random().toString(36).slice(2, 10)}`,
+    name,
+    created_at: now,
+    saved_at: now,
+    app_version: APP_VERSION,
+    model: typeof values[MODEL_KEY] === 'string' && values[MODEL_KEY] ? (values[MODEL_KEY] as string) : null,
+    values: { ...values },
+  };
+  DEMO_PRESETS.push(created);
+  DEMO_PRESETS.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  return created;
+}
 
 // ---- 应用日志（日志页初始内容） ----
 const DEMO_APP_LOGS: AppLogEntry[] = [
@@ -599,6 +631,7 @@ export function createDemoApi() {
     models_dir: MODELS_DIR,
     selected_model: DEMO_MODELS[0].path,
     last_preset: '',
+    last_preset_id: 'demo-preset-qwen-chat',
     window_geometry: '',
     window_maximized: true,
     theme_mode: 'light',
@@ -628,10 +661,24 @@ export function createDemoApi() {
       onChanged: (cb: () => void) => { const iv = setInterval(cb, 60000); return () => clearInterval(iv); },
     },
     presets: {
-      list: () => Promise.resolve(DEMO_PRESETS),
-      save: () => Promise.resolve(),
-      delete: () => Promise.resolve(),
-      load: (name: string) => Promise.resolve(DEMO_PRESETS.find((p) => p.name === name) ?? null),
+      // 与真实侧同一契约：list = 摘要（不含 values）、save = upsert、load/delete/rename 按 id
+      list: () => Promise.resolve(DEMO_PRESETS.map(toSummary) as PresetSummary[]),
+      save: (input: PresetSaveInput) => Promise.resolve(toSummary(upsertDemoPreset(input.name, input.values, input.id)) as PresetSummary),
+      rename: (id: string, name: string) => {
+        const p = DEMO_PRESETS.find((x) => x.id === id);
+        if (!p || !name.trim() || DEMO_PRESETS.some((x) => x.id !== id && x.name === name.trim())) {
+          return Promise.reject(new Error('preset-rename-failed'));
+        }
+        p.name = name.trim();
+        return Promise.resolve(toSummary(p) as PresetSummary);
+      },
+      delete: (id: string) => {
+        const idx = DEMO_PRESETS.findIndex((p) => p.id === id);
+        if (idx < 0) return Promise.resolve(false);
+        DEMO_PRESETS.splice(idx, 1);
+        return Promise.resolve(true);
+      },
+      load: (id: string) => Promise.resolve(DEMO_PRESETS.find((p) => p.id === id) ?? null),
     },
     server: {
       start: (values: never, _settings: never) => {

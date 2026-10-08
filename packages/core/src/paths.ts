@@ -17,15 +17,17 @@ export const CONFIG_DIR = path.join(os.homedir(), '.llama_launcher');
 export const SETTINGS_FILE = path.join(CONFIG_DIR, 'settings.json');
 // llama-bench 体检结果（跨重启保留，见 bench-records.ts）
 export const BENCH_RECORDS_FILE = path.join(CONFIG_DIR, 'bench-records.json');
-// 预设文件不再存放在固定目录，改为与模型同一目录下的 presets 子目录
-// 保留 PRESETS_DIR 仅作为向后兼容的迁移源
+// 预设文件统一存放在应用配置目录（与模型目录解耦：更换模型目录预设不丢，
+// 预设是「应用的参数集合」而不是「某个模型目录的附属物」）。
+// 历史版本曾存放在 <models_dir>/presets，升级时由 preset-repository 的
+// migratePresetStore 在应用启动时一次性搬入本目录。
 export const PRESETS_DIR = path.join(CONFIG_DIR, 'presets');
 
 /**
- * 解析预设文件存放目录：模型目录下的 presets 子目录
- * modelsDir 为空时返回空字符串（调用方需处理）
+ * 旧版预设目录（<models_dir>/presets）：仅作为迁移源路径解析，
+ * 不再有任何读写——活目录恒为 PRESETS_DIR。
  */
-export function resolvePresetsDir(modelsDir: string): string {
+export function legacyModelsPresetsDir(modelsDir: string): string {
   if (!modelsDir) return '';
   return path.join(modelsDir, 'presets');
 }

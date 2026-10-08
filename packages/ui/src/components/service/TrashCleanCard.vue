@@ -22,7 +22,6 @@ const detectError = ref('');
 const selectedKinds = ref<TrashKind[]>([]);
 
 const TRASH_KIND_LABEL_KEY: Record<TrashKind, string> = {
-  stale_presets_dir: 'lbl_trash_stale_presets_dir',
   temp_file: 'lbl_trash_temp_file',
   broken_json: 'lbl_trash_broken_json',
   legacy_stats: 'lbl_trash_legacy_stats',

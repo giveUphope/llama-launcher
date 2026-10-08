@@ -122,15 +122,17 @@
 
 - **生产模式**：返回空字符串，由用户在「应用设置」页选择引擎目录，内联检测机制自动查找 `llama-server.exe`。
 
-- **`resolvePresetsDir(modelsDir)`**：返回 `modelsDir/presets`，预设文件存储在模型目录下的 presets 子目录。
+- **`legacyModelsPresetsDir(modelsDir)`**：返回 `modelsDir/presets`——**旧版**预设目录（迁移源）；活目录恒为 `PRESETS_DIR`（`~/.llama_launcher/presets`），预设存储已与模型目录解耦。
 
 - **伴随标签**：`detectCompanionTags`（**定义在 `models-scanner.ts:111`**，非 paths.ts）为扫描结果标注伴随文件标签（多模态投影器 / 草稿模型是否存在），写入 `ModelInfo.tags` 供前端展示。
 
-### 4.8 设置与预设存储 (settings-store.ts / presets-store.ts)
+### 4.8 设置与预设存储 (settings-store.ts / presets-store.ts / preset-repository.ts)
 
 - **`settings-store.ts`**：`loadSettings()` / `saveSettings(settings)` / `getDefaultSettings()`。持久化到 `~/.llama_launcher/settings.json`，写入为**原子替换**（`.tmp` + rename）+ **CAS 合并守卫**（写入前读取磁盘值作基线，其他实例的更新不丢），加载时逐字段归一化，损坏文件自动备份 `settings.json.bak`。schema 版本由 `SETTINGS_VERSION` 管理（变更走 `migrateSettings`）。含 `hf_mirror_host` 时同步 `setHfMirrorHost` 驱动镜像链路。字段全清单见 [data-persistence.md](data-persistence.md) §10。
 
-- **`presets-store.ts`**：`listPresets(dir)` / `loadPreset(dir, name)` / `savePreset(dir, name, values)` / `deletePreset(dir, name)` / `deletePresetsForModel(modelsDir, modelPath)`（移除模型时清理关联预设）。预设文件存 `<models_dir>/presets/*.json`（`resolvePresetsDir` 动态解析），v2 结构：顶层 `model` + 纯 `values`（无 `model` 与 legacy `_enabled` 残留），按 `PARAMS` 定义顺序稳定序列化；写入原子替换。加载统一迁移 v2 内存形状（v1 `values.model` 提升为顶层 `model`）。详见 [data-persistence.md](data-persistence.md) §10。
+- **`presets-store.ts`（文件层）**：`listPresets(dir)` / `readPresetByName(dir, name)` / `readPresetFileByName(dir, fileName)`（垃圾清理器判孤儿/损坏用）/ `writePresetFile(dir, preset)` / `deletePresetFile(dir, fileName)`。只负责「一个目录里的一组 JSON」的读写与格式迁移（v1/v2 → v3 内存形状：v1 `values.model` 提升为顶层、无 id 回填 UUID），不知道目录在哪、也不知道业务规则；mtime+原始字节双指纹解析记忆化保留。
+
+- **`preset-repository.ts`（领域层）**：`PresetRepository` 接口 + `createPresetRepository(dir)`（测试可注入目录）/ `getPresetRepository()`（活目录单例）。业务对预设的全部读写都走这层——`summaries()`（列表视图模型，不含 values）/ `get(id)` / `save({ name, values, id? })`（upsert：同名即覆盖并继承其 id 与 created_at；带 id 可同时改名）/ `rename(id, name)`（id 恒定）/ `delete(id)` / `deleteForModel(modelPath)`（路径前缀匹配，移除模型时同步清理）；重名/目标不存在抛 `PresetRepoError`。**位置迁移**：`migratePresetStore(fromDir, toDir)` 把旧版 `<models_dir>/presets` 搬入活目录并升级 v3（幂等，IPC 注册时执行一次）。上层（IPC/UI）不接触目录、文件名、JSON 布局——换存储介质只需换掉本层实现。详见 [data-persistence.md](data-persistence.md) §10。
 
 ### 4.9 可重试错误判定与指数退避 (retry.ts)
 
@@ -174,7 +176,7 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 
 「设置 → 关于 → 配置清理」的数据源（`system:detectTrash` / `system:cleanTrash` 委托），覆盖应用全部落盘位置：
 
-- **双根扫描**：配置目录 `~/.llama_launcher/`（`settings.json` 白名单永不清理、`.bak/.tmp` 残留、旧版 `presets/`/`stats.jsonl`、根目录损坏 JSON）+ 模型目录（`*.part`、续传日志、孤儿/损坏预设、`presets/*.tmp|*.bak`）。
+- **双根扫描**：配置目录 `~/.llama_launcher/`（`settings.json` 白名单永不清理、`.bak/.tmp` 残留、**预设活目录 `presets/`** 的 `.tmp|*.bak` 残留/孤儿/损坏检测、`stats.jsonl`、根目录损坏 JSON）+ 模型目录（`*.part`、续传日志；预设已迁出，模型目录不再有预设扫描，历史遗留的 `presets/` 子目录不列入清理）。
 
 - **强校验**：路径必须严格位于声明根内且非符号链接；`cleanTrash` 对每个传入项按声明 `kind` 复核根归属与内容（孤儿预设清理时刻重读，模型重新出现即放弃删除）；活动/暂停/可重试下载任务占用的路径由 `DownloadManager.getProtectedPaths()` 传入保护集，双重排除；未识别文件一律不列入（保守策略）。
 
@@ -190,9 +192,10 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 
 | 文件                      | 主要导出                                                                                                                                                            | 说明                                    |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `paths.ts`              | `CONFIG_DIR`/`SETTINGS_FILE`/`PRESETS_DIR`、`resolvePresetsDir(modelsDir)`、`basenameSafe`                                                                        | 路径常量与解析；开发模式自动查找 `llama-*-bin-*` 最新目录 |
+| `paths.ts`              | `CONFIG_DIR`/`SETTINGS_FILE`/`PRESETS_DIR`、`legacyModelsPresetsDir(modelsDir)`、`basenameSafe`                                                                  | 路径常量与解析；开发模式自动查找 `llama-*-bin-*` 最新目录 |
 | `settings-store.ts`     | `loadSettings` / `saveSettings` / `getDefaultSettings`                                                                                                          | 设置读写（CAS + 原子替换，§4.8）                 |
-| `presets-store.ts`      | `listPresets`/`loadPreset`/`savePreset`/`deletePreset`/`deletePresetsForModel`                                                                                  | 预设 CRUD（v2，§4.8）                      |
+| `presets-store.ts`      | `listPresets`/`readPresetByName`/`readPresetFileByName`/`writePresetFile`/`deletePresetFile`/`parsePreset`/`normalizeValues`                                    | 预设文件层（v3 格式与记忆化，§4.8）                |
+| `preset-repository.ts`  | `PresetRepository`、`createPresetRepository`/`getPresetRepository`/`migratePresetStore`/`PresetRepoError`                                                        | 预设领域层（id 主键/upsert/改名/迁移，§4.8）        |
 | `models-scanner.ts`     | `scanModels` / `detectMmproj` / `detectDraftModel` / `removeModelFile` / `invalidateScanCache` / `ensureDir`                                                    | .gguf 递归扫描 + 伴随检测 + 移除（§4.4）          |
 | `command-builder.ts`    | `buildCommand` / `previewCommand`（argv 本体在 `shared/params/command.ts`）                                                                                                              | 启动命令构建的执行侧包装（§4.3）              |
 | `server-props.ts`       | `verifyEngineProps` / `defaultPropsFetcher` / `PropsFetcher`                                                                                                                              | 就绪后 `GET /props` 回读，与发出的值对账（§4.11）  |
@@ -219,7 +222,7 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 
 | 文件                      | 主要导出                                                                                                                               | 说明                                                    |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `types/`                | `IPC`（57 通道）、`AppSettings`、`ParamDef`、`Preset`、`ServerInfo`、`OutputEntry`、`ModelInfo`、`GgufModelInfo`、`DownloadTask`、`TrashItem`、`HardwareOccupancy`/`VramEstimateResult`/`PerfTarget` 等 | 全部跨包类型（[data-persistence.md](data-persistence.md) §9） |
+| `types/`                | `IPC`（58 通道）、`AppSettings`、`ParamDef`、`Preset`、`ServerInfo`、`OutputEntry`、`ModelInfo`、`GgufModelInfo`、`DownloadTask`、`TrashItem`、`HardwareOccupancy`/`VramEstimateResult`/`PerfTarget` 等 | 全部跨包类型（[data-persistence.md](data-persistence.md) §9） |
 | `params/definitions.ts` | `PARAMS`（69：basic 26 / advanced 29 / server 14）/ `PARAM_GROUPS`（3 组）/ `MODEL_KEY` / `APP_VERSION` / `APP_NAME` / `APP_REPO_URL` + `LLAMA_CPP_RELEASES_URL` / `DEFAULT_HOST` + `DEFAULT_PORT` + `PORT_MIN` + `PORT_MAX` + `isValidPort()`（网络四项全部由 `host`/`port` 两条目派生）                  | 参数表唯一来源（[params-system.md](params-system.md)）。① 网络默认值与端口边界唯一来源：主进程/core/渲染层的回退值与范围校验一律引此，不再各写 `'127.0.0.1'` / `?? 8080` / `> 65535`（默认值曾散落 7 处、端口上界曾散落 5 处，漏改即出现「UI 探 8080、服务起在别端口」的假占用告警或「参数页允许、启动检查拒绝」的分裂）；② 对外链接唯一来源（llama.cpp 发布页曾在 AboutPanel 与 GeneralPanel 各写一份完整 URL）         |
 | `hosts.ts`              | `MODELSCOPE_HOST` / `DEFAULT_HF_MIRROR_HOST` / `normalizeMirrorHost(raw)` / `HF_SOURCE_HOST_SUFFIXES` + `MODELSCOPE_HOST_SUFFIX`                                                            | 下载源主机名与镜像回退唯一来源（core 客户端与 UI「在浏览器打开」外链共用，分叉会让下载走自建镜像而外链仍跳默认站）。**识别后缀与建站 host 分列两套**：建站用 `www.modelscope.cn`，粘贴 URL 的站点判定须用不含 www 的 `modelscope.cn` 后缀，否则裸域链接判为无法识别        |
 | `settings-limits.ts`    | `DOWNLOAD_CONCURRENCY_DEFAULT/MIN/MAX/OPTIONS` + `clampDownloadConcurrency(n)`                                                                      | 应用设置的取值边界唯一来源：core 的 zod schema 与下载器钳制、设置页下拉同源（`ui ↛ core`，故常量必须在 shared）        |

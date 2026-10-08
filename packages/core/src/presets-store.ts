@@ -1,19 +1,26 @@
 import { readdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, mkdirSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Preset, PresetValues } from '@llama-launcher/shared';
-import { MODEL_KEY, PARAMS, APP_VERSION } from '@llama-launcher/shared';
-import { resolvePresetsDir } from './paths.js';
+import { MODEL_KEY, PARAMS } from '@llama-launcher/shared';
 
-/** 预设 schema 版本：v2 = model 从 values 分离为顶层字段、补 created_at/app_version、
- *  values 仅含参数键并按定义顺序序列化。读取 v1 自动迁移；未来变更在此递增并补迁移。 */
-const PRESET_VERSION = 2;
+/**
+ * 预设文件层：只负责「一个目录里的一组 JSON 文件」的读写与格式迁移，不知道目录在哪
+ * （dir 一律由调用方传入）、也不知道业务规则（覆盖/改名/按模型清理在 preset-repository）。
+ *
+ * 预设 schema 版本：v3 = 新增稳定 id 主键（本版）。历史沿革——
+ * v2 = model 从 values 分离为顶层字段、补 created_at/app_version；
+ * v1 = model 混在 values、无 created_at/app_version、无 id。
+ * 读取任意旧版本自动迁移为 v3 内存形状；落盘升级由调用方（迁移流程/显式保存）负责。
+ */
+export const PRESET_VERSION = 3;
 
 /** PARAMS 定义顺序索引：values 序列化时的排序依据（未知键排最后、保持原相对顺序） */
 const VALUE_KEY_ORDER = new Map<string, number>(PARAMS.map((p, i) => [p.key, i]));
 
 /** 归一化参数值：剔除顶层化/已废弃的键（model、legacy _enabled），按定义顺序稳定排序 */
-function normalizeValues(raw: Record<string, unknown>): PresetValues {
+export function normalizeValues(raw: Record<string, unknown>): PresetValues {
   const keys = Object.keys(raw).filter((k) => k !== MODEL_KEY && k !== '_enabled');
   // Array.sort 稳定（ES2019+）：未知键比较为 0，保持原相对顺序
   keys.sort(
@@ -26,11 +33,23 @@ function normalizeValues(raw: Record<string, unknown>): PresetValues {
   return out;
 }
 
+/** 从 UI snapshot 提取模型绑定：MODEL_KEY → 顶层 model（空/非串 = null = 纯参数集） */
+export function extractModelBinding(values: PresetValues): string | null {
+  const modelRaw = values[MODEL_KEY];
+  return typeof modelRaw === 'string' && modelRaw ? modelRaw : null;
+}
+
+/** 预设名 → 安全文件名（非法字符替换为下划线）。文件名只是 name 的落盘形态，不是主键。 */
+export function presetFileName(name: string): string {
+  return `${name.replace(/[\\/:*?"<>|]/g, '_')}.json`;
+}
+
 /**
  * 预设文件形状（zod）：逐字段容错回退（非法字段不拒文件），values 仅校验「是普通对象」，
- * 值类型信任文件（与旧手写解析一致）；name 空串回退 fallbackName。
+ * 值类型信任文件（与旧手写解析一致）；name 空串回退 fallbackName；id 缺失/非法回退空串。
  */
 const presetFileSchema = z.object({
+  id: z.string().catch(''),
   name: z.string().catch(''),
   model: z.string().catch(''),
   saved_at: z.string().catch(''),
@@ -42,13 +61,19 @@ const presetFileSchema = z.object({
   ),
 });
 
+export interface ParsedPreset {
+  preset: Preset;
+  /** 文件缺 id 或版本 < 3（读时已回填内存形状；true = 落盘仍是旧格式，需要重写升级） */
+  needsUpgrade: boolean;
+}
+
 /**
- * 解析预设 JSON（形状校验 + 版本迁移到 v2 内存形状）；解析失败或形状非法返回 null。
+ * 解析预设 JSON（形状校验 + 版本迁移到 v3 内存形状）；解析失败或形状非法返回 null。
  * v1 兼容：values[MODEL_KEY] 提升为顶层 model（若同时有顶层 model 则顶层优先）；
- * created_at 缺失时以 saved_at 回填；legacy `_enabled` 残留键剔除。
- * 返回的内存形状统一为 v2（旧文件在下次显式保存时才改写落盘）。
+ * created_at 缺失时以 saved_at 回填；legacy `_enabled` 残留键剔除；
+ * id 缺失时回填新 UUID（needsUpgrade = true，由调用方决定何时写回）。
  */
-function parsePreset(raw: string, fallbackName: string): Preset | null {
+export function parsePreset(raw: string, fallbackName: string): ParsedPreset | null {
   let data: unknown;
   try {
     data = JSON.parse(raw);
@@ -65,22 +90,22 @@ function parsePreset(raw: string, fallbackName: string): Preset | null {
     const legacy = rawValues[MODEL_KEY];
     if (typeof legacy === 'string' && legacy) model = legacy;
   }
+  const needsUpgrade = !o.id;
   return {
-    preset_version: PRESET_VERSION,
-    name: o.name || fallbackName,
-    created_at: o.created_at || o.saved_at,
-    saved_at: o.saved_at,
-    app_version: o.app_version,
-    model,
-    values: normalizeValues(rawValues),
+    needsUpgrade,
+    preset: {
+      preset_version: PRESET_VERSION,
+      id: o.id || randomUUID(),
+      name: o.name || fallbackName,
+      created_at: o.created_at || o.saved_at,
+      saved_at: o.saved_at,
+      app_version: o.app_version,
+      model,
+      values: normalizeValues(rawValues),
+    },
   };
 }
 
-/**
- * 预设文件存储：保存到模型目录下的 presets 子目录，与模型文件同目录管理。
- * dir 参数由调用方（IPC handler）从 settings.models_dir 解析传入。
- * dir 为空时各函数返回空值/空数组，不执行文件操作。
- */
 function ensureDir(dir: string): boolean {
   if (!dir) return false;
   if (!existsSync(dir)) {
@@ -126,7 +151,7 @@ function clonePreset(preset: Preset): Preset {
 function setCacheEntry(dir: string, file: string, key: string | null, raw: string, preset: Preset | null): void {
   let dirCache = parseCache.get(dir);
   if (!dirCache) {
-    // 模型目录可被切换（每次切换换一个 dir 键）：只保留少量目录的缓存，超量整体作废防残留累积
+    // 目录可被切换（如测试的临时目录轮换）：只保留少量目录的缓存，超量整体作废防残留累积
     if (parseCache.size >= MAX_CACHED_PRESET_DIRS) parseCache.clear();
     dirCache = new Map();
     parseCache.set(dir, dirCache);
@@ -135,7 +160,7 @@ function setCacheEntry(dir: string, file: string, key: string | null, raw: strin
   else dirCache.set(file, { key, raw, preset: preset ? clonePreset(preset) : null });
 }
 
-/** 清掉本目录中已不存在的文件条目（删除/改名/换模型目录后不留残值）。 */
+/** 清掉本目录中已不存在的文件条目（删除/改名后不留残值）。 */
 function sweepDirCache(dir: string, presentFiles: string[]): void {
   const dirCache = parseCache.get(dir);
   if (!dirCache) return;
@@ -164,7 +189,8 @@ function readPresetFile(dir: string, file: string, fallbackName: string): Preset
       return hit.preset ? clonePreset(hit.preset) : null;
     }
   }
-  const preset = parsePreset(raw, fallbackName);
+  const parsed = parsePreset(raw, fallbackName);
+  const preset = parsed?.preset ?? null;
   setCacheEntry(dir, file, key, raw, preset);
   return preset;
 }
@@ -185,41 +211,27 @@ export function listPresets(dir: string): Preset[] {
   return presets.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }
 
-export function loadPreset(dir: string, name: string): Preset | null {
+/** 按文件名读取（垃圾清理器判定孤儿/损坏预设用）；文件不存在或解析失败返回 null。 */
+export function readPresetFileByName(dir: string, fileName: string): Preset | null {
+  if (!dir || !fileName.endsWith('.json')) return null;
+  return readPresetFile(dir, fileName, fileName.replace(/\.json$/, ''));
+}
+
+/** 按展示名读取（安全文件名映射）；不存在返回 null。 */
+export function readPresetByName(dir: string, name: string): Preset | null {
   if (!dir || !existsSync(dir)) return null;
-  const safe = name.replace(/[\\/:*?"<>|]/g, '_');
-  return readPresetFile(dir, `${safe}.json`, safe);
+  return readPresetFile(dir, presetFileName(name), name);
 }
 
 /**
- * 保存预设（v2 结构）。values 参数来自 UI snapshot（可含 model 与 legacy 残留键）：
- * model 提取为顶层元数据字段并从 values 剔除，`_enabled` 残留一并清除，
- * 剩余参数键按 PARAMS 定义顺序稳定序列化（重复保存不产生 diff 噪音）。
- * 覆盖同名预设时保留原 created_at；app_version 记录写入方应用版本。
+ * 原子写预设文件：先写 .tmp 再 rename，避免崩溃/断电留下半个预设文件。
+ * preset 以内存形状（v3）为准整体落盘；成功后刷新记忆化（下次 list/load 直接命中）。
  */
-export function savePreset(dir: string, name: string, values: PresetValues): Preset {
-  const safe = name.replace(/[\\/:*?"<>|]/g, '_');
-  const file = `${safe}.json`;
-  const modelRaw = values[MODEL_KEY];
-  const model = typeof modelRaw === 'string' && modelRaw ? modelRaw : null;
-  const now = new Date().toISOString();
-  // created_at 继承：旧文件存在且带创建时间则沿用（v1 文件由 parsePreset 以 saved_at 回填）
-  let createdAt = now;
-  const prev = dir ? readPresetFile(dir, file, safe) : null;
-  if (prev?.created_at) createdAt = prev.created_at;
-  const preset: Preset = {
-    preset_version: PRESET_VERSION,
-    name,
-    created_at: createdAt,
-    saved_at: now,
-    app_version: APP_VERSION,
-    model,
-    values: normalizeValues(values),
-  };
+export function writePresetFile(dir: string, preset: Preset): Preset {
   if (!ensureDir(dir)) {
     throw new Error(`Cannot create presets directory: ${dir}`);
   }
-  // 原子写：先写 .tmp 再 rename，避免崩溃/断电留下半个预设文件
+  const file = presetFileName(preset.name);
   const finalPath = join(dir, file);
   const tmpPath = `${finalPath}.tmp`;
   const text = JSON.stringify(preset, null, 2);
@@ -230,56 +242,16 @@ export function savePreset(dir: string, name: string, values: PresetValues): Pre
     try { unlinkSync(tmpPath); } catch { /* 清理失败则忽略 */ }
     throw e;
   }
-  // 刷新记忆化：内容与指纹都是刚写下的，下次 list/load 直接命中、不再解析
   setCacheEntry(dir, file, fingerprint(finalPath), text, preset);
   return preset;
 }
 
-export function deletePreset(dir: string, name: string): boolean {
+/** 按文件名删除；目标不存在或删除失败返回 false。 */
+export function deletePresetFile(dir: string, fileName: string): boolean {
   if (!dir || !existsSync(dir)) return false;
-  const safe = name.replace(/[\\/:*?"<>|]/g, '_');
   try {
-    unlinkSync(join(dir, `${safe}.json`));
-    parseCache.get(dir)?.delete(`${safe}.json`);
+    unlinkSync(join(dir, fileName));
+    parseCache.get(dir)?.delete(fileName);
     return true;
   } catch { return false; }
-}
-
-/**
- * 删除与指定模型关联的预设：扫描模型目录下的 presets 子目录，删除其中
- * 顶层 model 以 modelPath 开头（路径前缀匹配，兼容 / 与 \ 分隔符；v1 旧文件的
- * values[MODEL_KEY] 已由 parsePreset 迁移到顶层）的预设文件。
- * modelPath 可为模型子目录或模型文件路径（预设 model 字段存的是模型文件路径）。
- * 返回被删除的预设名列表。
- */
-export function deletePresetsForModel(modelsDir: string, modelPath: string): string[] {
-  const dir = resolvePresetsDir(modelsDir);
-  if (!dir || !modelPath || !existsSync(dir)) return [];
-  // 规范化：统一分隔符为 / 并去掉尾部多余分隔符，保证前缀匹配跨平台一致
-  const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '');
-  const prefix = norm(modelPath);
-  if (!prefix) return [];
-  const removed: string[] = [];
-  try {
-    const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
-    for (const f of files) {
-      try {
-        const preset = readPresetFile(dir, f, f.replace(/\.json$/, ''));
-        if (!preset) continue;
-        const model = norm(String(preset.model ?? ''));
-        if (!model) continue;
-        if (model === prefix || model.startsWith(prefix + '/')) {
-          unlinkSync(join(dir, f));
-          parseCache.get(dir)?.delete(f);
-          removed.push(preset.name);
-        }
-      } catch {
-        // 单个预设解析/删除失败跳过，不影响其余
-      }
-    }
-    sweepDirCache(dir, files);
-  } catch {
-    // 目录读取失败时返回已删除部分
-  }
-  return removed;
 }

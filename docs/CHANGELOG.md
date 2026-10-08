@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **预设系统解耦重构：存储以稳定 id 为主键、迁出模型目录，持久化管理与用户可查看方式分层（用户裁定「存储位置 B（固定 `~/.llama_launcher/presets`）、主键 A（稳定 id + 迁移回填）、允许增加 IPC 通道」）**：出了什么事——「预设名」一个东西同时当文件名、数据主键、列表显示名、智能匹配协议四份工作用，且预设文件跟着模型目录漂移、文件布局直接漏进 UI 组件（「model 注回 values」在三个地方各写一遍）——展示层任何改动都得动存储代码。**改法**：① 分层——core 新增 `preset-repository.ts`（`PresetRepository`：id 主键的 get/save(upsert)/rename/delete/deleteForModel + `migratePresetStore` 位置迁移），`presets-store.ts` 退居纯文件层（格式/记忆化），IPC 与 UI 只认 id 与 `PresetSummary` 摘要，目录/文件名/JSON 布局不再出存储层；② 存储位置迁至 `~/.llama_launcher/presets`（启动时自动从旧位搬入并升级 v3，幂等，同名冲突目标优先）；③ v3 结构新增稳定 `id`，改名 = 换文件 + 更新 name、id 恒定；「当前预设」引用 `last_preset`（按名）→ `last_preset_id`（旧值启动兜底一次并迁移，改名/删除不再产生悬空引用）；④ 新增 `presets:rename` 通道（57→58）与预设面板行内重命名；⑤ 智能预设匹配从「预设名 = 模型名」命名约定改为**绑定模型文件身份**（全路径优先、文件名退化），纯参数集预设不再被自动应用；⑥ 垃圾清理：`stale_presets_dir` 类别消亡（配置目录 presets 成为活目录，改为在其中检测 .tmp 残留/损坏/孤儿预设），历史遗留的模型目录 presets 不列入清理（宁保留不误删）。**验证**：core 438 / ui 106 测试全绿（预设用例按新契约重写 + 迁移新用例：搬入升级/冲突跳过/损坏保留/id 稳定）、`pnpm lint` 全绿；mock 页实测保存/覆盖/应用/删除/重命名全流程。**文档**：params-system §5.2、data-persistence §10、ipc-channels、core-modules §4.8 中英两树同轮改写。
+
 ## \[0.0.54] - 2026-10-07
 
 

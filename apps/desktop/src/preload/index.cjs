@@ -95,9 +95,10 @@ const api = {
   },
   presets: {
     list: () => invoke(IPC.PRESETS_LIST),
-    save: (name, values) => invoke(IPC.PRESETS_SAVE, name, values),
-    delete: (name) => invoke(IPC.PRESETS_DELETE, name),
-    load: (name) => invoke(IPC.PRESETS_LOAD, name),
+    save: (input) => invoke(IPC.PRESETS_SAVE, input),
+    rename: (id, name) => invoke(IPC.PRESETS_RENAME, id, name),
+    delete: (id) => invoke(IPC.PRESETS_DELETE, id),
+    load: (id) => invoke(IPC.PRESETS_LOAD, id),
   },
   server: {
     start: (values, settings) => invoke(IPC.SERVER_START, values, settings),

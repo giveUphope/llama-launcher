@@ -25,7 +25,7 @@
 
 IPC is registered declaratively per feature domain: each module under `ipc/` — settings/models/presets/server/logs/system/window/download — exports a `register*Ipc` function, and `ipc/index.ts` assembles them into the `ipcRegistrars` array (`registerIpcHandlers()` iterates and calls them); the shared model-directory watcher singleton lives in `ipc/models-watcher.ts` (`watchModelsDir`/`notifyModelsChanged`).
 
-57 IPC channels in 10 categories: Settings / Models / Presets / Server / Logs / General /
+58 IPC channels in 10 categories: Settings / Models / Presets / Server / Logs / General /
  Window / System / Download / FS.
 
 - When a download completes, `notifyModelsChanged()` is called to refresh the model list.

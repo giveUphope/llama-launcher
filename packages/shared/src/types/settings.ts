@@ -22,6 +22,13 @@ export interface AppSettings {
   llama_dir: string;
   models_dir: string;
   selected_model: string;
+  /**
+   * 最近应用的预设 id（v3 起预设以稳定 id 为主键，改名/搬移不再使引用失效）；空 = 无。
+   * 旧字段 last_preset（按名引用）仅保留兼容读取：启动链在 id 落空时按名兜底一次，
+   * 命中后回填 id 并清空本字段——名字不再是主键，悬空引用从根上消除。
+   */
+  last_preset_id?: string;
+  /** @deprecated v3 起由 last_preset_id 接管，仅作为旧设置文件的兼容读取源，新写入恒为空串 */
   last_preset: string;
   window_geometry: string;
   /** 窗口是否以最大化状态启动/恢复;默认 true,使应用开箱即最大化 */

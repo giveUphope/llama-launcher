@@ -1,6 +1,7 @@
 export * from './paths.js';
 export * from './settings-store.js';
 export * from './presets-store.js';
+export * from './preset-repository.js';
 export * from './models-scanner.js';
 export * from './command-builder.js';
 export * from './server-props.js';

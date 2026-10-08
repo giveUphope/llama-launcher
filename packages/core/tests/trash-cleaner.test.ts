@@ -55,17 +55,30 @@ describe('trash-cleaner', () => {
     expect(result.items).toHaveLength(0);
   });
 
-  it('detectTrash identifies stale presets directory', () => {
+  it('预设活目录（CONFIG_DIR/presets）内的有效预设/纯参数集不列入清理', () => {
     mkdirSync(tmpPresetsDir, { recursive: true });
-    writeFileSync(join(tmpPresetsDir, 'preset1.json'), '{"name":"p1"}');
-    writeFileSync(join(tmpPresetsDir, 'preset2.json'), '{"name":"p2"}');
+    writeFileSync(join(tmpPresetsDir, 'valid.json'), JSON.stringify({
+      preset_version: 3, id: 'i1', name: 'valid', saved_at: '', created_at: '', app_version: '', model: null, values: { ctx_size: 1 },
+    }));
+    writeFileSync(join(tmpPresetsDir, 'pure.json'), JSON.stringify({
+      preset_version: 3, id: 'i2', name: 'pure', saved_at: '', created_at: '', app_version: '', model: null, values: {},
+    }));
     writeFileSync(tmpSettingsFile, '{}');
 
     const result = detectTrash();
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0].kind).toBe('stale_presets_dir');
-    expect(result.items[0].relPath).toBe('presets');
-    expect(result.items[0].size).toBeGreaterThan(0);
+    expect(result.items).toHaveLength(0);
+  });
+
+  it('预设活目录内的 .tmp/.bak 原子写残留识别为 temp_file（config 根）', () => {
+    mkdirSync(tmpPresetsDir, { recursive: true });
+    writeFileSync(join(tmpPresetsDir, 'crash.json.tmp'), '{}');
+    writeFileSync(join(tmpPresetsDir, 'old.bak'), '{}');
+    writeFileSync(tmpSettingsFile, '{}');
+
+    const result = detectTrash();
+    const temps = result.items.filter(i => i.kind === 'temp_file');
+    expect(temps.map(i => i.relPath).sort()).toEqual([join('presets', 'crash.json.tmp'), join('presets', 'old.bak')]);
+    expect(temps.every(i => i.root === 'config')).toBe(true);
   });
 
   it('detectTrash identifies temp files by extension', () => {
@@ -115,29 +128,20 @@ describe('trash-cleaner', () => {
     expect(result.items).toHaveLength(0);
   });
 
-  it('cleanTrash removes stale presets directory', () => {
+  it('cleanTrash removes temp files (含预设活目录内的原子写残留)', () => {
     mkdirSync(tmpPresetsDir, { recursive: true });
-    writeFileSync(join(tmpPresetsDir, 'preset1.json'), '{"name":"p1"}');
-    writeFileSync(tmpSettingsFile, '{}');
-
-    const detected = detectTrash();
-    const result = cleanTrash(detected.items);
-
-    expect(result.cleaned).toBe(1);
-    expect(result.failed).toBe(0);
-    expect(existsSync(tmpPresetsDir)).toBe(false);
-  });
-
-  it('cleanTrash removes temp files', () => {
     writeFileSync(tmpSettingsFile, '{}');
     const tmpFile = join(tmpConfigDir, 'cache.tmp');
     writeFileSync(tmpFile, 'temp');
+    const presetTmp = join(tmpPresetsDir, 'p.json.tmp');
+    writeFileSync(presetTmp, '{}');
 
     const detected = detectTrash();
     const result = cleanTrash(detected.items);
 
-    expect(result.cleaned).toBe(1);
+    expect(result.cleaned).toBe(2);
     expect(existsSync(tmpFile)).toBe(false);
+    expect(existsSync(presetTmp)).toBe(false);
   });
 
   it('cleanTrash preserves settings.json', () => {
@@ -202,9 +206,8 @@ describe('trash-cleaner', () => {
   });
 });
 
-describe('trash-cleaner 模型目录扫描（下载残留/孤儿预设/保护集）', () => {
+describe('trash-cleaner 模型目录扫描（下载残留/保护集）与预设活目录孤儿检测', () => {
   let tmpModelsDir: string;
-  let tmpModelsPresetsDir: string;
 
   function setupModels() {
     if (existsSync(tmpConfigDir)) {
@@ -212,11 +215,10 @@ describe('trash-cleaner 模型目录扫描（下载残留/孤儿预设/保护集
     }
     tmpConfigDir = mkdtempSync(join(tmpdir(), `llama-trash-cfg-${process.pid}-${Date.now()}-`));
     tmpPresetsDir = join(tmpConfigDir, 'presets');
+    mkdirSync(tmpPresetsDir, { recursive: true });
     tmpSettingsFile = join(tmpConfigDir, 'settings.json');
     writeFileSync(tmpSettingsFile, '{}');
     tmpModelsDir = mkdtempSync(join(tmpdir(), `llama-trash-models-${process.pid}-${Date.now()}-`));
-    tmpModelsPresetsDir = join(tmpModelsDir, 'presets');
-    mkdirSync(tmpModelsPresetsDir, { recursive: true });
   }
 
   function cleanupModels() {
@@ -225,10 +227,10 @@ describe('trash-cleaner 模型目录扫描（下载残留/孤儿预设/保护集
     }
   }
 
-  /** 写一个 v2 形状预设文件 */
+  /** 写一个预设文件到活目录（CONFIG_DIR/presets） */
   function writePresetFile(name: string, model: string | null) {
-    writeFileSync(join(tmpModelsPresetsDir, `${name}.json`), JSON.stringify({
-      preset_version: 2, name, created_at: '', saved_at: '', app_version: '', model,
+    writeFileSync(join(tmpPresetsDir, `${name}.json`), JSON.stringify({
+      preset_version: 3, id: `id-${name}`, name, created_at: '', saved_at: '', app_version: '', model,
       values: { ctx_size: 4096 },
     }));
   }
@@ -263,28 +265,37 @@ describe('trash-cleaner 模型目录扫描（下载残留/孤儿预设/保护集
     expect(result.items.filter(i => i.kind === 'download_orphan')).toHaveLength(0);
   });
 
-  it('presets 目录：孤儿预设识别、有效/纯参数集保留、.tmp 残留识别', () => {
+  it('预设活目录：孤儿预设识别（config 根）、有效/纯参数集保留；模型目录不再有预设扫描', () => {
     writePresetFile('gone', join(tmpModelsDir, 'deleted-model.gguf')); // 模型不存在 → 孤儿
     const existing = join(tmpModelsDir, 'present.gguf');
     writeFileSync(existing, 'model');
     writePresetFile('alive', existing);                                 // 模型存在 → 有效
     writePresetFile('pure', null);                                      // 纯参数集 → 保留
-    writeFileSync(join(tmpModelsPresetsDir, 'crash.json.tmp'), '{}');   // 原子写残留
 
     const result = detectTrash({ modelsDir: tmpModelsDir });
     const orphans = result.items.filter(i => i.kind === 'orphan_preset');
     expect(orphans.map(i => i.relPath)).toEqual([join('presets', 'gone.json')]);
-    const temps = result.items.filter(i => i.kind === 'temp_file' && i.root === 'models');
-    expect(temps.map(i => i.relPath)).toEqual([join('presets', 'crash.json.tmp')]);
+    expect(orphans.every(i => i.root === 'config')).toBe(true);
+    expect(result.items.filter(i => i.root === 'models')).toHaveLength(0);
   });
 
-  it('presets 目录：损坏 JSON 识别为 broken_json（形状非法不误报）', () => {
-    writeFileSync(join(tmpModelsPresetsDir, 'broken.json'), '{oops');
-    writeFileSync(join(tmpModelsPresetsDir, 'weird.json'), JSON.stringify({ values: 'not-object', name: 42 }));
+  it('预设活目录：损坏 JSON 识别为 broken_json（形状非法不误报）', () => {
+    writeFileSync(join(tmpPresetsDir, 'broken.json'), '{oops');
+    writeFileSync(join(tmpPresetsDir, 'weird.json'), JSON.stringify({ values: 'not-object', name: 42 }));
 
     const result = detectTrash({ modelsDir: tmpModelsDir });
     const broken = result.items.filter(i => i.kind === 'broken_json');
     expect(broken.map(i => i.relPath)).toEqual([join('presets', 'broken.json')]);
+  });
+
+  it('历史版本遗留的 <models_dir>/presets 目录不再扫描（用户数据宁可保留不误删）', () => {
+    const legacyPresets = join(tmpModelsDir, 'presets');
+    mkdirSync(legacyPresets, { recursive: true });
+    writeFileSync(join(legacyPresets, 'leftover.json'), '{broken');
+    writeFileSync(join(legacyPresets, 'x.tmp'), '{}');
+
+    const result = detectTrash({ modelsDir: tmpModelsDir });
+    expect(result.items.filter(i => i.relPath.startsWith('presets'))).toHaveLength(0);
   });
 
   it('cleanTrash：删除孤儿预设；模型重新出现则放弃（revalidate）', () => {
@@ -296,7 +307,7 @@ describe('trash-cleaner 模型目录扫描（下载残留/孤儿预设/保护集
     expect(orphans).toHaveLength(1);
     let result = cleanTrash(orphans, { modelsDir: tmpModelsDir });
     expect(result.cleaned).toBe(1);
-    expect(existsSync(join(tmpModelsPresetsDir, 'gone.json'))).toBe(false);
+    expect(existsSync(join(tmpPresetsDir, 'gone.json'))).toBe(false);
 
     // 模型重新出现的场景：再检失败，不删
     writePresetFile('back', modelPath);
@@ -304,14 +315,14 @@ describe('trash-cleaner 模型目录扫描（下载残留/孤儿预设/保护集
     const reDetected = detectTrash({ modelsDir: tmpModelsDir });
     expect(reDetected.items.filter(i => i.kind === 'orphan_preset')).toHaveLength(0);
     // 伪造一个已过时的孤儿项（模拟检测后模型被放回）
-    const stale = { relPath: join('presets', 'back.json'), absPath: join(tmpModelsPresetsDir, 'back.json'), root: 'models' as const, kind: 'orphan_preset' as const, size: 1 };
+    const stale = { relPath: join('presets', 'back.json'), absPath: join(tmpPresetsDir, 'back.json'), root: 'config' as const, kind: 'orphan_preset' as const, size: 1 };
     result = cleanTrash([stale], { modelsDir: tmpModelsDir });
     expect(result.failed).toBe(1);
     // 模型重新出现的放弃项进逐项失败明细（revalidated）
     expect(result.failures).toHaveLength(1);
     expect(result.failures[0].reason).toBe('revalidated');
     expect(result.failures[0].path).toBe(stale.absPath);
-    expect(existsSync(join(tmpModelsPresetsDir, 'back.json'))).toBe(true);
+    expect(existsSync(join(tmpPresetsDir, 'back.json'))).toBe(true);
   });
 
   it('cleanTrash：models 项缺 modelsDir 参数一律拒绝（路径隔离）', () => {

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { reactive, computed, ref, watch } from 'vue';
 import { PARAMS, MODEL_KEY, modelBaseName } from '@llama-launcher/shared';
-import type { ParamDef, PresetValues, GgufModelInfo, GgufSuggestedParam, SessionBaseline } from '@llama-launcher/shared';
+import type { ParamDef, Preset, PresetValues, GgufModelInfo, GgufSuggestedParam, SessionBaseline } from '@llama-launcher/shared';
 import { useSettingsStore } from './settings';
 import { useServerStore } from './server';
 import { useI18nStore } from './i18n';
@@ -233,6 +233,16 @@ export const useParamsStore = defineStore('params', () => {
       if (values[p.key] !== p.default) count++;
     }
     return count;
+  }
+
+  /**
+   * 应用预设实体（v3 完整对象）：预设文件「model 在顶层元数据、values 为纯参数」的布局
+   * 知识**只**收敛在此一处——绑定模型注回 values 后走 applyPreset，未绑定则保留当前模型。
+   * 此前 PresetsPanel / App.vue / useModelPreset 三处各注回一遍，是存储布局泄漏进展示层的耦合点。
+   */
+  function applyPresetEntity(preset: Preset): number {
+    const merged = preset.model ? { ...preset.values, [MODEL_KEY]: preset.model } : preset.values;
+    return applyPreset(merged, preset.name);
   }
 
   function snapshot(): PresetValues {
@@ -551,7 +561,7 @@ export const useParamsStore = defineStore('params', () => {
   return {
     values, baseline, ggufInfo, ggufSuggestions, ggufLoading, ggufError,
     get, set, resetParam, resetGroup, resetAll,
-    applyPreset, snapshot, hasChanges, countDiffers,
+    applyPreset, applyPresetEntity, snapshot, hasChanges, countDiffers,
     markBaseline, clearSession, restoreSession, confirmDiscardDirty, reattachModelRuntime,
     setGgufInfo, detectMmproj, detectDraftModel, loadGguf, applyModel, applyModelWithSuggestions,
   };

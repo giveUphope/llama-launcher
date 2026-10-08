@@ -27,6 +27,8 @@ export function getDefaultSettings(): AppSettings {
     models_dir: DEFAULT_MODELS_DIR,
     selected_model: '',
     last_preset: '',
+    // 最近应用的预设 id（v3 起预设以 id 为主键）；旧字段 last_preset 仅兼容读取
+    last_preset_id: '',
     // 窗口几何:空字符串表示使用默认值并居中;格式 "x,y,width,height"
     window_geometry: '',
     // 默认以最大化状态启动
@@ -108,6 +110,7 @@ const settingsSchema = z.object({
   models_dir: str(DEFAULT_MODELS_DIR),
   selected_model: str(''),
   last_preset: str(''),
+  last_preset_id: str(''),
   window_geometry: str(''),
   window_maximized: bool(true),
   theme_mode: enumOf(THEME_MODES, 'light'),

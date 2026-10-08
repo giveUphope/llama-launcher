@@ -69,6 +69,8 @@ export const en: Dict = {
   preset_active: 'Active',
   overwrite_preset: 'Overwrite Preset',
   preset_apply: 'Apply',
+  preset_rename: 'Rename',
+  preset_rename_ok: 'OK',
   preset_delete: 'Delete',
   auto: '-1 = auto',
 
@@ -265,7 +267,6 @@ export const en: Dict = {
   msg_trash_cleaned: 'Cleaned {0} item(s), freed {1}',
   msg_trash_failed: 'Clean finished: {0} succeeded, {1} failed',
   msg_trash_detect_failed: 'Detection failed: {0}',
-  lbl_trash_stale_presets_dir: 'Stale presets directory',
   lbl_trash_temp_file: 'Temporary file',
   lbl_trash_broken_json: 'Broken JSON',
   lbl_trash_legacy_stats: 'Legacy download stats',

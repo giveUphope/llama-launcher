@@ -67,6 +67,8 @@ export const zh = {
   preset_active: '当前',
   overwrite_preset: '覆盖预设',
   preset_apply: '应用',
+  preset_rename: '重命名',
+  preset_rename_ok: '确定',
   preset_delete: '删除',
   auto: '-1 = 自动',
 
@@ -263,7 +265,6 @@ export const zh = {
   msg_trash_cleaned: '已清理 {0} 项，释放 {1}',
   msg_trash_failed: '清理完成：成功 {0} 项，失败 {1} 项',
   msg_trash_detect_failed: '检测失败：{0}',
-  lbl_trash_stale_presets_dir: '旧预设目录',
   lbl_trash_temp_file: '临时文件',
   lbl_trash_broken_json: '损坏的 JSON',
   lbl_trash_legacy_stats: '旧版下载统计',

@@ -1,9 +1,8 @@
-import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync, type Dirent } from 'node:fs';
-import { readdir, stat } from 'node:fs/promises';
+import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join, relative, resolve, sep, extname, basename } from 'node:path';
-import { CONFIG_DIR, SETTINGS_FILE, PRESETS_DIR, resolvePresetsDir } from './paths.js';
+import { CONFIG_DIR, SETTINGS_FILE, PRESETS_DIR } from './paths.js';
 import { DOWNLOAD_LOG_SUFFIX, LEGACY_META_SUFFIX } from './download-log.js';
-import { loadPreset } from './presets-store.js';
+import { readPresetFileByName } from './presets-store.js';
 import type { TrashItem, TrashKind, TrashRoot, DetectResult, CleanResult, TrashFailure } from '@llama-launcher/shared';
 
 /**
@@ -12,11 +11,12 @@ import type { TrashItem, TrashKind, TrashRoot, DetectResult, CleanResult, TrashF
  * 覆盖应用写入的全部落盘位置（生成清单与扫描规则一一对应）：
  *  - 配置目录 CONFIG_DIR（~/.llama_launcher/）：
  *      settings.json（白名单永不清理）、settings.json.bak/.tmp（损坏备份/原子写残留）、
- *      presets/（旧版预设目录，已迁移到 modelsDir/presets）、stats.jsonl（旧版下载统计，已停用）
- *  - 模型目录 modelsDir（下载与预设的落盘地）：
- *      *.part（下载临时文件）、*.llama_dl.jsonl / *.llama_dl.json（续传日志/旧版快照）、
- *      presets/*.tmp / presets/*.bak（预设原子写/备份残留）、presets/*.json（有效数据；
- *      仅当绑定模型已不存在时作为孤儿预设列出）
+ *      presets/（**预设活目录**：*.tmp/*.bak 原子写残留、*.json 损坏/孤儿检测）、
+ *      stats.jsonl（旧版下载统计，已停用）
+ *  - 模型目录 modelsDir（下载落盘地；**预设已迁往 CONFIG_DIR/presets，不再有预设子目录**）：
+ *      *.part（下载临时文件）、*.llama_dl.jsonl / *.llama_dl.json（续传日志/旧版快照）。
+ *      历史版本遗留的 <models_dir>/presets 不扫描、不列入清理——迁移流程搬空它，
+ *      搬不动的（同名冲突/损坏）属于用户数据，宁可保留也不冒误删风险。
  *
  * 设计原则：强校验、白名单、严格路径隔离
  *  - 所有待清理路径必须严格位于其声明根目录（CONFIG_DIR 或 modelsDir）内，且不是符号链接
@@ -86,72 +86,6 @@ function isSymbolicLink(absPath: string): boolean {
   }
 }
 
-/** 目录大小遍历的条目间让出步长：避免超大目录长时间钉住主进程事件循环 */
-const DIR_SIZE_YIELD_EVERY = 64;
-
-function yieldEventLoop(): Promise<void> {
-  return new Promise((r) => setImmediate(r));
-}
-
-/** 递归计算目录大小（同步版，深度上限与异步版一致，保证两条路径返回值相同） */
-function calcDirSize(dirPath: string, depth = MODELS_SCAN_MAX_DEPTH): number {
-  if (depth <= 0) return 0;
-  let total = 0;
-  try {
-    const entries = readdirSync(dirPath, { withFileTypes: true });
-    for (const entry of entries) {
-      const childPath = join(dirPath, entry.name);
-      try {
-        if (entry.isSymbolicLink()) continue; // 跳过符号链接
-        if (entry.isDirectory()) {
-          total += calcDirSize(childPath, depth - 1);
-        } else if (entry.isFile()) {
-          total += statSync(childPath).size;
-        }
-      } catch {
-        // 跳过无法访问的项
-      }
-    }
-  } catch {
-    // 忽略读取错误
-  }
-  return total;
-}
-
-/**
- * 递归计算目录大小（异步版）：withFileTypes 取类型 + 深度上限 + 周期性让出事件循环，
- * 供 IPC 侧（detectTrash/cleanTrash）使用，避免大型目录树冻结主进程。
- */
-async function calcDirSizeAsync(dirPath: string): Promise<number> {
-  let total = 0;
-  let visited = 0;
-  const walk = async (dir: string, depth: number): Promise<void> => {
-    if (depth <= 0) return;
-    let entries: Dirent[];
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      return; // 忽略读取错误
-    }
-    for (const entry of entries) {
-      if (++visited % DIR_SIZE_YIELD_EVERY === 0) await yieldEventLoop();
-      const childPath = join(dir, entry.name);
-      if (entry.isSymbolicLink()) continue; // 跳过符号链接
-      if (entry.isDirectory()) {
-        await walk(childPath, depth - 1);
-      } else if (entry.isFile()) {
-        try {
-          total += (await stat(childPath)).size;
-        } catch {
-          // 跳过无法访问的项
-        }
-      }
-    }
-  };
-  await walk(dirPath, MODELS_SCAN_MAX_DEPTH);
-  return total;
-}
-
 /** 检测 JSON 文件是否损坏（无法解析） */
 function isBrokenJson(filePath: string): boolean {
   try {
@@ -207,22 +141,67 @@ function walkFiles(
 }
 
 /**
- * 扫描模型目录内应用生成的残留：
- *  - 下载残留：.part / .llama_dl.jsonl / .llama_dl.json（活动/暂停任务占用者跳过）
- *  - presets/ 子目录：原子写 .tmp/.bak 残留；*.json 中绑定模型已不存在的孤儿预设；
- *    解析失败的损坏预设
+ * 扫描一个预设目录内的残留（root 声明归属根，当前仅 CONFIG_DIR/presets 活目录）：
+ *  - 原子写 .tmp/.bak 残留 → temp_file
+ *  - *.json 解析失败 → broken_json；绑定模型已不存在 → orphan_preset
+ */
+function scanPresetsDir(presetsDir: string, root: TrashRoot, modelsDir: string, items: TrashItem[]): void {
+  if (!existsSync(presetsDir) || isSymbolicLink(presetsDir)) return;
+  let entries;
+  try {
+    entries = readdirSync(presetsDir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  const add = (absPath: string, kind: TrashKind, size: number) => {
+    items.push({
+      relPath: relative(rootDirOf(root, modelsDir), absPath),
+      absPath,
+      root,
+      kind,
+      size,
+    });
+  };
+  for (const entry of entries) {
+    if (!entry.isFile() || entry.isSymbolicLink()) continue;
+    const absPath = join(presetsDir, entry.name);
+    const ext = extname(entry.name).toLowerCase();
+    if (entry.name.toLowerCase().endsWith('.json.tmp')) {
+      // extname('x.json.tmp')='.tmp'；原子写残留
+      add(absPath, 'temp_file', fileSize(absPath));
+    } else if (ext === '.tmp' || ext === '.bak') {
+      add(absPath, 'temp_file', fileSize(absPath));
+    } else if (ext === '.json') {
+      const parsed = readPresetFileByName(presetsDir, entry.name);
+      if (!parsed) {
+        // 解析失败：损坏预设（形状非法/JSON 坏）
+        if (isBrokenJson(absPath)) add(absPath, 'broken_json', fileSize(absPath));
+        continue;
+      }
+      if (parsed.model && !existsSync(parsed.model)) {
+        add(absPath, 'orphan_preset', fileSize(absPath));
+      }
+      // 有效预设 / 纯参数集（model=null）：不清理
+    }
+    // 其他扩展名：不识别，不清理（保守策略）
+  }
+}
+
+/**
+ * 扫描模型目录内应用生成的下载残留：
+ *  - .part / .llama_dl.jsonl / .llama_dl.json（活动/暂停任务占用者跳过）
+ * 预设已迁往 CONFIG_DIR/presets，模型目录内不再有预设扫描。
  */
 function scanModelsDir(
   modelsDir: string,
   protectedPaths: Set<string>,
   items: TrashItem[],
 ): void {
-  const presetsDir = resolvePresetsDir(modelsDir);
-  const add = (absPath: string, root: TrashRoot, kind: TrashKind, size: number) => {
+  const add = (absPath: string, kind: TrashKind, size: number) => {
     items.push({
-      relPath: relative(rootDirOf(root, modelsDir), absPath),
+      relPath: relative(modelsDir, absPath),
       absPath,
-      root,
+      root: 'models',
       kind,
       size,
     });
@@ -235,90 +214,36 @@ function scanModelsDir(
     (absPath, name) => {
       if (!isDownloadResidueName(name)) return;
       if (protectedPaths.has(resolve(absPath))) return;
-      add(absPath, 'models', 'download_orphan', fileSize(absPath));
+      add(absPath, 'download_orphan', fileSize(absPath));
     },
     (absPath) => {
-      // 配置目录嵌在模型目录内时不进入（避免与 config 扫描重复）；presets 单独走下方逻辑
+      // 配置目录嵌在模型目录内时不进入（避免与 config 扫描重复）
       if (absPath === CONFIG_DIR) return false;
-      if (absPath === presetsDir) return false;
       return true;
     },
   );
-
-  // presets/ 子目录：残留临时文件 + 孤儿/损坏预设
-  if (!existsSync(presetsDir) || isSymbolicLink(presetsDir)) return;
-  let entries;
-  try {
-    entries = readdirSync(presetsDir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    if (!entry.isFile() || entry.isSymbolicLink()) continue;
-    const absPath = join(presetsDir, entry.name);
-    const ext = extname(entry.name).toLowerCase();
-    if (entry.name.toLowerCase().endsWith('.json.tmp')) {
-      // extname('x.json.tmp')='.tmp'；原子写残留
-      add(absPath, 'models', 'temp_file', fileSize(absPath));
-    } else if (ext === '.tmp' || ext === '.bak') {
-      add(absPath, 'models', 'temp_file', fileSize(absPath));
-    } else if (ext === '.json') {
-      const name = entry.name.replace(/\.json$/i, '');
-      const parsed = loadPreset(presetsDir, name);
-      if (!parsed) {
-        // 解析失败：损坏预设（形状非法/JSON 坏）
-        if (isBrokenJson(absPath)) add(absPath, 'models', 'broken_json', fileSize(absPath));
-        continue;
-      }
-      if (parsed.model && !existsSync(parsed.model)) {
-        add(absPath, 'models', 'orphan_preset', fileSize(absPath));
-      }
-      // 有效预设 / 纯参数集（model=null）：不清理
-    }
-    // 其他扩展名：不识别，不清理（保守策略）
-  }
 }
 
 /**
  * 收集可清理项（配置目录 + 模型目录）。
- * dirSizeOf 注入目录大小的求和方式：同步版直接递归，异步版预先算好（见 detectTrashAsync）。
  *
  * 识别规则（强校验）：
- *  1. CONFIG_DIR/presets：旧预设目录（已迁移到 modelsDir/presets）→ stale_presets_dir
- *  2. CONFIG_DIR 根 *.tmp/*.bak/*.old/*.log → temp_file；stats.jsonl → legacy_stats
+ *  1. CONFIG_DIR 根 *.tmp/*.bak/*.old/*.log → temp_file；stats.jsonl → legacy_stats
+ *  2. CONFIG_DIR/presets（预设活目录）内 *.tmp/*.bak → temp_file；*.json：
+ *     损坏 → broken_json；绑定模型已删除 → orphan_preset；有效/纯参数集 → 保留
  *  3. CONFIG_DIR 根非 settings.json 的 *.json：解析失败 → broken_json
  *  4. modelsDir 内下载残留（未被活动任务占用）→ download_orphan
- *  5. modelsDir/presets 内 *.tmp/*.bak → temp_file；*.json 按内容分类：
- *     损坏 → broken_json；绑定模型已删除 → orphan_preset；有效/纯参数集 → 保留
  *
  * 白名单（永不清理）：settings.json、有效预设、CONFIG_DIR/modelsDir 自身、未识别文件
  */
-function collectTrashItems(opts: TrashScanOptions, dirSizeOf: (dir: string) => number): TrashItem[] {
+function collectTrashItems(opts: TrashScanOptions): TrashItem[] {
   const items: TrashItem[] = [];
   const modelsDir = String(opts.modelsDir ?? '').trim();
   const protectedPaths = opts.protectedPaths ?? new Set<string>();
 
   // ---- 1. 配置目录（~/.llama_launcher/）----
   if (existsSync(CONFIG_DIR)) {
-    // 1a. 旧 presets 目录（已迁移到 modelsDir/presets）
-    if (existsSync(PRESETS_DIR) && !isSymbolicLink(PRESETS_DIR)) {
-      try {
-        const st = statSync(PRESETS_DIR);
-        if (st.isDirectory()) {
-          items.push({
-            relPath: relative(CONFIG_DIR, PRESETS_DIR),
-            absPath: PRESETS_DIR,
-            root: 'config',
-            kind: 'stale_presets_dir',
-            size: dirSizeOf(PRESETS_DIR),
-          });
-        }
-      } catch {
-        // 忽略 stat 错误
-      }
-    }
-
-    // 1b. 根目录文件
+    // 1a. 根目录文件
     try {
       const entries = readdirSync(CONFIG_DIR, { withFileTypes: true });
       for (const entry of entries) {
@@ -326,7 +251,7 @@ function collectTrashItems(opts: TrashScanOptions, dirSizeOf: (dir: string) => n
 
         // 跳过符号链接（安全策略）
         if (entry.isSymbolicLink()) continue;
-        // 跳过目录（presets 已单独处理）
+        // 跳过目录（presets 活目录单独走下方扫描）
         if (entry.isDirectory()) continue;
         if (!entry.isFile()) continue;
 
@@ -356,9 +281,12 @@ function collectTrashItems(opts: TrashScanOptions, dirSizeOf: (dir: string) => n
     } catch {
       // 忽略读取错误
     }
+
+    // 1b. presets 活目录：残留临时文件 + 孤儿/损坏预设
+    scanPresetsDir(PRESETS_DIR, 'config', modelsDir, items);
   }
 
-  // ---- 2. 模型目录（下载残留/预设目录；modelsDir 嵌在 CONFIG_DIR 内时跳过避免重复）----
+  // ---- 2. 模型目录（下载残留；modelsDir 嵌在 CONFIG_DIR 内时跳过避免重复）----
   if (modelsDir && existsSync(modelsDir) && !isInsideDir(CONFIG_DIR, modelsDir) && modelsDir !== CONFIG_DIR) {
     scanModelsDir(modelsDir, protectedPaths, items);
   }
@@ -377,29 +305,17 @@ function finalizeTrash(items: TrashItem[]): DetectResult {
   return { items, totalSize };
 }
 
-/** 目录形态的清理项（当前仅旧 presets 目录）需要递归求和 */
-function needsDirSize(item: TrashItem): boolean {
-  return item.kind === 'stale_presets_dir';
-}
-
 /**
- * 检测应用生成文件中的可清理项（配置目录 + 模型目录）。同步实现，
- * 目录大小走同步递归遍历；主进程内建议使用 detectTrashAsync。
+ * 检测应用生成文件中的可清理项（配置目录 + 模型目录）。同步实现，主进程内建议使用
+ * detectTrashAsync（现两者等价：目录形态清理项已随 stale_presets_dir 一起移除）。
  */
 export function detectTrash(opts: TrashScanOptions = {}): DetectResult {
-  return finalizeTrash(collectTrashItems(opts, calcDirSize));
+  return finalizeTrash(collectTrashItems(opts));
 }
 
-/**
- * detectTrash 的异步版：目录大小改为异步遍历（withFileTypes + 深度上限 + 让出事件循环），
- * 避免旧 presets 目录过大时长时间阻塞主进程；返回内容与 detectTrash 一致。
- */
+/** detectTrash 的异步版：保留异步签名（IPC 调用方 await 不变），内部与同步版一致。 */
 export async function detectTrashAsync(opts: TrashScanOptions = {}): Promise<DetectResult> {
-  const items = collectTrashItems(opts, () => 0);
-  for (const item of items) {
-    if (needsDirSize(item)) item.size = await calcDirSizeAsync(item.absPath);
-  }
-  return finalizeTrash(items);
+  return detectTrash(opts);
 }
 
 /**
@@ -414,19 +330,16 @@ function revalidateItem(item: TrashItem, modelsDir: string, protectedPaths: Set<
   const name = basename(item.absPath);
   const ext = extname(name).toLowerCase();
   switch (item.kind) {
-    case 'stale_presets_dir':
-      return item.root === 'config' && item.absPath === PRESETS_DIR;
     case 'legacy_stats':
       return item.root === 'config' && name.toLowerCase() === LEGACY_STATS_FILENAME;
     case 'temp_file': {
       if (item.root === 'config') return TEMP_EXTENSIONS.has(ext);
-      // models 根：仅允许 presets 目录内的原子写/备份残留
-      return item.absPath.startsWith(resolvePresetsDir(modelsDir) + sep) && (ext === '.tmp' || ext === '.bak');
+      // models 根已无预设目录：临时文件残留不再来自模型目录（保守拒绝）
+      return false;
     }
     case 'broken_json': {
       if (ext !== '.json') return false;
-      if (item.root === 'config') return isBrokenJson(item.absPath);
-      return item.absPath.startsWith(resolvePresetsDir(modelsDir) + sep) && isBrokenJson(item.absPath);
+      return item.root === 'config' && isBrokenJson(item.absPath);
     }
     case 'download_orphan': {
       if (item.root !== 'models') return false;
@@ -435,11 +348,11 @@ function revalidateItem(item: TrashItem, modelsDir: string, protectedPaths: Set<
       return !protectedPaths.has(resolve(item.absPath));
     }
     case 'orphan_preset': {
-      if (item.root !== 'models') return false;
-      if (ext !== '.json') return false;
-      if (!item.absPath.startsWith(resolvePresetsDir(modelsDir) + sep)) return false;
+      // 孤儿预设只可能来自 CONFIG_DIR/presets 活目录
+      if (item.root !== 'config' || ext !== '.json') return false;
+      if (!item.absPath.startsWith(PRESETS_DIR + sep)) return false;
       // 清理时刻重读：模型文件重新出现（换盘/改路径）则放弃删除
-      const parsed = loadPreset(resolvePresetsDir(modelsDir), name.replace(/\.json$/i, ''));
+      const parsed = readPresetFileByName(PRESETS_DIR, name);
       return !!parsed && !!parsed.model && !existsSync(parsed.model);
     }
     default:
@@ -448,7 +361,7 @@ function revalidateItem(item: TrashItem, modelsDir: string, protectedPaths: Set<
 }
 
 /**
- * 执行清理：删除指定的清理项（dirSizeOf 注入目录大小的求和方式，见 cleanTrash/cleanTrashAsync）。
+ * 执行清理：删除指定的清理项。
  *
  * 安全策略：
  *  - 对每个待清理项重新校验根目录归属（config → CONFIG_DIR，models → modelsDir）
@@ -457,7 +370,7 @@ function revalidateItem(item: TrashItem, modelsDir: string, protectedPaths: Set<
  *  - 重新检测符号链接（防止清理期间被替换）
  *  - settings.json 与有效预设永不清理
  */
-function runClean(items: TrashItem[], opts: TrashScanOptions, dirSizeOf: (dir: string) => number): CleanResult {
+function runClean(items: TrashItem[], opts: TrashScanOptions): CleanResult {
   let cleaned = 0;
   let failed = 0;
   let totalSize = 0;
@@ -486,21 +399,15 @@ function runClean(items: TrashItem[], opts: TrashScanOptions, dirSizeOf: (dir: s
 
     try {
       const st = lstatSync(item.absPath);
-      if (st.isDirectory()) {
-        // 目录：递归删除（仅 stale_presets_dir 一种目录形态）
-        const sizeBefore = dirSizeOf(item.absPath);
-        rmSync(item.absPath, { recursive: true, force: true });
-        cleaned++;
-        totalSize += sizeBefore;
-      } else if (st.isFile()) {
+      if (!st.isFile()) {
+        // 非 regular 文件（目录形态清理项已不存在；FIFO/设备等）不清理
+        failed++;
+        failures.push({ path: item.absPath, reason: 'unsupported' });
+      } else {
         const sizeBefore = st.size;
         rmSync(item.absPath, { force: true });
         cleaned++;
         totalSize += sizeBefore;
-      } else {
-        // 其他类型（FIFO、设备等）不清理
-        failed++;
-        failures.push({ path: item.absPath, reason: 'unsupported' });
       }
     } catch (err) {
       failed++;
@@ -511,23 +418,17 @@ function runClean(items: TrashItem[], opts: TrashScanOptions, dirSizeOf: (dir: s
   return { cleaned, failed, totalSize, failures };
 }
 
-/** 执行清理（同步版，目录大小走同步递归遍历）。 */
+/** 执行清理（同步版）。 */
 export function cleanTrash(items: TrashItem[], opts: TrashScanOptions = {}): CleanResult {
-  return runClean(items, opts, calcDirSize);
+  return runClean(items, opts);
 }
 
 /**
- * cleanTrash 的异步版：删除前对目录项以异步遍历求和（深度上限 + 让出事件循环），
- * 避免大目录阻塞主进程；校验与删除逻辑与同步版完全一致。
+ * cleanTrash 的异步版：保留异步签名（IPC 调用方 await 不变），内部与同步版一致
+ * （目录形态的递归求和已随 stale_presets_dir 一起移除，无需异步遍历）。
  */
 export async function cleanTrashAsync(items: TrashItem[], opts: TrashScanOptions = {}): Promise<CleanResult> {
-  const dirSizes = new Map<string, number>();
-  for (const item of items ?? []) {
-    if (!needsDirSize(item) || dirSizes.has(item.absPath)) continue;
-    dirSizes.set(item.absPath, await calcDirSizeAsync(item.absPath));
-  }
-  // 非 stale_presets_dir 但实际为目录的极端项（伪造/竞态）回退同步求和，保证字节数不虚低
-  return runClean(items, opts, (dir) => dirSizes.get(dir) ?? calcDirSize(dir));
+  return runClean(items ?? [], opts);
 }
 
 /** 格式化字节大小为人类可读字符串 */

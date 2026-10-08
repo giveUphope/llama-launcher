@@ -16,6 +16,7 @@ import IconDashboard from '@arco-design/web-vue/es/icon/icon-dashboard/index.js'
 import IconDelete from '@arco-design/web-vue/es/icon/icon-delete/index.js';
 import IconDown from '@arco-design/web-vue/es/icon/icon-down/index.js';
 import IconDownload from '@arco-design/web-vue/es/icon/icon-download/index.js';
+import IconEdit from '@arco-design/web-vue/es/icon/icon-edit/index.js';
 import IconExclamationCircle from '@arco-design/web-vue/es/icon/icon-exclamation-circle/index.js';
 import IconExport from '@arco-design/web-vue/es/icon/icon-export/index.js';
 import IconExperiment from '@arco-design/web-vue/es/icon/icon-experiment/index.js';
@@ -56,6 +57,8 @@ export const icons = {
   external: IconExport, close: IconClose, check: IconCheck, globe: IconPublic, theme: IconSunFill, link: IconLink,
   check_circle: IconCheckCircle, alert: IconExclamationCircle, info: IconInfoCircle, error: IconCloseCircle,
   star: IconStar, disk: IconStorage, bench: IconExperiment,
+  // 预设行内重命名（icon-edit 字形全站唯一读者）
+  edit: IconEdit,
   // 窗口控制（TopBar win-btn）：Arco 原生字形
   minimize: IconMinus, maximize: IconFullscreen, restore: IconFullscreenExit,
   // 加载中：Arco IconLoading 自带旋转动画（替代自定义 spin @keyframes，全站统一）
