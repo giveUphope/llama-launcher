@@ -14,13 +14,25 @@ describe('shared formatBytes（字节 → 可读，2026-09-01 收敛工具）', 
     expect(formatBytes(1023)).toBe('1023 B');
     expect(formatBytes(1024)).toBe('1.0 KB');
     expect(formatBytes(1024 * 1024 - 1)).toBe('1024.0 KB');
-    expect(formatBytes(1024 * 1024)).toBe('1.0 MB');
+    expect(formatBytes(1024 * 1024)).toBe('1.00 MB');
   });
 
-  it('KB/MB 1 位小数、GB/TB 2 位小数（含此前修正的档位错位回归）', () => {
+  it('KB 1 位小数、MB/GB/TB 2 位小数（含此前修正的档位错位回归）', () => {
     expect(formatBytes(1536)).toBe('1.5 KB'); // 回归：曾误显 1.5 MB
-    expect(formatBytes(1024 * 1024 * 1.5)).toBe('1.5 MB');
+    expect(formatBytes(1024 * 1024 * 1.5)).toBe('1.50 MB');
     expect(formatBytes(1024 ** 3 * 1.125)).toBe('1.13 GB');
+  });
+
+  it('MB 2 位小数：分类行相加与总数肉眼可核（2026-10-08 清理卡大小口径）', () => {
+    // 真实案例：18428 + 512 + 1057418 = 1076358 B。1 位小数时总数显示 1.0 MB，
+    // 与分类行 18.0 KB + 512 B + 1.01 MB 加出的 ~1.03 MB 明显不符
+    const a = 18428, b = 512, c = 1057418;
+    const total = a + b + c;
+    expect(total).toBe(1076358);
+    expect(formatBytes(total)).toBe('1.03 MB');
+    expect(formatBytes(a)).toBe('18.0 KB');
+    expect(formatBytes(b)).toBe('512 B');
+    expect(formatBytes(c)).toBe('1.01 MB');
   });
 
   it('TB 及以上封顶不溢出（idx 停在最大档）', () => {

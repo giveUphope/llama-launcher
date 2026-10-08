@@ -4,6 +4,8 @@
 
 ## \[Unreleased]
 
+- **大小显示精度修正：formatBytes 对 MB 及以上改 2 位小数（用户批注「最终计算的内容大小存在错误」）**：出了什么事——清理卡分类行显示 18.0 KB + 512 B + 1.0 MB，但确认弹窗与「已清理 N 项，释放 X」的总量按精确字节和四舍五入成 1.0 MB，把 ~26 KB 零头抹掉了——各部分加出来（≈1.03 MB）与最终显示对不上，读起来就是最终大小算错。**改法**：`shared/format.ts` 的 `formatBytes` 小数位规则从「KB/MB 1 位、GB+ 2 位」改为「KB 1 位、MB/GB/TB 2 位」——总数与分类行在显示粒度内可加可核（实测 18.0 KB + 512 B + 1.01 MB = 1.03 MB）。影响面：全站用 formatBytes 的尺寸显示多一位精度（模型列表/下载卡的 `size_str` 为服务端字符串不受影响）；format 测试重写并以真实案例（18428+512+1057418=1076358 B）钉死口径。**验证**：core 433 / ui 90 全绿；mock 页目测分类行、确认弹窗、结果行三处可加算一致。
+
 - **目录清理卡迁至应用设置「高级」面板，文案对齐参数新落点（用户批注「将目录清理功能移动到应用设置内高级页下，并且迭代对齐当前配置文件新落点」）**：出了什么事——清理卡一直挂在服务页，但「清理应用生成文件」是应用数据管理动作，与运行服务无关；且卡片/按钮/确认标题还叫「清理配置目录」，而扫描范围早已是配置目录（settings/model-params/bench-records）+ 模型目录（下载残留）双根。**改法**：`TrashCleanCard` 组件自 `components/service/` 迁至 `components/settings/` 并由 `AdvancedPanel` 承载（服务页只剩命令预览 + 参数摘要两卡）；三键改名——卡片标题 `msg_clean_trash`、按钮 `msg_detect_trash`、确认标题 `msg_trash_confirm_title` → 「清理应用生成文件 / 检测可清理项」（两树）。**文档**：frontend.md（路由表/ServicePage/ParamsPage/SettingsPage/TrashCleanCard 行、params store 行按每模型持久化补齐、删 PresetsPanel 行、§7.5 三处组件示例去死引用——上轮预设移除时 frontend.md 为漏改面，本轮一并补齐）、core-modules 组件行中英两树同轮改写。**验证**：ui 测试 + `pnpm lint` 全绿；mock 页目测设置-高级有卡、服务页无卡。
 
 - **「全部重置」按钮对齐每模型自动持久化（用户批注「优化全部重置按钮对齐当前迭代的新实现」）**：出了什么事——重置把 mmproj/草稿模型等**自动检测字段**一并清成默认后置之不理，这些字段要等下次重启 `applyModel` 才重新探测，本会话内多模态/推测解码就此静默失效。**改法**：`resetCurrentModel` 转异步，清空后立即按 `applyModel` 同一语义重探回填（探测只在字段为空时填充，不覆盖已存值）；按钮加悬浮说明（新键 `msg_reset_all_hint`：重置范围 = 当前模型、回默认、自动保存、不影响模型选择），确认弹窗文案与 store 测试（重置后 mmproj 立即回填）同步。**验证**：ui 90 测试全绿；mock 页目测悬停提示与确认弹窗。

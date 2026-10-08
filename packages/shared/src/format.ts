@@ -2,7 +2,9 @@
 // 原先分散在 modelscope-client.formatFileSize / DownloadCard.formatBytes /
 // TrashCleanCard.formatSize / ServicePage.formatDuration 的重复实现统一于此）
 
-/** 字节数 → 人类可读字符串（1024 进制；B 整数、KB/MB 1 位小数、GB/TB 2 位；≤0 → '0 B'） */
+/** 字节数 → 人类可读字符串（1024 进制；B 整数、KB 1 位小数、MB/GB/TB 2 位；≤0 → '0 B'）。
+ *  MB 起 2 位小数是硬要求：清理卡/下载列表的「各分类大小之和」要与总数肉眼可加，
+ *  1 位小数会把 ~26 KB 的零头抹成「1.0 MB」，与分类行加出的 1.03 MB 明显不符（2026-10-08）。 */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
   if (bytes < 1024) return `${bytes} B`;
@@ -13,7 +15,7 @@ export function formatBytes(bytes: number): string {
     size /= 1024;
     idx++;
   }
-  const digits = idx === 0 ? 0 : idx <= 2 ? 1 : 2;
+  const digits = idx === 0 ? 0 : idx === 1 ? 1 : 2;
   return `${size.toFixed(digits)} ${units[idx]}`;
 }
 
