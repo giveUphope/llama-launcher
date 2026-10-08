@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// 阶段四：配置目录清理卡（从原 LaunchPage 迁入 ServicePage 控制台旁）。
+// 配置目录清理卡（原 LaunchPage → ServicePage，2026-10-08 再迁设置页「高级」面板：
+// 清理应用生成文件属于应用数据管理，与运行服务无关）。
 // 2026-10-08 两步流（用户批注「按建议全做」）：检测 → 卡内逐类勾选 → 清理所选；
 // 结果就地显示（此前 lastResult 是死代码、一切反馈走 pushOutput 进日志页——档 B 后
 // 日志页是框架输出页，反馈跨页不可见；现按「一类信息一个出口」全部收进卡片，
@@ -128,7 +129,7 @@ async function onCleanSelected() {
       <span>{{ i18n.t('msg_trash_hint') }}</span>
     </div>
 
-    <!-- 两步流面板：检测结果逐类勾选（本卡是服务页末卡，条件渲染不涉及下方内容跳动）。
+    <!-- 两步流面板：检测结果逐类勾选（面板位于设置页高级面板末卡，条件渲染不涉及下方内容跳动）。
          状态行全部走 a-tag 官方预设色（2026-10-08 与引擎提示 / 状态卡同族对齐） -->
     <div v-if="detected" class="trash-panel">
       <a-empty v-if="(detected.items ?? []).length === 0 && !result" :description="i18n.t('msg_trash_empty')" class="trash-empty" />

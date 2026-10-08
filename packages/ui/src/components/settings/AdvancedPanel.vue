@@ -1,8 +1,12 @@
 <script setup lang="ts">
 // 阶段三：设置页「高级」分组 —— HF 镜像、下载并发、危险设置单独分组（设计稿 §14.10）。
+// 2026-10-08：目录清理卡（TrashCleanCard）自服务页迁入——清理应用生成文件属于
+// 应用数据管理，与运行服务无关；扫描范围 = 配置目录（settings/model-params/bench-records）
+// + 模型目录（下载残留），详见 core trash-cleaner。
 import { computed } from 'vue';
 import Card from '@/components/common/Card.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
+import TrashCleanCard from './TrashCleanCard.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useI18nStore } from '@/stores/i18n';
 import { vInnerAriaLabel } from '@/directives/innerAriaLabel';
@@ -56,6 +60,9 @@ const concurrentOptions = DOWNLOAD_CONCURRENCY_OPTIONS;
       </a-form-item>
     </a-form>
   </Card>
+
+  <!-- 目录清理：应用生成文件（配置目录 + 模型目录）的两步流清理，自服务页迁入 -->
+  <TrashCleanCard />
 </template>
 
 <style scoped lang="scss">
