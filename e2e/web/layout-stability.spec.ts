@@ -166,12 +166,14 @@ type ServiceCardStat = {
   hiddenReserves: Array<{ cls: string; h: number }>;
   alertVisible: boolean;
   alertType: string | null;
+  gridDisplay: string; // .status-grid 的 computed display（样式误删会塌回 block 单列竖排）
+  gridTracks: number;  // computed grid-template-columns 解析出的轨道数（四列版式的前提）
 };
 
 async function collectServiceCard(page: Page): Promise<ServiceCardStat> {
   return page.evaluate(() => {
     const card = document.querySelector('.section-card:has(.status-grid)') as HTMLElement | null;
-    if (!card) return { hiddenReserves: [], alertVisible: false, alertType: null };
+    if (!card) return { hiddenReserves: [], alertVisible: false, alertType: null, gridDisplay: '', gridTracks: 0 };
     const hiddenReserves: Array<{ cls: string; h: number }> = [];
     // 隐藏预留 = 布局中占据真实高度（static 定位）却 visibility:hidden 的块；
     // absolute 悬浮层（出错跳转钮）不占布局，不算预留
@@ -188,10 +190,15 @@ async function collectServiceCard(page: Page): Promise<ServiceCardStat> {
     walk(card);
     const alert = card.querySelector('a-alert.sec-hint, .sec-hint') as HTMLElement | null;
     const alertSt = alert ? getComputedStyle(alert) : null;
+    const grid = card.querySelector('.status-grid') as HTMLElement | null;
+    const gridSt = grid ? getComputedStyle(grid) : null;
+    const tracks = gridSt ? gridSt.gridTemplateColumns.trim().split(/\s+/).filter(Boolean).length : 0;
     return {
       hiddenReserves,
       alertVisible: !!alert && !!alertSt && alertSt.visibility === 'visible' && alertSt.display !== 'none',
       alertType: alert ? alert.getAttribute('type') : null,
+      gridDisplay: gridSt?.display ?? '',
+      gridTracks: tracks,
     };
   });
 }
@@ -202,6 +209,8 @@ function judgeServiceCard(s: ServiceCardStat): string[] {
     v.push(`卡内仍有隐藏预留块（直接占用空间）：${JSON.stringify(s.hiddenReserves)}`);
   }
   if (!s.alertVisible) v.push('端点暴露提示未按需展示为可见的官方告警（a-alert）');
+  if (s.gridDisplay !== 'grid') v.push(`字段区网格未生效（computed display = ${s.gridDisplay || '无'}）——网格样式丢失会塌成单列竖排`);
+  if (s.gridTracks !== 4) v.push(`字段区网格解析出 ${s.gridTracks} 列轨道，应为 4 列（模型/地址各跨 2 列的版式前提）`);
   return v;
 }
 

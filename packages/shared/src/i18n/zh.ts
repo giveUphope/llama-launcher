@@ -228,6 +228,8 @@ export const zh = {
   offload_rec_device: '只让引擎用空闲显存最多的 {0}，别把权重摊到装不下的卡上',
   offload_rec_split: '按各卡空闲显存把权重分摊成 {0}，合计容量才装得下',
   act_apply_relief: '应用 {0} = {1}',
+  // 勾选类减负参数（-cmoe）无值可看，按钮只上 flag（「应用 -cmoe = ✓」的等号尾巴是噪音）
+  act_apply_relief_flag: '应用 {0}',
   msg_url_copied: '地址已复制到剪贴板',
   msg_model_copied: '模型名已复制到剪贴板',
   msg_detect_trash: '检测可清理项',

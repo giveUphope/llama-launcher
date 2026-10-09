@@ -230,6 +230,8 @@ export const en: Dict = {
   offload_rec_device: 'Let the engine use only {0} (most free VRAM) instead of spreading weights over a card that cannot hold them',
   offload_rec_split: 'Split the weights across the cards as {0} so their combined capacity holds the model',
   act_apply_relief: 'Apply {0} = {1}',
+  // Toggle-like relief params (-cmoe) have no value to show; the button carries the flag only
+  act_apply_relief_flag: 'Apply {0}',
   msg_url_copied: 'Address copied to clipboard',
   msg_model_copied: 'Model name copied to clipboard',
   msg_detect_trash: 'Scan Cleanables',

@@ -269,16 +269,10 @@ interface ReliefLine {
   value: string | number | boolean;
 }
 
-/**
- * 建议取值在按钮上的写法：勾选类参数（`-cmoe`）没有「值」可看，画一个勾；
- * 其余（-ngl 的层数、-dev 的设备名、-ts 的比例串）按原样显示，与命令预览框一致。
- * 纯符号/原文，不产文案（数据层不产文案这条纪律同样适用于渲染端的派生）。
- */
-function formatReliefValue(v: string | number | boolean): string {
-  if (typeof v === 'boolean') return v ? '✓' : '✗';
-  return String(v);
-}
-// §7.1 铁律②：文案与 flag 在数据到位时算一次并随条目携带，不放在 v-for 的函数调用里
+// §7.1 铁律②：文案与 flag 在数据到位时算一次并随条目携带，不放在 v-for 的函数调用里。
+// 按钮文案分两式：勾选类参数（`-cmoe`）没有「值」可看，「应用 -cmoe = ✓」的等号尾巴是
+// 噪音——开关只上 flag（act_apply_relief_flag）；带值参数（-ngl 的层数、-dev 的设备名、
+// -ts 的比例串）保留「flag = 值」，与命令预览框一致。纯符号/原文，不产文案。
 const reliefLines = computed<ReliefLine[]>(() =>
   hw.relief.map((r) => {
     const flag = PARAMS.find((p) => p.key === r.key)?.flag ?? r.key;
@@ -287,7 +281,9 @@ const reliefLines = computed<ReliefLine[]>(() =>
       flag,
       key: r.key,
       value: r.value,
-      action: i18n.t('act_apply_relief', [flag, formatReliefValue(r.value)]),
+      action: typeof r.value === 'boolean'
+        ? i18n.t('act_apply_relief_flag', [flag])
+        : i18n.t('act_apply_relief', [flag, String(r.value)]),
       reason: i18n.t(r.reasonKey, r.reasonArgs ?? []),
     };
   }),
@@ -460,6 +456,43 @@ function onApplyRelief(key: string, value: string | number | boolean) {
   .oom-act {
     margin-left: 8px;
     flex-shrink: 0;
+  }
+}
+
+/* 字段区四列网格：标签在值上方；模型名/地址各跨 2 列。
+   minmax(0,1fr) 防长值撑破列（省略链：cell min-width 0 → value → 文本 ellipsis）。
+   （0dbdc3d 删隐藏槽时把这块误删、字段区塌成单列竖排——2026-10-09 恢复。） */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin-bottom: 12px;
+
+  > .span-2 {
+    grid-column: span 2;
+    min-width: 0;
+  }
+}
+
+.field-label {
+  margin-bottom: 2px;
+  font-size: var(--fs-sm);
+  color: var(--color-text-2);
+}
+
+.field-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  // 可复制值行（模型名/API 地址）：icon + 文本 + 复制图标并排，
+  // 图标与文本间距归一到 6px（对齐 Arco size-small 按钮 icon 间距；默认 0 贴文本）
+  :deep(.arco-typography) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
   }
 }
 
