@@ -2,13 +2,12 @@
 
 本文件是**工程待办的唯一活归口**：CHANGELOG 条目只记已发生的事实，凡「未修 / 待确认 / 备查 / 待裁定」的事项一律登记在此，关闭后移至文末「已关闭」区并注明关闭版本。UI 风格类待办另有归口：[zh/style/STYLE_TODO.md](zh/style/STYLE_TODO.md)（双语两树）。本文件与 CHANGELOG 同属不译清单，只维护中文单份。
 
-## 待办（待裁定）
+## 已关闭
 
-### T12 b11524 引擎 help 漂移——切换日常引擎前必须 re-pin（2026-10-09 登记）
+### T12 b11524 引擎 help 漂移——切换日常引擎前必须 re-pin（2026-10-09 登记并关闭）
 
-- **来源**：用户向仓库放入新引擎 `llama-b11524-bin-win-vulkan-x64`（build 11524 > 基线 b11408），T06 真机验证轮顺带跑 `verify-help-drift.cjs` 审计发现。
-- **漂移内容**（b11524 help vs 钉定基线 b11408）：① `--port` 默认 **8080 → 9931**——这条有实际咬合：发射规则是「值 == engineDefault 不发射」，现基线里 port 的 engineDefault 仍为 8080，若直接切到 b11524 且会话端口保持缺省，启动器不发 `--port` 而引擎实际监听 9931，界面按 8080 探活必然落空；② 新增 flag `--moe-cache-mib`（参数表无此条，默认值级提示不失败）；③ 应用 flag 79 条在新 help 中**无缺失**。
-- **下一步（用户裁定切引擎时执行 §5.5 re-pin 流程）**：捕获 b11524 help 落 `docs/params/llama-server-help-out.txt` → `definitions.ts` 增 `--moe-cache-mib`、port 相关 engineDefault 跟随 9931 → 重跑 `generate-params-doc` → `ENGINE_BASELINE_BUILD` 与 6 处基线构建号声明改 b11524 → 全门禁。**在那之前**设置页仍钉 b11408（`settings.json` 的 `server_exe`/`llama_dir` 未动），日常使用不受影响；唯 dev 模式「按目录名取最新」的自动探测会命中 b11524，若 `llama_dir` 留空需留意端口现象。
+- **漂移内容**（登记时实测）：`--port` 默认 8080 → 9931（有咬合：不 re-pin 直接切引擎，端口缺省的会话不发 `--port` 而引擎听 9931，界面探活落空）、`--moe-cache-mib` 新增、应用 flag 无缺失。
+- **关闭**：2026-10-09 按用户裁定完成 §5.5 re-pin 全流程（help 基线替换、`moe_cache_mib` 入表、`port` engineDefault 跟随 9931 + note、`ENGINE_BASELINE_BUILD` 与 6 处声明、对照表重生成、13 处计数声明 + 门禁句式外活声明），`verify-params-sync` 六类校验 / 全门禁 / 单测 548+212 / e2e 84 全绿。**切换注意**：re-pin 后 b11408 相对新基线已「更旧」——仍钉 b11408 的环境（本机 `settings.json` 未动）会开始出现「参数基线可能已过期」提示，这是方向性告警的设计行为；在设置页把引擎目录切到 `llama-b11524-bin-win-vulkan-x64` 后即静默。`moe_cache_mib` 未入 `PROPS_FIELD_MAP`（b11524 的 /props 是否回读该字段未验证，未映射即不出声，无假报风险）。
 
 ## 观察项
 

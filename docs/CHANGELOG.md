@@ -6,6 +6,9 @@
 
 ## \[Unreleased]
 
+- **参数基线 re-pin 到 llama.cpp b11524：新增 `--moe-cache-mib`、`--port` 引擎缺省 8080→9931（用户放入新引擎，T12 裁定落地）**：出了什么事——仓库新增 `llama-b11524-bin-win-vulkan-x64`（较上一基线 +116 构建），`verify-help-drift` 审计出两处漂移：新增 1 个 flag `--moe-cache-mib`、`--port` 默认 8080→9931——后者有实际咬合：发射规则是「值==引擎缺省不发射」，基线不跟着走的话，端口保持缺省的会话不发 `--port` 而引擎实际监听 9931，界面按 8080 探活必然落空；应用 80 个 flag 缺失 0。**改法（§5.5 全流程）**：① help 基线替换（Node spawn 落盘，防 PowerShell UTF-16 坑）；② `moe_cache_mib` 入表——basic 组 memory 分区、控件 `int_entry`（0..65536 钳制，help 未给范围）、界面初值 0=引擎缺省；help 默认带解释性逗号，按 b11178 `--cors-methods` 先例判列表形 → 基线表强制 `note`；**有意不挂 `dependsOn`**——help 未写「须先 -cmoe」，凭推断挂上会在取消勾选时清掉已填值（与 `--device` 处置同理）；③ `port` 的 `engineDefault` 跟随 9931，界面初值保持 8080 并记 `note`——端口自此恒显式发射，探活与监听不再依赖引擎缺省；④ `ENGINE_BASELINE_BUILD` 与 6 处声明改 b11524；⑤ 参数对照表重生成（总 261 行、支持 70）；⑥ 参数总数 69 → 70（basic 26 → 27），13 处计数声明同步，另按子代理审查把门禁句式外的活声明一并改齐（zh/frontend 路由表、两树 SettingsPage 行与 AGENTS 的 env 覆写通道数按 b11524 实测改「80 个应用 flag 77 个带 env 通道」、AGENTS 未映射参数 ~54 → ~55）。**测试**：默认发射集合快照加 `--port`（守卫按设计把「新增参数/改默认值」显式暴露出来）；两处 port 样本 8080 → 9931 保住「等于缺省 ⇒ 跳过」的检验力；基线推荐值用例补 `--port 8080` 值断言；props-check 夹具注释如实标注 b11408 已非当前基线（真机串按纪律原样保留，断言全部常量派生）。**验证**：`verify-params-sync` 六类校验全绿（70 条基线键集相等、6 处构建号一致、80 flag 对照无出入）；`verify-help-drift` 对新基线干净（80 flag 缺失 0）；`pnpm lint` 七道门禁全绿；单测 548 + 212 全绿；e2e 84 条全绿——含标签几何守卫（en 标签初版 `MoE Cache VRAM (MiB)` 过长压控件被拦，缩短为 `MoE Cache (MiB)`）。
+
+
 ## \[0.0.55] - 2026-10-09
 
 > 补发说明：v0.0.55 与 v0.0.56 曾因 CI verify 红牌未发版（release job 两次被连坐跳过，

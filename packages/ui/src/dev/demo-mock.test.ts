@@ -1,7 +1,7 @@
 // 浏览器 mock 的参数预览与真实启动命令同源校验。
 // 为什么单独有这份测试：mock 环境没有 node 文件系统，拿不到 core 的 buildCommand，
 // 于是 demo-mock 曾自带一份「简化版」发射逻辑——用界面初值当发射基准，结果服务页预览
-// 少发启动器的 4 个基线推荐值（`--load-mode none` / `--fit off` / `-ctk` / `-ctv`），
+// 少发启动器的 5 个基线推荐值（`--load-mode none` / `--fit off` / `-ctk` / `-ctv`），
 // 而真实启动是另一套规则。发射逻辑现已收敛到 shared/params/command.ts，这里钉住
 // 「预览里的值真会进命令行」这一用户可见结论，副本若再长出来即失败。
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

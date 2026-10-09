@@ -125,6 +125,10 @@
 -ncmoe, --n-cpu-moe N                   keep the Mixture of Experts (MoE) weights of the first N layers in the
                                         CPU
                                         (env: LLAMA_ARG_N_CPU_MOE)
+--moe-cache-mib N                       GPU cache size in MiB for the MoE experts kept in the CPU. with
+                                        multiple GPUs, it is split among them like the layers (--tensor-split)
+                                        (default: 0, disabled)
+                                        (env: LLAMA_ARG_MOE_CACHE_MIB)
 -ncffn, --n-cpu-ffn N                   keep the dense FFN weights of the first N layers in the CPU
                                         (dense models; for MoE expert weights use --n-cpu-moe)
                                         (env: LLAMA_ARG_N_CPU_FFN)
@@ -507,7 +511,7 @@
                                         overlapping addresses result in undefined behavior (default:
                                         127.0.0.1)
                                         (env: LLAMA_ARG_HOST)
---port PORT                             port to listen (default: 8080)
+--port PORT                             port to listen (default: 9931)
                                         (env: LLAMA_ARG_PORT)
 --reuse-port                            allow multiple sockets to bind to the same port (default: disabled)
                                         (env: LLAMA_ARG_REUSE_PORT)

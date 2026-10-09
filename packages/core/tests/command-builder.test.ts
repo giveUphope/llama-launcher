@@ -32,10 +32,11 @@ describe('buildCommand', () => {
   });
 
   it('skips default values', () => {
+    // port 9931 是 b11524 起的引擎缺省（基线表 engineDefault）；8080 是启动器推荐值，会发射
     const cmd = buildCommand({
       exePath: EXE_PATH,
       modelPath: '',
-      values: { ctx_size: 0, port: 8080 },
+      values: { ctx_size: 0, port: 9931 },
     });
     expect(cmd).toEqual([EXE_PATH]);
   });
@@ -167,9 +168,10 @@ describe('buildCommand - default-skip semantics', () => {
     const cmd = buildCommand({
       exePath: EXE_PATH,
       modelPath: '',
-      values: { ctx_size: 4096, port: 8080 },
+      values: { ctx_size: 4096, port: 9931 },
     });
-    // port 8080=默认不发射，ctx_size 4096 非默认发射
+    // port 9931=引擎缺省（b11524 起）不发射，ctx_size 4096 非默认发射；
+    // 8080 是启动器推荐初值，相对引擎缺省非默认 ⇒ 会发射
     expect(cmd).toEqual([EXE_PATH, '-c', '4096']);
   });
 

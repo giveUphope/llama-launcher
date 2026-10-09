@@ -82,6 +82,10 @@ export const PARAMS: ParamDef[] = [
   // dependsOn 会在依赖翻转时把用户填的设备名/比例清空重置，那是数据丢失而非提示，故不采用（说明写进 PARAM_HELP）。
   { key: 'device', group: 'basic', type: 'text', flag: '-dev', default: '', subcategory: 'memory' },
   { key: 'cpu_moe', group: 'basic', type: 'checkbox', flag: '-cmoe', default: false, subcategory: 'memory' },
+  // b11524 新增：为留在 CPU 的 MoE 专家在显存里保留一块缓存（多卡按 --tensor-split 同比例分摊）。
+  // 与 -cmoe 语义相邻故排同区，但**有意不挂 dependsOn**——help 未写「须先 -cmoe 才生效」，
+  // 凭推断挂上会在用户取消勾选时清掉已填的缓存大小（数据丢失而非提示，与 --device 的处置同理）。
+  { key: 'moe_cache_mib', group: 'basic', type: 'int_entry', flag: '--moe-cache-mib', default: 0, min: 0, max: 65536, subcategory: 'memory' },
   { key: 'override_tensor', group: 'basic', type: 'text', flag: '-ot', default: '', subcategory: 'memory' },
   { key: 'tensor_split', group: 'basic', type: 'text', flag: '-ts', default: '', subcategory: 'memory' },
 

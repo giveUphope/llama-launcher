@@ -67,7 +67,7 @@ const sentValues: PresetValues = {
  * （唯一依赖基线相等性的断言在 baselineDrift 用例里，那条已从常量派生）。
  * ------------------------------------------------------------------ */
 
-/** A. b11408（= 当前基线引擎）+ Qwen3.8-27B-UD-Q2_K_XL，命令行只多发了 `-c 4096`，未发 --props */
+/** A. b11408（上一代基线引擎，2026-10-09 re-pin 到 b11524 后已比基线旧；字段/断言不含漂移语义，夹具按真机原样保留）+ Qwen3.8-27B-UD-Q2_K_XL，命令行只多发了 `-c 4096`，未发 --props */
 const B11408_NO_PROPS = {
   total_slots: 4,
   model_alias: 'D:/LLMmodels/unsloth/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q2_K_XL.gguf',

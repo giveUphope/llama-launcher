@@ -7,8 +7,8 @@
 ### 5.1 参数定义 (shared/params/definitions.ts)
 
 - **`PARAM_GROUPS`**：3 组 — `basic`（基础）/ `advanced`（高级）/ `server`（服务）。
-- **`PARAMS`**：共 69 个参数，分布如下：
-  - basic：26 个（19 核心 + 7 采样）
+- **`PARAMS`**：共 70 个参数，分布如下：
+  - basic：27 个（20 核心 + 7 采样）
   - advanced：29 个（5 思考控制 + 10 推测解码（其中 **4 个** `dependsOn.values` 依赖外部草稿类型 draft-simple/eagle3/dflash/dspark，另 2 个 `spec_draft_n_max`/`spec_draft_n_min` 用 `notValues: ['', 'none']` 即任何非空类型都生效）+ 6 多模态 + 6 KV 扩展 + 2 模板）
   - server：14 个（2 服务标识与鉴权 + 4 端点 + 4 CORS + 4 运行行为）
 - 每个参数定义包含：`key, group, type, flag, default, subcategory, dependsOn, ggufField, invert_flag` 等字段。
@@ -100,7 +100,9 @@
 3. **env 通道重新实测**：help 里 `(env: LLAMA_ARG_*)` 仍是 145 条（与 b11178 相同），但按当前参数表重算是 **74 个应用 flag 里 67 个**带该通道。上一条写的「60 个参数里 57 个」是当时那张 60 参数表的数字，按历史条目原样保留，不顺手改成今天的值。
 4. **未验证项（诚实记录）**：`/props` 的字段形状本轮**没有**用 b11243 真机重抓——这台机器 `models_dir` 指向的目录不存在、全盘无 GGUF，起不了 server。help 逐字节相同使 CLI 面的判定可信，但 `/props` 属引擎内部实现，65 个提交里若有人新增或改名字段，只有真机回读能发现。补法：在有模型的环境跑 `node scripts/verify-server-start.mjs --model=…`，或直接 GET `/props` 与上述夹具对拍。（这一格已在 2026-10-06 的 b11408 真机回读中补上，见下一节「当前实测」的第 3 条；此处按历史陈述原样保留。）
 
-**当前实测（2026-10-06，b11408 基线，version 0.5.0-dev / commit 9f12cd4a4）**：本机 `llama-b11408-bin-win-vulkan-x64`（构建号较基线 +165，未逐提交核对上游改动）。help 面只多一个 flag——`--spec-draft-sampling`（`{greedy,probabilistic}`，默认 `greedy`，带 `LLAMA_ARG_SPEC_DRAFT_SAMPLING` 环境通道，无短名），`verify-help-drift` 报 flag **416 → 417、移除 0、应用 74 个 flag 缺失 0**，两份 help 的整篇 diff 恰好只有那 5 行新增、**0 行改写**。三条判断需要记录：
+**当前实测（2026-10-09，b11524 基线，version 0.6.0-dev / commit 86a283532）**：用户向仓库放入 `llama-b11524-bin-win-vulkan-x64`（构建号较上一基线 +116，未逐提交核对上游改动）。`verify-help-drift` 对拍上一基线 b11408：flag **417 → 418、移除 0、应用 79 个 flag 缺失 0**。变化两条：① 新增 **1 个** `--moe-cache-mib N`（为留在 CPU 的 MoE 专家在显存里保留一块缓存，多卡按 `--tensor-split` 同比例分摊；`(default: 0, disabled)`，带 `LLAMA_ARG_MOE_CACHE_MIB` 通道，无短名）；② 默认值变化 **1 处**——`--port` 默认 **8080 → 9931**（引擎侧换了默认端口）。**落地**：`moe_cache_mib` 收进参数表（`basic` 组 `memory` 分区、控件 `int_entry`、界面初值 0 = 引擎缺省；help 原文带解释性逗号，按 b11178 `--cors-methods` 先例判为列表形 → 基线表强制 `note`；有意不挂 `dependsOn`——help 未写「须先 -cmoe」，凭推断挂上会在取消勾选时清掉已填值，与 `--device` 处置同理）；`port` 的 `engineDefault` 跟随 9931，界面初值保持 8080 并记 `note`——自此会话端口恒显式发射，探活与监听不再依赖引擎缺省。参数总数 69 → 70（basic 26 → 27），13 处计数声明与基线表本轮一并改齐。`/props` 真机回读同轮完成：真起 b11524 服务回读 `build_info="b11524-86a283532"`、`baselineDrift = null`，阴性对照 b10754 如实告警——**方向性漂移的「引擎更新⇒静默」一支补上真机证据**（此前只有单测），两支自此都有实测（记录归 [TODO.md](../TODO.md) T06）。
+
+**b11408 轮实测（2026-10-06，b11408 基线，version 0.5.0-dev / commit 9f12cd4a4）**：本机 `llama-b11408-bin-win-vulkan-x64`（构建号较基线 +165，未逐提交核对上游改动）。help 面只多一个 flag——`--spec-draft-sampling`（`{greedy,probabilistic}`，默认 `greedy`，带 `LLAMA_ARG_SPEC_DRAFT_SAMPLING` 环境通道，无短名），`verify-help-drift` 报 flag **416 → 417、移除 0、应用 74 个 flag 缺失 0**，两份 help 的整篇 diff 恰好只有那 5 行新增、**0 行改写**。三条判断需要记录：
 
 1. **参数表本轮不动**：新 flag 未收录，`definitions.ts` 与 `engine-baseline.ts` 的取值零改动，因此对照表只多出一行「⬜ 未支持」，参数总数仍是 64。收录它是另一笔账（要动 13 处计数声明并给基线表加键），与重钉分开决策。help 里 `(env: LLAMA_ARG_*)` 由 145 条变 146 条，差集正是这一条；「74 个应用 flag 里 67 个带该通道」不变（新 flag 不在应用表内）。
 2. **漂移提示改成方向性（本轮的行为变更）**：`driftOf` 此前是「构建号不等就报」。基线一旦钉到最新版，这条就会打在每一个抢先升级引擎的用户身上，而真正需要提醒的是**引擎比基线旧**的人——那批不可回读参数的缺省判定可能对不上。现在只在 `engine < baseline` 时出声，中英文案同步改为「引擎构建比参数基线旧」。**代价必须写明**：引擎比基线新的用户从此**不再收到任何提示**，「上游前进了而我们还没重钉」这件事退回靠 re-pin 纪律与本节流程保证，运行期通道不再兜底。

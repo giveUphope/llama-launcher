@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../../zh/params/LLAMA_SERVER_PARAMS.md)
 > Index: [README.en.md](../../../README.en.md) · Related: [params-system.md](../params-system.md)
-> Source: bundled binary ".\llama-b11408-bin-win-vulkan-x64\llama-server.exe --help"
+> Source: bundled binary ".\llama-b11524-bin-win-vulkan-x64\llama-server.exe --help"
 > Purpose: cross-check the parameters this launcher already supports and spot gaps
 
 ## Parameters supported today
@@ -62,6 +62,7 @@ Parameter definitions live in [packages/shared/src/params/definitions.ts](../../
 | `-ot`, `--override-tensor` | <tensor name pattern>=<buffer type>,... override tensor buffer type (env: LLAMA_ARG_OVERRIDE_TENSOR) | ✅ supported |
 | `-cmoe`, `--cpu-moe` | keep all Mixture of Experts (MoE) weights in the CPU (env: LLAMA_ARG_CPU_MOE) | ✅ supported |
 | `-ncmoe`, `--n-cpu-moe` | keep the Mixture of Experts (MoE) weights of the first N layers in the CPU (env: LLAMA_ARG_N_CPU_MOE) | ✅ supported |
+| `--moe-cache-mib` | GPU cache size in MiB for the MoE experts kept in the CPU. with multiple GPUs, it is split among them like the layers (--tensor-split) (default: 0, disabled) (env: LLAMA_ARG_MOE_CACHE_MIB) | ✅ supported |
 | `-ncffn`, `--n-cpu-ffn` | keep the dense FFN weights of the first N layers in the CPU (dense models; for MoE expert weights use --n-cpu-moe) (env: LLAMA_ARG_N_CPU_FFN) | ✅ supported |
 | `-ngl`, `--gpu-layers`, `--n-gpu-layers` | max. number of layers to store in VRAM, either an exact number, 'auto', or 'all' (default: auto) (env: LLAMA_ARG_N_GPU_LAYERS) | ✅ supported |
 | `-sm`, `--split-mode` | {none,layer,row,tensor} how to split the model across multiple GPUs, one of: - none: use one GPU only - layer (default): split layers and KV across GPUs (pipelined) - row: split weight across GPUs by rows (parallelized) - tensor: split weights and KV across GPUs (parallelized, EXPERIMENTAL) (env: LLAMA_ARG_SPLIT_MODE) | ⬜ not supported |
@@ -224,7 +225,7 @@ Parameter definitions live in [packages/shared/src/params/definitions.ts](../../
 | `--tags` | set model tags, comma-separated (informational, not used for routing) (env: LLAMA_ARG_TAGS) | ⬜ not supported |
 | `--embd-normalize` | normalisation for embeddings (default: 2) (-1=none, 0=max absolute int16, 1=taxicab, 2=euclidean, >2=p-norm) | ⬜ not supported |
 | `--host` | IP addresses to listen on, comma-separated, or UNIX socket paths ending in .sock; with multiple TCP addresses, :: binds IPv6 only; overlapping addresses result in undefined behavior (default: 127.0.0.1) (env: LLAMA_ARG_HOST) | ✅ supported |
-| `--port` | port to listen (default: 8080) (env: LLAMA_ARG_PORT) | ✅ supported |
+| `--port` | port to listen (default: 9931) (env: LLAMA_ARG_PORT) | ✅ supported |
 | `--reuse-port` | allow multiple sockets to bind to the same port (default: disabled) (env: LLAMA_ARG_REUSE_PORT) | ⬜ not supported |
 | `--path` | path to serve static files from (default: ) (env: LLAMA_ARG_STATIC_PATH) | ⬜ not supported |
 | `--cors-origins` | comma-separated list of allowed origins for CORS (default: *) if set to special value 'localhost', reflect the Origin header only if it is localhost (env: LLAMA_ARG_CORS_ORIGINS) | ✅ supported |
@@ -291,6 +292,6 @@ Parameter definitions live in [packages/shared/src/params/definitions.ts](../../
 
 ## Summary
 
-- Flags in official help: 260
-- Supported: 69
+- Flags in official help: 261
+- Supported: 70
 - Not supported: 191

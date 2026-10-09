@@ -13,7 +13,7 @@ import type { ParamDef } from '../types/index.js';
  * 发射规则因此改为：**值 ∈ `sentinel` ⇒ 不发射；值 == `engineDefault` ⇒ 不发射；否则发射。**
  * 一致性由 `scripts/verify-params-sync.cjs` 对拍 help 基线守住。
  *
- * 值来源：逐条读 `docs/params/llama-server-help-out.txt`（当前固定 b11408）；
+ * 值来源：逐条读 `docs/params/llama-server-help-out.txt`（当前固定 b11524）；
  * 换引擎版本后须按 `docs/zh/params-system.md` §5.5 重新对拍。
  */
 export interface EngineBaseline {
@@ -35,7 +35,10 @@ export interface EngineBaseline {
 export const PARAM_ENGINE_BASELINE: Record<string, EngineBaseline> = {
   // ---------------- 网络 / 上下文 ----------------
   host: { engineDefault: '127.0.0.1' },
-  port: { engineDefault: 8080 },
+  port: {
+    engineDefault: 9931,
+    note: '启动器基线推荐 8080：引擎 b11524 起默认改 9931，按界面值显式发射 --port，探活与监听不再依赖引擎缺省',
+  },
   ctx_size: { engineDefault: 0 }, // help: 0 = loaded from model
   batch_size: { engineDefault: 2048 },
   ubatch_size: { engineDefault: 512 },
@@ -59,6 +62,10 @@ export const PARAM_ENGINE_BASELINE: Record<string, EngineBaseline> = {
   // 「内存外溢」四件套：help 条目均未标注 (default: X)，引擎未收到 flag 时自行决定，故 UI 空串/未勾选 = 不下发。
   device: { engineDefault: '' }, // help 未标 default；none 是「完全不卸载」的字面取值，不是哨兵，填了就下发
   cpu_moe: { engineDefault: false }, // 开关型，help 未标 default；未勾选不发射（勾选发 -cmoe，无 invert_flag）
+  moe_cache_mib: {
+    engineDefault: 0,
+    note: 'help 标注 "(default: 0, disabled)"：0 = 不保留缓存且不发射；正值为留在 CPU 的 MoE 专家保留 GPU 侧缓存（多卡按 --tensor-split 同比例分摊）',
+  },
   override_tensor: { engineDefault: '' }, // help 未标 default；空串 = 不下发
   tensor_split: { engineDefault: '' }, // help 未标 default；空串 = 不下发（单卡无需填）
   // ---------------- KV 缓存 ----------------
@@ -205,7 +212,7 @@ export function isUnsetValue(v: string | number | boolean): boolean {
  * 6 个声明处（本文件头部注释 / 生成器中英两行 / README 中英 / params-system 中英「当前实测」段）
  * 是否与本常量一致。
  */
-export const ENGINE_BASELINE_BUILD = 'b11408';
+export const ENGINE_BASELINE_BUILD = 'b11524';
 
 /**
  * llama.cpp 的引擎侧环境变量前缀（help 条目尾的 `(env: LLAMA_ARG_*)`）。

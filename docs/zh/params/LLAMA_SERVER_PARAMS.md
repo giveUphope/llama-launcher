@@ -2,7 +2,7 @@
 
 > 语言：中文 · [English](../../en/params/LLAMA_SERVER_PARAMS.md)
 > 索引：[README.md](../../../README.md) · 相关：[params-system.md](../params-system.md)
-> 来源：捆绑二进制 ".\llama-b11408-bin-win-vulkan-x64\llama-server.exe --help"
+> 来源：捆绑二进制 ".\llama-b11524-bin-win-vulkan-x64\llama-server.exe --help"
 > 用途：对照当前启动器已支持参数，识别可新增/调整项
 
 ## 当前启动器已支持参数
@@ -62,6 +62,7 @@
 | `-ot`, `--override-tensor` | <tensor name pattern>=<buffer type>,... override tensor buffer type (env: LLAMA_ARG_OVERRIDE_TENSOR) | ✅ 已支持 |
 | `-cmoe`, `--cpu-moe` | keep all Mixture of Experts (MoE) weights in the CPU (env: LLAMA_ARG_CPU_MOE) | ✅ 已支持 |
 | `-ncmoe`, `--n-cpu-moe` | keep the Mixture of Experts (MoE) weights of the first N layers in the CPU (env: LLAMA_ARG_N_CPU_MOE) | ✅ 已支持 |
+| `--moe-cache-mib` | GPU cache size in MiB for the MoE experts kept in the CPU. with multiple GPUs, it is split among them like the layers (--tensor-split) (default: 0, disabled) (env: LLAMA_ARG_MOE_CACHE_MIB) | ✅ 已支持 |
 | `-ncffn`, `--n-cpu-ffn` | keep the dense FFN weights of the first N layers in the CPU (dense models; for MoE expert weights use --n-cpu-moe) (env: LLAMA_ARG_N_CPU_FFN) | ✅ 已支持 |
 | `-ngl`, `--gpu-layers`, `--n-gpu-layers` | max. number of layers to store in VRAM, either an exact number, 'auto', or 'all' (default: auto) (env: LLAMA_ARG_N_GPU_LAYERS) | ✅ 已支持 |
 | `-sm`, `--split-mode` | {none,layer,row,tensor} how to split the model across multiple GPUs, one of: - none: use one GPU only - layer (default): split layers and KV across GPUs (pipelined) - row: split weight across GPUs by rows (parallelized) - tensor: split weights and KV across GPUs (parallelized, EXPERIMENTAL) (env: LLAMA_ARG_SPLIT_MODE) | ⬜ 未支持 |
@@ -224,7 +225,7 @@
 | `--tags` | set model tags, comma-separated (informational, not used for routing) (env: LLAMA_ARG_TAGS) | ⬜ 未支持 |
 | `--embd-normalize` | normalisation for embeddings (default: 2) (-1=none, 0=max absolute int16, 1=taxicab, 2=euclidean, >2=p-norm) | ⬜ 未支持 |
 | `--host` | IP addresses to listen on, comma-separated, or UNIX socket paths ending in .sock; with multiple TCP addresses, :: binds IPv6 only; overlapping addresses result in undefined behavior (default: 127.0.0.1) (env: LLAMA_ARG_HOST) | ✅ 已支持 |
-| `--port` | port to listen (default: 8080) (env: LLAMA_ARG_PORT) | ✅ 已支持 |
+| `--port` | port to listen (default: 9931) (env: LLAMA_ARG_PORT) | ✅ 已支持 |
 | `--reuse-port` | allow multiple sockets to bind to the same port (default: disabled) (env: LLAMA_ARG_REUSE_PORT) | ⬜ 未支持 |
 | `--path` | path to serve static files from (default: ) (env: LLAMA_ARG_STATIC_PATH) | ⬜ 未支持 |
 | `--cors-origins` | comma-separated list of allowed origins for CORS (default: *) if set to special value 'localhost', reflect the Origin header only if it is localhost (env: LLAMA_ARG_CORS_ORIGINS) | ✅ 已支持 |
@@ -291,6 +292,6 @@
 
 ## 汇总
 
-- 官方参数总数：260
-- 已支持：69
+- 官方参数总数：261
+- 已支持：70
 - 未支持：191

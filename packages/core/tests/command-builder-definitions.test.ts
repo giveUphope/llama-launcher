@@ -189,9 +189,10 @@ describe('按参数类型发射行为（表驱动）', () => {
     }
   });
 
-  // 2026-09-25 的坑：这 4 项是 definitions.ts 文件头记录的「基线推荐值」，
+  // 2026-09-25 的坑：这批是 definitions.ts 文件头记录的「基线推荐值」，
   // 旧规则拿界面初值当发射基准，于是它们从未进过命令行——引擎一直按自己的缺省跑。
-  it('基线推荐值必须真的发射（-ctk/-ctv q8_0、--load-mode none、--fit off）', () => {
+  // --port 8080 同型：b11524 起引擎缺省改 9931，界面推荐的 8080 必须显式发射（re-pin 后加入）。
+  it('基线推荐值必须真的发射（-ctk/-ctv q8_0、--load-mode none、--fit off、--port 8080）', () => {
     const cmd = buildCommand({ exePath: EXE_PATH, modelPath: '', values: { ...PARAMS_DEFAULTS } });
     expect(cmd).toContain('--load-mode');
     expect(cmd[cmd.indexOf('--load-mode') + 1]).toBe('none');
@@ -201,6 +202,8 @@ describe('按参数类型发射行为（表驱动）', () => {
     expect(cmd[cmd.indexOf('-ctk') + 1]).toBe('q8_0');
     expect(cmd).toContain('-ctv');
     expect(cmd[cmd.indexOf('-ctv') + 1]).toBe('q8_0');
+    expect(cmd).toContain('--port');
+    expect(cmd[cmd.indexOf('--port') + 1]).toBe('8080');
   });
 
   it('默认状态下的发射集合固定（新增参数/改默认值都会在这里显式暴露）', () => {
@@ -209,10 +212,10 @@ describe('按参数类型发射行为（表驱动）', () => {
     const cmd = buildCommand({ exePath: EXE_PATH, modelPath: '', values: PARAMS_DEFAULTS });
     const emitted = cmd.slice(1).filter((t) => String(t).startsWith('-')).sort();
     // 10 项来自 checkbox（恒定发射，含收录 CORS 后默认即为 enabled 的 --cors-credentials），
-    // 4 项是启动器覆盖引擎缺省的基线推荐
+    // 5 项是启动器覆盖引擎缺省的基线推荐（--port 8080：b11524 起引擎缺省改 9931）
     expect(emitted).toEqual([
       '--cache-prompt', '--cors-credentials', '--fit', '--jinja', '--load-mode',
-      '--mmproj-offload', '--no-context-shift', '--no-kv-unified', '--slots', '--ui',
+      '--mmproj-offload', '--no-context-shift', '--no-kv-unified', '--port', '--slots', '--ui',
       '-cb', '-ctk', '-ctv', '-kvo',
     ]);
   });
