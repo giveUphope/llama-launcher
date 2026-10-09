@@ -125,7 +125,6 @@ Everything lives in `docs/en/` (Chinese originals in [`docs/zh/`](docs/zh/archit
 | Test layout and E2E                                         | [testing.md](docs/en/testing.md)                                            |
 | Day-to-day commands, commit rules, **doc writing style**     | [workflow.md](docs/en/workflow.md)                                          |
 | Key design decisions                                        | [design-decisions.md](docs/en/design-decisions.md)                          |
-| UI style audit record & fixed index                           | [style/STYLE\_TODO.md](docs/en/style/STYLE_TODO.md)                         |
 | Release history                                             | [CHANGELOG.md](docs/CHANGELOG.md)                                        |
 | Ended plans / experiments / refactor handoffs (archived)    | [archive/INDEX.md](docs/archive/INDEX.md)                                |
 

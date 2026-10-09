@@ -2,7 +2,7 @@
 
 > 语言：中文 · [English](../en/frontend.md)
 > 范围：前端架构：路由、Pinia stores、页面、通用组件；§7.5 为 UI 风格规范（唯一权威来源）。
-> 索引：[README.md](../../README.md) · 相关：[ipc-channels.md](ipc-channels.md) · [params-system.md](params-system.md) · [style/STYLE_TODO.md](style/STYLE_TODO.md)
+> 索引：[README.md](../../README.md) · 相关：[ipc-channels.md](ipc-channels.md) · [params-system.md](params-system.md) · [风格审计记录（归档）](../archive/style-todo-resolved.md)
 
 ### 7.1 路由与功能注册表 (router/index.ts + features/)
 
@@ -246,3 +246,38 @@
 - [ ] **库自带文案跟随界面语言**：Arco 有独立的一套 i18n（默认 `zh-CN`），切语言时必须同步调 `useLocale()` 并把 `html[lang]` 一起改——唯一落点是 `stores/i18n.ts`；判据见 `e2e/web/arco-locale.spec.ts`（英文态七页零中文残留 + 中文态正对照）
 - [ ] **图标语义对账**：一个 Arco 字形只挂一个语义名（历史上 `folder` 与 `folder_open` 都是纯文件夹，结果「上一级」和「打开目录」长得一样），字形必须与动作语义一致；名字写错或引用已删的名字由 `IconName` 类型在 `vue-tsc` 阶段拦下，一名一图与零读者由门禁第 21 条拦下，不靠人记
 - [ ] 深色/浅色主题都检查一遍（`html[data-theme]` + `body[arco-theme]`；控制台/命令预览恒定深色面）
+
+#### 7.5.9 风格审计的复现方式（24 条已固化进 `scripts/style-audit.cjs`）
+
+> 审计口径与规范同源：本节是「怎么复现风格检查」的唯一活落点（原先写在 STYLE_TODO 清单头部，2026-10-10 该清单并入归档后搬到这里）。正文里出现的历史编号 `#NN` 一律指 [style-todo-resolved.md](../archive/style-todo-resolved.md) 的条目（含 2026-10-10 并进来的 #54–#121 明细与索引表）。
+
+```bash
+node scripts/style-audit.cjs      # 或 pnpm style:audit
+```
+
+24 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
+
+1. 组件内裸颜色（token 禁令；`#fff`/`#1a1a1a` 仅限彩色按钮文字）
+2. 组件内裸字号（应走 `--fs-*`）
+3. 圆角走 token（`2px` 轨道 / `50%` 圆形 / `0` 例外）
+4. 间距刻度（gap ∈ 4/5/6/8/10/12/14，`0` 允许；**不设 1/2/3px 微间距档，一律归一到 4px**，见 #16）
+5. 按钮类无 scoped 重复（仅全局收敛的 `action-btn`/`mini-btn`/`tab-btn`；`modal-btn`/`dl-btn`/`fb-btn`/`win-btn` 等组件专属类允许 scoped，见 §7.5.5；`ctrl-btn` 已随「按钮文本内联」移除，见 #27）
+6. 阴影/遮罩走 `--shadow-*` / `--overlay`
+7. backdrop-filter 使用点清单（输出清单，人工复核是否仅限 §7.5.6 允许的玻璃层 / 弹窗背板；下拉/菜单已实底，见 #41）
+8. 动画只动 transform/opacity（布局属性过渡必须带 `var(--dur-*)`）
+9. 行高语义化（1 / 1.3 / 1.4 / 1.5 / 1.55 / 1.6；`normal` / `var()` 放行）
+10. 字重只取 400 / 600 / 700（`normal`=400 / `bold`=700 等价放行）
+11. 非 scoped 样式块（`<style>` 无 `scoped`）的顶层选择器必须含至少一个组件私有类——禁止只由 Arco 全局类名构成，防 popup 传送 body 后全局命中他处（§7.5.6）
+12. 不覆写 Arco 内部态类（`.arco-*-checked` / `-active` / `-selected` / `-disabled` / `-current` / `-dragging` / `-expanded`）——随 Arco 版本升级易碎，选中态改用 Arco 自带态或 `color` prop
+13. `a-progress` 的 `:percent` 必须传 **0–1 比值**——Arco `line.js` 按 `width: percent * 100 %` 渲染，传百分数（含 `* 100` 或 `Pct` 命名）会把进度条钉满，实测即「下载进度条与实际进度不一致」（#71）
+14. 动效声明走 `var(--dur-*)`——字面时长与 `infinite` 禁令（`--dur-ambient` 那档持续提示除外，见 §7.5.7 / #90）
+15. 层级走 `var(--z-*)`——`0` / `1` / `auto` 与元素内相对层放行（#90）
+16. 键盘可达与命名三条：**16a** 点击只挂 Arco 组件（非原生可点元素禁令）、**16b** 只有 `#icon` 的 `a-button` 必须有 `aria-label`（tooltip 不算名称）、**16c** `a-modal` 必须自带 `role="dialog"` + `aria-modal`（Arco 2.58 三样都不给，见 #84–#86）
+17. token 本体层（`styles/`）的 Arco 内部态类覆写逐条登记：`ARCO_STATE_ALLOW` 按 marker + **expect 行数**核对，登记数与实际命中数不符即红（#91）
+18. `a-button` 的配色不覆写：选择器命中「挂在 `<a-button>` 上的 class」或 `.arco-btn*` 且声明 `color` / `background` / `border` / `box-shadow` 即报，例外必须进 `BTN_COLOR_ALLOW` 带 `why` 与 `expect` 条数登记（成因＝scoped 规则 `[data-v-*]` 特异度冻结 hover 文字色，见 §7.5.1 / #93）
+19. 浅色（顶层选择器恰为 `body` 的块）不得给 Arco 状态色阶赋字面值——`--danger-6: var(--red-6)` 这类间接层是组件的取色点，换档会连带重绘 alert / 表单校验 / tag / progress / switch 等一切读它的组件，而深色下又因 `body[arco-theme='dark']` 特异度更高而不生效（见 §7.5.1 / #95）
+20. 给 Arco 内部节点写配色必须逐条登记：选择器含 `.arco-*` 或命中挂在 Arco 组件类上的 class、且声明 `color` / `background` / `border` / `box-shadow` 即报（按钮侧归第 18 条、token 本体层归第 17 条），例外进 `ARCO_COLOR_ALLOW` 带 `why` 与 `expect` 条数（13 条登记共 18 处，见 #96；两个数都取 `ARCO_COLOR_ALLOW` 实况——条目数与各行 `expect` 之和，改表即改数）
+21. 图标语义表必须一对一且有读者（`components/common/icon-map.ts`）：一个 Arco 字形挂多个语义名即报（历史缺陷：`folder` 与 `folder_open` 同为纯文件夹，「上一级」与「打开目录」长得一样），语义名在 `ui/src` 里没有读者也即报（连带 import 一起删）；名字写错另有 `IconName` 类型在 `vue-tsc` 阶段拦（见 #97）
+22. 控制台 token 家族（`--log-kind-*` / `--console-*`）有定义且有读者：`var(--x)` 无定义时浏览器**静默回退继承色**——实案是 1e73a17 把 `theme.scss` 的四个级别色定义当属性覆写误删，控制台着色整体失效而既有各条「颜色写对没有」的检查全绿；本条对家族双向核对（消费必有定义、定义必有读者）并自证解析规模（解析不到 6 条定义即报尺子变形）
+23. `a-button` 无 `#suffix` 死槽（只有 icon/default，尾图标进默认槽，#110）
+24. 原生 `title` 禁令（浮层提示一律 `ToolTip`，#118）：模板内 `title` / `:title` 的宿主只允许 `a-*` 组件（官方 title prop）与 `iframe`，其余元素即报并指认标签名；自证解析规模（合法命中 < 6 即报尺子变形）

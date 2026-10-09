@@ -2,7 +2,7 @@
 
 > Language: English · [中文](../zh/frontend.md)
 > Scope: frontend architecture: routing, Pinia stores, pages, shared components; §7.5 is the UI style guide (the single authoritative source).
-> Index: [README.en.md](../../README.en.md) · Related: [ipc-channels.md](ipc-channels.md) · [params-system.md](params-system.md) · [style/STYLE_TODO.md](style/STYLE_TODO.md)
+> Index: [README.en.md](../../README.en.md) · Related: [ipc-channels.md](ipc-channels.md) · [params-system.md](params-system.md) · [style audit record (archive)](../archive/style-todo-resolved.md)
 
 ### 7.1 Routing and feature registry (router/index.ts + features/)
 
@@ -247,3 +247,38 @@ The legacy custom button system (`btn`/`action-btn`/`mini-btn`/`tab-btn`/`modal-
 - [ ] **Library-owned text follows the UI language**: Arco keeps its own i18n (default `zh-CN`), so a language switch must call `useLocale()` and update `html[lang]` in the same step — the single place is `stores/i18n.ts`; the criterion lives in `e2e/web/arco-locale.spec.ts` (zero Chinese residue across the seven pages in English, with a Chinese positive control)
 - [ ] **Icon semantics reconciled**: one Arco glyph carries exactly one semantic name (historically `folder` and `folder_open` were both the plain folder, so "go up one level" and "open directory" looked identical) and the glyph must match the action; wrong or deleted names are caught by the `IconName` type at `vue-tsc`, while one-glyph-one-name and zero-consumer names are caught by gate check 21 — not by memory
 - [ ] Both dark and light themes checked ( `html[data-theme]` + `body[arco-theme]`; the console / command preview keep a constant dark surface)
+
+#### 7.5.9 Reproducing the style audit (24 checks codified in `scripts/style-audit.cjs`)
+
+> The audit and the spec live together: this section is now the single live home of "how to reproduce the style checks" (it used to sit at the head of the STYLE_TODO list, which was merged into the archive on 2026-10-10). Every historical `#NN` reference in the text below points at an entry in [style-todo-resolved.md](../archive/style-todo-resolved.md) (including the #54–#121 details and the index table merged in that day).
+
+```bash
+node scripts/style-audit.cjs      # or pnpm style:audit
+```
+
+24 checks are codified in `scripts/style-audit.cjs`; all green = consistent with the frontend.md §7.5 spec; ❌ findings print `file:line` detail and the script exits non-zero (so it can be wired into CI / pre-commit). What each check does:
+
+1. bare colors inside components (token-only rule; `#fff`/`#1a1a1a` allowed only as text on colored buttons)
+2. bare font sizes inside components (must go through `--fs-*`)
+3. radii go through tokens (`2px` track / `50%` circle / `0` are the exceptions)
+4. spacing scale (gap ∈ 4/5/6/8/10/12/14, `0` allowed; **there is no 1/2/3px micro-spacing tier — it always normalizes up to 4px**, see #16)
+5. no duplicated scoped button classes (only the globally converged `action-btn`/`mini-btn`/`tab-btn`; component-specific classes such as `modal-btn`/`dl-btn`/`fb-btn`/`win-btn` may keep scoped styles, see §7.5.5; `ctrl-btn` disappeared along with "button text inlined", see #27)
+6. shadows/overlays go through `--shadow-*` / `--overlay`
+7. inventory of `backdrop-filter` usage sites (prints the list for manual review — is it limited to the glass layers / modal backplates allowed by §7.5.6? dropdowns and menus are solid now, see #41)
+8. animation only touches transform/opacity (transitions on layout properties must carry `var(--dur-*)`)
+9. semantic line heights (1 / 1.3 / 1.4 / 1.5 / 1.55 / 1.6; `normal` / `var()` pass through)
+10. font weights restricted to 400 / 600 / 700 (`normal`=400 / `bold`=700 accepted as equivalents)
+11. top-level selectors in non-scoped `<style>` blocks (a `<style>` without `scoped`) must contain at least one component-private class — never Arco global class names alone, otherwise a popup teleported to body hits other components globally (§7.5.6)
+12. do not override Arco internal state classes (`.arco-*-checked` / `-active` / `-selected` / `-disabled` / `-current` / `-dragging` / `-expanded`) — they are brittle across Arco upgrades; express selected states through Arco's own states or the `color` prop instead
+13. `a-progress`'s `:percent` must be a **0–1 ratio** — Arco's `line.js` renders `width: percent * 100 %`, so passing a percentage (any expression containing `* 100` or a `Pct`-style name) pins the bar to full; in practice this is exactly the "download progress bar doesn't match the real progress" symptom (#71)
+14. Motion declarations use `var(--dur-*)` — literal durations and `infinite` are rejected (the `--dur-ambient` persistent-hint tier is the exception, see §7.5.7 / #90)
+15. Elevation uses `var(--z-*)` — `0` / `1` / `auto` and stacking inside a single element are allowed (#90)
+16. Keyboard reachability and naming, three parts: **16a** clicks only ever sit on Arco components (no self-drawn clickable elements), **16b** an `a-button` with only `#icon` must carry `aria-label` (a tooltip is not an accessible name), **16c** `a-modal` must carry `role="dialog"` + `aria-modal` (Arco 2.58 gives none of the three, see #84–#86)
+17. Overwrites of Arco internal-state classes in the token layer (`styles/`) are registered one by one: `ARCO_STATE_ALLOW` matches a marker against an **expected line count**, so a registry that no longer equals reality turns red (#91)
+18. `a-button` colours are never overridden: a selector that hits a class attached to `<a-button>` (or `.arco-btn*`) and declares `color` / `background` / `border` / `box-shadow` is reported; exceptions must be registered in `BTN_COLOR_ALLOW` with a `why` and an expected rule count (cause: the scoped `[data-v-*]` attribute freezes the hover text colour — see §7.5.1 / #93)
+19. The light theme (a block whose top-level selector is exactly `body`) must not assign literal values to Arco's state colour tiers — the indirection `--danger-6: var(--red-6)` is where components pick their colour, so stepping it repaints alert / form validation / tag / progress / switch and everything else reading that tier, while in dark the same line never applies because `body[arco-theme='dark']` outranks it (see §7.5.1 / #95)
+20. Writing colour onto an Arco internal node must be registered line by line: a selector containing `.arco-*` (or hitting a class attached to an Arco component) that declares `color` / `background` / `border` / `box-shadow` is reported — the button side belongs to check 18 and the token layer to check 17; exceptions go into `ARCO_COLOR_ALLOW` with a `why` and an expected count (13 entries, 18 rules, see #96; both numbers read live off `ARCO_COLOR_ALLOW` — entry count and the sum of its `expect` values, so editing the table edits the claim)
+21. The icon semantic table must be one-to-one and every name must have a reader (`components/common/icon-map.ts`): one Arco glyph mapped from several semantic names is reported (historical defect: `folder` and `folder_open` were both the plain folder, so "go up one level" and "open directory" looked identical), as is a semantic name with no reader in `ui/src` (delete the name and its import together); a wrong name is additionally caught at `vue-tsc` by the `IconName` type (see #97)
+22. The console token family (`--log-kind-*` / `--console-*`) must be defined and have readers: an undefined `var(--x)` **silently falls back to the inherited colour** — the recorded case is 1e73a17 deleting the four level-colour definitions in `theme.scss` as if they were property overrides, killing console colouring outright while every existing "is the colour written correctly" check stayed green; this check verifies both directions for the family (every use has a definition, every definition has a reader) and self-proves its parse scale (fewer than 6 definitions found reports a deformed parser)
+23. No `#suffix` dead slot on `a-button` (only icon/default exist; the trailing icon goes into the default slot, #110)
+24. Native `title` ban (overlays always go through `ToolTip`, #118): the host of a `title` / `:title` in a template may only be an `a-*` component (the official title prop) or an `iframe`; any other element fails with the tag name identified; parse-scale self-check (fewer than 6 legal hits reports a deformed parser)
