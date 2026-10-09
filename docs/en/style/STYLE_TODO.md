@@ -1,12 +1,12 @@
-# STYLE_TODO — UI Style Backlog
+# STYLE_TODO — UI Style Audit Record & Fixed Index
 
 > Language: English · [中文](../../zh/style/STYLE_TODO.md)
-> Scope: record everything in the current app that deviates from the **UI style spec (../frontend.md §7.5)**, so the app's visual style stays consistent "before and after a design change".
+> Scope: keeps the audit method of the **UI style spec (../frontend.md §7.5)** (how to reproduce the checks) together with the **fixed records and the fixed index**, so the app's visual style stays consistent "before and after a design change", and so whoever edits the UI can find how a known issue was fixed and what guards it.
 > Index: [README.en.md](../../../README.en.md) · Related: [frontend.md](../frontend.md)
 >
-> **Logging rule**: when you find a new style inconsistency, append a section here (Location / Description / Suggested fix / Verification) — the description must be reproducible and the verification must be executable. After fixing, move the detailed record into the [fixed archive](../../archive/style-todo-resolved.md) and add a row to the "Fixed index" table (number / title / date). **Never introduce a new style silently.**
+> **Logging rule — this file no longer hosts the backlog** (consolidated 2026-10-10): when you find a new style inconsistency, register it in [TODO.md](../../TODO.md) with a T number (Location / Description / Suggested fix / Verification — the description must be reproducible and the verification must be executable). **Only after it is fixed** do you append the detailed record to the item area here and add a row to the "Fixed index" table (number / title / date). **Never introduce a new style silently.**
 >
-> **Status legend**: `🔴 to fix` · `🟡 to confirm (may be intentional)` · `🟢 fixed`
+> **Status markers**: every entry here is `🟢 fixed / resolved` (a few historical entries keep the `🟡` wording of the day, preserved verbatim — they do not mean work is outstanding). Outstanding items live in the "Open / Closed" sections of [TODO.md](../../TODO.md).
 
 ***
 
@@ -45,7 +45,9 @@ node scripts/style-audit.cjs      # or pnpm style:audit
 
 ***
 
-## 🔴 Fix items
+## Item area (fixed details — the backlog lives in [TODO.md](../../TODO.md))
+
+> This section used to be called "🔴 Fix items". At the 2026-10-10 check all 63 entries were already fixed, so the heading no longer matched its contents and was renamed. **Register new items in [TODO.md](../../TODO.md) first**; once fixed, move the detail here and add a row to the "Fixed index" below.
 
 ### 50. Two sizes for status dots (StatusBar 8×8 vs StatusTag 7×7) — 🟢 Fixed (2026-09-09, dissolved by the a-tag migration)
 

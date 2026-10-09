@@ -125,7 +125,7 @@ Electron 44 · Vue 3.5 + Pinia 4 + Vue Router 5 · TypeScript 6 · Vite 8 + vue-
 | 测试结构与 E2E                           | [testing.md](docs/zh/testing.md)                                       |
 | 日常命令、提交与发版约定、**文档编写约定**            | [workflow.md](docs/zh/workflow.md)                                     |
 | 关键设计决策                              | [design-decisions.md](docs/zh/design-decisions.md)                     |
-| UI 风格待修复清单                          | [style/STYLE\_TODO.md](docs/zh/style/STYLE_TODO.md)                    |
+| UI 风格审计记录与已修复清单                  | [style/STYLE\_TODO.md](docs/zh/style/STYLE_TODO.md)                    |
 | 版本历史                                | [CHANGELOG.md](docs/CHANGELOG.md)                                   |
 | 已结束的规划 / 实验 / 重构交接（只读归档）           | [archive/INDEX.md](docs/archive/INDEX.md)                           |
 
