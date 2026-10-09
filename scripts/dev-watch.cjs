@@ -5,6 +5,7 @@
 const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+const chokidar = require('chokidar');
 
 const ROOT = path.resolve(__dirname, '..');
 const DESKTOP = path.join(ROOT, 'apps', 'desktop');
@@ -185,26 +186,24 @@ function scheduleRestart() {
   }, DEBOUNCE_MS);
 }
 
-/** 注册热重载监视；dist/main 的变更事件同时记录时间戳，供"构建产物稳定"检测使用。 */
+/** 注册热重载监视；dist/main 的变更事件同时记录时间戳，供"构建产物稳定"检测使用。
+ *  chokidar 替换 fs.watch（2026-10-09，收益/成本比审查项）：Windows 上 fs.watch 的
+ *  rename 双发与目录抖动由库抹平。ignoreInitial 必须开——chokidar 默认对既有文件
+ *  补发 add 事件，会让监视器一注册就触发"变更→重启"。 */
 function registerWatchers() {
-  const targets = [
-    // 只监视 tsc 的主进程产物 dist/main；dist/preload 是本脚本自己 copy-preload 的写入，
-    // 监视整个 dist/ 会让"重启 → 写 preload → 触发重启"形成自持循环（实测 123 次/90s）
-    [MAIN_DIST_DIR, { recursive: true }], // 主进程编译产物
-    [PRELOAD_SRC, { recursive: true }], // preload 源（copy-preload 复制）
-    [SHARED_TYPES, { recursive: true }], // shared 类型/IPC 常量（generate-preload 重新生成）
-  ];
-  for (const [dir, opts] of targets) {
-    if (!fs.existsSync(dir)) continue;
-    try {
-      fs.watch(dir, opts, () => {
-        if (dir === MAIN_DIST_DIR) lastDistEventAt = Date.now();
-        scheduleRestart();
-      });
-    } catch (e) {
-      console.error('[dev-watch] 监视失败:', dir, e.message);
+  // 只监视 tsc 的主进程产物 dist/main；dist/preload 是本脚本自己 copy-preload 的写入，
+  // 监视整个 dist/ 会让"重启 → 写 preload → 触发重启"形成自持循环（实测 123 次/90s）
+  const targets = [MAIN_DIST_DIR, PRELOAD_SRC, SHARED_TYPES].filter((dir) => fs.existsSync(dir));
+  const watcher = chokidar.watch(targets, { ignoreInitial: true, ignorePermissionErrors: true });
+  watcher.on('all', (event, rawPath) => {
+    // chokidar 回调路径是 / 分隔，与 path.join 出来的反斜杠目标对不齐，先归一再比对
+    const changed = path.resolve(rawPath);
+    if (changed === MAIN_DIST_DIR || changed.startsWith(MAIN_DIST_DIR + path.sep)) {
+      lastDistEventAt = Date.now();
     }
-  }
+    scheduleRestart();
+  });
+  watcher.on('error', (e) => console.error('[dev-watch] 监视失败:', (e && e.message) || e));
 }
 
 (async () => {

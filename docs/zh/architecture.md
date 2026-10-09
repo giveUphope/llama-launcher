@@ -114,7 +114,6 @@ llama_launcher/
 │   ├── check-docs-links.cjs         # 文档相对链接与锚点完整性 + 正文/代码块里写死的 docs 路径存在性（lint 阶段执行）
 │   ├── style-audit.cjs              # UI 风格规范审计（条目与计数以脚本输出为准，勿在文档写死）
 │   ├── verify-server-start.mjs      # Launcher 手动冒烟测试（需 core/dist 先构建；模型由 --model / LLAMA_SMOKE_MODEL / 模型目录解析）
-│   ├── integ_devsession.mjs         # 开发会话集成测试入口
 │   ├── icon-gen/gen-icon.cjs        # 应用图标生成（desktop pnpm gen:icon）
 │   ├── inject-icon.cjs              # 打包后注入 exe 图标
 │   └── bump-version.cjs             # 版本自动递增（push main 触发）

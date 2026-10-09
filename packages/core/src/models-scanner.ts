@@ -1,5 +1,6 @@
 import { readdir, stat } from 'node:fs/promises';
 import { existsSync, mkdirSync, readdirSync, rmSync, type Dirent, type Stats } from 'node:fs';
+import { LRUCache } from 'lru-cache';
 import { join, dirname, basename, resolve, relative, isAbsolute, sep } from 'node:path';
 import type { ModelInfo } from '@llama-launcher/shared';
 
@@ -39,8 +40,10 @@ interface ScanCacheEntry {
   stamps: DirStamp[];
   result: ModelInfo[];
 }
-const scanCache = new Map<string, ScanCacheEntry>();
+// lru-cache：真 LRU——命中即重排、淘汰最久未用；原先的 Map +「超限删最早插入」
+// 只是 FIFO 近似（命中不续命，热目录可能被误逐）
 const SCAN_CACHE_MAX = 8;
+const scanCache = new LRUCache<string, ScanCacheEntry>({ max: SCAN_CACHE_MAX });
 /** 指纹收录的目录数上限：校验成本与目录数成正比，超大目录树只校验前 N 个目录 */
 const STAMP_MAX = 200;
 
@@ -61,7 +64,8 @@ export function invalidateScanCache(changedPath?: string): void {
     return;
   }
   const target = changedPath;
-  for (const dir of scanCache.keys()) {
+  // 快照 keys 再删：lru 的迭代器与 Map 的「删除安全」语义不同，边遍历边删可能漏项
+  for (const dir of Array.from(scanCache.keys())) {
     const root = resolve(dir);
     if (isWithin(root, target) || isWithin(target, root)) scanCache.delete(dir);
   }
@@ -203,11 +207,7 @@ export async function scanModels(dir: string, opts: ScanModelsOptions = {}): Pro
   const { models, stamps } = await walkAsync(dir);
   // 未采到任何目录指纹（根目录 stat 失败）时无从判断新鲜度，不写缓存
   if (stamps.length === 0) return models;
-  // LRU 简化版：超过上限时删除最早插入的条目
-  if (!scanCache.has(dir) && scanCache.size >= SCAN_CACHE_MAX) {
-    const firstKey = scanCache.keys().next().value;
-    if (firstKey) scanCache.delete(firstKey);
-  }
+  // lru-cache 在 set 时自动按 LRU 淘汰（max=SCAN_CACHE_MAX），无需手动驱逐
   scanCache.set(dir, { stamps, result: models });
   return models;
 }

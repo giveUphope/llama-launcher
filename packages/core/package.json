@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@llama-launcher/shared": "workspace:*",
+    "lru-cache": "^11.5.3",
     "zod": "^4.5.4"
   },
   "devDependencies": {

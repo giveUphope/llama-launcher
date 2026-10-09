@@ -14,46 +14,48 @@ concurrency:
   # PR 仍是新提交取消旧运行。
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  # 判定本次变更是否仅涉及文档（docs/** 与仓库根 README.md / AGENTS.md）。
+  # 判定本次变更是否仅涉及文档（docs/** 与仓库根 README.md / README.en.md / AGENTS.md）。
   # 纯文档提交跳过 release job（不发版）并跳过 E2E（渲染逻辑未动，无需 Playwright）。
-  # 基线取法分两种事件（实测坑：pull_request 事件**没有** github.event.before，早期版本在 PR 上
-  # 会让 git diff "" HEAD 以 exit 128 失败，导致 changes 变红、e2e 连带被跳过）：
-  #   - push：以 push 前基线 github.event.before；
-  #   - pull_request：以 github.event.pull_request.base.sha（checkout 的是 PR merge commit，与之 diff 即本 PR 改动集）。
-  # 拿不到/解析不出基线时一律**保守视为非文档变更**（照跑 E2E、照走发版判定），宁可多跑不可漏检。
+  # 2026-10-09 起用 dorny/paths-filter 替换手写 diff 循环；基线仍按事件显式分取：
+  #   - pull_request：github.event.pull_request.base.sha（checkout 的是 PR merge commit）；
+  #   - push：github.event.before。
+  # 动作不处理「首推 before=0000」等基线不可解析场景 ⇒ filter 步骤 continue-on-error，
+  # 下方 out 步骤对空输出兜底：一律保守视为非文档变更（照跑 E2E、照走发版判定），
+  # 宁可多跑不可漏检（与旧手写版语义一致，见 docs/zh/ci-cd.md §1.3）。
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      non-doc: ${{ steps.changes.outputs.non-doc }}
+      non-doc: ${{ steps.out.outputs.non-doc }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - id: changes
+      - uses: dorny/paths-filter@v3
+        id: filter
+        continue-on-error: true
+        with:
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          list-files: none
+          filters: |
+            doc:
+              - 'docs/**'
+              - 'README.md'
+              - 'README.en.md'
+              - 'AGENTS.md'
+      - id: out
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          PUSH_BEFORE: ${{ github.event.before }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          DOC: ${{ steps.filter.outputs.doc }}
         run: |
           set -euo pipefail
-          BASE="$PUSH_BEFORE"
-          [ "$EVENT_NAME" != "pull_request" ] || BASE="$PR_BASE"
-          ZERO="0000000000000000000000000000000000000000"
-          if [ -z "$BASE" ] || [ "$BASE" = "$ZERO" ] || ! git rev-parse --verify -q "${BASE}^{commit}" >/dev/null; then
-            echo "::warning::无法解析基线（event=$EVENT_NAME base=${BASE:-<empty>}），按「非文档变更」保守处理"
+          if [ -z "$DOC" ]; then
+            echo "::warning::无法解析基线（filter 步骤失败或无输出），按「非文档变更」保守处理"
             echo "non-doc=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          elif [ "$DOC" = "true" ]; then
+            echo "non-doc=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "non-doc=true" >> "$GITHUB_OUTPUT"
           fi
-          NON_DOC="false"
-          while IFS= read -r f; do
-            [ -z "$f" ] && continue
-            case "$f" in
-              docs/*|README.md|README.en.md|AGENTS.md) ;;
-              *) NON_DOC="true"; break ;;
-            esac
-          done < <(git diff --name-only "$BASE" HEAD)
-          echo "non-doc=$NON_DOC" >> "$GITHUB_OUTPUT"
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15

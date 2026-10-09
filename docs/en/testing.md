@@ -61,9 +61,9 @@
 | Script | Prerequisites | What it verifies |
 | ---- | ---- | ---- |
 | `scripts/verify-server-start.mjs` | Build `core/dist` first (`pnpm --filter @llama-launcher/core build`), and a llama-server binary in that directory | `Launcher` launch-orchestration smoke test: state machine / listening detection / stop cleanup, asserting stage by stage and printing the results |
-| `scripts/integ_devsession.mjs` | `pnpm build` first (it needs the `packages/core/dist/process.js` artifact) | Integration check of dev-session teardown: it simulates the `turbo run dev` process tree and has a probe child (standing in for electron) call `findDevSessionRoot` + `killProcessTree`, asserting the whole dev tree is killed |
 
-Both are run manually (they are not wired into `pnpm test`), for end-to-end verification against real binaries/engine environments.
+The script is run manually (not wired into `pnpm test`), for end-to-end verification against real binaries/engine environments.
+The end-to-end integration check of dev-session teardown moved into `pnpm test` (`packages/core/tests/dev-session-integ.test.ts`, migrated from the manual script on 2026-10-09): it needs the `packages/core/dist` artifact (the whole group is skipped automatically when it is not built) and asserts that the probe hits the `turbo run dev` root via real OS process enumeration and that both the turbo and the vite stand-in die after the tree kill; the migration also fixed two latent defects of the original script (a bare drive-letter path in a static ESM import, and a file-path string passed as async-spawn stdio which throws ERR_INVALID_SYNC_FORK_INPUT so the probe was never started).
 
 ## E2E (Playwright)
 

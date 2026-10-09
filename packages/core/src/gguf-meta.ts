@@ -1,4 +1,5 @@
 import { open, stat, type FileHandle } from 'node:fs/promises';
+import { LRUCache } from 'lru-cache';
 import {
   GgufValueType,
   type GgufValue,
@@ -577,14 +578,11 @@ function buildSuggestions(info: GgufModelInfo): GgufSuggestedParam[] {
  * 进程重启后缓存失效（可接受，因为首次读取后即缓存）。
  * 文件 mtime/size 未变化时直接返回缓存，避免重复 IO。
  */
-interface CacheEntry {
-  key: string;
-  result: GgufReadResult;
-}
-const ggufCache = new Map<string, CacheEntry>();
-
+// lru-cache：真 LRU——命中即重排、淘汰最久未用；原先的 Map +「超限删最早插入」
+// 只是 FIFO 近似（命中不续命，热条目可能被误逐）。
 // 缓存上限，避免大量不同模型文件导致内存膨胀
 const GGUF_CACHE_MAX = 32;
+const ggufCache = new LRUCache<string, GgufReadResult>({ max: GGUF_CACHE_MAX });
 
 function makeCacheKey(filePath: string, mtimeMs: number, size: number): string {
   return `${filePath}:${mtimeMs}:${size}`;
@@ -618,16 +616,12 @@ export async function readGgufMetadata(filePath: string): Promise<GgufReadResult
 
   const cacheKey = makeCacheKey(filePath, st.mtimeMs, st.size);
   const cached = ggufCache.get(cacheKey);
-  if (cached) return cached.result;
+  if (cached) return cached;
 
   const result = await readGgufMetadataUncached(filePath, st.size);
 
-  // LRU 简化版：超过上限时删除最早插入的条目
-  if (ggufCache.size >= GGUF_CACHE_MAX) {
-    const firstKey = ggufCache.keys().next().value;
-    if (firstKey) ggufCache.delete(firstKey);
-  }
-  ggufCache.set(cacheKey, { key: cacheKey, result });
+  // lru-cache 在 set 时自动按 LRU 淘汰（max=GGUF_CACHE_MAX），无需手动驱逐
+  ggufCache.set(cacheKey, result);
 
   return result;
 }

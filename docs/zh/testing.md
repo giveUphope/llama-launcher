@@ -61,9 +61,9 @@
 | 脚本 | 前置条件 | 验证内容 |
 | ---- | ---- | ---- |
 | `scripts/verify-server-start.mjs` | 先构建 `core/dist`（`pnpm --filter @llama-launcher/core build`），目录下有 llama-server 二进制 | `Launcher` 启动编排冒烟：状态机 / listening 检测 / 停止清理，逐阶段断言并打印结果 |
-| `scripts/integ_devsession.mjs` | 先 `pnpm build`（需 `packages/core/dist/process.js` 产物） | 集成验证 dev 会话收尾：模拟 `turbo run dev` 进程树，由 probe 子进程（扮演 electron）调用 `findDevSessionRoot` + `killProcessTree`，断言整棵 dev 树被杀死 |
 
-两者均为手动执行（不接入 `pnpm test`），用于真实二进制/引擎环境下的链路验证。
+脚本为手动执行（不接入 `pnpm test`），用于真实二进制/引擎环境下的链路验证。
+dev 会话收尾的端到端集成验证已迁入 `pnpm test`（`packages/core/tests/dev-session-integ.test.ts`，2026-10-09 自手动脚本迁移）：需要 `packages/core/dist` 产物（未构建时自动跳过整组），断言 probe 经真实 OS 进程枚举命中 `turbo run dev` 根、杀树后 turbo 与 vite 替身全部死亡；迁移时顺带修掉原脚本两个潜伏缺陷（ESM 静态 import 裸盘符路径、异步 spawn 的 stdio 传文件路径字符串抛 ERR_INVALID_SYNC_FORK_INPUT，probe 从未被启动）。
 
 ## E2E（Playwright）
 

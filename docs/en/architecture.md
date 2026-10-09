@@ -114,7 +114,6 @@ llama_launcher/
 │   ├── check-docs-links.cjs         # Docs relative-link and anchor integrity, plus existence of `docs/...` paths hard-coded in prose and code blocks (executed in the lint stage)
 │   ├── style-audit.cjs              # UI style guideline audit (items and counts come from the script output — do not hard-code them in docs)
 │   ├── verify-server-start.mjs      # Manual smoke test of Launcher (needs core/dist built first; the model is resolved from --model / LLAMA_SMOKE_MODEL / the models directory)
-│   ├── integ_devsession.mjs         # Entry point of the dev-session integration test
 │   ├── icon-gen/gen-icon.cjs        # App icon generation (desktop pnpm gen:icon)
 │   ├── inject-icon.cjs              # Inject the exe icon after packaging
 │   └── bump-version.cjs             # Automatic version increment (triggered by a push to main)

@@ -394,8 +394,13 @@ export function pickTurboDevRoot(
   infos: SimpleProcessInfo[],
   byPid: Map<number, SimpleProcessInfo>,
 ): number | null {
+  // 须同时含 turbo / run / dev：只认 `turbo run dev`（AGENTS.md 契约）。2026-10-09 收紧——
+  // 旧匹配（turbo + run）会把 `turbo run test` / `turbo run build` 一并当作 dev 会话根：
+  // 集成测试在 turbo 编排下跑时，probe 沿真实进程表向上走，topmost 命中的是外层真 turbo，
+  // killProcessTree 会把自己所在的真测试树杀掉（vitest worker 暴死、日志无 FAIL 截断）；
+  // 生产上窗口关闭清理也会误杀无关的 turbo build/test 任务。
   const isTurboRoot = (i: SimpleProcessInfo): boolean =>
-    /\bturbo\b/.test(i.cmd) && /run\b/.test(i.cmd);
+    /\bturbo\b/.test(i.cmd) && /\brun\b/.test(i.cmd) && /\bdev\b/.test(i.cmd);
 
   const turboMatches = infos.filter(isTurboRoot);
   if (turboMatches.length === 0) return null;
