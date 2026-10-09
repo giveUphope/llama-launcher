@@ -2,15 +2,6 @@
 
 本文件是**工程待办的唯一活归口**：CHANGELOG 条目只记已发生的事实，凡「未修 / 待确认 / 备查 / 待裁定」的事项一律登记在此，关闭后移至文末「已关闭」区并注明关闭版本。UI 风格类待办另有归口：[zh/style/STYLE_TODO.md](zh/style/STYLE_TODO.md)（双语两树）。本文件与 CHANGELOG 同属不译清单，只维护中文单份。
 
-## 发布事故
-
-### R01 v0.0.55 / v0.0.56 发版失败，版本号延续补发（2026-10-09 登记）
-
-- **出了什么事**：v0.0.55 与 v0.0.56 两次推送的 CI `verify` job 红牌（run 37865210758、37910555980，ubuntu 上 `modelParamsKey` 跨平台键漂移与 `dev-session-integ` 组杀超时两项，本地 Windows 全绿无感），`release` job 被连坐跳过——**两个版本均未发版**（tag 与 GitHub Release 停在 v0.0.54）。
-- **原因**：① 两处失败都是 Linux 特有契约（`basename` 平台分隔符、进程组组长前提），本地 Windows 测试对这类契约零证明力，推送前无从复现；② verify 红牌连坐 release（`needs: [verify, changes]`）；③ **changes job 的 dorny 过滤反向 bug**（0.0.56 换 dorny 时引入）：默认量化器 `some` 无视 `!` 排除，`doc` 过滤「任一文档文件命中即 true」被当成「纯文档变更」——混合推送（代码+AGENTS.md）被判纯文档，e2e 与 release **静默跳过**。实证：run 37923177708（红牌修复后推送）verify 已绿、release 仍跳，据此把 ③ 从 ② 里剥离定位。
-- **修复方案（2026-10-09 已落地）**：① 两处实现/测试修复随 f12a729 提交；② **版本号不跨版**：七处版本声明从 0.0.56 回落 0.0.55，CHANGELOG 的 [Unreleased]/[0.0.55]/[0.0.56] 三段合并为 [0.0.55] 一段（附补发说明），原定 0.0.56 的全部变更并入 v0.0.55 一次发出，**后续发版自 0.0.56 起继续递增**，不跳号；③ changes job 改 `code` 过滤 + `predicate-quantifier: some-with-excludes`（ci-cd.md §1.3 双语同步）。
-- **关闭条件**：推送后 CI verify 绿 + e2e 恢复执行 + release job 打出 v0.0.55 tag + Release 发布成功（资产 `llama.Launcher.0.0.55.exe`、packaging.md 的实测陈述重新为真）。
-
 ## 观察项
 
 ### T06 「引擎比基线新 ⇒ 静默」分支缺真机证据
@@ -20,6 +11,13 @@
 - **下一步**：任一轮引擎升级到比基线新的构建后，顺手真机确认该分支保持静默，再回此条关闭。
 
 ## 已关闭
+
+### R01 v0.0.55 / v0.0.56 发版失败，版本号延续补发（2026-10-09 登记并关闭）
+
+- **出了什么事**：v0.0.55 与 v0.0.56 两次推送的 CI `verify` job 红牌（run 37865210758、37910555980，ubuntu 上 `modelParamsKey` 跨平台键漂移与 `dev-session-integ` 组杀超时两项，本地 Windows 全绿无感），`release` job 被连坐跳过——**两个版本均未发版**（tag 与 GitHub Release 停在 v0.0.54）。
+- **原因**：① 两处失败都是 Linux 特有契约（`basename` 平台分隔符、进程组组长前提），本地 Windows 测试对这类契约零证明力，推送前无从复现；② verify 红牌连坐 release（`needs: [verify, changes]`）；③ **changes job 的 dorny 过滤反向 bug**（0.0.56 换 dorny 时引入）：默认量化器 `some` 无视 `!` 排除，`doc` 过滤「任一文档文件命中即 true」被当成「纯文档变更」——混合推送（代码+AGENTS.md）被判纯文档，e2e 与 release **静默跳过**。实证：run 37923177708（红牌修复后推送）verify 已绿、release 仍跳，据此把 ③ 从 ② 里剥离定位。
+- **修复**：① 两处实现/测试修复随 f12a729 提交；② **版本号不跨版**：七处版本声明从 0.0.56 回落 0.0.55，CHANGELOG 的 [Unreleased]/[0.0.55]/[0.0.56] 三段合并为 [0.0.55] 一段（附补发说明），原定 0.0.56 的全部变更并入 v0.0.55 一次发出，**后续发版自 0.0.56 起继续递增**，不跳号；③ changes job 改 `code` 过滤 + `predicate-quantifier: some-with-excludes`（aa3da8d，ci-cd.md §1.3 双语同步）。
+- **关闭确认（2026-10-09）**：run 37923878429 四 job 全绿（verify / changes / **e2e 恢复执行** / release），tag v0.0.55 已打，Release **v0.0.55 发布成功**（资产 `llama.Launcher.0.0.55.exe`，packaging.md 的实测陈述重新为真）。经验教训：本地 Windows 全绿对 Linux 特有契约无证明力，CI 特有失败只能靠 CI 暴露——发版后应回看 run 的 job 是否**真的都跑了**（skipped ≠ 通过）。
 
 ### T03 `partialOffloadLayers` 不计 GPU 侧 KV，auto 层数系统性偏多（2026-10-09 关闭）
 
