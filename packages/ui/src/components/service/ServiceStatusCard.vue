@@ -444,7 +444,7 @@ function onApplyRelief(key: string, value: string | number | boolean) {
 <style scoped lang="scss">
 /* 运行状态行 */
 .status-row {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 /* 端点暴露提示常驻槽：与命令预览卡的警示行同色同字号（橙色业务语义色）。
@@ -456,7 +456,7 @@ function onApplyRelief(key: string, value: string | number | boolean) {
 .sec-hint-slot {
   display: flex;
   align-items: flex-start;
-  margin: -6px 0 10px;
+  margin: 0 0 12px;
   min-height: 36px;
   visibility: hidden; // 未触发：保留占位但不显示，位置不动
 
@@ -494,9 +494,15 @@ function onApplyRelief(key: string, value: string | number | boolean) {
 
 // （旧的两档封顶 clamp 已随 a-tag 化删除：.sec-hint-text 单行省略规则见槽位块）
 
-/* a-descriptions 字段表：标签列定宽右对齐（原生组件，仅调间距节奏） */
+/* a-descriptions 字段表：标签列定宽右对齐（原生组件，仅调间距节奏）；
+   行内上下加 4px 呼吸（small 档默认过挤），卡片高度两态同变，不碰 #81/#82 判据 */
 .status-desc {
   margin-bottom: 12px;
+
+  :deep(.arco-descriptions-table td) {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
 
   :deep(.arco-descriptions-item-label) {
     min-width: 88px;
@@ -542,13 +548,13 @@ function onApplyRelief(key: string, value: string | number | boolean) {
 
 // 快捷操作行：a-space（gap 8px，§7.5.5）
 .quick-actions {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 /* 失败提示槽位：常驻两档（banner 行 + OOM 建议行），margin-top 归一到 slot 上。
    两档各自 min-height + visibility，出现/消失都不再下推下方内容（#81 既有范式）。 */
 .failure-banner-slot {
-  margin-top: 8px;
+  margin-top: 0;
 }
 
 .failure-row {
