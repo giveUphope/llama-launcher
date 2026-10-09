@@ -4,6 +4,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.55] - 2026-10-09
+
+
 - **扩展参数输入框高度修正：三行示例占位完整可见（用户批注「优化输入框高度，完整展示示例文本」）**：出了什么事——多行示例占位需要 ≈77px（3×19.5 行高 + 内距 + 边框），而 Arco auto-size 按 3 行给的行内高度只有 54px，示例第三行被裁、「一行一个」的示例形态看不全。**改法**：`.cmd-extra` 加 `min-height: calc(4.5em + 18px)`——CSS min-height 恒定胜过 auto-size 的行内 height，占位完整可见；有内容时行内高度照常长大、不再受限。登记 STYLE_TODO #121（中英两树）。**验证**：mock 页实测输入框 54 → 77px（= 计算所需值），占位三行完整渲染；`pnpm style:audit` / `pnpm lint` 全绿。
 
 - **双子代理前后端测试补充：core +77 / ui +48 用例（用户批注「派发多子代理分别完成前后端测试用例」）**：出了什么事——测试同步审查确认主链路覆盖到位后，仍有整块行为面无测试（launcher 边缘分支、gguf 流式边界、settings 剥离、错误分类器、vram 求解器、ui 的确认弹窗队列/焦点圈/自动滚动/IPC 克隆契约等）。**改法**：派两个并行子代理分别负责 core 与 ui（边界靠「只改各自测试文件」维持），按当前实现补**断言行为本身**的用例：core 29→38 文件 / 461→538 用例（launcher-edge 7、gguf-meta-edge 9、settings-store-edge 7、error-classify 15、modelscope/huggingface-client-edge 12、download-manager-edge 6、vram-solve 10、shared-baseline 11）；ui 14→18 文件 / 143→191 用例（useConfirm 7、useDialogFocus 9、useAutoScroll 9 含 rAF 合帧与「排队帧让位」竞态、useIPC 6 含 structuredClone 跨桥契约实证、appLog 修复未捕获 rejection、StatusTag 边界 7、server store +10 含 OOM 归因四措辞与端口提示节流）。**顺带修复**：上轮被取消代理遗留的 3 个测试文件的 5 条 vue-tsc 类型错误。**疑似生产问题（未修，待确认）**：① 未知大小下载（源缺 size + 无 content-length）会生成 `end=-1` 段 → 空 .part 秒「完成」（download-manager）；② `solveMaxContext` 两处 Infinity→null 分支不可达（vram-estimate，行为无害）；③ `partialOffloadLayers` 不计 GPU 侧 KV，auto 层数系统性偏多（注释自称近似）；④ `appLog.subscribe` 对 `list()` 异步拒绝无兜底（Unhandled Rejection 污染）。**验证**：core 38 文件 / 538 用例、ui 18 文件 / 191 用例、e2e 83 条、`pnpm lint`（含 vue-tsc）、`pnpm style:audit` 全绿；AGENTS.md 用例数声明同步校准。
