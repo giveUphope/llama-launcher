@@ -6,7 +6,7 @@
 
 - **Framework**: Vitest 4 (`pnpm test` runs both the core and the ui package through turbo)
 
-- **Scale**: core 40 test files / **562** cases + ui **22** test files / **213** cases (`pnpm test` runs both packages through turbo; calibrated against an actual run on 2026-10-10)
+- **Scale**: core 41 test files / **566** cases + ui **22** test files / **213** cases (`pnpm test` runs both packages through turbo; calibrated against an actual run in the T16 round, 2026-10-10)
 
 - **Covered modules**:
 
@@ -45,6 +45,7 @@ The table indexes the main suites; `git ls-files packages/core/tests` is the aut
 | `format.test.ts`                      | All boundaries of shared `formatBytes`/`formatDuration` (0/NaN/Infinity, the 1023/1024 switch point, tiers, whole-unit folding) |
 | `host-env.test.ts`                    | shared `hostList`/`tcpHosts`/`displayHost` (multiple addresses and `.sock`) + `detectLlamaEnvOverrides` (`LLAMA_ARG_*` detection) |
 | `props-check.test.ts`                 | `/props` read-back reconciliation: zero false alarms on a real b11178 snapshot, the float32 / uint32-seed / path normalizations, `onlyWhenSent` skips, a failed read-back reported as unreachable rather than a mismatch, and both baseline branches (equal and drifted) derived from `ENGINE_BASELINE_BUILD` so a re-pin no longer fails spuriously |
+| `release-date.test.ts`              | Release tooling (T16): `releaseDate()` returns the machine-local calendar day rather than the UTC one (with a non-vacuous control that turns red if the old UTC form returns; the leg prints its skip reason on a UTC-offset-0 runner), requiring the CLI writes nothing, `bumpVersion` tiers and the 0.9.9→0.10.0 carry-over |
 
 ### ui package (inline tests under `src/`)
 

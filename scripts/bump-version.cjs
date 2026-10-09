@@ -54,6 +54,22 @@ function bumpVersion(version, type) {
   return `${major}.${minor}.${patch + 1}`;
 }
 
+/**
+ * 版本段日期：取**运行本脚本那台机器的本地日历日**，不是 UTC。
+ *
+ * 原先写作 `new Date().toISOString().slice(0, 10)`——`toISOString()` 给的是 UTC，于是本地
+ * UTC+8 下任何 16:00 之后发版，CHANGELOG 的日期都会写成前一天（v0.0.65 / v0.0.66 都落在此
+ * 情形里，均在本地凌晨发出、段里记着 UTC 的前一天）。版本自 2026-10-08 起收归本地运行，
+ * 而 CHANGELOG 的日期是给人读的「哪天发的版」，两者口径必须一致 → 用本地年月日。
+ * 判据见 packages/core/tests/release-date.test.ts。
+ */
+function releaseDate(now = new Date()) {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function run() {
   const type = process.argv[2] || 'patch';
   if (!['patch', 'minor', 'major'].includes(type)) {
@@ -83,7 +99,7 @@ function run() {
   // 4. CHANGELOG.md：[Unreleased] 标题 → 新版本，带今天的日期
   // 标题存在两种形态：`## [Unreleased]` 与 markdown 转义体 `## \[Unreleased]`（2026-09 格式化引入）——
   // 旧正则只匹配前者，导致 v0.0.11 起替换静默 no-op、版本条目漏插。现兼容两种并沿用文件现行风格。
-  const today = new Date().toISOString().slice(0, 10);
+  const today = releaseDate();
   let changelog = readText('docs/CHANGELOG.md');
   const UNREL_RE = /^## (\\?)\[Unreleased\]/m;
   const mUnrel = changelog.match(UNREL_RE);
@@ -130,4 +146,10 @@ function run() {
   console.log(`Done. New version: ${newVersion}`);
 }
 
-run();
+// 只有作为 CLI 运行才真的改盘；被测试 require 时只暴露纯函数（否则单测一 import 就把版本号
+// 加上去了——这类「被测试执行到的副作用」是仓库里已经吃过的那类事故）。
+if (require.main === module) {
+  run();
+}
+
+module.exports = { bumpVersion, releaseDate };

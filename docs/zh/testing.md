@@ -6,7 +6,7 @@
 
 - **框架**：Vitest 4（`pnpm test` 经 turbo 一并运行 core 与 ui 两包）
 
-- **规模**：core 40 个测试文件 / **562** 个用例 + ui **22** 个测试文件 / **213** 个用例（`pnpm test` 经 turbo 一并运行两包；2026-10-10 按实跑校准）
+- **规模**：core 41 个测试文件 / **566** 个用例 + ui **22** 个测试文件 / **213** 个用例（`pnpm test` 经 turbo 一并运行两包；2026-10-10 T16 轮按实跑校准）
 
 - **覆盖模块**：
 
@@ -45,6 +45,7 @@
 | `format.test.ts`                      | shared `formatBytes`/`formatDuration` 全边界（0/NaN/Infinity、1023/1024 切换点、档位、整点折叠） |
 | `host-env.test.ts`                    | shared `hostList`/`tcpHosts`/`displayHost`（多地址与 `.sock`）+ `detectLlamaEnvOverrides`（`LLAMA_ARG_*` 检出） |
 | `props-check.test.ts`                 | `/props` 回读对账：真机 b11178 快照零假报、float32/seed uint32/路径三处归一、`onlyWhenSent` 跳过、取数失败判 unreachable 不判不一致、基线相等与漂移两侧判定按 `ENGINE_BASELINE_BUILD` 取数（re-pin 不再假失败） |
+| `release-date.test.ts`              | 发版工具（T16）：`releaseDate()` 取本地日历日而非 UTC 日历日（配「退回 UTC 写法必红」的非空转对照；非 UTC+0 机器上跳过时打印理由）、require 该 CLI 不写盘、`bumpVersion` 三档与 0.9.9→0.10.0 进位 |
 
 ### ui 包（`src/` 内联测试）
 
