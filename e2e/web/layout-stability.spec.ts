@@ -161,19 +161,22 @@ function judgeModelRows(rows: ModelRowStat[]): string[] {
 // ---------------------------------------------------------------------------
 // ③ 概览服务状态卡：无隐藏预留 + 端点提示按需 a-alert（2026-10-09 用户裁定废除
 //    #81/#82 静态预留槽模式——出现即占位、不出现不占位，布局随内容流动）
+//    + 字段区「字段名+字段」左右排布（2026-10-09 用户裁定：a-descriptions 双组一行）
 // ---------------------------------------------------------------------------
+type PairGeo = { sameRow: boolean; labelLeft: boolean };
 type ServiceCardStat = {
   hiddenReserves: Array<{ cls: string; h: number }>;
   alertVisible: boolean;
   alertType: string | null;
-  gridDisplay: string; // .status-grid 的 computed display（样式误删会塌回 block 单列竖排）
-  gridTracks: number;  // computed grid-template-columns 解析出的轨道数（四列版式的前提）
+  itemCount: number;  // 字段对数（字段名+字段值）
+  pairs: PairGeo[];   // 每对：名与值同行、名在值左
+  rowTops: number;    // 去重后的行数（双组一行 ⇒ 行数 = ⌈对数/2⌉）
 };
 
 async function collectServiceCard(page: Page): Promise<ServiceCardStat> {
   return page.evaluate(() => {
-    const card = document.querySelector('.section-card:has(.status-grid)') as HTMLElement | null;
-    if (!card) return { hiddenReserves: [], alertVisible: false, alertType: null, gridDisplay: '', gridTracks: 0 };
+    const card = document.querySelector('.section-card:has(.status-desc)') as HTMLElement | null;
+    if (!card) return { hiddenReserves: [], alertVisible: false, alertType: null, itemCount: 0, pairs: [], rowTops: 0 };
     const hiddenReserves: Array<{ cls: string; h: number }> = [];
     // 隐藏预留 = 布局中占据真实高度（static 定位）却 visibility:hidden 的块；
     // absolute 悬浮层（出错跳转钮）不占布局，不算预留
@@ -190,15 +193,30 @@ async function collectServiceCard(page: Page): Promise<ServiceCardStat> {
     walk(card);
     const alert = card.querySelector('a-alert.sec-hint, .sec-hint') as HTMLElement | null;
     const alertSt = alert ? getComputedStyle(alert) : null;
-    const grid = card.querySelector('.status-grid') as HTMLElement | null;
-    const gridSt = grid ? getComputedStyle(grid) : null;
-    const tracks = gridSt ? gridSt.gridTemplateColumns.trim().split(/\s+/).filter(Boolean).length : 0;
+    // Arco descriptions 渲染成表：.arco-descriptions-row（tr）内「标签td|值td」交替，没有
+    // .arco-descriptions-item 元素——判据按行取对（每行 2 对：字段名|值|字段名|值）
+    const rows = Array.from(card.querySelectorAll('.arco-descriptions-row')) as HTMLElement[];
+    const pairs: PairGeo[] = [];
+    for (const row of rows) {
+      const labels = Array.from(row.querySelectorAll('.arco-descriptions-item-label')) as HTMLElement[];
+      const values = Array.from(row.querySelectorAll('.arco-descriptions-item-value')) as HTMLElement[];
+      for (let i = 0; i < labels.length; i++) {
+        const l = labels[i].getBoundingClientRect();
+        const r = values[i]?.getBoundingClientRect();
+        if (!r) { pairs.push({ sameRow: false, labelLeft: false }); continue; }
+        // 同行 = 纵向有实质重叠（标签行高与值行高不同，取重叠量占矮者一半以上）
+        const overlap = Math.min(l.bottom, r.bottom) - Math.max(l.top, r.top);
+        const sameRow = overlap > Math.min(l.height, r.height) * 0.5;
+        pairs.push({ sameRow, labelLeft: sameRow && l.right <= r.left + 1 });
+      }
+    }
     return {
       hiddenReserves,
       alertVisible: !!alert && !!alertSt && alertSt.visibility === 'visible' && alertSt.display !== 'none',
       alertType: alert ? alert.getAttribute('type') : null,
-      gridDisplay: gridSt?.display ?? '',
-      gridTracks: tracks,
+      itemCount: pairs.length,
+      pairs,
+      rowTops: rows.length,
     };
   });
 }
@@ -209,8 +227,14 @@ function judgeServiceCard(s: ServiceCardStat): string[] {
     v.push(`卡内仍有隐藏预留块（直接占用空间）：${JSON.stringify(s.hiddenReserves)}`);
   }
   if (!s.alertVisible) v.push('端点暴露提示未按需展示为可见的官方告警（a-alert）');
-  if (s.gridDisplay !== 'grid') v.push(`字段区网格未生效（computed display = ${s.gridDisplay || '无'}）——网格样式丢失会塌成单列竖排`);
-  if (s.gridTracks !== 4) v.push(`字段区网格解析出 ${s.gridTracks} 列轨道，应为 4 列（模型/地址各跨 2 列的版式前提）`);
+  if (s.itemCount !== 6) v.push(`字段对数 ${s.itemCount}，应为 6（模型/地址/主机/端口/PID/运行时长）`);
+  s.pairs.forEach((p, i) => {
+    if (!p.sameRow) v.push(`第 ${i + 1} 对字段的名与值不在同一行（版式退回「标签在值上方」）`);
+    else if (!p.labelLeft) v.push(`第 ${i + 1} 对字段的名字不在值左侧`);
+  });
+  if (s.itemCount > 0 && s.rowTops !== Math.ceil(s.itemCount / 2)) {
+    v.push(`字段排成 ${s.rowTops} 行，双组一行应为 ${Math.ceil(s.itemCount / 2)} 行（四列版式：字段名|值|字段名|值）`);
+  }
   return v;
 }
 
@@ -331,7 +355,7 @@ for (const lang of ['zh', 'en'] as const) {
 
     test(`③概览服务状态卡无隐藏预留，端点提示按需 a-alert 展示`, async ({ page }) => {
       await gotoPage(page, lang, 'dashboard');
-      await expect(page.locator('.status-grid')).toBeVisible();
+      await expect(page.locator('.status-desc')).toBeVisible();
       expect(judgeServiceCard(await collectServiceCard(page)), `${langName}态服务状态卡`).toEqual([]);
     });
 

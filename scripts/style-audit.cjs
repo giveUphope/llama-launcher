@@ -596,6 +596,8 @@ const ARCO_COLOR_ALLOW = [
     why: '表头取 text-2 次级档：库的 th 是 gray-10（比正文更重），与本页「数据为主、表头为辅」的层级相反' },
   { file: 'packages/ui/src/components/service/CommandPreviewCard.vue', marker: '.cmd-preview', expect: 4,
     why: '命令预览是恒定深底控制台面（§7.5.2 业务例外），库的 textarea 表面/文字/占位/聚焦都按主题取档，必须钉住' },
+  { file: 'packages/ui/src/components/service/ServiceStatusCard.vue', marker: '.status-desc', expect: 1,
+    why: 'descriptions 标签库内取 text-3（实测压卡片底 3.24 不达标），提到 text-2 达标' },
   { file: 'packages/ui/src/components/settings/AboutPanel.vue', marker: '.about-desc', expect: 1,
     why: '同上：descriptions 标签从 text-3 提到角色档 --fg-hint 才达 4.5' },
   // （AppearancePanel .theme-radio-on 登记已随 #115 删除：分段单选组退役换切换按钮组，

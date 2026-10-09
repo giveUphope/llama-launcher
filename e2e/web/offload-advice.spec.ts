@@ -61,7 +61,7 @@ interface ReliefStat {
 async function collectRelief(page: Page): Promise<ReliefStat> {
   return page.evaluate(() => {
     const alert = document.querySelector('.oom-alert--relief') as HTMLElement | null;
-    const card = document.querySelector('.section-card:has(.status-grid)') as HTMLElement | null;
+    const card = document.querySelector('.section-card:has(.status-desc)') as HTMLElement | null;
     const cardRect = card ? card.getBoundingClientRect() : null;
     const btns = alert ? (Array.from(alert.querySelectorAll('.arco-btn')) as HTMLElement[]) : [];
     const cs = alert ? getComputedStyle(alert) : null;
