@@ -61,7 +61,10 @@ const concurrentOptions = DOWNLOAD_CONCURRENCY_OPTIONS;
     </a-form>
   </Card>
 
-  <!-- 目录清理：应用生成文件（配置目录 + 模型目录）的两步流清理，自服务页迁入 -->
+  <!-- 目录清理：应用生成文件（配置目录 + 模型目录）的两步流清理，自服务页迁入。
+       缓存在 SettingsPage 层的 KeepAlive（include 含本面板）——本面板被页签 v-if 销毁，
+       KeepAlive 放这里会连缓存容器一起销毁（T08A mock 实测教训），卡片回切重扫依赖
+       面板跨页签存活 -->
   <TrashCleanCard />
 </template>
 

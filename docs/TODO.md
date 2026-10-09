@@ -39,7 +39,7 @@
 
 ### T08 清理卡「上次清理结果」切走期间不自刷新（2026-10-09 关闭）
 
-按裁定 A 修复：`TrashCleanCard` 加 `onActivated` 轻量重扫——卡上有旧检测/清理状态时静默重扫刷新待清列表，**不清「上次清理结果」行、不自动弹窗、不自动清理**（检测逻辑抽成 `runDetect`，按钮检测与回切重扫共用，按钮路径保留「清空旧态」语义）。首挂 activated 无旧状态不触发（首次扫描仍由用户点检测）。用例：TrashCleanCard.test.ts 以真实 `<keep-alive>` 驱动 activated/deactivated，钉「首挂不扫 / 回切扫一次 / 不触发清理与确认弹窗」三个判据。
+按裁定 A 修复，**mock 目测抓到初版无效并修正**：初版只给卡片加 `onActivated` 轻量重扫，但浏览器实测回切后待清列表仍丢失——根因是卡片状态的存活期根本盖不住「回切」：① 设置页页签状态存 URL query，侧栏往返丢 `?tab=advanced`；② 即便 query 保留，`AdvancedPanel` 也是页签 v-if 直接销毁（include 名单只有 GeneralPanel），卡片连缓存容器一起死。修法按 GeneralPanel 先例把缓存上移：SettingsPage 的 KeepAlive 名单扩为 `GeneralPanel,AdvancedPanel`（四面板收进同一 KeepAlive、v-if 链改 v-else-if），面板跨页签存活后 `onActivated` 重扫才真正触发；AdvancedPanel 内层不再包 KeepAlive（放那里会连缓存容器一起被页签 v-if 销毁）。重扫语义不变：**不清「上次清理结果」行、不自动弹窗、不自动清理**（检测逻辑抽成 `runDetect`，按钮路径保留「清空旧态」）。用例：TrashCleanCard.test.ts 以真实 `<keep-alive>` 驱动三判据（首挂不扫 / 回切扫一次 / 不触发清理与确认弹窗）；mock 页两场景目测通过（页签往返 / 页面往返后回点页签）。
 
 ### T09 切页后滚动位置不恢复（2026-10-09 关闭）
 

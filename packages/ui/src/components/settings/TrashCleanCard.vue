@@ -16,6 +16,10 @@ import type { CleanResult, DetectResult, TrashKind } from '@llama-launcher/share
 
 const i18n = useI18nStore();
 
+// 显式命名：本卡随 AdvancedPanel 整面板被 SettingsPage 的 KeepAlive 缓存（页签 v-if
+// 切走面板即销毁，回切轻量重扫需要跨页签存活态）；显式 name 供缓存名单与 devtools 对账
+defineOptions({ name: 'TrashCleanCard' });
+
 const detecting = ref(false);
 const cleaning = ref(false);
 const detected = ref<DetectResult | null>(null);
