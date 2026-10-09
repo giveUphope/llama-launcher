@@ -41,6 +41,7 @@ vi.mock('@/stores/server', () => ({
 }));
 vi.mock('@/stores/settings', () => ({ useSettingsStore: () => settingsMock }));
 vi.mock('@/stores/params', () => ({ useParamsStore: () => paramsMock }));
+vi.mock('@/stores/appLog', () => ({ useAppLogStore: () => appLogMock }));
 
 import { useStartServer } from './useStartServer';
 
@@ -50,6 +51,7 @@ const serverMock = {
   restart: vi.fn(async () => {}),
   adoptExternal: vi.fn(),
 };
+const appLogMock = { push: vi.fn() };
 const settingsMock = {
   settings: {
     server_exe: 'D:/llama/llama-server.exe',
@@ -91,9 +93,9 @@ let checkPortImpl: (
   },
 };
 
-/** pushOutput 收到的错误消息序列（[Launcher] 前缀后的正文） */
+/** appLog.push 收到的消息序列（[Launcher] 前缀后的正文）——应用级事件走应用日志而非控制台 */
 function pushedMessages(): string[] {
-  return serverMock.pushOutput.mock.calls.map((c: unknown[]) => String((c[0] as { data: string }).data));
+  return appLogMock.push.mock.calls.map((c: unknown[]) => String((c[0] as { data: string }).data));
 }
 
 beforeEach(() => {

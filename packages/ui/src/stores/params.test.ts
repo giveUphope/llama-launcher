@@ -57,6 +57,7 @@ vi.mock('./settings', () => ({
 vi.mock('./server', () => ({
   useServerStore: () => ({ pushOutput: () => {}, clearOutputs: () => {} }),
 }));
+vi.mock('./appLog', () => ({ useAppLogStore: () => ({ push: () => {} }) }));
 vi.mock('./i18n', () => ({
   useI18nStore: () => ({ t: (k: string) => k }),
 }));

@@ -2,6 +2,7 @@ import { useRouter } from 'vue-router';
 import { useSettingsStore } from '@/stores/settings';
 import { useServerStore, LLAMA_SERVER_NAME_RE } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
+import { useAppLogStore } from '@/stores/appLog';
 import { useI18nStore } from '@/stores/i18n';
 import { confirm } from '@/composables/useConfirm';
 import { DEFAULT_HOST, DEFAULT_PORT, isValidPort, PORT_MIN, PORT_MAX } from '@llama-launcher/shared';
@@ -27,10 +28,11 @@ export function useStartServer() {
   const server = useServerStore();
   const params = useParamsStore();
   const i18n = useI18nStore();
+  const appLog = useAppLogStore();
   const router = useRouter();
 
   function pushError(message: string) {
-    server.pushOutput({ kind: 'error', data: `[Launcher] ${message}\n`, ts: Date.now() });
+    appLog.push({ kind: 'error', data: `[Launcher] ${message}\n`, ts: Date.now() });
   }
 
   /** 同步校验项：立即返回错误信息 */
@@ -152,7 +154,7 @@ export function useStartServer() {
         pushError(i18n.t('msg_kill_failed', [res.error ?? '']));
         return false;
       }
-      server.pushOutput({
+      appLog.push({
         kind: 'info',
         data: `[Launcher] ${i18n.t('msg_port_owner_killed', [owner.name ?? `PID ${owner.pid}`])}\n`,
         ts: Date.now(),
@@ -177,7 +179,7 @@ export function useStartServer() {
         return false;
       }
       params.set('port', free); // 写回参数（会话自动持久化），后续校验与命令预览同步
-      server.pushOutput({ kind: 'info', data: `[Launcher] ${i18n.t('msg_port_switched', [String(free)])}\n`, ts: Date.now() });
+      appLog.push({ kind: 'info', data: `[Launcher] ${i18n.t('msg_port_switched', [String(free)])}\n`, ts: Date.now() });
       return true;
     }
     return false;

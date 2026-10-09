@@ -9,13 +9,13 @@ import ModelMetaCard from '@/components/common/ModelMetaCard.vue';
 import Icon from '@/components/common/Icon.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useParamsStore } from '@/stores/params';
-import { useServerStore } from '@/stores/server';
+import { useAppLogStore } from '@/stores/appLog';
 import { useI18nStore } from '@/stores/i18n';
 import { confirm } from '@/composables/useConfirm';
 
 const settings = useSettingsStore();
 const params = useParamsStore();
-const server = useServerStore();
+const appLog = useAppLogStore();
 const i18n = useI18nStore();
 // 智能预设：模型切换时自动发现该模型已保存的预设并询问应用
 
@@ -57,14 +57,14 @@ async function onRemoveModel(m: ModelInfo) {
     if (res && res.ok) {
       void onRefresh();
     } else {
-      server.pushOutput({
+      appLog.push({
         kind: 'error',
         data: i18n.t('msg_remove_model_failed', [res?.error ?? 'unknown']) + '\n',
         ts: Date.now(),
       });
     }
   } catch (e: any) {
-    server.pushOutput({
+    appLog.push({
       kind: 'error',
       data: i18n.t('msg_remove_model_failed', [e?.message ?? String(e)]) + '\n',
       ts: Date.now(),
@@ -233,7 +233,7 @@ async function onRefresh() {
           const created = await window.api.models.scan(dir, { createIfMissing: true });
           models.value = Array.isArray(created) ? created : [];
         } catch (e2: any) {
-          server.pushOutput({
+          appLog.push({
             kind: 'error',
             data: `[Models] ${i18n.t('msg_dir_create_failed', [e2?.message ?? String(e2)])}\n`,
             ts: Date.now(),
@@ -363,10 +363,10 @@ async function onBench(m: ModelInfo) {
       applyBenchState(res.data);
       if (res.data.state === 'running') benchInFlight.add(m.path);
     } else {
-      server.pushOutput({ kind: 'error', data: `[Bench] ${res.error}\n`, ts: Date.now() });
+      appLog.push({ kind: 'error', data: `[Bench] ${res.error}\n`, ts: Date.now() });
     }
   } catch (e: any) {
-    server.pushOutput({ kind: 'error', data: `[Bench] ${e?.message ?? String(e)}\n`, ts: Date.now() });
+    appLog.push({ kind: 'error', data: `[Bench] ${e?.message ?? String(e)}\n`, ts: Date.now() });
   }
 }
 

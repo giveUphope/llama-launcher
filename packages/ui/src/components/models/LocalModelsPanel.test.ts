@@ -63,11 +63,13 @@ const paramsMock = reactive({
   reattachModelRuntime: async () => {},
 });
 const serverMock = { pushOutput: vi.fn(), pushOutputBatch: vi.fn() };
+const appLogMock = { push: vi.fn() };
 
 vi.mock('@/stores/i18n', () => ({ useI18nStore: () => i18nMock }));
 vi.mock('@/stores/settings', () => ({ useSettingsStore: () => settingsMock }));
 vi.mock('@/stores/params', () => ({ useParamsStore: () => paramsMock }));
 vi.mock('@/stores/server', () => ({ useServerStore: () => serverMock }));
+vi.mock('@/stores/appLog', () => ({ useAppLogStore: () => appLogMock }));
 vi.mock('@/composables/useConfirm', () => ({ confirm: async () => true }));
 
 // ---- window.api 桩 ----

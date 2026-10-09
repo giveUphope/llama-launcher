@@ -4,6 +4,7 @@ import { PARAMS, MODEL_KEY, modelBaseName } from '@llama-launcher/shared';
 import type { ParamDef, PresetValues, GgufModelInfo, GgufSuggestedParam } from '@llama-launcher/shared';
 import { useSettingsStore } from './settings';
 import { useServerStore } from './server';
+import { useAppLogStore } from './appLog';
 import { useI18nStore } from './i18n';
 
 // 推测解码类型 → 推荐最大草稿数
@@ -281,6 +282,7 @@ export const useParamsStore = defineStore('params', () => {
   async function applyModel(path: string): Promise<boolean> {
     const server = useServerStore();
     const i18n = useI18nStore();
+    const appLog = useAppLogStore();
     const prev = String(values[MODEL_KEY] ?? '');
     if (path && path !== prev) {
       server.clearOutputs();
@@ -302,7 +304,7 @@ export const useParamsStore = defineStore('params', () => {
 
     if (path) {
       if (storedChanged !== null) {
-        server.pushOutput({
+        appLog.push({
           kind: 'info',
           data: `[params] ${i18n.t('msg_model_params_loaded', [
             path.split(/[\\/]/).pop() ?? path,
@@ -316,7 +318,7 @@ export const useParamsStore = defineStore('params', () => {
           set(s.key, s.value);
           count++;
         }
-        server.pushOutput({
+        appLog.push({
           kind: 'success',
           data: `[gguf] ${i18n.t('msg_gguf_applied', [String(count)])}\n`,
           ts: Date.now(),
@@ -330,6 +332,7 @@ export const useParamsStore = defineStore('params', () => {
   async function applyModelWithSuggestions(path: string): Promise<boolean> {
     const server = useServerStore();
     const i18n = useI18nStore();
+    const appLog = useAppLogStore();
     const prev = String(values[MODEL_KEY] ?? '');
     if (path && path !== prev) server.clearOutputs();
     resetAll();
@@ -341,7 +344,7 @@ export const useParamsStore = defineStore('params', () => {
       count++;
     }
     if (count > 0) {
-      server.pushOutput({
+      appLog.push({
         kind: 'success',
         data: `[gguf] ${i18n.t('msg_gguf_applied', [String(count)])}\n`,
         ts: Date.now(),
@@ -368,8 +371,8 @@ export const useParamsStore = defineStore('params', () => {
   }
 
   async function detectMmproj(modelPathValue: string): Promise<void> {
-    const server = useServerStore();
     const i18n = useI18nStore();
+    const appLog = useAppLogStore();
     if (!modelPathValue) {
       values['mmproj'] = '';
       return;
@@ -380,13 +383,13 @@ export const useParamsStore = defineStore('params', () => {
       const mmprojPath = await window.api.models.detectMmproj(modelPathValue);
       if (mmprojPath) {
         values['mmproj'] = mmprojPath;
-        server.pushOutput({
+        appLog.push({
           kind: 'info',
           data: `[mmproj] ${i18n.t('msg_mmproj_detected', [mmprojPath])}\n`,
           ts: Date.now(),
         });
       } else {
-        server.pushOutput({
+        appLog.push({
           kind: 'info',
           data: `[mmproj] ${i18n.t('msg_mmproj_not_detected')}\n`,
           ts: Date.now(),
@@ -407,8 +410,8 @@ export const useParamsStore = defineStore('params', () => {
     try {
       const draftPath = await window.api.models.detectDraft(modelPathValue);
       if (draftPath) {
-        const server = useServerStore();
         const i18n = useI18nStore();
+        const appLog = useAppLogStore();
         const st = String(values.spec_type ?? '');
         if (st !== '' && st !== 'none' && !EXTERNAL_DRAFT_TYPES.has(st)) {
           return;
@@ -420,14 +423,14 @@ export const useParamsStore = defineStore('params', () => {
             values['spec_type'] = 'draft-dflash';
             values['flash_attn'] = 'on';
             values['spec_draft_n_max'] = 15;
-            server.pushOutput({
+            appLog.push({
               kind: 'success',
               data: `[spec] ${i18n.t('msg_dflash_detected', [draftPath])}\n`,
               ts: Date.now(),
             });
           } else {
             values['spec_type'] = 'draft-simple';
-            server.pushOutput({
+            appLog.push({
               kind: 'success',
               data: `[spec] ${i18n.t('msg_draft_detected', [draftPath])}\n`,
               ts: Date.now(),

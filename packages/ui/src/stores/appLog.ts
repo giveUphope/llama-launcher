@@ -95,5 +95,7 @@ export const useAppLogStore = defineStore('appLog', () => {
     try { void window.api.logs.clear(); } catch { /* 浏览器预览容错 */ }
   }
 
-  return { entries, subscribe, clear, setLocale };
+  // push 一并暴露：渲染层本地产生的应用级事件（参数载入/启动器错误等）从这里进同一缓冲，
+  // 与主进程经 LOGS_ONLOG 推来的行在概览卡合流——控制台只留 llama-server 原始输出
+  return { entries, push, subscribe, clear, setLocale };
 });

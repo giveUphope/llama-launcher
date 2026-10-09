@@ -6,6 +6,9 @@
 
 ## \[Unreleased]
 
+- **fix(ui): 应用级状态行退出控制台——归入概览应用操作日志（用户报告「框架输出与应用日志混杂」）**：出了什么事——参数载入 `[params]`、多模态投影检测 `[mmproj]`、GGUF 建议应用 `[gguf]`、草稿检测 `[spec]`、启动器错误/换端口 `[Launcher]`、模型删除失败/建目录失败/体检 `[Models]`/`[Bench]` 这批**应用自身的事件行**被 `server.pushOutput` 推进了框架控制台流，日志页里与 llama-server 原始输出混排——控制台不再是「推理框架的原始输出」，概览的应用操作日志卡反而收不到它们。**改法**：三处调用方（params store 7 处 / LocalModelsPanel 5 处 / useStartServer 3 处）全部改走 `appLog.push`（appLog store 暴露 `push`，渲染层本地事件与主进程 `LOGS_ONLOG` 推送在概览卡合流），行尾 `
+` 随之去掉；日志页控制台自此只剩 llama-server 原始输出，「框架输出的唯一出口」名实相符。**测试**：useStartServer.test 的错误收集改从 appLog.push 取（补 appLog store mock）；params.test / LocalModelsPanel.test 补 appLog mock（后者原缺 mock 时挂载即报 Pinia 错）。**验证**：lint 七道门禁全绿；单测 core 558 + ui 212 全绿；e2e 84 全绿。
+
 ## \[0.0.57] - 2026-10-09
 
 
