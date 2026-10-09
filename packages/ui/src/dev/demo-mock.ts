@@ -663,22 +663,24 @@ export function createDemoApi() {
     server: {
       start: (values: never, _settings: never) => {
         emitStatus('starting');
-        pushOutput('info', 'llama-server starting...');
+        // 控制台只放引擎原始输出：启动时从 LLAMA_LINES 头部重放模型加载序列，
+        // 不再推伪造的编排行（「llama-server starting...」真实引擎不会这样打印）
+        outputIdx = -1;
         setTimeout(() => {
           runningValuesSnapshot = cloneValues(values as PresetValues);
           emitStatus('running');
         }, 1200);
         return Promise.resolve({ ok: true });
       },
-      stop: () => { runningValuesSnapshot = null; emitStatus('stopped', userStopInfo()); pushOutput('info', 'llama-server stopped (signal: SIGTERM)'); return Promise.resolve({ ok: true }); },
+      // 强杀（taskkill /F）没有优雅退出输出，控制台安静即可——状态机已报 stopped
+      stop: () => { runningValuesSnapshot = null; emitStatus('stopped', userStopInfo()); return Promise.resolve({ ok: true }); },
       // 模拟 core Launcher.restart() 语义：运行中先离开 running（旧进程退出），再 starting → running（新进程就绪）
       restart: (values: never, _settings: never) => {
         runningValuesSnapshot = null;
         emitStatus('stopped', userStopInfo());
-        pushOutput('info', 'llama-server stopped (restart)');
         setTimeout(() => {
           emitStatus('starting');
-          pushOutput('info', 'llama-server starting...');
+          outputIdx = -1; // 重启后重放引擎启动序列
           setTimeout(() => {
             runningValuesSnapshot = cloneValues(values as PresetValues);
             emitStatus('running');
