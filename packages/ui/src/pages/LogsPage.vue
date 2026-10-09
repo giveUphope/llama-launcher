@@ -151,6 +151,9 @@ function onClear() {
         </a-input>
       </div>
       <div class="toolbar-right">
+        <!-- 行数计数（2026-10-09 用户裁定自底部状态条并回工具条）：命中数 / 缓冲区总行数，
+             分母取缓冲区总量，筛选无命中时读得出一共有多少行；信息在左、动作在右 -->
+        <span class="show-limit">{{ filteredCount }} / {{ server.outputs.length }} {{ i18n.t('col_lines') }}</span>
         <ToolTip :text="i18n.t('copy_console')">
           <a-button
             size="small"
@@ -194,11 +197,6 @@ function onClear() {
           :class="{ 'search-hit': p.hit }"
         >{{ p.text }}</span></span></span>
       </ConsolePanel>
-      <div class="scroll-hint-bar">
-        <!-- 自动滚动状态文案已移除（b8c1d59：暂停态由「有新日志」胶囊传达）。
-             计数 = 命中数 / 缓冲区总行数：分母取缓冲区总量，筛选无命中时读得出一共有多少行 -->
-        <span class="show-limit">{{ filteredCount }} / {{ server.outputs.length }} {{ i18n.t('col_lines') }}</span>
-      </div>
     </div>
     </Card>
   </PageFrame>
@@ -319,18 +317,11 @@ function onClear() {
   padding: 24px 20px;
 }
 
-/* 底部状态栏 */
-.scroll-hint-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end; // 自动滚动提示已移除，行数保持右侧
-  font-size: var(--fs-sm);
-  color: var(--fg-hint);
-  padding: 4px;
-}
-
+/* 行数计数：随工具条右簇展示（2026-10-09 自底部状态条并入；底条本身只有它一个
+   内容，随迁拆除，控制台由此多得一行高度）。次级档 + mono，与按钮簇隔 8px（容器 gap） */
 .show-limit {
   font-family: var(--font-mono);
+  font-size: var(--fs-sm);
   color: var(--fg-hint);
 }
 </style>

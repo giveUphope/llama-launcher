@@ -177,3 +177,51 @@ for (const lang of ['zh', 'en'] as Lang[]) {
     });
   });
 }
+
+// ---------------------------------------------------------------------------
+// 行数计数的归属（2026-10-09 用户裁定）：自底部状态条并回工具条右簇。
+// 底条当年只为它存在（自动滚动文案 b8c1d59 已撤），回潮 = 空占一行的死条。
+// ---------------------------------------------------------------------------
+type CountStat = { exists: boolean; visible: boolean; inToolbar: boolean; bottomBars: number };
+
+async function collectCount(page: Page): Promise<CountStat> {
+  return page.evaluate(() => {
+    const lim = document.querySelector('.show-limit') as HTMLElement | null;
+    const st = lim ? getComputedStyle(lim) : null;
+    return {
+      exists: !!lim,
+      visible: !!lim && !!st && st.visibility === 'visible' && st.display !== 'none',
+      inToolbar: !!lim?.closest('.toolbar-right'),
+      bottomBars: document.querySelectorAll('.scroll-hint-bar').length,
+    };
+  });
+}
+
+function judgeCount(s: CountStat): string[] {
+  const v: string[] = [];
+  if (!s.exists) return ['行数计数元素缺失（.show-limit 不在页面上）'];
+  if (!s.visible) v.push('行数计数存在但不可见');
+  if (!s.inToolbar) v.push('行数计数不在工具条右簇（.toolbar-right）内');
+  if (s.bottomBars > 0) v.push(`底部状态条回潮 ${s.bottomBars} 条（它只为行计数存在，计数并回后应整体拆除）`);
+  return v;
+}
+
+for (const lang of ['zh', 'en'] as Lang[]) {
+  test.describe(`行数计数并入工具条（${lang === 'zh' ? '中文' : '英文'}态）`, () => {
+    test('计数在工具条右簇可见、底部状态条零残留；藏起计数时判据转红', async ({ page }) => {
+      await openLogs(page, lang);
+      expect(judgeCount(await collectCount(page)), `${lang}态计数归属`).toEqual([]);
+      // 计数文案真实在（命中数 / 缓冲区总行数，i18n 单位在尾）
+      const text = await page.locator('.show-limit').innerText();
+      expect(text).toMatch(/^\d+ \/ \d+ \S/);
+
+      // 删除实验：把计数藏起来，判据必须转红（证明「可见」那条腿不是恒真）
+      const handle = await injectStyle(page, '.show-limit{visibility:hidden !important}');
+      await page.waitForTimeout(120);
+      expect(judgeCount(await collectCount(page)).length, '计数被藏起判据必须报警').toBeGreaterThan(0);
+      await removeStyle(handle);
+      await page.waitForTimeout(120);
+      expect(judgeCount(await collectCount(page)), '还原后判据必须转绿').toEqual([]);
+    });
+  });
+}
