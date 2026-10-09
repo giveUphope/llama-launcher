@@ -7,7 +7,7 @@ import { execFile, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { join, dirname } from 'node:path';
 import { totalmem, freemem } from 'node:os';
-import { detectTrashAsync, cleanTrashAsync, getDownloadManager, loadSettings, listDevices, resolveServerExe, readGgufMetadata, estimateVram, estimateOccupancy, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench, loadBenchRecords, saveBenchRecords, detectMmproj, DEFAULT_SERVER_EXE } from '@llama-launcher/core';
+import { detectTrashAsync, cleanTrashAsync, getDownloadManager, loadSettings, listDevices, resolveServerExe, readGgufMetadata, estimateVram, estimateOccupancy, resolveSessionCtxTokens, KV_DTYPE_BYTES, recommendForTarget, runLlamaBench, loadBenchRecords, saveBenchRecords, detectMmproj, DEFAULT_SERVER_EXE } from '@llama-launcher/core';
 import { IPC, tcpHosts, PORT_MIN, PORT_MAX, tr } from '@llama-launcher/shared';
 import type { TrashItem, VramEstimateResult, LlamaBenchJobState, PerfTarget, DeviceMemInfo, ModelFitResult, OccupancyConfig } from '@llama-launcher/shared';
 
@@ -331,7 +331,12 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
         })
       : null;
     const recommendations = info && primary
-      ? recommendForTarget(validTarget, info, fileSizeBytes, primary.freeMiB, systemFreeMiB)
+      ? recommendForTarget(validTarget, info, fileSizeBytes, primary.freeMiB, systemFreeMiB, undefined, {
+          // 减负建议的 -ngl 要给 GPU 侧 KV 留地方（T03）：折算口径（ctx=0 → 训练上限）
+          // 只有这一份实现，见 resolveSessionCtxTokens
+          ctxTokens: resolveSessionCtxTokens(occCfg.ctxSize, info),
+          dtypeBytes: KV_DTYPE_BYTES[occCfg.kvDtype] ?? KV_DTYPE_BYTES.f16,
+        })
       : [];
     // 硬件占用估算（显存 + 内存双侧，会话参数驱动）：与渲染端展示共用同一份结构化结果
     const occupancy = info && primary

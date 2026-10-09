@@ -24,6 +24,14 @@ const TARGET_KV_DTYPE: Record<PerfTarget, string> = {
   memory: 'q4_0',
 };
 
+/** 会话侧的 KV 折算依据：减负建议的 `-ngl` 要给 GPU 侧 KV 留地方（T03），须按当前会话的上下文与 KV 档位折算 */
+export interface SessionKvContext {
+  /** 会话上下文 token 数；null = 未知（退回纯权重口径，见 partialOffloadLayers） */
+  ctxTokens: number | null;
+  /** KV dtype 每 weight 字节（KV_DTYPE_BYTES 取值） */
+  dtypeBytes: number;
+}
+
 /**
  * 生成目标联动参数建议。理由以 `reasonKey`（i18n 键）+ 数值实参下发，本模块不产文案——
  * 否则主进程算好的中文字面量会在英文界面直出（原 `TARGET_LABEL` + 模板串已因此删除）。
@@ -31,6 +39,8 @@ const TARGET_KV_DTYPE: Record<PerfTarget, string> = {
  * 任一为 null/≤0（无设备）时不产生任何建议。
  * `devices`（可选）= `--list-devices` 探测到的全部设备，**顺序即引擎顺序**：传了才可能产出
  * `-dev` / `-ts` 这两条多卡建议（单卡没有「选哪块卡 / 怎么分摊」可说）。
+ * `session`（可选）= 当前会话的 ctx/KV 档位：减负建议的 `-ngl` 依赖它折算 GPU 侧 KV（T03），
+ * 不传则按纯权重口径（保守程度退化到旧行为）。
  */
 export function recommendForTarget(
   target: PerfTarget,
@@ -39,6 +49,7 @@ export function recommendForTarget(
   freeMiB: number | null,
   systemFreeMiB: number | null,
   devices?: DeviceMemInfo[] | null,
+  session?: SessionKvContext | null,
 ): TargetRecommendation[] {
   const recs: TargetRecommendation[] = [];
   if (freeMiB === null || freeMiB <= 0) return recs;
@@ -109,6 +120,7 @@ export function recommendForTarget(
     deviceFreeMiB: freeMiB,
     systemFreeMiB,
     devices,
+    session,
   })) {
     if (!recs.some((r) => r.key === relief.key)) recs.push(relief);
   }
@@ -127,6 +139,8 @@ export interface OffloadAdviceInput {
   systemFreeMiB: number | null;
   /** `--list-devices` 的全部设备（顺序即引擎顺序）；≥2 块才产出 `-dev` / `-ts` */
   devices?: DeviceMemInfo[] | null;
+  /** 会话 ctx/KV 档位：`-ngl` 降档按它折算 GPU 侧 KV（T03）；缺省 = 纯权重口径 */
+  session?: SessionKvContext | null;
 }
 
 /**
@@ -167,8 +181,16 @@ export function recommendOffloadAdvice(input: OffloadAdviceInput): TargetRecomme
   if ((info.expert_count ?? 0) > 1) {
     recs.push({ key: 'cpu_moe', value: true, reasonKey: 'offload_rec_cmoe', offloadRelief: true });
   }
-  // 卸载层数降档：放得下多少层就放多少层（其余层权重进内存），稠密/MoE 都适用
-  const ngl = partialOffloadLayers(info, fileSizeBytes, deviceFreeMiB);
+  // 卸载层数降档：放得下多少层就放多少层（其余层权重进内存），稠密/MoE 都适用。
+  // 预算同时扣 GPU 侧 KV（按会话 ctx 折算，T03）：不然建议层数在 ctx 大时系统性偏多，
+  // 真机实测 Qwen3.8-27B 训练上限 ctx 下偏 8~13 GiB——按它起服务必然溢出到内存。
+  const ngl = partialOffloadLayers(
+    info,
+    fileSizeBytes,
+    deviceFreeMiB,
+    input.session?.ctxTokens ?? null,
+    input.session?.dtypeBytes ?? KV_DTYPE_BYTES.f16,
+  );
   if (ngl !== null && info.block_count && ngl < info.block_count) {
     recs.push({
       key: 'gpu_layers',

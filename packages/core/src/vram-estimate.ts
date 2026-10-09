@@ -116,6 +116,19 @@ export function estimateVram(input: VramEstimateInput): VramEstimate {
 /** 内存侧固定开销估算（进程 + 运行时 + 计算缓冲的 CPU 部分） */
 export const RAM_OVERHEAD_MIB = 512;
 
+/**
+ * 会话上下文折算（唯一实现）：`ctx_size` 显式给定直接用；0/缺省 = 引擎按训练上限开
+ * （`-c 0` 的回退语义），无训练上限元数据则视为未知。占用估算与减负建议的 KV 折算
+ * 都走这里，避免「ctx=0 该按什么算」长出第二份答案。
+ */
+export function resolveSessionCtxTokens(
+  ctxSize: number,
+  info: Pick<GgufModelInfo, 'context_length'>,
+): number | null {
+  if (ctxSize > 0) return ctxSize;
+  return info.context_length && info.context_length > 0 ? info.context_length : null;
+}
+
 export interface OccupancyComputationInput {
   info: GgufModelInfo;
   fileSizeBytes: number | null;
@@ -146,11 +159,11 @@ export function estimateOccupancy(input: OccupancyComputationInput): HardwareOcc
   const blocks = input.info.block_count && input.info.block_count > 0 ? input.info.block_count : null;
   const weightsTotalMiB =
     input.fileSizeBytes && input.fileSizeBytes > 0 ? input.fileSizeBytes / MiB : null;
-  const trained = input.info.context_length && input.info.context_length > 0 ? input.info.context_length : null;
-  const ctxTokens = input.ctxSize > 0 ? input.ctxSize : trained;
+  const ctxTokens = resolveSessionCtxTokens(input.ctxSize, input.info);
   const dtypeBytes = KV_DTYPE_BYTES[input.kvDtype] ?? KV_DTYPE_BYTES.f16;
 
   // 卸载层数：显式数字 / all 直接取；auto（引擎自适应）按「放得下则全卸载，否则按余量均摊」近似
+  //（余量均摊含 GPU 侧 KV，见 partialOffloadLayers）
   const freeMiB = input.deviceFreeMiB;
   let offloadLayers: number | null = null;
   if (blocks) {
@@ -162,7 +175,7 @@ export function estimateOccupancy(input: OccupancyComputationInput): HardwareOcc
       offloadLayers =
         weightsTotalMiB + COMPUTE_RESERVE_MIB <= freeMiB
           ? blocks
-          : partialOffloadLayers(input.info, input.fileSizeBytes ?? 0, freeMiB);
+          : partialOffloadLayers(input.info, input.fileSizeBytes ?? 0, freeMiB, ctxTokens, dtypeBytes);
     }
   }
   const ratio = blocks && offloadLayers !== null ? offloadLayers / blocks : null;
@@ -223,14 +236,31 @@ export function estimateOccupancy(input: OccupancyComputationInput): HardwareOcc
   };
 }
 
-/** 部分卸载估算：权重超出空闲显存时，按逐层均摊体积估算可放入 GPU 的层数 */
-export function partialOffloadLayers(info: GgufModelInfo, fileSizeBytes: number, freeMiB: number): number | null {
+/**
+ * 部分卸载估算：权重超出空闲显存时，估算可放入 GPU 的层数。
+ *
+ * 预算里要给 **GPU 侧 KV** 留地方：卸载层的 KV 缓存与权重同住在显存，只扣权重会让
+ * 建议层数系统性偏多（T03，真机 b11408 实测 Qwen3.8-27B：ctx=8192 偏 ~0.4 GiB 尚可
+ * 忽略，ctx=训练上限 262K 偏 8~13 GiB——足够把「刚好放得下」变成「溢出到内存」）。
+ * 每层分摊 KV = kvBytesPerToken × ctxTokens / 总层数（与下方占用侧的同一条比例分摊口径）。
+ * ctxTokens 缺省/null（上下文未知）时无法折算，退回纯权重口径——按未知继续给建议，
+ * 但调用方（占用展示）会以 `fits=false` 如实呈现这一档的风险。
+ */
+export function partialOffloadLayers(
+  info: GgufModelInfo,
+  fileSizeBytes: number,
+  freeMiB: number,
+  ctxTokens?: number | null,
+  dtypeBytes = KV_DTYPE_BYTES.f16,
+): number | null {
   const blocks = info.block_count;
   if (!blocks || blocks <= 0 || fileSizeBytes <= 0) return null;
   const perLayerBytes = fileSizeBytes / blocks;
+  const kvBpt = ctxTokens && ctxTokens > 0 ? kvBytesPerTokenOf(info, dtypeBytes) : null;
+  const kvPerLayerBytes = kvBpt !== null && ctxTokens ? (kvBpt * ctxTokens) / blocks : 0;
   const budgetBytes = freeMiB * BYTES_PER_MIB - COMPUTE_RESERVE_MIB * BYTES_PER_MIB;
   if (budgetBytes <= 0) return 0;
-  return Math.max(0, Math.min(blocks, Math.floor(budgetBytes / perLayerBytes)));
+  return Math.max(0, Math.min(blocks, Math.floor(budgetBytes / (perLayerBytes + kvPerLayerBytes))));
 }
 
 export interface ContextSolveResult {

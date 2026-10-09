@@ -73,7 +73,13 @@ try {
       `cp.spawn(process.execPath, [${JSON.stringify(probePath)}], { windowsHide: true, stdio: ['ignore', 'ignore', errFd] });`,
       'setInterval(() => {}, 1000);',
     ].join('\n');
-    const turbo = spawn(process.execPath, ['-e', turboScript], { windowsHide: true, stdio: 'ignore' });
+    const turbo = spawn(process.execPath, ['-e', turboScript], {
+      windowsHide: true,
+      stdio: 'ignore',
+      // 与 dev.cjs 同一契约：Unix 上 detached 让假 turbo 自成进程组，killProcessTree 的
+      // 「向 -pid 发信号」才成立——不 detached 的话 vite 替身游离在组外，Linux 上杀不到
+      detached: process.platform !== 'win32',
+    });
     turboPid = turbo.pid!;
     expect(turboPid).toBeGreaterThan(0);
 

@@ -261,12 +261,13 @@ function hwOccupancy(
  * core recommendOffloadAdvice 在 relief 现场会发的四条（出单顺序即杠杆强弱：-cmoe → -ngl → -dev → -ts；
  * 状态卡只放前两条，档位所限，见 ServiceStatusCard reliefShown）。
  * 数值来源：演示的这份 27 GiB 权重在 21975 MiB 空闲显存上放不下
- *   -ngl 48  = floor((21975 − 1024) / (27648 / 64))（每层 432 MiB）
+ *   -ngl 47  = floor((21975 − 1024) / (432 + 8))——每层权重 432 MiB，再加 GPU 侧 KV 摊一层
+ *             （f16 KV 0.125 MiB/token × ctx 4096 ÷ 64 层 = 8 MiB；T03 后预算同时扣 KV）
  *   -ts 21,15 = 两块卡空闲显存各取整 GiB（round(21975/1024)=21、round(15413/1024)=15）
  */
 const HW_RELIEF_RECS: TargetRecommendation[] = [
   { key: 'cpu_moe', value: true, reasonKey: 'offload_rec_cmoe', offloadRelief: true },
-  { key: 'gpu_layers', value: 48, reasonKey: 'offload_rec_ngl', reasonArgs: [48, 64], offloadRelief: true },
+  { key: 'gpu_layers', value: 47, reasonKey: 'offload_rec_ngl', reasonArgs: [47, 64], offloadRelief: true },
   { key: 'device', value: 'Vulkan0', reasonKey: 'offload_rec_device', reasonArgs: ['Vulkan0'], offloadRelief: true },
   { key: 'tensor_split', value: '21,15', reasonKey: 'offload_rec_split', reasonArgs: ['21,15'], offloadRelief: true },
 ];
@@ -289,7 +290,7 @@ interface HwSceneData {
  *   all-vram   19931.79  64/64  19931.79 · 512 · 21467.79 · 21975 · 是   |   0 · 0 · 512
  *   split      19931.79  40/64  12457.37 · 320 · 13801.37 · 21975 · 是   |   7474.42 · 192 · 8178.42
  *   all-ram    19931.79   0/64  0 · 0 · 1024 · 21975 · 是                |   19931.79 · 512 · 20955.79
- *   relief     27648     48/64  20736 · 384 · 22144 · 21975 · **否**     |   6912 · 128 · 7552
+ *   relief     27648     47/64  20304 · 282 · 21610 · 21975 · **是**     |   7344 · 102 · 7958
  *   relief-off 与 relief 完全同形，只是 recommendations 里没有 offloadRelief 条目
  *   silent     没探到设备（occupancy null、无任何建议），两行都必须闭嘴
  *
@@ -350,9 +351,9 @@ const HW_SCENE_DATA: Record<HwScene, HwSceneData> = {
     maxContext: 0,
     fullOffloadFits: false,
     occupancy: hwOccupancy(
-      hwSide(20736, 384, HW_COMPUTE_RESERVE_MIB, HW_VULKAN0.totalMiB, HW_VULKAN0.freeMiB),
-      hwSide(6912, 128, HW_RAM_OVERHEAD_MIB, HW_RAM_TOTAL_MIB, HW_RAM_FREE_MIB),
-      4096, 48, 64, 0,
+      hwSide(20304, 282, HW_COMPUTE_RESERVE_MIB, HW_VULKAN0.totalMiB, HW_VULKAN0.freeMiB),
+      hwSide(7344, 102, HW_RAM_OVERHEAD_MIB, HW_RAM_TOTAL_MIB, HW_RAM_FREE_MIB),
+      4096, 47, 64, 0,
     ),
     relief: HW_RELIEF_RECS,
     probeError: null,
@@ -365,11 +366,11 @@ const HW_SCENE_DATA: Record<HwScene, HwSceneData> = {
     maxContext: 0,
     fullOffloadFits: false,
     occupancy: hwOccupancy(
-      hwSide(20736, 384, HW_COMPUTE_RESERVE_MIB, HW_VULKAN0.totalMiB, HW_VULKAN0.freeMiB),
-      hwSide(6912, 128, HW_RAM_OVERHEAD_MIB, HW_RAM_TOTAL_MIB, HW_RAM_FREE_MIB),
-      4096, 48, 64, 0,
+      hwSide(20304, 282, HW_COMPUTE_RESERVE_MIB, HW_VULKAN0.totalMiB, HW_VULKAN0.freeMiB),
+      hwSide(7344, 102, HW_RAM_OVERHEAD_MIB, HW_RAM_TOTAL_MIB, HW_RAM_FREE_MIB),
+      4096, 47, 64, 0,
     ),
-    // 与 relief 唯一差别就在这条空数组：占用照样是「显存装不下」的形状。
+    // 与 relief 唯一差别就在这条空数组：占用是同一份「auto 层数经 KV 口径折算后自洽放得下」的形状。
     // 界面若在这里还能冒出建议按钮，说明它在自己算「装不下」（第二套判据）。
     relief: [],
     probeError: null,

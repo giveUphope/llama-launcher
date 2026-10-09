@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { recommendForTarget, recommendOffloadAdvice } from '../src/target-recommend.js';
+import { KV_DTYPE_BYTES } from '../src/vram-estimate.js';
 import { PARAMS } from '@llama-launcher/shared';
 import type { DeviceMemInfo, GgufModelInfo } from '@llama-launcher/shared';
 
@@ -204,5 +205,38 @@ describe('recommendOffloadAdvice（显存装不下时的减负建议，§5.6 第
     expect(recs.filter((r) => r.key === 'gpu_layers')).toHaveLength(1);
     expect(recs.find((r) => r.key === 'tensor_split')?.offloadRelief).toBe(true);
     expect(recs.filter((r) => r.offloadRelief).map((r) => r.key)).toEqual(['device', 'tensor_split']);
+  });
+
+  it('带会话 ctx：-ngl 降档按 GPU 侧 KV 折算（T03）；ctx 未知保持纯权重口径', () => {
+    const base = { info: HYBRID, fileSizeBytes: FILE_HYBRID, deviceFreeMiB: 8192, systemFreeMiB: SYS_FREE_MIB };
+    // HYBRID f16 KV = 2×11×2×256×2 = 22528 B/token：ctx 262144 → KV 共 5632 MiB，每层摊 137.4 MiB
+    // divisor = 264.4 + 137.4 = 401.8 → floor(7168/401.8) = 17 层（纯权重口径是 27）
+    const withCtx = recommendOffloadAdvice({ ...base, session: { ctxTokens: 262144, dtypeBytes: KV_DTYPE_BYTES.f16 } });
+    const nglRec = withCtx.find((r) => r.key === 'gpu_layers');
+    expect(nglRec?.value).toBe(17);
+    expect(nglRec?.reasonArgs).toEqual([17, 41]);
+    // ctx 未知 → 回退纯权重口径，与无 session 的既有用例（27 层）一致
+    const noCtx = recommendOffloadAdvice({ ...base, session: { ctxTokens: null, dtypeBytes: KV_DTYPE_BYTES.f16 } });
+    expect(noCtx.find((r) => r.key === 'gpu_layers')?.value).toBe(27);
+  });
+
+  it('recommendForTarget 尾参 session 透传到减负 -ngl（主进程接线依赖这条链路）', () => {
+    // 构造「目标建议沉默、减负 ngl 独自浮出」的现场才有判别力——只要目标路径自己发了
+    // gpu_layers，减负那条必被按 key 去重，session 断了测试也照绿。
+    // 权重 27648（=64×432）> 8192 空闲：max-context 联合预算 joint=(7168+20488−27648)/0.25=32
+    // → floorCtx(32)=0 → 目标路径不发 ctx/ngl；减负判据 2：20480 ≤ 20488 压线通过 → 减负 ngl 出声。
+    // session(32768, f16)：divisor=432+128=560 → floor(7168/560)=12；session 断了会得 16（纯权重）。
+    const args = { info: DENSE, fileSizeBytes: 27648 * 1024 * 1024, deviceFreeMiB: 8192, systemFreeMiB: SYS_FREE_MIB };
+    const threaded = recommendForTarget('max-context', args.info, args.fileSizeBytes, args.deviceFreeMiB, args.systemFreeMiB, null, {
+      ctxTokens: 32768,
+      dtypeBytes: KV_DTYPE_BYTES.f16,
+    });
+    const nglRec = threaded.find((r) => r.key === 'gpu_layers');
+    expect(nglRec?.value).toBe(12);
+    expect(nglRec?.reasonArgs).toEqual([12, 64]);
+    expect(nglRec?.offloadRelief).toBe(true);
+    // 对照：session 缺省（=主进程没接线）→ 纯权重口径 16，判别差 6 层
+    const unthreaded = recommendForTarget('max-context', args.info, args.fileSizeBytes, args.deviceFreeMiB, args.systemFreeMiB);
+    expect(unthreaded.find((r) => r.key === 'gpu_layers')?.value).toBe(16);
   });
 });

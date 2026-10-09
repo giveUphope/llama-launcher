@@ -37,7 +37,9 @@ export function normalizeValues(raw: Record<string, unknown>): PresetValues {
 /** 模型路径 → 存储键：清洗后的文件名 + 规范化全路径短哈希（跨平台分隔符/大小写归一） */
 export function modelParamsKey(modelPath: string): string {
   const p = String(modelPath ?? '').trim();
-  const name = (basename(p) || 'model').replace(/[\\/:*?"<>|]/g, '_');
+  // basename 只认本平台分隔符（Linux 不认 `\`），先归一成 `/` 再取——否则同一路径在
+  // 两个平台上得到不同的文件名段，键随平台漂移（CI Linux 上曾因此红牌）
+  const name = (basename(p.replace(/\\/g, '/')) || 'model').replace(/[\\/:*?"<>|]/g, '_');
   const norm = p.replace(/\\/g, '/').toLowerCase();
   const hash = createHash('sha1').update(norm).digest('hex').slice(0, 8);
   return `${name}-${hash}`;
