@@ -37,24 +37,29 @@ jobs:
         with:
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           list-files: none
+          # some-with-excludes：dorny 默认量化器 some 会无视 ! 排除（任一正则命中即 true），
+          # 曾经因此把「代码+AGENTS.md」的混合推送判成纯文档（doc=true → non-doc=false），
+          # e2e 与 release 被静默跳过——v0.0.55/56 未发版的第二根因（TODO R01）。
+          predicate-quantifier: 'some-with-excludes'
           filters: |
-            doc:
-              - 'docs/**'
-              - 'README.md'
-              - 'README.en.md'
-              - 'AGENTS.md'
+            code:
+              - '**'
+              - '!docs/**'
+              - '!README.md'
+              - '!README.en.md'
+              - '!AGENTS.md'
       - id: out
         env:
-          DOC: ${{ steps.filter.outputs.doc }}
+          CODE: ${{ steps.filter.outputs.code }}
         run: |
           set -euo pipefail
-          if [ -z "$DOC" ]; then
+          if [ -z "$CODE" ]; then
             echo "::warning::无法解析基线（filter 步骤失败或无输出），按「非文档变更」保守处理"
             echo "non-doc=true" >> "$GITHUB_OUTPUT"
-          elif [ "$DOC" = "true" ]; then
-            echo "non-doc=false" >> "$GITHUB_OUTPUT"
-          else
+          elif [ "$CODE" = "true" ]; then
             echo "non-doc=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "non-doc=false" >> "$GITHUB_OUTPUT"
           fi
   verify:
     runs-on: ubuntu-latest

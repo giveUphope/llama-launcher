@@ -50,12 +50,10 @@ pull_request 和 push 事件都走 verify。
 
 ### 1.3 changes job（纯文档变更判定）
 
-- `checkout`（fetch-depth: 0）后取基线执行 `git diff --name-only <base> HEAD`，汇总本次变更的真实文件清单（不依赖 webhook `commits[].modified` 字段——Actions 环境中该字段不可靠）。
-- **基线按事件分取（2026-09-19 修）**：push → `github.event.before`；pull_request → `github.event.pull_request.base.sha`。**历史缺陷**：`pull_request` 事件**没有** `github.event.before`，旧实现展开成空串，`git diff --name-only "" HEAD` 以 **exit 128** 失败（本地实测复现），而 `run` 默认 `bash -e` → changes job 在 PR 上必红、`e2e`（`needs: changes`）连带被跳过。因该仓库以 push main 为主，此缺陷长期潜伏（仓库内两次 PR 运行都早于 changes job 引入，未暴露）。
-- **保守回退**：基线为空 / 全 0（首次 push）/ `git rev-parse --verify` 解析不出（浅克隆或历史被改写）→ 打 `::warning::` 并输出 `non-doc=true`（照跑 E2E、照走发版判定），**宁可多跑不可漏检**。
-- 任一文件不属于 `docs/*` / `README.md` / `AGENTS.md` → `non-doc=true`；全部为文档 → `non-doc=false`（跳过发版与 e2e）。
-- 事件上下文一律经 `env:` 注入脚本，不在 `run:` 里直接内插 `${{ }}`（防脚本注入姿势，也便于本地把同一段脚本抽出来跑）。
-- **本地可验证**：`changes` 的判定逻辑是纯 shell，可用 js-yaml 从工作流里取出 `run` 体、以不同 `EVENT_NAME/PUSH_BEFORE/PR_BASE` 组合直接执行——本轮 7 个场景（push 非文档 / push 纯文档 / 无改动 / PR 有 base / PR 无 base / 全 0 基线 / 未知 sha）全部实测通过。
+- **机制（2026-10-09 修）**：`checkout`（fetch-depth: 0）后由 `dorny/paths-filter@v3` 对 `git diff <基线> HEAD` 的变更文件做过滤。过滤器为 `code`：`**` 排除 `docs/**`、根 `README.md`、`README.en.md`、`AGENTS.md`——存在任一非文档文件 → `non-doc=true`；全部为文档 → `non-doc=false`（跳过发版与 e2e）。
+- **量化器必须是 `predicate-quantifier: some-with-excludes`（2026-10-09 修，TODO R01）**：dorny 默认 `some` 会**无视 `!` 排除**（任一正则命中即 true），旧写法 `doc` 过滤「任一文档文件命中即 true」被当成「纯文档变更」——「代码+AGENTS.md」的混合推送被判纯文档，e2e 与 release **静默跳过**（实证：run 37923177708 verify 绿、release 仍跳）。
+- **基线按事件分取（2026-09-19 修）**：push → `github.event.before`；pull_request → `github.event.pull_request.base.sha`。**历史缺陷**：`pull_request` 事件**没有** `github.event.before`，旧实现展开成空串，`git diff` 以 **exit 128** 失败（本地实测复现），changes job 在 PR 上必红、`e2e`（`needs: changes`）连带被跳过。因该仓库以 push main 为主，此缺陷长期潜伏。
+- **保守回退**：filter 步骤失败或无输出（基线解析不出等）→ `continue-on-error` + 打 `::warning::` 并输出 `non-doc=true`（照跑 E2E、照走发版判定），**宁可多跑不可漏检**。
 - 用途：文档更新不产生版本噪音、不触发 Release；`.github/`、`package.json`、`packages/`、`scripts/` 等工程/代码变更仍照常发版。
 
 ### 1.4 e2e job（PR + push 均执行，与 verify 并行；纯文档变更跳过）
