@@ -54,20 +54,22 @@ watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, 
          2026-10-08 范式统一：自绘 .q-section 裸标题换官方 Card 基座（与同页
          ServiceStatusCard 及全站卡片同族——标题 h2 / 卡片头 / 体边距全交回库） -->
     <Card title-key="card_dash_applog">
-      <div ref="consoleEl" class="issues-console">
-        <a-empty v-if="appLogLines.length === 0" class="dash-empty" :description="i18n.t('msg_empty_no_logs')" />
-        <div
-          v-for="entry in appLogLines"
-          :key="entry.id"
-          :class="['log-line', entry.cls]"
-        >
-          <span class="log-ts">{{ entry.time }}</span>
-          <span class="log-kind">{{ entry.kind.toUpperCase() }}</span>
-          <span class="log-text">{{ entry.data }}</span>
+      <div class="dash-log-wrap">
+        <div ref="consoleEl" class="issues-console">
+          <a-empty v-if="appLogLines.length === 0" class="dash-empty" :description="i18n.t('msg_empty_no_logs')" />
+          <div
+            v-for="entry in appLogLines"
+            :key="entry.id"
+            :class="['log-line', entry.cls]"
+          >
+            <span class="log-ts">{{ entry.time }}</span>
+            <span class="log-kind">{{ entry.kind.toUpperCase() }}</span>
+            <span class="log-text">{{ entry.data }}</span>
+          </div>
         </div>
-      </div>
-      <div class="issues-actions-slot" :class="{ 'has-actions': hasError }">
-        <div v-if="hasError" class="issues-actions">
+        <!-- 出错跳转钮悬浮于控制台右下角（新日志胶囊同范式）：不再常驻预留 30px 动作槽，
+             无错时卡片不再带一条空白（全站卡片空白审计，2026-10-09） -->
+        <div class="issues-actions" :class="{ 'is-visible': hasError }">
           <a-button size="small" @click="void router.push('/logs')">
             <template #icon><Icon name="console" :size="13" /></template>
             {{ i18n.t('nav_logs') }}
@@ -168,14 +170,23 @@ watch(() => settings.language, (lang) => { if (lang) appLog.setLocale(lang); }, 
   gap: 8px;
 }
 
-/* 问题操作行防跳动：外层槽位常驻并与按钮行等高（--btn-h），无问题时隐藏但占满
-   高度——操作行出现/消失时问题区高度恒定，下方内容不再被下推（#42 预留位置模式）。 */
-.issues-actions-slot {
-  margin-top: 8px;
-  min-height: var(--btn-h);
+/* 出错跳转钮：悬浮于控制台右下角（新日志胶囊同范式，absolute 不占布局）。
+   出现/消失都不推挤任何内容，卡片不再常驻 30px 预留空白（2026-10-09 空白审计）。
+   无错时 visibility:hidden——按钮退出 tab 序与读屏树（与原 v-if 等效）。 */
+.dash-log-wrap {
+  position: relative;
+}
 
-  &:not(.has-actions) {
-    visibility: hidden;
+.issues-actions {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  gap: 8px;
+  visibility: hidden;
+
+  &.is-visible {
+    visibility: visible;
   }
 }
 </style>
