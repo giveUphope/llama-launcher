@@ -5,6 +5,7 @@ import { SETTINGS_FILE, DEFAULT_SERVER_EXE, DEFAULT_MODELS_DIR } from './paths.j
 import { setHfMirrorHost } from './huggingface-client.js';
 import { DOWNLOAD_CONCURRENCY_DEFAULT, DOWNLOAD_CONCURRENCY_MIN, DOWNLOAD_CONCURRENCY_MAX } from '@llama-launcher/shared';
 import type { AppSettings } from '@llama-launcher/shared';
+import type { ConfigFileReport, ConfigIssue } from './config-doctor.js';
 
 /**
  * 当前设置 schema 版本。
@@ -293,4 +294,67 @@ async function writeSettingsAsync(settings: AppSettings): Promise<void> {
       await sleep(ASYNC_SAVE_RETRY_MS);
     }
   }
+}
+
+// —— 配置诊疗（config doctor）的 settings 侧 ——
+
+/**
+ * 诊疗单个设置文件（config-doctor 的 settings 侧实现；报告类型见 config-doctor.ts）：
+ * - JSON 损坏 / 顶层形状非法 → 备份 .bak 后**重置为全新默认文件**（磁盘立即可用，旧内容可手工恢复）；
+ * - 合法文件 → 走 migrate + normalize，规范化结果与磁盘逐字节不一致即原子写回
+ *   （版本号随迁、schema 外的未知键剥离、非法/缺失字段修复——版本升级后配置文件随之更新到当前版式）；
+ * - 内容已与规范形一致 → 绝不写（幂等，不搅动 mtime 与缓存）。
+ * @param filePath 可注入（单测用临时文件）；默认真实设置文件，写回后同步刷新读取缓存。
+ */
+export function healSettingsFile(filePath: string = SETTINGS_FILE): ConfigFileReport {
+  let raw: string;
+  try {
+    raw = readFileSync(filePath, 'utf-8');
+  } catch {
+    // 文件不存在（首次启动）或读不了：无诊疗项，也不代写——首次保存自然落盘
+    return { file: filePath, issues: [], healed: false };
+  }
+  const issues: ConfigIssue[] = [];
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    resetCorruptSettings(filePath);
+    return { file: filePath, issues: [{ kind: 'corrupt' }], healed: true };
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    resetCorruptSettings(filePath);
+    return { file: filePath, issues: [{ kind: 'invalid_shape' }], healed: true };
+  }
+  const rec = data as Record<string, unknown>;
+  const schemaKeys = Object.keys(settingsSchema.shape);
+  const unknownKeys = Object.keys(rec).filter((k) => !schemaKeys.includes(k));
+  if (unknownKeys.length) {
+    issues.push({ kind: 'unknown_keys', count: unknownKeys.length, keys: unknownKeys });
+  }
+  if (rec.settings_version !== SETTINGS_VERSION) {
+    issues.push({ kind: 'version_migrated' });
+  }
+  const normalized = normalizeSettings(migrateSettings(rec));
+  // 字段级修复计数：归一化后与原始值不同的已声明字段（非法回退默认 / 缺失补默认，含版本随迁新增字段）
+  let repairedFields = 0;
+  for (const k of schemaKeys) {
+    if (JSON.stringify((normalized as unknown as Record<string, unknown>)[k]) !== JSON.stringify(rec[k])) repairedFields++;
+  }
+  if (repairedFields) issues.push({ kind: 'invalid_fields', count: repairedFields });
+  const content = JSON.stringify(normalized, null, 2);
+  if (content !== raw) {
+    writeFileAtomic(filePath, content);
+    if (filePath === SETTINGS_FILE) rememberWritten(content, normalized);
+    return { file: filePath, issues, healed: true };
+  }
+  return { file: filePath, issues, healed: false };
+}
+
+/** 损坏设置的重置：备份 .bak 后写一份全新默认文件（磁盘立即可用，不等到下次保存） */
+function resetCorruptSettings(filePath: string): void {
+  backupCorrupt(filePath);
+  const content = JSON.stringify(getDefaultSettings(), null, 2);
+  writeFileAtomic(filePath, content);
+  if (filePath === SETTINGS_FILE) rememberWritten(content, getDefaultSettings());
 }

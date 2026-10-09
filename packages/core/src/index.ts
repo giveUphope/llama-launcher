@@ -1,5 +1,6 @@
 export * from './paths.js';
 export * from './settings-store.js';
+export * from './config-doctor.js';
 export * from './model-params-store.js';
 export * from './model-params-repository.js';
 export * from './models-scanner.js';

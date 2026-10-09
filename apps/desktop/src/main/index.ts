@@ -8,6 +8,9 @@ import { processRegistry } from './process-registry.js';
 import { installHfTransport } from './hf-transport.js';
 import { installDownloadTransport } from './download-transport.js';
 import { setCleanupLogLevel, cleanupLogger, killProcessTree, findDevSessionRoot, getDownloadManager } from '@llama-launcher/core';
+import { runConfigDoctor, type ConfigDoctorReport, type ConfigIssue } from '@llama-launcher/core';
+import { tr } from '@llama-launcher/shared';
+import { logApp } from './app-log.js';
 
 // Single instance lock
 const gotLock = app.requestSingleInstanceLock();
@@ -47,6 +50,44 @@ if (!gotLock) {
     cleanupLogger.info('app', `quit with exitCode=${exitCode}`);
   });
 
+  /** 配置诊疗报告 → 应用日志：干净一行 info；有修复按文件逐行（损坏/形状类升为 warn） */
+  function logConfigDoctorReport(report: ConfigDoctorReport): void {
+    const files = [report.settings, ...report.modelParams].filter(
+      (r): r is NonNullable<typeof r> => r !== null,
+    );
+    // 需要提及的文件 = 有 issue（含读失败 healed=false 的那种）或发生写回（含纯版式随迁）
+    // ——干净判据不能只看 healed：读失败分支有问题但 healed=false，按写回判定会吞成「检查通过」
+    const problematic = files.filter((r) => r.issues.length > 0 || r.healed);
+    if (problematic.length === 0) {
+      logApp('info', tr('applog_config_doctor_clean'));
+      return;
+    }
+    logApp('warn', tr('applog_config_doctor_fixed', [problematic.length]));
+    for (const r of problematic) {
+      let detail = r.issues.map((iss) => issueText(iss)).join(tr('applog_config_doctor_joiner'));
+      // healed 但 issue 全空 = 纯版式规范化（无语义问题），明细给占位文案而不是空串
+      if (!detail) detail = tr('cfg_issue_normalized');
+      logApp('info', tr('applog_config_doctor_file', [r.file, detail]));
+    }
+  }
+
+  function issueText(iss: ConfigIssue): string {
+    switch (iss.kind) {
+      case 'corrupt':
+        return tr('cfg_issue_corrupt');
+      case 'invalid_shape':
+        return tr('cfg_issue_invalid_shape');
+      case 'version_migrated':
+        return tr('cfg_issue_version_migrated');
+      case 'unknown_keys':
+        return tr('cfg_issue_unknown_keys', [iss.count ?? iss.keys?.length ?? 0]);
+      case 'invalid_fields':
+        return tr('cfg_issue_invalid_fields', [iss.count ?? 0]);
+      case 'unknown_params':
+        return tr('cfg_issue_unknown_params', [iss.count ?? 0]);
+    }
+  }
+
   app.whenReady().then(() => {
     try {
       // 注入基于 Electron net 模块的 HF 传输:绕开 BoringSSL 指纹被 hf-mirror.com
@@ -55,6 +96,9 @@ if (!gotLock) {
       // - installDownloadTransport:probe + 段下载(流式,文件可达 20GB+)
       installHfTransport();
       installDownloadTransport();
+      // 配置诊疗：启动时诊断并修复自家配置文件（损坏备份重置 / 版本随迁 / 残留字段剥离），
+      // 报告走应用日志（日志页可见）。必须在 registerIpcHandlers 之前——先修好再让任何 IPC 读配置。
+      logConfigDoctorReport(runConfigDoctor());
       registerIpcHandlers();
       mainWin = createMainWindow({
         // 窗口关闭时同步清理子进程（llama-server），避免残留进程。

@@ -376,6 +376,18 @@ export const zh = {
   msg_no_matching_logs: '没有匹配当前筛选的日志',
   card_dash_applog: '应用操作日志',
   msg_framework_logs_hint: '推理框架（llama-server）的原始输出：模型加载、服务监听与请求处理日志。',
+  // 配置诊疗（config doctor）：启动时诊断并修复配置文件，报告进应用日志
+  applog_config_doctor_clean: '配置诊疗：检查通过，无需修复',
+  applog_config_doctor_fixed: '配置诊疗：修复了 {0} 个配置文件',
+  applog_config_doctor_file: '{0}：{1}',
+  applog_config_doctor_joiner: '；',
+  cfg_issue_normalized: '版式规范化为当前格式（无语义变化）',
+  cfg_issue_corrupt: '文件损坏（原文件备份为 .bak，已重置为默认）',
+  cfg_issue_invalid_shape: '顶层结构非法（备份为 .bak，已重置为默认）',
+  cfg_issue_version_migrated: '配置版本号旧于当前，已随迁到当前版式',
+  cfg_issue_unknown_keys: '剥离未知残留字段 {0} 个',
+  cfg_issue_invalid_fields: '修复非法或缺失字段 {0} 个',
+  cfg_issue_unknown_params: '清理已移除参数的残留值 {0} 项',
   col_lines: '行',
   // ---- 阶段二 概览 4 问布局 ----
   card_dash_api: 'API 地址',

@@ -61,4 +61,12 @@
 - **`stats.jsonl`（下载统计）**：已随「累计下载」展示移除一并停用（2026-08-14 起不再落盘，`download:stats` IPC 与 `download-stats.ts` 模块删除）。
 - **下载续传日志**：`.llama_dl.jsonl`（与下载文件同目录）是下载任务的事件日志（JSONL 事实源）——`start`（含段布局）/`segment`（段进度，逐事件落盘）/`done`（终态）三类事件 append-only 写入；崩溃/重启后重放日志精确重建段进度（无周期快照窗口），`start` 前旧版 `.llama_dl.json` 周期快照由 `migrateLegacyMeta` 一次性迁移。下载完成后日志删除；`checksum_mismatch` 失败时同样删除（校验失败的字节不可信、不可续传），`.part` 一并清理并回填期望校验和，重试即干净的全量重下。
 - **`server_exe`**：由 `llama_dir` 内联检测自动填充（`system:findLlamaExe` 查找目录及一级子目录中的 `llama-server.exe`）。
+### 配置诊疗（config doctor，2026-10-09 起）
+
+- **是什么**：应用自带的配置「诊断 + 修复」模块（core `config-doctor.ts`）。每次启动（`app.whenReady`，先于任何 IPC 注册）跑一遍 `runConfigDoctor()`：对 `settings.json` 与 `model-params/*.json` 逐文件检查，修复能安全修复的，报告走应用日志（日志页可见——干净也报一行「检查通过」，有修复按文件逐行列出问题种类；损坏/形状类升为 warn 级）。
+- **修什么（settings.json）**：① JSON 损坏 / 顶层形状非法 → 备份 `.bak` 后**立即重置为全新默认文件**（此前只重置内存、磁盘要等下次保存才恢复）；② 版本号旧于当前 schema（`settings_version` < 当前）→ `migrateSettings` 迁移后**原子写回**——版本更新后配置文件随之升到当前版式，不再等「恰好触发保存」；③ schema 外的未知键（历史版本残留）剥离；④ 非法/缺失字段修复写回（枚举回默认、新字段补默认）。内容与规范形逐字节一致时**绝不写**（幂等，不搅动 mtime 与读取缓存）。
+- **修什么（model-params/*.json）**：JSON 损坏 / 形状非法 → 备份 `.bak` 并移出活集（该模型回落出厂默认，原内容可手工恢复）；`values` 里已从参数表移除的参数键（版本升级残留）清理写回，现役值原样保留。
+- **报告文案**：主进程经 `tr()` 组装（数据层只出 issue 种类与计数，不产文案），键 `applog_config_doctor_*` / `cfg_issue_*`；单测见 `packages/core/tests/config-doctor.test.ts`（临时目录注入路径，含「干净文件绝不写」的幂等判据）。诊疗产生的 `.bak` 由垃圾清理按 `temp_file` 收走——损坏原文件的恢复窗口到用户手动清理为止；损坏参数集在清理页的分类因此从 `broken_json` 前移为 `temp_file`（诊疗已先一步处置）。
+
 - **默认 `server_exe`**：开发模式下由 `paths.ts` 动态查找；生产模式下返回空字符串，由用户配置。
+
