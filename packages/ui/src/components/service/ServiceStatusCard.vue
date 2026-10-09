@@ -326,45 +326,55 @@ function onApplyRelief(key: string, value: string | number | boolean) {
       </ToolTip>
     </a-space>
 
-    <!-- 字段区：单个 a-descriptions 原生多列承载（模型/地址整行，主机/端口/PID/时长两列）；
+    <!-- 字段区：四列网格，标签在值上方；模型名/地址各跨 2 列（长值省略 + 悬浮）。
          可复制值用 a-typography-text copyable（原生复制图标，@copy 走 Electron 剪贴板兜底） -->
-    <a-descriptions class="status-desc" :column="2" size="small">
-      <a-descriptions-item :label="i18n.t('lbl_dash_model')" :span="2">
-        <a-typography-text v-if="currentModel" copyable :copy-text="currentModel" @copy="copyViaApi(currentModel)">
-          <Icon name="models" :size="13" />
-          <ToolTip :text="currentModel"><span class="mono-val ellipsis">{{ currentModel }}</span></ToolTip>
-        </a-typography-text>
-        <span v-else class="empty-val">{{ i18n.t('status_model_none') }}</span>
-      </a-descriptions-item>
+    <div class="status-grid">
+      <div class="field span-2">
+        <div class="field-label">{{ i18n.t('lbl_dash_model') }}</div>
+        <div class="field-value">
+          <a-typography-text v-if="currentModel" copyable :copy-text="currentModel" @copy="copyViaApi(currentModel)">
+            <Icon name="models" :size="13" />
+            <ToolTip :text="currentModel"><span class="mono-val ellipsis">{{ currentModel }}</span></ToolTip>
+          </a-typography-text>
+          <span v-else class="empty-val">{{ i18n.t('status_model_none') }}</span>
+        </div>
+      </div>
       <!-- API 地址：本应用运行中显示自身地址；停止但探测到外部实例时显示外部地址（悬浮注明来源，
            两条信息合并进一个 ToolTip：externalHint 本身含 URL，不丢信息） -->
-      <a-descriptions-item :label="i18n.t('card_dash_api')" :span="2">
-        <a-typography-text
-          v-if="server.apiUrl || externalUrl"
-          copyable
-          :copy-text="server.apiUrl || externalUrl"
-          @copy="copyViaApi(server.apiUrl || externalUrl)"
-        >
-          <Icon name="link" :size="13" />
-          <ToolTip :text="!server.apiUrl && externalUrl ? externalHint : (server.apiUrl || externalUrl)">
-            <span class="mono-val ellipsis">{{ server.apiUrl || externalUrl }}</span>
-          </ToolTip>
-        </a-typography-text>
-        <span v-else class="empty-val">—</span>
-      </a-descriptions-item>
-      <a-descriptions-item :label="i18n.t('lbl_host')">
-        <span class="mono-val">{{ server.host }}</span>
-      </a-descriptions-item>
-      <a-descriptions-item :label="i18n.t('lbl_port')">
-        <span class="mono-val">{{ server.port }}</span>
-      </a-descriptions-item>
-      <a-descriptions-item label="PID">
-        <span class="mono-val" :class="{ 'empty-val': !server.pid }">{{ server.pid ?? '—' }}</span>
-      </a-descriptions-item>
-      <a-descriptions-item :label="i18n.t('lbl_run_duration')">
-        <span class="mono-val" :class="{ 'empty-val': !durationSec }">{{ durationSec ? formatDuration(durationSec) : '—' }}</span>
-      </a-descriptions-item>
-    </a-descriptions>
+      <div class="field span-2">
+        <div class="field-label">{{ i18n.t('card_dash_api') }}</div>
+        <div class="field-value">
+          <a-typography-text
+            v-if="server.apiUrl || externalUrl"
+            copyable
+            :copy-text="server.apiUrl || externalUrl"
+            @copy="copyViaApi(server.apiUrl || externalUrl)"
+          >
+            <Icon name="link" :size="13" />
+            <ToolTip :text="!server.apiUrl && externalUrl ? externalHint : (server.apiUrl || externalUrl)">
+              <span class="mono-val ellipsis">{{ server.apiUrl || externalUrl }}</span>
+            </ToolTip>
+          </a-typography-text>
+          <span v-else class="empty-val">—</span>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">{{ i18n.t('lbl_host') }}</div>
+        <div class="field-value"><span class="mono-val">{{ server.host }}</span></div>
+      </div>
+      <div class="field">
+        <div class="field-label">{{ i18n.t('lbl_port') }}</div>
+        <div class="field-value"><span class="mono-val">{{ server.port }}</span></div>
+      </div>
+      <div class="field">
+        <div class="field-label">PID</div>
+        <div class="field-value"><span class="mono-val" :class="{ 'empty-val': !server.pid }">{{ server.pid ?? '—' }}</span></div>
+      </div>
+      <div class="field">
+        <div class="field-label">{{ i18n.t('lbl_run_duration') }}</div>
+        <div class="field-value"><span class="mono-val" :class="{ 'empty-val': !durationSec }">{{ durationSec ? formatDuration(durationSec) : '—' }}</span></div>
+      </div>
+    </div>
 
     <!-- 端点暴露常驻提示（成因见 openEndpoint 注释）：槽恒在、未触发时 visibility:hidden。
          此前 v-if 插在字段表与快捷按钮之间，进页面/改这两项再回来会把按钮行以下整块下推
@@ -494,27 +504,32 @@ function onApplyRelief(key: string, value: string | number | boolean) {
 
 // （旧的两档封顶 clamp 已随 a-tag 化删除：.sec-hint-text 单行省略规则见槽位块）
 
-/* a-descriptions 字段表：标签列定宽右对齐（原生组件，仅调间距节奏）；
-   行内上下加 4px 呼吸（small 档默认过挤），卡片高度两态同变，不碰 #81/#82 判据 */
-.status-desc {
+/* 字段区四列网格：标签在值上方；模型名/地址各跨 2 列。
+   minmax(0,1fr) 防长值撑破列（省略链：cell min-width 0 → value → 文本 ellipsis）。
+   卡片高度两态同变，不碰 #81/#82 判据。 */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 16px;
   margin-bottom: 12px;
 
-  :deep(.arco-descriptions-table td) {
-    padding-top: 4px;
-    padding-bottom: 4px;
-  }
-
-  :deep(.arco-descriptions-item-label) {
-    min-width: 88px;
-    color: var(--color-text-2);
-  }
-
-  :deep(.arco-descriptions-item-value-block) {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+  > .span-2 {
+    grid-column: span 2;
     min-width: 0;
   }
+}
+
+.field-label {
+  margin-bottom: 2px;
+  font-size: var(--fs-sm);
+  color: var(--color-text-2);
+}
+
+.field-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 
   // 可复制值行（模型名/API 地址）：icon + 文本 + 复制图标并排，
   // 图标与文本间距归一到 6px（对齐 Arco size-small 按钮 icon 间距；默认 0 贴文本）
