@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { navItems } from '@/features';
 import { useI18nStore } from '@/stores/i18n';
+import { useScrollRestore } from '@/composables/useScrollRestore';
 
 const route = useRoute();
 const i18n = useI18nStore();
+
+// 切页滚动位置恢复（TODO T09，用户裁定 A）：离开前存旧页 .page-frame 的 scrollTop，
+// 切回后写回。容器随 keep-alive 缓存、切回时高度立即就绪（mock 实测），一次写入即达；
+// 等待循环只是异常路径兜底（见 useScrollRestore 注释）。
+const hostEl = ref<HTMLElement | null>(null);
+const scrollRestore = useScrollRestore(() => hostEl.value?.querySelector('.page-frame') ?? null);
+onUnmounted(() => scrollRestore.dispose());
 
 // 页标题只在此处取一次：名字与侧栏同源于 features 注册表，页面里再各写一遍标题就是第二套事实源
 // （七页各自硬写会漏、会漂，新增页忘写就没有标题——这里结构上漏不掉）。
@@ -42,7 +50,7 @@ watch(
        就绪门禁（见 app.spec.ts / layout-stability.spec.ts），标题插进去会让那条门禁第一次就命中
        h1（同步渲染、必然先于异步页面组件）而变成空转。多根之后标题仍是 main 里文档序第一个标题。 -->
   <a-typography-title v-if="pageTitle" :heading="1" class="page-title">{{ pageTitle }}</a-typography-title>
-  <div class="page-host" :class="{ 'is-fade-a': fadeAlt === true, 'is-fade-b': fadeAlt === false }">
+  <div ref="hostEl" class="page-host" :class="{ 'is-fade-a': fadeAlt === true, 'is-fade-b': fadeAlt === false }">
     <router-view v-slot="{ Component }">
       <keep-alive>
         <component :is="Component" />

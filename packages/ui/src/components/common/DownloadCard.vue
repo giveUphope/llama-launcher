@@ -1491,12 +1491,14 @@ function quantTooltip(q: QuantizationInfo | null): string {
 .task-progress-bar {
   min-width: 0;
 
-  /* Arco 进度条默认 `transition: all .6s`——动的是 width（布局属性），而进度以 120ms
-     节拍推送（T10 勘误：注释曾写 500ms，是 0.0.34 改 120ms 采样前的旧值），0.6s 的过渡
-     永远跑不完就被重启，任务行持续重排。进度本身已是逐步语义，关掉过渡后节拍观感一致
-     且零重排（§7.5.7 动效：只允许 transform/opacity） */
+  /* 用户裁定（2026-10-09，TODO T10）：进度条加过渡——时长走 --dur-fast（160ms）与 120ms
+     推送节拍构成「追赶式」平滑（每次推送在上一段过渡未完时重启，观感连续无节拍感，比
+     精确 120ms 跑完再停更顺）。style-audit 第 8/14 条要求动效时长必须走 --dur-* token，
+     故不写字面 120ms；transition 只窄化到 width 一个属性，不用 Arco 默认 all（避免把
+     无关属性卷进过渡重排）。此前的 transition: none 是 500ms 采样时代的裁定，采样改版
+     + 用户裁定后退役 */
   :deep(.arco-progress-line-bar) {
-    transition: none;
+    transition: width var(--dur-fast) linear;
   }
 }
 

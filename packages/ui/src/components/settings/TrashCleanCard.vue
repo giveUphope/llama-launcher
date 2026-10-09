@@ -5,7 +5,7 @@
 // 结果就地显示（此前 lastResult 是死代码、一切反馈走 pushOutput 进日志页——档 B 后
 // 日志页是框架输出页，反馈跨页不可见；现按「一类信息一个出口」全部收进卡片，
 // pushOutput 日志出口移除）。
-import { computed, ref } from 'vue';
+import { computed, onActivated, ref } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
@@ -56,10 +56,16 @@ const selectedItems = computed(() =>
 
 async function onDetect() {
   if (detecting.value) return;
-  detecting.value = true;
   detected.value = null;
   result.value = null;
   detectError.value = '';
+  await runDetect();
+}
+
+/** 拉取检测结果并默认全选（按钮检测与回切重扫共用）。刻意不清 result/detectError：
+ *  回切重扫是「轻量复核」，「上次清理结果」行保留，只刷新待清列表 */
+async function runDetect() {
+  detecting.value = true;
   try {
     const res = await window.api.system.detectTrash();
     detected.value = res;
@@ -71,6 +77,13 @@ async function onDetect() {
     detecting.value = false;
   }
 }
+
+// 回切轻量重扫（TODO T08，用户裁定 A）：卡片在 keep-alive 下切走期间目录可能又进垃圾，
+// 回切时对「已有检测/清理状态」的卡静默重扫一次——不自动弹窗、不自动清理、不清结果行。
+// 首挂 activated 卡上无旧状态，跳过（首次扫描仍由用户点「检测可清理项」触发）。
+onActivated(() => {
+  if (detected.value || result.value) void runDetect();
+});
 
 async function onCleanSelected() {
   if (cleaning.value) return;
