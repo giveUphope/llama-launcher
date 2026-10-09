@@ -7,8 +7,8 @@
 ### 6.1 入口 (main/index.ts)
 
 - **单实例锁**：`requestSingleInstanceLock`，防止多开；二次启动时聚焦已有窗口。
-- **`whenReady`**：注入网络传输（`installHfTransport()` + `installDownloadTransport()`，Electron `net` 栈规避 BoringSSL TLS 指纹被 hf-mirror.com 拒绝，见 [core-modules.md](core-modules.md) §4.6）→ 注册 IPC → 创建窗口 → 设置 `launcherBridge`。
-- **`before-quit`**：`launcherBridge.disposeSync()`（同步强杀：`forceStop` + 进程树清扫）确保子进程停止，避免残留（退出路径不能 await 异步清理）。
+- **`whenReady`**：注入网络传输（`installHfTransport()` + `installDownloadTransport()`，Electron `net` 栈规避 BoringSSL TLS 指纹被 hf-mirror.com 拒绝，见 [core-modules.md](core-modules.md) §4.6）→ **配置诊疗**（`logConfigDoctorReport(runConfigDoctor())`：启动时诊断并修复自家配置文件，报告写进应用日志）→ 注册 IPC → 创建窗口 → 设置 `launcherBridge` → 创建托盘。诊疗必须排在 IPC 注册**之前**：先把盘上的配置修干净，再让任何 IPC 去读它（详见 [data-persistence.md](data-persistence.md)「配置诊疗」节）。整段回调包在 `try/catch` 里，启动期异常记进清理日志而不静默崩溃。
+- **退出清理链**：`before-quit` 依次执行 `getDownloadManager().dispose()`（暂停全部下载并保存续传元数据 + 销毁连接池）→ `processRegistry.cleanupAll()` → `launcherBridge.disposeSync()`（同步强杀，退出路径不能 await 异步清理）；`will-quit` 再以 `pauseAll()` + `cleanupAll()` + `disposeSync()` 收一遍作为双保险，确保任何退出路径下子进程都已终止。非打包态且未设 `LLAMA_DEV_SKIP_QUIT_KILL=1` 时，`before-quit` 还会找 dev 会话根并 `killProcessTree` 杀掉整棵 dev 进程树（热重启由 dev-watch 以该变量启动，收尾责任在编排器，此时跳过）。SIGTERM / SIGINT 另有信号处理器：先清 llama-server 再退出（Ctrl+C 时 `before-quit` 可能来不及触发）。`window-all-closed` 清空窗口引用、解除 `launcherBridge` 绑定并 `app.quit()`——本应用无托盘常驻的「关窗不退」形态，退出不留后台进程。
 - **外部链接**：在系统浏览器打开（`http://` / `https://`）。
 
 ### 6.2 窗口管理 (window.ts)
@@ -19,6 +19,9 @@
 - **防抖保存**：500ms 防抖，避免 resize 时频繁写盘。
 - **安全配置**：`contextIsolation: true`、`nodeIntegration: false`、`sandbox: false`。
 - **开发模式判据**：`NODE_ENV=development` 或 `!app.isPackaged`。
+- **后台节流关闭**：`backgroundThrottling: false`——窗口失焦或最小化时 Chromium 会节流 rAF 与定时器，实测表现为 tooltip 与进场动画卡死。
+- **dev 端口跟随**：开发模式不写死 5173，而是读 `packages/ui/.vite-dev-port`（Vite 实际监听后写入该文件），端口被占自动顺延也能跟上。
+- **DevTools 开关**：`LLAMA_DEV_CONSOLE=1`（即 `pnpm dev:console`）或设了 `LLAMA_DEV_SERVER_URL` 时开发模式自动打开 DevTools，默认不开。
 - **热重载逃生口**：`LLAMA_DEV_SERVER_URL` 环境变量指向 Vite dev server，生产构建也可连接本地前端。
 
 ### 6.3 IPC 注册 (ipc/index.ts 功能域注册表)
@@ -29,7 +32,7 @@ IPC 按功能域声明式注册：`ipc/` 目录下 settings/models/model-params/
  FS。
 
 - 下载完成时调用 `notifyModelsChanged()` 刷新模型列表。
-- **主进程文案的语言同步**：`settings:save` 处理器在写入设置后调用 `setLang(s.language)`（见 `ipc/settings.ts`），使主进程用 `tr()` 生成的即时文案（探测失败原因、托盘菜单）跟随语言切换，无需重启；托盘菜单因在每次右键时现场构建（§6.8）而即时生效。
+- **主进程文案的语言同步**：`settings:save` 处理器在写入设置后调用 `setLang(s.language)`（见 `ipc/settings.ts`），使主进程用 `tr()` 生成的即时文案（探测失败原因、托盘菜单）跟随语言切换，无需重启；托盘菜单因在每次右键时现场构建（§6.8）而即时生效。同一条处理器还把并发下载数交给运行中的下载器（`getDownloadManager().setMaxConcurrent(s.download_max_concurrent ?? 默认 3)`），边界由 `shared/settings-limits.ts` 单点声明，设置页与下载层不会各钳各的。
 - `models:watch` 递归监听 `.gguf` 文件变化，500ms 防抖后通知渲染进程。
 - `system:findLlamaExe` 在指定目录（含一级子目录）查找 `llama-server.exe`，用于内联检测。
 - `system:estimateVram` / `system:estimateModelFit`：显存探测（spawn `llama-server --list-devices`）+ GGUF KV 内存模型，估算显存/内存双侧占用、无 OOM 上下文上限、性能目标联动建议与模型适配判定（委托 core `devices.ts` / `vram-estimate.ts` / `target-recommend.ts`）。**设备探测 30s 共享缓存只缓存成功结果**——失败时把 `at` 归零，用户改回引擎目录后下一次调用立即重探（旧实现连空结果一起缓存，改对目录也要空转半分钟）；探测失败原因（含尝试过的路径）随结果的 `probeError` 带回，参数页「显存占用」tooltip 直接显示，不再只剩一个「—」；该文案由 `tr()` 按当前语言生成（主进程语言在 `IPC.SETTINGS_SAVE` 里经 `setLang` 同步，见 `ipc/settings.ts`），不得写中文字面量——裸中文会被 `verify-i18n-usage.cjs` 判 fail。**探测 exe 由 core `resolveServerExe` 解析**（settings → 同目录 → llama_dir 及一级子目录 → 开发态默认，逐个校验存在），引擎目录改名/搬走时自动回退而非静默失效。结果按 模型|dtype|target|ngl|ctxSize 缓存 60s。
@@ -77,3 +80,12 @@ IPC 按功能域声明式注册：`ipc/` 目录下 settings/models/model-params/
 - **图标**：优先 32px PNG（Windows 托盘各 DPI 渲染可靠），失败逐级兜底 16px PNG / icon.ico；dev 与打包（`extraResources`）两套路径。
 - **右键菜单定位**：Windows 原生 `setContextMenu` 从鼠标位置向下展开（不会自动向上），改为 right-click 手动 `popUpContextMenu`——菜单底缘对齐图标上缘、右缘对齐图标右缘，按显示器工作区钳制，上方放不下时回退到图标下方；高度按模板逐项估算（项 33px / 分隔线 7px / 边框 4px）。
 - 单击托盘图标：显示并聚焦主窗口。
+
+### 6.9 应用日志 (app-log.ts)
+
+应用自身的操作与生命周期事件走这条道，与 llama-server 的框架输出**分两条线**（2026-10-09 定版：日志页控制台只剩引擎原始输出，应用操作日志的唯一视图是概览那张卡）：
+
+- **`logApp(kind, message)`**：写入主进程的**环形缓冲**（上限 2000 条，超出从头部裁掉），并向所有未销毁的窗口广播 `IPC.LOGS_ONLOG`。
+- **`getAppLogs()` / `clearAppLogs()`**：分别服务 `logs:list` 的初始快照与 `logs:clear` 的清空出口。
+- 渲染层 `appLog` store 把本地推送（`[params]` / `[mmproj]` / `[gguf]` / `[spec]` / `[Launcher]` / `[Models]` / `[Bench]`）与主进程快照**合并**——本地行保持原序，按 `ts + data` 判重只补快照里新增的行，合并后按事件时间排序；快照整体替换会把先于订阅落地的本地行冲掉（实测概览卡的 `[params]` 行闪失即此因）。
+- 配置诊疗的报告也走这里（§6.1）：干净时一行 info，有修复时按文件逐行，损坏类升 warn。

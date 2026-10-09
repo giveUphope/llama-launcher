@@ -6,9 +6,9 @@
 
 ## 1. 项目概述
 
-llama\_launcher 是面向 llama.cpp 的 `llama-server` 的桌面启动器。功能包括：选择 `.gguf` 模型、读取 GGUF 元数据自动推导建议参数、配置 60 个启动参数、启动/停止/重启服务、实时查看输出、参数按模型自动记忆与恢复、在线下载模型、浅色/深色主题和中/英文切换。应用不捆绑 llama.cpp 二进制，用户选择 llama-server 所在目录后自动检测可执行文件。
+llama\_launcher 是面向 llama.cpp 的 `llama-server` 的桌面启动器。功能包括：选择 `.gguf` 模型、读取 GGUF 元数据自动推导建议参数、配置 70 个启动参数、启动/停止/重启服务、实时查看输出、参数按模型自动记忆与恢复、在线下载模型、浅色/深色主题和中/英文切换。应用不捆绑 llama.cpp 二进制，用户选择 llama-server 所在目录后自动检测可执行文件。
 
-当前只有一条主维护线：`apps/desktop` + `packages/*`（Electron + TypeScript + Vue 3 + Vite + Pinia）。整个项目通过 pnpm workspace + turborepo 管理，构建产物统一由 turbo 编排。
+当前只有一条主维护线：`apps/desktop` + `packages/*`（Electron + TypeScript + Vue 3 + Vite + Pinia）。整个项目通过 pnpm workspace + turborepo 管理，`build` / `lint` / `test` 由 turbo 编排；**`pnpm dev` 不经 turbo**，由 `scripts/dev.cjs` 用 node 直接起 vite / tsc / dev-watch 三个子进程（零 .cmd 批处理层，原因见 [workflow.md](workflow.md)）。
 
 ***
 
@@ -20,16 +20,16 @@ llama_launcher/
 │   └── desktop/                      # Electron 主应用
 │       ├── src/
 │       │   ├── main/                  # 主进程
-│       │   │   ├── index.ts           # 入口：单实例锁、窗口创建、生命周期、传输注入
+│       │   │   ├── index.ts           # 入口：单实例锁、传输注入、配置诊疗、IPC 注册、窗口创建、生命周期
 │       │   │   ├── ipc/               # 功能域 IPC 注册表（56 通道，register*Ipc + index 聚合）
 │       │   │   │   ├── index.ts       #   ipcRegistrars 数组汇总装配（registerIpcHandlers）
 │       │   │   │   ├── settings.ts    #   settings:load/save
 │       │   │   │   ├── models.ts      #   models:scan/detectMmproj/detectDraft/readGgufMeta/remove
 │       │   │   │   ├── models-watcher.ts # models:watch 目录监听单例（watchModelsDir/notifyModelsChanged）
 │       │   │   │   ├── model-params.ts #   modelParams:load/save/clear
-│       │   │   │   ├── server.ts      #   server:start/stop/restart/status/preview/output
+│       │   │   │   ├── server.ts      #   server:start/stop/restart/status/preview/output-batch
 │       │   │   │   ├── logs.ts        #   logs:list/clear/onlog
-│       │   │   │   ├── system.ts      #   system:checkPort/killProcess/findFreePort/fileExists/findLlamaExe/detectTrash/cleanTrash/estimateVram/benchLlamaRun/benchLlamaStatus/estimateModelFit
+│       │   │   │   ├── system.ts      #   system:checkPort/killProcess/findFreePort/fileExists/findLlamaExe/detectTrash/cleanTrash/estimateVram/benchLlamaRun/benchLlamaStatus/benchOnStatus/estimateModelFit + 该注册器还挂 clipboard:write、open:external、open:path、fs:listDir、fs:mkdir
 │       │   │   │   ├── window.ts      #   window:close/minimize/toggleMaximize/state + 关闭弹窗转发
 │       │   │   │   └── download.ts    #   download:parseUrl/search/listFiles/start/cancel/pause/resume
 │       │   │   ├── launcher-bridge.ts # Launcher 单例桥接 + 输出缓冲（16ms 窗口聚合冲刷）
@@ -41,7 +41,7 @@ llama_launcher/
 │       │   │   ├── download-transport.ts # 注入 DownloadTransport：Electron net 流式传输（仅 hf-mirror.com）
 │       │   │   └── window.ts          # 窗口创建与几何持久化
 │       │   └── preload/
-│       │       ├── index.cjs          # CommonJS preload（sandbox 要求）
+│       │       ├── index.cjs          # CommonJS preload（Electron 对 preload 脚本的格式要求，与本应用 `sandbox: false` 无关）
 │       │       └── ipc-constants.cjs  # 由 scripts/generate-preload.cjs 生成（勿手改）
 │       ├── electron-builder.config.cjs       # 打包配置
 │       └── package.json               # @llama-launcher/desktop（版本随 root 自动 bump）
@@ -50,7 +50,8 @@ llama_launcher/
 │   │   └── src/
 │   │       ├── index.ts               # 包导出聚合
 │   │       ├── paths.ts               # llama-server 路径解析 + 参数集/迁移源目录常量
-│   │       ├── settings-store.ts      # 设置读写（CAS 合并守卫 + 原子替换）
+│   │       ├── settings-store.ts      # 设置读写（CAS 合并守卫 + 原子替换）+ healSettingsFile（启动诊疗的 settings 侧：损坏重置 / 版本随迁 / 未知键剥离，幂等不写）
+│   │       ├── config-doctor.ts       # 配置诊疗聚合入口（runConfigDoctor：settings + model-params 逐文件诊断修复，只出 issue 种类与计数）
 │   │       ├── model-params-store.ts  # 每模型参数集读写（路径派生键，自动持久化）
 │   │       ├── model-params-repository.ts # 参数集领域层（load/save/clear + 存量预设迁移）
 │   │       ├── models-scanner.ts      # .gguf 递归扫描 + mmproj/draft 检测 + 移除
@@ -69,6 +70,7 @@ llama_launcher/
 │   │       ├── huggingface-client.ts  # HuggingFace 镜像客户端（hf-mirror.com，可注入 Electron net 传输）
 │   │       ├── download-manager.ts    # 多任务断点续传下载（动态段数 + 可注入传输）
 │   │       ├── download-log.ts        # 下载事件日志（.llama_dl.jsonl JSONL 事实源 + 重放投影）
+│   │       ├── error-classify.ts      # 底层错误 → DownloadErrorType 归类（与 download-log 共用，单独成模块避免循环引用）
 │   │       ├── retry.ts               # 可重试错误判定 + 指数退避（download/hf 共用）
 │   │       ├── trash-cleaner.ts       # 应用生成文件清理（配置目录 + 模型目录双根扫描）
 │   │       ├── cleanup-logger.ts      # 进程清理日志（[cleanup] 前缀四级日志）
@@ -83,15 +85,18 @@ llama_launcher/
 │   │       ├── i18n/              # 中英文案（zh/en/labels）
 │   │       ├── model-name.ts      # 模型显示名/别名派生（modelBaseName）
 │   │       ├── model-relevance.ts # 文件分类 + 量化标签解析（categorizeFile/parseQuantization）
+│   │       ├── hosts.ts           # 下载源主机名与镜像默认站（core 客户端与渲染层外链共用）
+│   │       ├── format.ts          # 跨包格式化（formatBytes 等：B 整数 / KB 1 位 / MB 起 2 位小数）
+│   │       ├── settings-limits.ts # 设置项取值边界唯一来源（并发下载数等，core schema 与设置页钳制同源）
 │   │       └── time-format.ts     # 人性化时间格式化（formatRelativeTime）
 │   └── ui/                        # Vue 3 前端
 │       └── src/
 │           ├── router/            # 路由（createWebHashHistory + featureRoutes 装配）
-│           ├── stores/            # Pinia store（settings/i18n/params/server/download/appLog）
+│           ├── stores/            # Pinia store（settings/i18n/params/server/download/appLog/hardware）
 │           ├── pages/             # 7 个页面（概览/模型/服务/参数/日志/内置 Web UI/设置；侧栏 7 项一级导航，旧页路由重定向）
 │           ├── features/          # 功能注册表（FeatureDef：侧栏导航 + 路由装配）
 │           ├── components/        # 通用组件 + 参数控件（common/layout/models/params/service/settings）
-│           ├── composables/       # useIPC / useTheme / useStartServer / useConfirm / useFilePicker / useUrlHistory
+│           ├── composables/       # useIPC / useTheme / useStartServer / useConfirm / useFilePicker / useUrlHistory / useAutoScroll / useDialogFocus / useScrollRestore / useStaleParams / useVramEstimate
 │           ├── dev/               # demo-mock（无 Electron preload 的浏览器预览环境注入）
 │           └── styles/            # reset / theme（含 Arco token 兼容层与业务语义色）
 ├── scripts/                           # 构建辅助脚本
@@ -112,11 +117,12 @@ llama_launcher/
 │   ├── verify-i18n-usage.cjs        # i18n 键使用一致性（六项检查：键集/悬空键/裸中文/手工插值/实参匹配/动态键族）
 │   ├── verify-version-sync.cjs      # 版本声明一致性（root/desktop package.json + APP_VERSION + 中英两份 architecture 版本表 + CHANGELOG 标题，六处必须相等）
 │   ├── check-docs-links.cjs         # 文档相对链接与锚点完整性 + 正文/代码块里写死的 docs 路径存在性（lint 阶段执行）
+│   ├── verify-doc-pairs.cjs         # 中英双树配对门禁（同名成对 / 语言行 / 标题与表格结构 / 版本串，lint 阶段执行）
 │   ├── style-audit.cjs              # UI 风格规范审计（条目与计数以脚本输出为准，勿在文档写死）
 │   ├── verify-server-start.mjs      # Launcher 手动冒烟测试（需 core/dist 先构建；模型由 --model / LLAMA_SMOKE_MODEL / 模型目录解析）
 │   ├── icon-gen/gen-icon.cjs        # 应用图标生成（desktop pnpm gen:icon）
 │   ├── inject-icon.cjs              # 打包后注入 exe 图标
-│   └── bump-version.cjs             # 版本自动递增（push main 触发）
+│   └── bump-version.cjs             # 版本递增（本地运行后随推送提交；CI 只核对 tag，不向 main 写提交）
 ├── e2e/                               # Playwright E2E（不经 turbo，独立于 pnpm test）
 │   ├── web/                           # 渲染层 E2E：真实构建产物 + demo-mock 驱动 Chromium（app/params 用例）
 │   ├── run-web-e2e.mjs                # web E2E 驱动器（独立启动 vite preview，规避沙箱 spawn 限制）
@@ -155,5 +161,5 @@ ui      → shared
 
 - `desktop` 不直接依赖 `ui`，而是通过 `extraResources` / 构建产物在运行时加载 `ui` 的静态资源。
 
-- 使用 **pnpm workspace** 管理本地包链接（`workspace:*`），**turborepo** 编排 `build` / `lint` / `test` / `dev` 任务。
+- 使用 **pnpm workspace** 管理本地包链接（`workspace:*`），**turborepo** 编排 `build` / `lint` / `test` 任务（`dev` 不经 turbo，由 `scripts/dev.cjs` 直接起子进程编排，见 §1）。
 

@@ -10,10 +10,15 @@
 
 - **Covered modules**:
 
+### core package (`packages/core/tests`)
+
+The table indexes the main suites; `git ls-files packages/core/tests` is the authoritative full list (edge and regression suites are not itemised here):
+
 | Test file                             | Covered module                                                                          |
 | ------------------------------------- | ------------------------------------------------------------------------------- |
-| `settings-store.test.ts`              | Settings read/write (incl. shape validation of `session_values`/`session_baseline`)  |
-| `presets-store.test.ts`               | Preset read/write                                                                   |
+| `settings-store.test.ts`              | Settings read/write: defaults / round-trip / corrupt file backed up as `.bak` then defaulted (the dual-track fields were removed with per-model persistence; stripping their leftovers from disk is guarded by `settings-store-edge.test.ts` and the config-doctor suite)  |
+| `config-doctor.test.ts`             | Config doctor: a clean file is never rewritten / version migration + unknown-key stripping in one write and a clean re-run / corrupt file backed up and reset / invalid shape / first launch not created / model-params residual cleanup and corrupt removal / the aggregate entry |
+| `model-params.test.ts`              | Per-model parameter sets: file-layer key derivation and shape tolerance + repository load/save/clear/deleteForModel + re-identification by stored file name after a move + `migratePresetsToModelParams` merging both preset generations |
 | `models-scanner.test.ts`              | Model scanning                                                                      |
 | `command-builder.test.ts`             | Command building (incl. ignoring the legacy `_enabled`)                             |
 | `command-builder-definitions.test.ts` | Command building (table-driven: generates the structural-constraint and emission cases for all 70 parameters from `definitions.ts`) |
@@ -45,11 +50,12 @@
 
 | Test file                          | Covered module                                                            |
 | ----------------------------------- | ------------------------------------------------------------------------ |
-| `src/stores/params.test.ts`         | Params store (dual-track values/baseline, dependency linkage `syncDependencies`, `clearSession` reset-all keeping the model) |
+| `src/stores/params.test.ts`         | Params store (per-model auto-persistence: `applyModel` loads the model set back, GGUF suggestions applied automatically, 800ms throttled saves, "Reset All" keeps the model and immediately re-probes the auto-detected fields, `syncDependencies` dependency linkage) |
 | `src/stores/server.test.ts`         | server store (`apiUrl` bound to the real service state: the three states running/starting/stopped) |
 | `src/stores/hardware.test.ts`       | hardware store (VRAM/memory occupancy derivation: entry routing and unit conversion, "no devices detected ⇒ stay silent", data-fetch timing guarded by the keep-alive rules — background pages never knock the main process, `offloadRelief` relief-advice entries passed through) |
-| `src/composables/useModelPreset.test.ts` | Silent matching and application of smart presets (alias/filename candidates, no second confirmation in a dirty state) |
-| `src/composables/useAutoPresetName.test.ts` | Preset-name candidate generation (extension-stripped / directory-name variants) |
+| `src/stores/appLog.test.ts`         | Application log: local pushes **merged** with the main-process snapshot (deduped by ts+data, sorted by event time, local-first lines never clobbered), cap trimming, a rejected `list()` leaves the subscription intact |
+| `src/composables/useStartServer.test.ts` | Start/stop orchestration: error lines go to the application log, a busy port retries on a free one, external-instance takeover |
+| `src/composables/useStaleParams.test.ts` | The "running ≠ current parameters" diff count (silent when an adopted external instance has no launch snapshot) |
 | `src/composables/useUrlHistory.test.ts` | URL history records                                                       |
 | `src/dev/demo-mock.test.ts`         | Browser-mock command preview: default state emits the 4 baseline recommendations, sentinels stay out, custom args stay out of the built-in box, and the result is byte-equal to the `shared` emitter |
 | `src/testing/arco-theme.test.ts`       | Theme token alignment (HTML `data-theme` / body `arco-theme`)             |
@@ -71,7 +77,7 @@ Renderer-layer E2E and the Electron smoke test live in the root-level `e2e/` (no
 
 | Command | Prerequisites | What it verifies |
 | ---- | ---- | ---- |
-| `pnpm e2e:web` | none (it first runs `pnpm --filter @llama-launcher/ui build` internally) | Drives Chromium against the real build output (vite preview serving `packages/ui/dist` + demo-mock injection): each of the 7 sidebar navigation items is reachable, the demo list on the Models page, the running status card on the Service page, and a-switch / slider interaction on the Params page; plus **accessibility criteria** (sidebar keyboard reachability with Enter/Space navigation, dialog semantics and the focus trap, and a control-naming census — `e2e/web/a11y.spec.ts`) and **minimum-viewport criteria** (the viewport is taken from `minWidth/minHeight` in `apps/desktop/src/main/window.ts`, and all 7 pages are measured page by page for both document-level and element-level horizontal overflow — `e2e/web/narrow-viewport.spec.ts`); and **document-semantics criteria** (a single `main` landmark, exactly one `<h1>` per page, card section titles as `<h2>`, the status row carrying `aria-live="polite"` itself — `e2e/web/semantics.spec.ts`). All three families carry deletion experiments. Cases in `e2e/web/*.spec.ts` |
+| `pnpm e2e:web` | none (it builds `shared` first, then `ui`) | Drives Chromium against the real build output (vite preview serving `packages/ui/dist` + demo-mock injection): each of the 7 sidebar navigation items is reachable, the demo list on the Models page, the running status card on the Service page, and a-switch / slider interaction on the Params page; plus **accessibility criteria** (sidebar keyboard reachability with Enter/Space navigation, dialog semantics and the focus trap, and a control-naming census — `e2e/web/a11y.spec.ts`) and **minimum-viewport criteria** (the viewport is taken from `minWidth/minHeight` in `apps/desktop/src/main/window.ts`, and all 7 pages are measured page by page for both document-level and element-level horizontal overflow — `e2e/web/narrow-viewport.spec.ts`); and **document-semantics criteria** (a single `main` landmark, exactly one `<h1>` per page, card section titles as `<h2>`, the status row carrying `aria-live="polite"` itself — `e2e/web/semantics.spec.ts`). All three families carry deletion experiments. Cases in `e2e/web/*.spec.ts` |
 | `pnpm e2e:electron` | none (it builds desktop first internally) | `_electron` launches the packaged artifact headless in production mode (loadFile `dist/ui/index.html`), asserting the main-process version, the window title and the sidebar rendering, plus one **real round trip over a push channel**: the renderer subscribes to `system:benchOnStatus` through the actual preload bridge while the main process publishes once on the job's terminal transition (the probe passes a file that exists but is not a GGUF as `modelPath`, so it fails fast — no model load, no GPU use); script `e2e/electron/run-smoke.mjs` |
 | `pnpm test:e2e` | none | Runs a full build first, then executes `pnpm e2e:web` and `pnpm e2e:electron` in sequence (unified onto these two scripts since 2026-09-20 — the old form called `playwright test --project=web` directly, which bypassed the preview driver, and once `webServer` was removed from the config nobody started port 4173 at all) |
 

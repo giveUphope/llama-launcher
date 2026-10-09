@@ -2,16 +2,28 @@
 
 本文件是**工程待办的唯一活归口**：CHANGELOG 条目只记已发生的事实，凡「未修 / 待确认 / 备查 / 待裁定」的事项一律登记在此，关闭后移至文末「已关闭」区并注明关闭版本。UI 风格类待办另有归口：[zh/style/STYLE_TODO.md](zh/style/STYLE_TODO.md)（双语两树）。本文件与 CHANGELOG 同属不译清单，只维护中文单份。
 
+## 开放项
+
+### T13 设置页「忽略引擎提示」的忽略状态存不进磁盘（2026-10-10 登记）
+
+- **出了什么事**：在设置页引擎行下方点「忽略」关掉某条提示，界面当场安静，但**重启应用后提示又回来了**，而界面上没有任何报错。
+- **现状（逐处实测）**：`packages/ui/src/components/settings/GeneralPanel.vue:276` 写入 `settings.engine_hint_dismissed`（UI 侧按 `HINT_DISMISS_CAP = 50` 裁剪）后调用 `settings.save()`；`packages/shared/src/types/settings.ts:44` 声明了该字段；但 core `packages/core/src/settings-store.ts` 的 zod `settingsSchema` **没有这个键**，`normalizeSettings` 对未知键的既定行为是剥除，于是它永远进不了 `settings.json`；启动时的配置诊疗（`healSettingsFile`）还会把盘上手工添加的同名键当 `unknown_keys` 清掉。
+- **同型排查已做**：把 `AppSettings` 的 16 个键与 `settingsSchema` 的 15 个键逐个对拍（脚本取数，非目测），**差集只有 `engine_hint_dismissed` 一条**，schema 侧无多余键——本条是目前唯一一例「类型声明有、schema 没有」。
+- **影响面**：只丢这一条偏好，不影响启动参数与命令构建；属静默失效，用户的体感是「点了忽略不管用」。
+- **下一步（修法待裁定）**：① 在 `settingsSchema` 补 `engine_hint_dismissed: z.array(z.string()).catch(undefined)`（与其余字段同式的逐字段容错），文档即可写回「存入磁盘」；或 ② 裁定「忽略只活本次运行」，则改 `data-persistence.md` 的字段说明并去掉 UI 侧的 50 条裁剪。两案都要补一条 save→load 往返单测钉住（含 50 条裁剪），否则「类型有 / schema 无」这类漂移还会再犯。**当前文档已按现状书写**（`docs/{zh,en}/data-persistence.md` 的该字段行），修法落地后须一并回改。
+
+### T14 `docs/CHANGELOG.md` 已越过归档滚动阈值（2026-10-10 登记）
+
+- **出了什么事**：AGENTS.md 定的规则是主文件超过约 100 KB 或累计 3–4 个版本，就把最旧的版本段整体搬进 `docs/archive/CHANGELOG-*.md`。实测现状：本轮开始前主文件 **112.4 KB**，已越线；本轮补上「文档全量对齐」条目后 **116.5 KB**。文件里现有 **13 个版本段**（0.0.53 → 0.0.65 + `[Unreleased]`），远超「3–4 个版本」。
+- **成因**：0.0.57–0.0.65 九轮连发，每轮条目都按「出了什么事 / 改法 / 验证」长书写，条目越记越细，归档一次没做过。归档区间目前止于 0.0.52（`CHANGELOG-0.0.40-0.0.52.md`），即 0.0.53 起全在主文件里。
+- **下一步**：按纯移动、不改写原文的规矩，把 0.0.53–0.0.60（或按当轮体量取更小区间）整段搬进新建的归档文件 `docs/archive/CHANGELOG-<start>-<end>.md`（此处为占位名，勿当真实路径），同步改主文件开头的指路行（现列 0.0.40–0.0.52 / 0.0.01–0.0.39 / 1.x 三段），搬完确认主文件第一个版本段仍是最新已发布版本——`bump-version.cjs` 划段与 `verify-version-sync.cjs` 取最新标题都只认主文件。**动完必跑 `pnpm docs:check`**（指路行是真实链接；本条正文原先写了一个尚未存在的归档文件名，被该门禁当场判死路径，故改写为占位形式）。本轮未做，因它属结构调整、需单独一笔提交与单独目测。
+
 ## 已关闭
 
 ### T12 b11524 引擎 help 漂移——切换日常引擎前必须 re-pin（2026-10-09 登记并关闭）
 
 - **漂移内容**（登记时实测）：`--port` 默认 8080 → 9931（有咬合：不 re-pin 直接切引擎，端口缺省的会话不发 `--port` 而引擎听 9931，界面探活落空）、`--moe-cache-mib` 新增、应用 flag 无缺失。
 - **关闭**：2026-10-09 按用户裁定完成 §5.5 re-pin 全流程（help 基线替换、`moe_cache_mib` 入表、`port` engineDefault 跟随 9931 + note、`ENGINE_BASELINE_BUILD` 与 6 处声明、对照表重生成、13 处计数声明 + 门禁句式外活声明），`verify-params-sync` 六类校验 / 全门禁 / 单测 548+212 / e2e 84 全绿。**切换注意**：re-pin 后 b11408 相对新基线已「更旧」——仍钉 b11408 的环境（本机 `settings.json` 未动）会开始出现「参数基线可能已过期」提示，这是方向性告警的设计行为；在设置页把引擎目录切到 `llama-b11524-bin-win-vulkan-x64` 后即静默。`moe_cache_mib` 未入 `PROPS_FIELD_MAP`（b11524 的 /props 是否回读该字段未验证，未映射即不出声，无假报风险）。
-
-## 观察项
-
-## 已关闭
 
 ### T06 「引擎比基线新 ⇒ 静默」分支缺真机证据（2026-10-09 关闭）
 

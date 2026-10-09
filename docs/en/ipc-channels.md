@@ -22,12 +22,12 @@
 | `models:detectDraft`  | Detect draft model files (dflash/draft)                                                     |
 | `models:readGgufMeta` | Read GGUF metadata                                                                          |
 | `models:watch`        | Watch `.gguf` file changes recursively                                                      |
-| `models:remove`       | Remove by model file (when the directory still holds other quantized versions/files, only the selected file is deleted; otherwise the mmproj/mtp/dflash companion files and the now-empty directory are removed too; only paths inside `models\_dir` may be deleted; associated presets are cleaned up in sync) |
+| `models:remove`       | Remove by model file (when the directory still holds other quantized versions/files, only the selected file is deleted; otherwise the mmproj/mtp/dflash companion files and the now-empty directory are removed too; only paths inside `models\_dir` may be deleted; that model's parameter set is deleted along with it) |
 | `models:changed`      | Model-change notification (main process → renderer)                                         |
 
 ### ModelParams (3)
 
-Per-model parameter sets (as of 2026-10-08 these replace hand-saved presets: parameters follow the model — every tweak is persisted automatically and loaded back on switch/restart). Files live in `~/.llama_launcher/model-params/`, keyed by a digest of the model path; legacy presets are merged in once by the startup migration (newest wins per model). All reads and writes go through core's `ModelParamsRepository`; the channel payloads never expose directories or file layout.
+Per-model parameter sets (as of 2026-10-08 these replace hand-saved presets: parameters follow the model — every tweak is persisted automatically and loaded back on switch/restart). Files live in `~/.llama_launcher/model-params/`, keyed by a digest of the model path; legacy presets are merged in once by the startup migration (**newest `saved_at` wins inside each source directory**; the two legacy locations are merged in turn, and the later one overwrites a parameter set already written for the same model). All reads and writes go through core's `ModelParamsRepository`; the channel payloads never expose directories or file layout.
 
 | Channel | Purpose |
 | --- | --- |
@@ -75,7 +75,7 @@ Per-model parameter sets (as of 2026-10-08 these replace hand-saved presets: par
 | `window:showCloseDialog`   | Close-window prompt request (main process → renderer, an in-app dialog replaces the native dialog; payload `CloseDialogRequest`) |
 | `window:closeDialogResult` | Close-window prompt reply (renderer → main process; payload `CloseDialogResult`) |
 
-### System (11)
+### System (12)
 
 | Channel               | Purpose                                                                                                                  |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------- |

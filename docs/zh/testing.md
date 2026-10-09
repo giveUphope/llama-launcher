@@ -10,10 +10,15 @@
 
 - **覆盖模块**：
 
+### core 包（`packages/core/tests`）
+
+下表为主要套件索引，全量以 `git ls-files packages/core/tests` 为准（边界与回归用例不单列）：
+
 | 测试文件                                  | 覆盖模块                                                                            |
 | ------------------------------------- | ------------------------------------------------------------------------------- |
-| `settings-store.test.ts`              | 设置读写（含 `session_values`/`session_baseline` 形状校验）                                |
-| `presets-store.test.ts`               | 预设读写                                                                            |
+| `settings-store.test.ts`              | 设置读写：默认值 / 往返 / 损坏备份 `.bak` 后回退（双轨字段已随每模型持久化移除，磁盘残留键的剥除由 `settings-store-edge.test.ts` 与配置诊疗用例守）                                |
+| `config-doctor.test.ts`             | 配置诊疗：干净文件幂等不动 / 版本随迁 + 未知键剥离一次写回且复跑必干净 / 损坏 `.bak` 重置 / 形状非法 / 首启不代写 / model-params 残留键清理与损坏移出 / 聚合入口 |
+| `model-params.test.ts`              | 每模型参数集：文件层键派生与形状容错 + 仓储层 load/save/clear/deleteForModel + 搬家后按原路径文件名重识别 + `migratePresetsToModelParams` 两代预设并入 |
 | `models-scanner.test.ts`              | 模型扫描                                                                            |
 | `command-builder.test.ts`             | 命令构建（含 legacy `_enabled` 忽略）                                                    |
 | `command-builder-definitions.test.ts` | 命令构建（表驱动：从 `definitions.ts` 生成全部 70 参数的结构约束与发射行为用例）                             |
@@ -45,11 +50,12 @@
 
 | 测试文件                               | 覆盖模块                                                                     |
 | ----------------------------------- | ------------------------------------------------------------------------ |
-| `src/stores/params.test.ts`         | 参数 store（双轨值/基线、依赖联动 `syncDependencies`、`clearSession` 全部重置并保留模型）          |
+| `src/stores/params.test.ts`         | 参数 store（每模型自动持久化：`applyModel` 载回、GGUF 建议自动套用、800ms 节流保存、「全部重置」保留模型并即时重探自动检测字段、`syncDependencies` 依赖联动）          |
 | `src/stores/server.test.ts`         | server store（`apiUrl` 与真实服务状态绑定：running/starting/stopped 三态）              |
 | `src/stores/hardware.test.ts`       | hardware store（显存/内存占用派生：条目分流与单位换算、「探不到设备就不出声」、取数时机守 keep-alive 铁律——后台页不敲主进程、`offloadRelief` 减负建议条目透传） |
-| `src/composables/useModelPreset.test.ts` | 智能预设静默匹配与应用（别名/文件名候选、脏态不二次确认）                                         |
-| `src/composables/useAutoPresetName.test.ts` | 预设名候选生成（去扩展名/目录名变体）                                                     |
+| `src/stores/appLog.test.ts`         | 应用操作日志：本地推送与主进程快照**合并**（按 ts+data 判重、合并按事件时间排序，先行的本地行不被冲掉）、上限裁剪、`list()` 拒绝时订阅不受损 |
+| `src/composables/useStartServer.test.ts` | 启停编排：错误归集走应用日志通道、端口占用后找空闲端口重试、外部实例接管 |
+| `src/composables/useStaleParams.test.ts` | 「运行中 ≠ 当前参数」的差异计数（含接管外部实例无启动快照时不出数） |
 | `src/composables/useUrlHistory.test.ts` | URL 历史记录                                                                  |
 | `src/dev/demo-mock.test.ts`         | 浏览器 mock 的命令预览：初值态发出 4 个基线推荐值、哨兵不发射、扩展参数不进内置框、与 `shared` 发射实现逐字相等        |
 | `src/testing/arco-theme.test.ts`       | 主题 token 对齐（HTML `data-theme` / body `arco-theme`）                            |
@@ -71,7 +77,7 @@ dev 会话收尾的端到端集成验证已迁入 `pnpm test`（`packages/core/t
 
 | 命令 | 前置条件 | 验证内容 |
 | ---- | ---- | ---- |
-| `pnpm e2e:web` | 无（内部先 `pnpm --filter @llama-launcher/ui build`） | 真实构建产物（vite preview 服务 `packages/ui/dist` + demo-mock 注入）驱动 Chromium：侧边栏 7 项导航逐一可达、模型页演示列表、服务页 running 状态卡、参数页 a-switch / 滑杆交互；另有**可访问性判据**（侧栏键盘可达与 Enter/Space 导航、弹窗对话框语义与焦点环、控件命名普查，`e2e/web/a11y.spec.ts`）与**最小视口判据**（视口取 `apps/desktop/src/main/window.ts` 的 `minWidth/minHeight`，7 页逐页测文档级与元素级横向溢出，`e2e/web/narrow-viewport.spec.ts`），另有**语义骨架判据**（唯一 `main` 地标、每页恰好一个 `<h1>`、卡片小节标题为 `<h2>`、状态行自身 `aria-live="polite"`，`e2e/web/semantics.spec.ts`）。三类判据都配删除实验。用例见 `e2e/web/*.spec.ts` |
+| `pnpm e2e:web` | 无（内部先 build `shared`，再 build `ui`） | 真实构建产物（vite preview 服务 `packages/ui/dist` + demo-mock 注入）驱动 Chromium：侧边栏 7 项导航逐一可达、模型页演示列表、服务页 running 状态卡、参数页 a-switch / 滑杆交互；另有**可访问性判据**（侧栏键盘可达与 Enter/Space 导航、弹窗对话框语义与焦点环、控件命名普查，`e2e/web/a11y.spec.ts`）与**最小视口判据**（视口取 `apps/desktop/src/main/window.ts` 的 `minWidth/minHeight`，7 页逐页测文档级与元素级横向溢出，`e2e/web/narrow-viewport.spec.ts`），另有**语义骨架判据**（唯一 `main` 地标、每页恰好一个 `<h1>`、卡片小节标题为 `<h2>`、状态行自身 `aria-live="polite"`，`e2e/web/semantics.spec.ts`）。三类判据都配删除实验。用例见 `e2e/web/*.spec.ts` |
 | `pnpm e2e:electron` | 无（内部先构建 desktop） | `_electron` 以生产模式（loadFile `dist/ui/index.html`）headless 启动打包产物，断言主进程版本、窗口标题、侧边栏渲染，并做一次**推送通道真机往返**：渲染层经真实 preload 订阅 `system:benchOnStatus`，主进程在作业终态迁移时推一次（探针取「确实存在但不是 GGUF」的文件当 modelPath，必然快速失败，不加载模型、不占 GPU）；脚本 `e2e/electron/run-smoke.mjs` |
 | `pnpm test:e2e` | 无 | 先全量构建，再依次执行 `pnpm e2e:web` 与 `pnpm e2e:electron`（2026-09-20 起统一走这两个脚本——旧写法直接 `playwright test --project=web`，绕开了 preview 驱动，配置里 `webServer` 移除后就没人起 4173 了） |
 

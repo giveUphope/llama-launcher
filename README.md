@@ -1,4 +1,4 @@
-| 56 个 IPC 通道清单# llama Launcher
+# llama Launcher
 
 > 给 llama.cpp `llama-server` 用的桌面启动器 —— 选模型、调参数、一键起服务、看日志。
 
@@ -31,7 +31,7 @@ llama.cpp 自带服务端只有命令行：要跑起来得手拼 `-m`、`-c`、`
 
 - **70 个** `llama-server` 参数，按 14 个分区归类（含「安全与跨域」）（网络 / 上下文 / KV 缓存 / 采样 / 推测解码…），基线对齐 llama.cpp **b11524**。
 - 滑块 / 下拉 / 开关 / 文件选择齐全，悬停标签看中文说明；值与默认值不同才写进命令行。
-- 改动自动存为「会话参数」，重启回到上次状态；要长期保留才显式存成预设（双轨机制）。
+- 参数跟着模型走：调整即自动存到该模型名下，换回这个模型或重启就自动载回，**没有手动保存**；要回到出厂值用参数页的「全部重置」。
 - 参数间 `dependsOn` 依赖联动：前置条件不满足时自动重置并提示。
 
 **硬件适配**
@@ -49,6 +49,8 @@ llama.cpp 自带服务端只有命令行：要跑起来得手拼 `-m`、`-c`、`
 
 - 命令实时预览、启动前摘要核对、控制台 5000 行上限（切回页面自动滚到最新）、应用内嵌 llama-server Web UI。
 - 引擎目录（含一级子目录）自动检测可执行文件，行内图标提示检测状态；「listening」日志识别兼容不同版本格式。
+- 服务就绪后会向引擎 `GET /props` 把**实际生效值**读回来，与发出的参数逐项对账，只在真的不一致时出声——这是界面上唯一「已证实引擎收到了什么」的信号。
+- 应用自带配置诊疗：启动时诊断并修复自家配置文件（损坏备份重置、版本随迁、已删字段剥离），修了哪些写进概览的应用日志。
 
 > 每条的完整规则（参数对照表、依赖联动、GGUF 建议条目、估算模型）在 `docs/` 展开，见下方[文档地图](#文档地图)。
 
@@ -76,9 +78,9 @@ pnpm lint        # 类型检查 + IPC / 参数三方对拍 / 版本一致性 / �
 1. **应用设置** → 选 llama-server 所在目录（自动检测可执行文件）与模型存放目录，可顺手配主题、语言、镜像源、并发下载数。
 2. **模型** → 点选一个 `.gguf`，元数据与伴随文件（mmproj / 草稿模型）自动读取。
 3. **参数设置** → 需要才调；「应用建议参数」按模型元数据一键套用（会先重置当前参数）。
-4. 想长期保留这组参数，就在「预设」标签存一份 —— 预设文件写在模型目录的 `presets/` 子目录下，跟模型放在一起。
+4. 这组参数已随该模型自动记住——切走再切回、停服再启动都会载回；要清回出厂值，去参数设置页用「全部重置」。
 5. **服务** → 启动并看控制台输出；点顶栏「打开 Web UI」或侧边栏「内置 Web UI」在应用内直接使用。
-6. llama.cpp 的冷门参数不在 60 个里？写进命令预览的**扩展参数**框，会原样追加到启动命令末尾，「还原」参数时不受影响。
+6. llama.cpp 的冷门参数不在 70 个里？写进命令预览的**扩展参数**框，会原样追加到启动命令末尾，「还原」参数时不受影响。
 7. 本地没有模型 → 「模型管理」页的**模型库**子标签粘贴链接下载，完成后列表自动刷新。
 
 ***
@@ -87,7 +89,7 @@ pnpm lint        # 类型检查 + IPC / 参数三方对拍 / 版本一致性 / �
 
 ```text
 apps/desktop/      # Electron：src/main 主进程、src/preload 桥接、electron-builder 配置
-packages/shared/   # 唯一事实源：类型、60 参数表、i18n（zh/en）
+packages/shared/   # 唯一事实源：类型、70 参数表、i18n（zh/en）
 packages/core/     # 业务逻辑：进程、命令构建、GGUF 读取、模型扫描、下载、清理
 packages/ui/       # Vue 3 前端：路由、Pinia store、7 个页面
 scripts/           # 构建与校验脚本（IPC 生成、参数/文档同步审计、打包钩子）
@@ -110,14 +112,14 @@ Electron 44 · Vue 3.5 + Pinia 4 + Vue Router 5 · TypeScript 6 · Vite 8 + vue-
 
 | 想弄明白…                               | 读这里                                                                 |
 | ----------------------------------- | ------------------------------------------------------------------- |
-| 60 个参数与 `--help` 的逐条对照              | [params/LLAMA\_SERVER\_PARAMS.md](docs/zh/params/LLAMA_SERVER_PARAMS.md) |
+| 70 个参数与 `--help` 的逐条对照              | [params/LLAMA\_SERVER\_PARAMS.md](docs/zh/params/LLAMA_SERVER_PARAMS.md) |
 | 整体结构、目录树、Monorepo 依赖流               | [architecture.md](docs/zh/architecture.md)                             |
 | 核心模块（进程、命令构建、GGUF、下载、清理）与关键函数索引     | [core-modules.md](docs/zh/core-modules.md)                             |
-| 参数系统与双轨（会话 / 预设）、依赖联动、控件组件          | [params-system.md](docs/zh/params-system.md)                           |
+| 参数系统与每模型自动持久化、依赖联动、控件组件          | [params-system.md](docs/zh/params-system.md)                           |
 | Electron 主进程（窗口、IPC 注册、托盘、preload）  | [desktop-main.md](docs/zh/desktop-main.md)                             |
 | 56 个 IPC 通道清单（改 IPC 前必读）            | [ipc-channels.md](docs/zh/ipc-channels.md)                             |
 | 前端架构 + **UI 风格规范 §7.5**            | [frontend.md](docs/zh/frontend.md)                                     |
-| 类型定义与持久化（`settings.json` 全字段、预设格式） | [data-persistence.md](docs/zh/data-persistence.md)                     |
+| 类型定义与持久化（`settings.json` 全字段、每模型参数集格式） | [data-persistence.md](docs/zh/data-persistence.md)                     |
 | 打包配置与常见故障（junction 陷阱、输出目录锁定）      | [packaging.md](docs/zh/packaging.md)                                   |
 | CI/CD 与自动发版流水线                      | [ci-cd.md](docs/zh/ci-cd.md) · [auto-release.md](docs/zh/auto-release.md) |
 | 测试结构与 E2E                           | [testing.md](docs/zh/testing.md)                                       |

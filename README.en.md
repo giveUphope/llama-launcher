@@ -31,7 +31,7 @@ llama.cpp ships a command-line-only server: to get it running you hand-assemble 
 
 - **70** `llama-server` parameters grouped into 14 sections (incl. Security & CORS) (networking / context / KV cache / sampling / speculative decoding…), baseline aligned to llama.cpp **b11524**.
 - Sliders, dropdowns, switches and file pickers; hover a label for help text. A parameter only reaches the command line when its value differs from the default.
-- Edits are auto-saved as *session* parameters, so a restart returns to where you left off; save a *preset* only when you want it long-term.
+- Parameters follow the model: every tweak is persisted under that model, and switching back to it (or restarting the server) reloads the same set — **there is no manual saving**. To get back to factory values, use **Reset All** on the Params page.
 - Parameters declare dependencies on each other (`dependsOn`): when a prerequisite is unmet the dependent value resets and the row says why.
 
 **Hardware fit**
@@ -49,8 +49,10 @@ llama.cpp ships a command-line-only server: to get it running you hand-assemble 
 
 - Live command preview, pre-launch parameter summary, 5000-line console that jumps to newest output when you switch back, and the llama-server web UI embedded inside the app.
 - The engine executable is found within the chosen directory plus one level of subdirectories, with an inline status icon; "listening" detection tolerates log wording differences between llama.cpp versions.
+- Once the server is ready the app reads the **values actually in effect** back over `GET /props` and reconciles them item by item against what it sent, speaking only when something really disagrees — this is the UI's one *verified* signal of what the engine received.
+- The app ships its own config doctor: on startup it diagnoses and repairs its own config files (corrupt file backed up and reset, version migration, removed fields stripped), and reports what it fixed into the Dashboard application log.
 
-> Full rules for each item (parameter mapping tables, dependency chains, GGUF suggestion rules, the occupancy model) live in `docs/` — see the [documentation map](#documentation-map). Those documents are currently written in Chinese; this README is the English entry point.
+> Full rules for each item (parameter mapping tables, dependency chains, GGUF suggestion rules, the occupancy model) live in `docs/` — see the [documentation map](#documentation-map).
 
 ***
 
@@ -76,9 +78,9 @@ pnpm lint        # typecheck + IPC / param three-way sync / version / docs links
 1. **Settings** → choose the directory holding llama-server (the executable is detected for you) and where your models live; theme, language, mirror host and download concurrency are on the same page.
 2. **Models** → click a `.gguf`; its metadata and companion files (mmproj / draft) are read in.
 3. **Params** → change only what you need; "Apply suggestions" fills in values derived from the model's own metadata (it resets current values first).
-4. Want to keep that set? Save it under the **Presets** tab — preset files sit in `presets/` inside your model directory, next to the models themselves.
+4. That set is now remembered for the model on its own — switch away and back, or stop and restart the server, and it comes right back; to clear it to factory values use **Reset All** on the Params page.
 5. **Service** → start it and watch the console; the top bar's "Open Web UI" or the sidebar entry gives you the chat interface inside the app.
-6. Need a llama.cpp flag that isn't among the 60? Type it into the **extra arguments** box of the command preview — it is appended verbatim to the launch command and survives "reset parameters".
+6. Need a llama.cpp flag that isn't among the 70? Type it into the **extra arguments** box of the command preview — it is appended verbatim to the launch command and survives "reset parameters".
 7. No local model yet? Use the **Model library** sub-tab on the Models page, paste a link and download; the list refreshes when it finishes.
 
 ***
@@ -87,7 +89,7 @@ pnpm lint        # typecheck + IPC / param three-way sync / version / docs links
 
 ```text
 apps/desktop/      # Electron: src/main process, src/preload bridge, electron-builder config
-packages/shared/   # single source of truth: types, the 60-parameter table, i18n (zh/en)
+packages/shared/   # single source of truth: types, the 70-parameter table, i18n (zh/en)
 packages/core/     # business logic: process, command builder, GGUF reader, model scan, downloads, cleanup
 packages/ui/       # Vue 3 frontend: router, Pinia stores, 7 pages
 scripts/           # build & verification scripts (IPC generation, param/docs sync audits, pack hooks)
@@ -110,14 +112,14 @@ Everything lives in `docs/en/` (Chinese originals in [`docs/zh/`](docs/zh/archit
 
 | To understand…                                              | Read                                                                     |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------ |
-| All 60 parameters mapped against `--help`                    | [params/LLAMA\_SERVER\_PARAMS.md](docs/en/params/LLAMA_SERVER_PARAMS.md)     |
+| All 70 parameters mapped against `--help`                    | [params/LLAMA\_SERVER\_PARAMS.md](docs/en/params/LLAMA_SERVER_PARAMS.md)     |
 | Overall structure, directory tree, Monorepo dependency flow | [architecture.md](docs/en/architecture.md)                                  |
 | Core modules (process, command builder, GGUF, downloads)    | [core-modules.md](docs/en/core-modules.md)                                  |
-| Parameter system, session vs preset, controls               | [params-system.md](docs/en/params-system.md)                                |
+| Parameter system, per-model auto-persistence, controls      | [params-system.md](docs/en/params-system.md)                                |
 | Electron main process (window, IPC registry, tray, preload) | [desktop-main.md](docs/en/desktop-main.md)                                  |
 | All 56 IPC channels — read before touching IPC              | [ipc-channels.md](docs/en/ipc-channels.md)                                  |
 | Frontend architecture + **UI style guide §7.5**             | [frontend.md](docs/en/frontend.md)                                          |
-| Types and persistence (`settings.json` fields, presets)     | [data-persistence.md](docs/en/data-persistence.md)                          |
+| Types and persistence (`settings.json`, per-model sets)     | [data-persistence.md](docs/en/data-persistence.md)                          |
 | Packaging config and known failure modes                    | [packaging.md](docs/en/packaging.md)                                        |
 | CI/CD and the release pipeline                              | [ci-cd.md](docs/en/ci-cd.md) · [auto-release.md](docs/en/auto-release.md)     |
 | Test layout and E2E                                         | [testing.md](docs/en/testing.md)                                            |

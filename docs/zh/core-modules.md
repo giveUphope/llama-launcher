@@ -12,11 +12,11 @@
 
 - **按行缓冲**：stdout/stderr 按行切分，通过 `output` 事件发射 `OutputEntry { kind, data, ts }`，避免半行输出污染日志。
 
-- **`kill()`**：Windows 平台用 `taskkill /F /T /PID` 杀整个进程树（防止子进程残留），其他平台对负 pid（进程组）发 `SIGKILL`（立即终止；`SIGTERM` 优雅终止仅用于 `terminate()` 两阶段流程）。
+- **`kill()`**：Windows 平台用 `taskkill /F /T /PID` 杀整个进程树（防止子进程残留），其他平台对负 pid（进程组）发 `SIGKILL`（立即终止；`SIGTERM` 优雅终止仅用于 `terminate()` 两阶段流程）。**杀完刻意不把句柄置 null**——置了就等于宣布「进程已死」，而 `taskkill` 返回时子进程往往还没派发 `exit`；上层用 `isRunning()` 决定「等 exit 再 start」还是「直接 start」，在这里谎报 `false` 会让连点两下「重启」并发拉起第二个 llama-server。死亡由 `exit` 事件收口（`Launcher` 的 exit 处理负责清 `this.proc`）。
 
-- **两阶段终止体系**：`LlamaServerProcess.terminate()`（SIGTERM 优雅 → 超时升级 killTree，process.ts:188）、`killSync()`（同步强杀，process.ts:150）、`sweepByName()`（按可执行文件名扫杀残留进程，process.ts:98）；**`forceStop()` 在 `Launcher` 上**（launcher.ts:127，组合 killTree + sweepByName，供 Electron `before-quit` 经 launcher-bridge.ts:141 调用），不在 process.ts。
+- **两阶段终止体系**：`LlamaServerProcess.terminate()`（SIGTERM 优雅 → 超时升级 killTree）、`killSync()`（同步强杀：杀树 → 轮询确认 → 仍存活则重试 → 最后无条件按可执行文件名兜底扫杀，供 `before-quit` 用）、`forceKill()`（杀树后 400ms 短轮询，**只有** PID 定向终止未能确认死亡时才 `sweepByName()` 按名扫杀；没有 PID 句柄时不做全局按名扫杀，免得 `taskkill /F /IM` 误伤用户自启的同名实例）。**`forceStop()` 在 `Launcher` 上**（置 `stopRequested` 后调 `proc.forceKill()`；供 Electron `before-quit` 经 `launcher-bridge.disposeSync()` 调用），不在 process.ts。本节的引用一律只写文件与函数名、不写行号——这些函数在同文件里来回挪过位，写死行号等于埋一条会自己过期的指针。
 
-- **`isRunning()`**：判断条件为 `exitCode === null && !killed`。
+- **`isRunning()`**：判断条件为 `proc !== null && exitCode === null && signalCode === null && !killed`。`signalCode` 一项是为类 Unix 补的（Linux CI 实测）：那里 killTree 走 `process.kill(pid, SIGKILL)` 直接系统调用，进程死于信号时 Node 语义是 `exitCode` 保持 null、`killed` 不置位、只有 `signalCode` 有值——缺了这一判据，死进程会被谎报成「在跑」，`restart()` 于是给一个 `exit` 早已派发过的死句柄挂 `once('exit')`，重启永久挂死。Windows 侥幸不踩：`taskkill /F` 退出的进程总带非零退出码。
 
 ### 4.2 启动编排 (launcher.ts)
 
@@ -88,7 +88,7 @@
 
 - **多任务并发**：`maxConcurrent = 3`，超出排队。
 
-- **多段并行下载**：动态段数算法 `computeSegmentCount` 按文件大小递增（<100MB→1 段、<1GB→2、<5GB→4、<20GB→6、≥20GB→8），再与 `SEGMENT_TARGET_SIZE`(100MB) 计算的目标段数取 `max`、与 `MIN_SEGMENT_SIZE_BYTES`(8MB) 的上限取 `min`，上限 32 段；worker 队列模型让并发 worker 数等于段数，每完成一段自动认领下一段，消除尾段瓶颈。`highWaterMark = 2MB`（`WRITE_STREAM_HWM`，download-manager.ts:198——2026-09-19 由 16MB 下调，减少下载期内存驻留与背压延迟）。
+- **多段并行下载**：动态段数算法 `computeSegmentCount` 按文件大小递增（<100MB→1 段、<1GB→2、<5GB→4、<20GB→6、≥20GB→8），再与 `SEGMENT_TARGET_SIZE`(100MB) 计算的目标段数取 `max`、与 `MIN_SEGMENT_SIZE_BYTES`(8MB) 的上限取 `min`，上限 32 段；worker 队列模型让并发 worker 数等于段数，每完成一段自动认领下一段，消除尾段瓶颈。`highWaterMark = 2MB`（`WRITE_STREAM_HWM`，见 `download-manager.ts`——2026-09-19 由 16MB 下调，减少下载期内存驻留与背压延迟）。
 
 - **断点续传**：检测已存在文件大小，携带 `Range` header；分段进度持久化为 `.llama_dl.jsonl` **事件日志**（append-only：start/segment/done 三类事件），失败/暂停后重放事件恢复分段状态；旧版 `.llama_dl.json`（单 JSON 快照）由 `migrateLegacyMeta` 一次性自动迁移。
 
@@ -128,13 +128,15 @@
 
 - **伴随标签**：`detectCompanionTags`（**定义在 `models-scanner.ts:111`**，非 paths.ts）为扫描结果标注伴随文件标签（多模态投影器 / 草稿模型是否存在），写入 `ModelInfo.tags` 供前端展示。
 
-### 4.8 设置与每模型参数集存储 (settings-store.ts / model-params-store.ts / model-params-repository.ts)
+### 4.8 设置与每模型参数集存储 (settings-store.ts / model-params-store.ts / model-params-repository.ts / config-doctor.ts)
 
-- **`settings-store.ts`**：`loadSettings()` / `saveSettings(settings)` / `getDefaultSettings()`。持久化到 `~/.llama_launcher/settings.json`，写入为**原子替换**（`.tmp` + rename）+ **CAS 合并守卫**（写入前读取磁盘值作基线，其他实例的更新不丢），加载时逐字段归一化，损坏文件自动备份 `settings.json.bak`。schema 版本由 `SETTINGS_VERSION` 管理（变更走 `migrateSettings`）。含 `hf_mirror_host` 时同步 `setHfMirrorHost` 驱动镜像链路。字段全清单见 [data-persistence.md](data-persistence.md) §10。
+- **`settings-store.ts`**：`loadSettings()` / `saveSettings(settings)` / `getDefaultSettings()` / `healSettingsFile()`（供启动诊疗调用，见下）。持久化到 `~/.llama_launcher/settings.json`，写入为**原子替换**（`.tmp` + rename）+ **CAS 合并守卫**（写入前读取磁盘值作基线，其他实例的更新不丢），加载时逐字段归一化，损坏文件自动备份 `settings.json.bak`。schema 版本由 `SETTINGS_VERSION` 管理（变更走 `migrateSettings`）。含 `hf_mirror_host` 时同步 `setHfMirrorHost` 驱动镜像链路。字段全清单见 [data-persistence.md](data-persistence.md) §10。
 
 - **`model-params-store.ts`（文件层）**：`modelParamsKey(modelPath)`（存储键 = 清洗后的模型文件名 + 规范化路径 sha1 前 8 位）/ `listModelParams(dir)` / `readModelParams(dir, modelPath)` / `writeModelParams(dir, params)` / `deleteModelParams(dir, modelPath)` / `parseModelParams(raw)`（垃圾清理器判孤儿/损坏用）/ `normalizeValues`。只负责「按模型路径派生键读写一个 JSON」与形状容错，不知道目录在哪、也不知道业务规则；mtime+原始字节双指纹解析记忆化保留。
 
-- **`model-params-repository.ts`（领域层）**：`ModelParamsRepository` 接口 + `createModelParamsRepository(dir)`（测试可注入目录）/ `getModelParamsRepository()`（活目录单例）。业务对每模型参数的全部读写都走这层——`load(modelPath)`（未存储返回 null；**搬家重识别**：精确键未命中时按存储原路径的文件名找回并换键重写）/ `save(modelPath, values)`（upsert，渲染层 800ms 节流调用）/ `clear(modelPath)` / `deleteForModel(modelPath)`（路径前缀匹配，移除模型时同步清理）。**预设迁移**：`migratePresetsToModelParams(fromDir, toDir)` 把两代历史预设（`<models_dir>/presets` 与 `~/.llama_launcher/presets`）一次性并入活目录（同模型多条取 `saved_at` 最新，迁入后源文件删除，无绑定/损坏文件原地保留；幂等，IPC 注册时执行一次）。上层（IPC/UI）不接触目录、键派生与文件布局——换存储介质只需换掉本层实现。详见 [data-persistence.md](data-persistence.md) §10。
+- **`model-params-repository.ts`（领域层）**：`ModelParamsRepository` 接口 + `createModelParamsRepository(dir)`（测试可注入目录）/ `getModelParamsRepository()`（活目录单例）。业务对每模型参数的全部读写都走这层——`load(modelPath)`（未存储返回 null；**搬家重识别**：精确键未命中时按存储原路径的文件名找回并换键重写）/ `save(modelPath, values)`（upsert，渲染层 800ms 节流调用）/ `clear(modelPath)` / `deleteForModel(modelPath)`（路径前缀匹配，移除模型时同步清理）。**预设迁移**：`migratePresetsToModelParams(fromDir, toDir)` 把两代历史预设（`<models_dir>/presets` 与 `~/.llama_launcher/presets`）一次性并入活目录（同模型多条取 `saved_at` 最新——准确说：**同一来源目录内**比较 `saved_at`，两个历史位置按「模型目录版 → 集中目录版」依次执行，后一次写入会覆盖同名模型先前落下的参数集；迁入后源文件删除，无绑定/损坏文件原地保留；幂等，IPC 注册时执行一次）。上层（IPC/UI）不接触目录、键派生与文件布局——换存储介质只需换掉本层实现。详见 [data-persistence.md](data-persistence.md) §10。
+
+- **`config-doctor.ts`（启动诊疗，2026-10-09 起）**：`runConfigDoctor()` 聚合入口（路径可注入供单测）——settings 侧委托 `healSettingsFile()`（损坏/形状非法 → 备份 `.bak` 后**立即重置为全新默认文件**；合法文件走 migrate + normalize，规范化结果与磁盘逐字节不一致才原子写回；**文件不存在时不代写**，返回 null 表示「没得可诊」），model-params 侧 `healModelParamsFile()`（损坏/形状非法 → 备份 `.bak` 并移出活集，回落出厂默认；`values` 里已删参数的残留键按 `PARAMS` 键集剥除写回）。两条纪律：**幂等**——内容与规范形一致时绝不写盘（不搅动 mtime 与读取缓存）；**不产文案**——报告 `ConfigDoctorReport` 只含 issue 种类与计数，主进程用 `tr()` 组装成应用日志（键 `applog_config_doctor_*` / `cfg_issue_*`）。调用点在 `app.whenReady` 内、`registerIpcHandlers()` **之前**（先把盘上的配置修干净，再让任何 IPC 去读它）。判据见 `packages/core/tests/config-doctor.test.ts`（临时目录注入：干净不动 / 版本随迁 + 未知键剥离一次写回且复跑必干净 / 损坏重置 / 形状非法 / 首启不代写 / 残留清理 / 聚合入口）。
 
 ### 4.9 可重试错误判定与指数退避 (retry.ts)
 
@@ -159,16 +161,18 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 
 - **作用**：服务进入 `running` 后向 `http://<displayHost>:<port>/props` 发一次 GET，把引擎**实际生效值**与启动器发出的值逐项对账；结果 `PropsCheck` 由 `Launcher.runPropsCheck` 以**补发一次同状态事件**的方式下发（回读是异步的，不阻塞状态迁移）。
 - **映射表与比对规则都在 shared**（`params/props-mapping.ts` 的 `PROPS_FIELD_MAP` 与纯函数 `checkEngineProps`）：渲染层只拿数据出文案，符合「数据层不产文案」。
-- **覆盖面**：映射 **15 项**（model / alias / ctx_size / temperature / top_k / top_p / min_p / repeat_penalty / presence_penalty / seed / ui / slots_endpoint / metrics / props_endpoint / parallel）。同一份真机 b11178 夹具按**现行规则**重算是 **9 项校验 + 6 项跳过 + 0 项不一致**（校验到的是 model / alias / temperature / top_k / seed / ui / slots_endpoint / metrics / props_endpoint；跳过的是 ctx_size（多槽⇒每槽值）+ 四个「值等于引擎缺省因而没上命令行」的采样项）。**其余约 54 项引擎根本不回读**，所以界面只在真的不一致时出声，绝不暗示"全部核对过"。
+- **覆盖面**：映射 **15 项**（model / alias / ctx_size / temperature / top_k / top_p / min_p / repeat_penalty / presence_penalty / seed / ui / slots_endpoint / metrics / props_endpoint / parallel）。同一份真机 b11178 夹具按**现行规则**重算是 **9 项校验 + 6 项跳过 + 0 项不一致**（校验到的是 model / alias / temperature / top_k / seed / ui / slots_endpoint / metrics / props_endpoint；跳过的是 ctx_size（多槽⇒每槽值）+ 四个「值等于引擎缺省因而没上命令行」的采样项）。**其余约 55 项引擎根本不回读**，所以界面只在真的不一致时出声，绝不暗示"全部核对过"。
 - **`modelDerived`：没发射时，「回读 ≠ 我们的缺省」有两个合法来源，分不出就不许出声**（2026-10-06 真机抓到）。GGUF 自带 `general.sampling.*` 时，引擎会拿模型推荐值顶掉缺省——实测（b11408 + Qwen3.8-27B-UD-Q2_K_XL，命令行未发 `--temp`/`--top-k`）回读 `temperature=1`、`top_k=20`，而引擎缺省是 0.8/40。这条差值既可能来自模型，也可能来自 `LLAMA_ARG_TEMPERATURE` 这类环境覆写，`/props` 本身给不出答案。所以这六项（成员清单 = `gguf-meta.ts` 里那六个源键，不是凭猜）标上 `modelDerived: { envChannel }`：**只有主进程检出的 `envOverrides` 命中该通道才参与比对**，否则计入 skipped。判据两头都钉住了——没命中不许假报，命中了不许哑掉（`Launcher` 把名单透传给 `verifyEngineProps` 的那条链路有独立用例，漏透传就红）。留作对照的是 `seed`：help 里它**没有** env 通道、模型也没有对应源键，所以"没发也比"仍然成立，「不发射时引擎做的是不是那个缺省值」这个前提还有人守。
 - **`skipWhen` 是数据不是分支**：`ctx_size` ↔ `n_ctx` 在 `--fit` 为 `on`/`auto` 时不参与比对——引擎会按显存重算上下文长度，比了必假报。这类"引擎会自行改写的项"用表内声明表达，加参数不必再改判定代码。
-- **复检由「页面真的可见」驱动，自动且自适应退避（2026-10-06 起）**：`Launcher.recheckProps()` 由 `server:status(refresh:true)` 调用，触发点是「卡片 `onActivated` → `server.enterPropsWatch()`」（概览状态卡与服务页预览卡各持幂等 release）、`status` 变 running、`host`/`port` 改动、窗口聚焦（`launcher-bridge` 的 `win.on('focus')` 直接调核心，渲染层在自己被聚焦前拿不到这个信号），（原先还有一个手动「重新校验」按钮作逃生阀，2026-10-06 按用户标注删除：自动刷新已覆盖该链路，按钮只剩操作摩擦；状态行也改成**没事不出声**——核对通过、还没轮到回读这些常态都不再显示提示）。节拍器在**渲染层**、核心零定时器：可见期间按 `15s×2^n` 退避、封顶 60s，结论指纹（`mismatched`/`error`/`baselineDrift`，**不含 `checkedAt`**）一变立刻回快档，`onDeactivated` 计数归零即清表——**后台页一个请求都不发**。这与 2026-09-25 删掉的「盲轮询」不是一回事：被删的是「无人看也敲、没在跑也敲、结论没变也敲」，本方案三闸门齐备，只保留「外部 `POST /props` 在本机没有事件源」那一处必需的下限节拍（与外部实例探测同形，见 §4.x）。之所以非要有个节拍：引擎参数只可能被外部 `POST /props` 改动，每分钟盲敲端口既抓不到规律也无事可报；而「有人在看的时候才要新鲜结论」正是可事件化的信号。**结果有序列化差异才补发同状态事件**（无变化不产生跨桥噪声），`PropsCheck.checkedAt` 随结果下发供界面标注新鲜度。
+- **复检由「页面真的可见」驱动，自动且自适应退避（2026-10-06 起）**：`Launcher.recheckProps()` 由 `server:status(refresh:true)` 调用，触发点是「卡片 `onActivated` → `server.enterPropsWatch()`」（概览状态卡与设置页的引擎提示行 `GeneralPanel` 各持一份幂等 release）、`status` 变 running、`host`/`port` 改动、窗口聚焦（`launcher-bridge` 的 `win.on('focus')` 直接调核心，渲染层在自己被聚焦前拿不到这个信号），（原先还有一个手动「重新校验」按钮作逃生阀，2026-10-06 按用户标注删除：自动刷新已覆盖该链路，按钮只剩操作摩擦；状态行也改成**没事不出声**——核对通过、还没轮到回读这些常态都不再显示提示）。节拍器在**渲染层**、核心零定时器：可见期间按 `15s×2^n` 退避、封顶 60s，结论指纹（`mismatched`/`error`/`baselineDrift`，**不含 `checkedAt`**）一变立刻回快档，`onDeactivated` 计数归零即清表——**后台页一个请求都不发**。这与 2026-09-25 删掉的「盲轮询」不是一回事：被删的是「无人看也敲、没在跑也敲、结论没变也敲」，本方案三闸门齐备，只保留「外部 `POST /props` 在本机没有事件源」那一处必需的下限节拍（与概览的外部实例探测同一条理由：那类事实本机没有可订阅的事件源，只能靠问）。之所以非要有个节拍：引擎参数只可能被外部 `POST /props` 改动，每分钟盲敲端口既抓不到规律也无事可报；而「有人在看的时候才要新鲜结论」正是可事件化的信号。**结果有序列化差异才补发同状态事件**（无变化不产生跨桥噪声），`PropsCheck.checkedAt` 随结果下发供界面标注新鲜度。
 - **基线版本漂移也走这条链路**：`PropsCheck.baselineDrift` 比对 `/props` 的 `build_info` 与 `ENGINE_BASELINE_BUILD`，不一致时预览卡提示"参数基线可能已过期"——这张表是某版本 help 的快照，引擎一升级，那约 50 项不可回读参数的判定基准就不再可信，而这是**唯一**能在运行期发现此事的途径（开发期由 `verify-params-sync` ⑥ 守声明处一致）。
 - **三处归一不做就天天假报**（都是真机抓到的形状）：float32 噪声（发 `0.95` 回读 `0.949999988079071`，容差 `PROPS_NUM_TOL = 1e-4`）；seed 的 uint32 环绕（发 `-1` 回读 `4294967295`）；Windows 路径分隔符与大小写（回读带双反斜杠，走 `normPath`）。
 - **`onlyWhenSent` 项**（model / alias / parallel）：我们没发值时引擎会自行派生（别名取文件名、`-np -1` 自算槽数），此时比对必假报，一律计为 skip。
 - **取数失败不等于不一致**：`error='unreachable' | 'bad_payload'` 且 `mismatched` 保持空——一次偶发网络失败不该让界面谎报"参数没生效"，那正是本项目一直在消灭的那类问题。
 - **不需要为此开 `--props`**：该 flag 只控制 POST /props 改全局属性，`GET /props` 默认可读（实测 `endpoint_props=false` 时仍返回完整 JSON）。
-- **单测必须注入 `propsFetcher`**：默认实现走全局 fetch，不注入就会真去请求本机 8080 上用户正在跑的实例（`launcher.test.ts` 四处已全部换成桩）。
+- **`envOverrides` 从哪来**：`Launcher.start()` 里调 `detectLlamaEnvOverrides(process.env)`（`shared/params/engine-baseline.ts`）检出本次启动存在的 `LLAMA_ARG_*` 变量名，随 `ServerInfo.envOverrides` 下发，并在**设置页引擎目录行下方**明说「这些改写不会出现在命令行里」——它同时是 `modelDerived` 六项比对的前提（未发射的采样项只有在同名 env 通道被检出时才参与对账，否则计入跳过）。
+
+- **单测必须注入 `propsFetcher`**：默认实现走全局 fetch，不注入就会真去请求本机 8080 上用户正在跑的实例（`launcher.test.ts` 的 14 处 `new Launcher(` 已全部注入桩，一处不剩）。
 
 ### 4.12 进程清理日志 (cleanup-logger.ts)
 
@@ -195,7 +199,8 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | 文件                      | 主要导出                                                                                                                                                            | 说明                                    |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | `paths.ts`              | `CONFIG_DIR`/`SETTINGS_FILE`/`MODEL_PARAMS_DIR`/`LEGACY_PRESETS_DIR`、`legacyModelsPresetsDir(modelsDir)`、`basenameSafe`                                        | 路径常量与解析；开发模式自动查找 `llama-*-bin-*` 最新目录 |
-| `settings-store.ts`     | `loadSettings` / `saveSettings` / `getDefaultSettings`                                                                                                          | 设置读写（CAS + 原子替换，§4.8）                 |
+| `settings-store.ts`     | `loadSettings` / `saveSettings` / `getDefaultSettings` / `healSettingsFile`                                                                                        | 设置读写（CAS + 原子替换，§4.8）+ 启动诊疗的 settings 侧 |
+| `config-doctor.ts`      | `runConfigDoctor` / `healModelParamsFile` / `ConfigDoctorReport` / `ConfigIssueKind`                                                                               | 配置诊疗：settings + model-params 逐文件诊断修复，报告只含 issue 种类与计数（§4.8） |
 | `model-params-store.ts` | `modelParamsKey`/`listModelParams`/`readModelParams`/`writeModelParams`/`deleteModelParams`/`parseModelParams`/`normalizeValues`                                | 每模型参数集文件层（键派生/容错/记忆化，§4.8）      |
 | `model-params-repository.ts` | `ModelParamsRepository`、`createModelParamsRepository`/`getModelParamsRepository`/`migratePresetsToModelParams`                                             | 每模型参数集领域层（load/save/clear/搬家重识别/预设迁移，§4.8） |
 | `models-scanner.ts`     | `scanModels` / `detectMmproj` / `detectDraftModel` / `removeModelFile` / `invalidateScanCache` / `ensureDir`                                                    | .gguf 递归扫描 + 伴随检测 + 移除（§4.4）          |
@@ -226,11 +231,15 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | `types/`                | `IPC`（56 通道）、`AppSettings`、`ParamDef`、`ModelParams`、`ServerInfo`、`OutputEntry`、`ModelInfo`、`GgufModelInfo`、`DownloadTask`、`TrashItem`、`HardwareOccupancy`/`VramEstimateResult`/`PerfTarget` 等 | 全部跨包类型（[data-persistence.md](data-persistence.md) §9） |
 | `params/definitions.ts` | `PARAMS`（70：basic 27 / advanced 29 / server 14）/ `PARAM_GROUPS`（3 组）/ `MODEL_KEY` / `APP_VERSION` / `APP_NAME` / `APP_REPO_URL` + `LLAMA_CPP_RELEASES_URL` / `DEFAULT_HOST` + `DEFAULT_PORT` + `PORT_MIN` + `PORT_MAX` + `isValidPort()`（网络四项全部由 `host`/`port` 两条目派生）                  | 参数表唯一来源（[params-system.md](params-system.md)）。① 网络默认值与端口边界唯一来源：主进程/core/渲染层的回退值与范围校验一律引此，不再各写 `'127.0.0.1'` / `?? 8080` / `> 65535`（默认值曾散落 7 处、端口上界曾散落 5 处，漏改即出现「UI 探 8080、服务起在别端口」的假占用告警或「参数页允许、启动检查拒绝」的分裂）；② 对外链接唯一来源（llama.cpp 发布页曾在 AboutPanel 与 GeneralPanel 各写一份完整 URL）         |
+| `params/engine-baseline.ts` | `PARAM_ENGINE_BASELINE`（`engineDefault` / `sentinel` / `note`）/ `engineDefaultOf` / `isSentinelValue` / `sameParamValue` / `ENGINE_BASELINE_BUILD` / `LLAMA_ENV_PREFIX` / `detectLlamaEnvOverrides` | 引擎缺省基线表：发射基准的唯一来源，与 `docs/params/llama-server-help-out.txt` 的 `(default: X)` 由 `verify-params-sync.cjs` 对拍（[params-system.md](params-system.md) §5.5） |
+| `params/command.ts`     | `buildArgv` / `argvFromPreviewOptions`                                                                                                                    | 参数表 → argv 的**唯一**发射实现；执行方（core）与展示方（服务页预览、浏览器 mock）共用同一份，别处再抄一份会被门禁 ⑤ 判 fail（§4.3） |
+| `params/props-mapping.ts` | `PROPS_FIELD_MAP`（15 项）/ `checkEngineProps`                                                                                                              | `/props` 回读的字段映射与比对规则（纯函数，含归一化与 `modelDerived`/`onlyWhenSent` 判据，§4.11） |
 | `hosts.ts`              | `MODELSCOPE_HOST` / `DEFAULT_HF_MIRROR_HOST` / `normalizeMirrorHost(raw)` / `HF_SOURCE_HOST_SUFFIXES` + `MODELSCOPE_HOST_SUFFIX`                                                            | 下载源主机名与镜像回退唯一来源（core 客户端与 UI「在浏览器打开」外链共用，分叉会让下载走自建镜像而外链仍跳默认站）。**识别后缀与建站 host 分列两套**：建站用 `www.modelscope.cn`，粘贴 URL 的站点判定须用不含 www 的 `modelscope.cn` 后缀，否则裸域链接判为无法识别        |
 | `settings-limits.ts`    | `DOWNLOAD_CONCURRENCY_DEFAULT/MIN/MAX/OPTIONS` + `clampDownloadConcurrency(n)`                                                                      | 应用设置的取值边界唯一来源：core 的 zod schema 与下载器钳制、设置页下拉同源（`ui ↛ core`，故常量必须在 shared）        |
 | `i18n/`                 | `tr` / `trAt(lang, …)` / `setLang` + zh/en 字典                                                                                                        | 双语 UI 文案（`trAt` 供需要显式语言的纯函数使用，如 `time-format`；文案一律在此，数据层只发 key）                                              |
 | `model-name.ts`         | `modelBaseName(modelPath)`                                                                                                         | 模型显示名/别名派生（alias 自动填充）                                |
 | `model-relevance.ts`    | `categorizeFile` / `parseQuantization` / 相关性评分                                                                                     | 文件分类 + 量化标签解析（下载徽标）                                   |
+| `format.ts`             | `formatBytes` / `formatDuration` 等跨包格式化                                                                                                        | 「单位 → 可读文本」的唯一收敛处（原先分散在 modelscope 客户端、下载卡、清理卡、服务页四处各写一份）；MB 起 2 位小数是硬要求，好让分类大小与总数肉眼可加 |
 | `time-format.ts`        | `formatRelativeTime(input, lang)`                                                                                                  | 人性化时间格式化                                              |
 
 **`apps/desktop/src/main`（Electron 主进程）**

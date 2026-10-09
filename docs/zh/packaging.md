@@ -70,7 +70,7 @@ pnpm workspace 在 Windows 上默认使用 **junction（目录联接）** 链接
 
 版本号同步由 [`scripts/bump-version.cjs`](../../scripts/bump-version.cjs) 自动处理：`node scripts/bump-version.cjs [patch|minor|major]` 会同时更新 `package.json`（root + desktop）、`APP_VERSION`（`definitions.ts`）、`docs/CHANGELOG.md` 版本节，以及 `docs/{zh,en}/packaging.md`（中英两树各一份）、`docs/{zh,en}/architecture.md`（monorepo 版本表）、`README.md`（中文着陆页）与 `README.en.md`（英文着陆页）、`AGENTS.md` 中提到的输出文件名与版本号。
 
-每次 `push` 到 `main`（含 PR 合并事件）由 GitHub Actions `ci.yml` 的 `bump` job 自动执行 patch 递增 + 打 tag + 触发 `release.yml` 打包 `.exe` 并创建 GitHub Release（详见 [ci-cd.md](ci-cd.md) / [auto-release.md](auto-release.md)）。
+版本递增在**本地**完成（2026-10-08 起）：非文档变更推送前运行 `node scripts/bump-version.cjs`（默认 patch），把结果单独提交为 `chore(release): vX`，随后 `git push`。`ci.yml` 的 `release` job 只核对不写盘——`package.json` 的版本尚无对应 tag ⇒ 打 tag 并触发 `release.yml` 打包 `.exe` 并创建 GitHub Release；版本已有 tag（即忘了本地 bump）⇒ 红牌报错，补 bump 后随下一次推送发版。**CI 绝不向 main 写提交**。纯文档变更（仅 `docs/**`、根 `README.md`、`README.en.md`、`AGENTS.md`）跳过发版。详见 [ci-cd.md](ci-cd.md) 与 [auto-release.md](auto-release.md)。
 
 **需人工维护的项**：
 

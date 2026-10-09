@@ -48,7 +48,7 @@
 | `download_max_concurrent` | number                        | 最大并发下载数（1–5，默认 3；边界与默认值唯一来源是 `shared/src/settings-limits.ts` 的 `DOWNLOAD_CONCURRENCY_*` + `clampDownloadConcurrency`，core 的 schema/下载器钳制与设置页下拉同源） |
 | `hf_mirror_host`          | string                        | HuggingFace 镜像源（空 = 默认 hf-mirror.com，默认站名唯一来源 `shared/src/hosts.ts`），保存时同步 `setHfMirrorHost` 驱动镜像链路 |
 | `custom_args`             | string                        | **扩展参数**：用户自定义命令行参数原文，命令预览独立文本框编辑，`buildCommand` 按 shell 词法切分后追加到实际启动命令末尾；与内置参数命令完全分离，「还原」参数不影响它 |
-| `engine_hint_dismissed`   | string[]                      | **引擎提示已忽略条目**：设置页引擎行下方的可忽略提示点「忽略」时存入当前行各条消息全文（写入裁剪最近 50 条）；被忽略的条目保持安静，新出现的消息照常显示——按条而非按整行，因「N 项不同」计数随参数编辑逐次变化 |
+| `engine_hint_dismissed`   | string[]                      | **引擎提示已忽略条目**：设置页引擎行下方的可忽略提示点「忽略」时，UI 侧把当前行各条消息全文写入并按 50 条裁剪（`GeneralPanel.vue`）。**现状是它落不进磁盘**：core 的 `settingsSchema` 未声明该键，`normalizeSettings` 按「未知键剥除」处理，因此忽略状态只活本次运行、重启即失效（配置诊疗也会把盘上手工加的同名键清掉）。已登记 [TODO.md](../TODO.md) T13，修向（补 schema 或裁定只活会话）未定；被忽略的条目保持安静、新消息照常显示这一条按条判据本身不受影响 |
 
 > 参数不再存于 settings.json：`session_values` / `session_baseline` / `last_preset` / `last_preset_id` 四个双轨字段已随**每模型自动持久化**移除（2026-10-08，参数迁往 `~/.llama_launcher/model-params/`，见下）。旧设置文件里的这些键由 schema 剥除，静默忽略。
 
@@ -63,8 +63,8 @@
 - **`server_exe`**：由 `llama_dir` 内联检测自动填充（`system:findLlamaExe` 查找目录及一级子目录中的 `llama-server.exe`）。
 ### 配置诊疗（config doctor，2026-10-09 起）
 
-- **是什么**：应用自带的配置「诊断 + 修复」模块（core `config-doctor.ts`）。每次启动（`app.whenReady`，先于任何 IPC 注册）跑一遍 `runConfigDoctor()`：对 `settings.json` 与 `model-params/*.json` 逐文件检查，修复能安全修复的，报告走应用日志（日志页可见——干净也报一行「检查通过」，有修复按文件逐行列出问题种类；损坏/形状类升为 warn 级）。
-- **修什么（settings.json）**：① JSON 损坏 / 顶层形状非法 → 备份 `.bak` 后**立即重置为全新默认文件**（此前只重置内存、磁盘要等下次保存才恢复）；② 版本号旧于当前 schema（`settings_version` < 当前）→ `migrateSettings` 迁移后**原子写回**——版本更新后配置文件随之升到当前版式，不再等「恰好触发保存」；③ schema 外的未知键（历史版本残留）剥离；④ 非法/缺失字段修复写回（枚举回默认、新字段补默认）。内容与规范形逐字节一致时**绝不写**（幂等，不搅动 mtime 与读取缓存）。
+- **是什么**：应用自带的配置「诊断 + 修复」模块（core `config-doctor.ts`）。每次启动（`app.whenReady`，先于任何 IPC 注册）跑一遍 `runConfigDoctor()`：对 `settings.json` 与 `model-params/*.json` 逐文件检查，修复能安全修复的，报告走应用日志（**概览的应用操作日志卡**可见——2026-10-09 起日志页控制台只放 llama-server 原始输出；干净也报一行「检查通过」，有修复按文件逐行列出问题种类；损坏/形状类升为 warn 级）。
+- **修什么（settings.json）**：① JSON 损坏 / 顶层形状非法 → 备份 `.bak` 后**立即重置为全新默认文件**（此前只重置内存、磁盘要等下次保存才恢复）；② 版本号旧于当前 schema（`settings_version` < 当前）→ `migrateSettings` 迁移后**原子写回**——版本更新后配置文件随之升到当前版式，不再等「恰好触发保存」；③ schema 外的未知键（历史版本残留）剥离；④ 非法/缺失字段修复写回（枚举回默认、新字段补默认）；⑤ `settings.json` **不存在**时不代写——`runConfigDoctor()` 直接给 settings 记 null（「没有可诊的对象」），首次启动不会凭空落一个空文件（用例见 `config-doctor.test.ts` 的「文件不存在（首启）不代写、不报问题」）。内容与规范形逐字节一致时**绝不写**（幂等，不搅动 mtime 与读取缓存）。
 - **修什么（model-params/*.json）**：JSON 损坏 / 形状非法 → 备份 `.bak` 并移出活集（该模型回落出厂默认，原内容可手工恢复）；`values` 里已从参数表移除的参数键（版本升级残留）清理写回，现役值原样保留。
 - **报告文案**：主进程经 `tr()` 组装（数据层只出 issue 种类与计数，不产文案），键 `applog_config_doctor_*` / `cfg_issue_*`；单测见 `packages/core/tests/config-doctor.test.ts`（临时目录注入路径，含「干净文件绝不写」的幂等判据）。诊疗产生的 `.bak` 由垃圾清理按 `temp_file` 收走——损坏原文件的恢复窗口到用户手动清理为止；损坏参数集在清理页的分类因此从 `broken_json` 前移为 `temp_file`（诊疗已先一步处置）。
 

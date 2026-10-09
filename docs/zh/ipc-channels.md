@@ -22,12 +22,12 @@
 | `models:detectDraft`  | 检测草稿模型文件（dflash/draft）                                                                        |
 | `models:readGgufMeta` | 读取 GGUF 元数据                                                                                   |
 | `models:watch`        | 递归监听 .gguf 文件变化                                                                               |
-| `models:remove`       | 按模型文件移除（目录有其他量化版本/文件时仅删选中文件；否则连同 mmproj/mtp/dflash 伴随文件与空目录删除；仅允许删除 models\_dir 内路径；同步清理关联预设） |
+| `models:remove`       | 按模型文件移除（目录有其他量化版本/文件时仅删选中文件；否则连同 mmproj/mtp/dflash 伴随文件与空目录删除；仅允许删除 models\_dir 内路径；同步删除该模型的参数集） |
 | `models:changed`      | 模型变化通知（主进程 → 渲染进程）                                                                            |
 
 ### ModelParams（3）
 
-每模型参数集（2026-10-08 起取代手存预设：参数跟模型走，调整即自动持久化、切换/重启即自动载回）。文件存于 `~/.llama_launcher/model-params/`，按模型路径派生存储键；存量预设由启动迁移一次性并入（同模型取最新）。全部读写走 core 的 `ModelParamsRepository`，通道载荷不暴露目录与文件布局。
+每模型参数集（2026-10-08 起取代手存预设：参数跟模型走，调整即自动持久化、切换/重启即自动载回）。文件存于 `~/.llama_launcher/model-params/`，按模型路径派生存储键；存量预设由启动迁移一次性并入（**同一来源目录内**按 `saved_at` 取最新；两个历史位置依次并入，后一侧会覆盖同名模型先前写入的参数集）。全部读写走 core 的 `ModelParamsRepository`，通道载荷不暴露目录与文件布局。
 
 | 通道 | 用途 |
 | --- | --- |
@@ -75,7 +75,7 @@
 | `window:showCloseDialog`   | 关闭窗口询问请求（主进程 → 渲染进程，应用内弹窗替代原生 dialog；payload `CloseDialogRequest`） |
 | `window:closeDialogResult` | 关闭窗口询问回复（渲染进程 → 主进程；payload `CloseDialogResult`）                   |
 
-### System（11）
+### System（12）
 
 | 通道                    | 用途                                                                                                                   |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------- |

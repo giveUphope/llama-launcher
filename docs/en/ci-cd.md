@@ -37,7 +37,7 @@ Both pull_request and push events go through verify.
 - **Guard condition**: `github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && needs.changes.outputs.non-doc == 'true'`
   - Only pushes to main are handled; the event fired after a PR is merged is picked up automatically
   - `github.actor != 'github-actions[bot]'`: CI itself no longer writes commits to main (see below); the guard stays as a second layer of insurance against accidental releases from a future bot / PAT push.
-  - **`non-doc == 'true'`**: the `changes` job resolves the file list of the commits in this push and only a push with at least one non-documentation file changed (anything other than `docs/**`, the root `README.md` and `AGENTS.md`) goes to release — **documentation-only updates never release**, which avoids version noise.
+  - **`non-doc == 'true'`**: the `changes` job resolves the file list of the commits in this push and only a push with at least one non-documentation file changed (anything other than `docs/**`, the root `README.md`, `README.en.md` and `AGENTS.md`) goes to release — **documentation-only updates never release**, which avoids version noise.
 - **The version increment runs locally (since 2026-10-08, which fixed the push divergence at its root)**: a non-documentation push must have run `node scripts/bump-version.cjs` locally first, with its results (version files + the CHANGELOG version section) committed as part of the push. The old system had CI run the bump remotely with `commit → tag → push` — the remote was always one commit ahead of local, so the next push was always rejected as non-fast-forward, and the local CHANGELOG `[Unreleased]` entries always conflicted with CI's section move (hit on 2026-10-06 and again on 10-08). CI now **writes nothing to main**, and the version declarations on both sides no longer drift.
 - **Steps**:
   1. `actions/checkout@v7` (fetch-depth: 0 — all tags must be visible)
@@ -65,7 +65,7 @@ On every push to main the pipeline runs: verify all green → the `changes` job 
   - The failure artifact paths come from `playwright.config.ts`: `outputDir: test-results` + the HTML report `playwright-report` (both at the repository root), with `if-no-files-found: ignore`; before this, a failure left nothing to go on but guessing the scene from the `list` output.
 - No separate `pnpm build` any more: the `e2e:web` / `e2e:electron` scripts each build what they need (ui/desktop), and turbo's local cache deduplicates.
 - The web render-layer E2E runs against real build output (vite preview + demo-mock; the cases are described in the E2E chapter of [testing.md](testing.md)); the Electron smoke test starts the packaged artifact headless, which on Linux needs an xvfb virtual display. **The preview is owned by exactly one place, `e2e/run-web-e2e.mjs`** (`playwright.config.ts` has had its dead `webServer` configuration removed, see the "key points and pitfalls" section of testing.md) — CI and local runs use the same driver path.
-- It does not participate in the needs chain of `bump` (release does not wait for e2e).
+- It does not participate in the needs chain of `release` (release does not wait for e2e).
 
 ---
 

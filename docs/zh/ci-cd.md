@@ -37,7 +37,7 @@ pull_request 和 push 事件都走 verify。
 - **守卫条件**：`github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && needs.changes.outputs.non-doc == 'true'`
   - 只处理 push 到 main 的事件，PR 合并后的触发自动命中
   - `github.actor != 'github-actions[bot]'`：CI 自身已不向 main 写提交（见下），该守卫保留作第二层保险，挡住「将来以 bot / PAT 身份推送」时的意外发版。
-  - **`non-doc == 'true'`**：`changes` job 解析本次 push 各提交的文件清单，仅当存在非文档文件变更（`docs/**`、根 `README.md`、`AGENTS.md` 之外）时才走发版——**纯文档更新不发版**，避免版本噪音
+  - **`non-doc == 'true'`**：`changes` job 解析本次 push 各提交的文件清单，仅当存在非文档文件变更（`docs/**`、根 `README.md`、`README.en.md`、`AGENTS.md` 之外）时才走发版——**纯文档更新不发版**，避免版本噪音
 - **版本递增在本地（2026-10-08 起，根治推送分叉）**：非文档推送前必须在本地跑 `node scripts/bump-version.cjs` 并把结果（版本文件 + CHANGELOG 版本段）随推送提交进来。旧系统由 CI 在远端跑 bump 并 `commit → tag → push`——远端永远比本地多一个提交，下次推送必然非快进被拒、且 CHANGELOG 的 `[Unreleased]` 条目与 CI 的段落搬移必然冲突（2026-10-06 与 10-08 两次撞上）。CI 从此**不向 main 写任何内容**，本地与远端的版本声明零漂移。
 - **步骤**：
   1. `actions/checkout@v7`（fetch-depth: 0——要能看到全部 tag）
@@ -46,7 +46,7 @@ pull_request 和 push 事件都走 verify。
   4. `git tag -a "v$V"` + `git push origin "v$V"`（只推 tag，**不 commit 不推 main**）
   5. `gh workflow run release.yml -f version="v$V"`（通过 GH_TOKEN 触发发版工作流）
 
-每次 push 到 main，流水线：verify 校验全绿 → `changes` job 判定变更性质 —— **非纯文档变更**要求本地已递增版本（release job 核对后打 tag、触发 Windows 打包）；纯文档变更（仅 `docs/**` / 根 `README.md` / `AGENTS.md`）则 **Release 跳过**（verify 照常执行，保证文档/链路完整性）。
+每次 push 到 main，流水线：verify 校验全绿 → `changes` job 判定变更性质 —— **非纯文档变更**要求本地已递增版本（release job 核对后打 tag、触发 Windows 打包）；纯文档变更（仅 `docs/**` / 根 `README.md` / `README.en.md` / `AGENTS.md`）则 **Release 跳过**（verify 照常执行，保证文档/链路完整性）。
 
 ### 1.3 changes job（纯文档变更判定）
 
@@ -65,7 +65,7 @@ pull_request 和 push 事件都走 verify。
   - 失败产物路径取自 `playwright.config.ts`：`outputDir: test-results` + HTML 报告 `playwright-report`（均在仓库根），`if-no-files-found: ignore`；此前失败只能靠 `list` 输出猜现场。
 - 不再单独 `pnpm build`：`e2e:web` / `e2e:electron` 脚本内部各自构建（ui/desktop），turbo 本地缓存去重。
 - Web 渲染层 E2E 走真实构建产物（vite preview + demo-mock，用例见 [testing.md](testing.md) 的 E2E 章节）；Electron 冒烟为 headless 启动打包产物，Linux 需 xvfb 虚拟显示。**preview 由 `e2e/run-web-e2e.mjs` 单点拥有**（`playwright.config.ts` 已移除死配置 `webServer`，详见 testing.md「要点与坑」）——CI 与本地跑的是同一条驱动路径。
-- 不参与 `bump` 的 needs 链（release 不等待 e2e）。
+- 不参与 `release` 的 needs 链（release 不等待 e2e）。
 
 ---
 
