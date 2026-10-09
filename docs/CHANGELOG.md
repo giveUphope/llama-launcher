@@ -6,6 +6,9 @@
 
 ## \[Unreleased]
 
+## \[0.0.67] - 2026-10-10
+
+
 - **fix(scripts): 发版脚本的 CHANGELOG 日期改用本地日历日（TODO T16）**：出了什么事——v0.0.66 的 CHANGELOG 版本段写着 `2026-10-09`，可发版当时的本地时间是 2026-10-10 02:23；版本号没错，日期差一天。成因：`scripts/bump-version.cjs` 用 `new Date().toISOString().slice(0, 10)` 取日期，而 `toISOString()` 给的是 UTC——本地 UTC+8 下 16:00 之后发的版都会落到前一天（v0.0.65 / v0.0.66 实际都踩在本地凌晨，两段记的都是 UTC 日）。**为什么改这里而不是别处**：版本递增自 2026-10-08 起收归**本地**运行，而 CHANGELOG 的日期是给人读的「哪天发的版」，两个口径必须一致；CI 那边只核对 tag、早就不再写这个日期。**改法**：抽出纯函数 `releaseDate()` 取运行机的本地年月日（补零），并把脚本尾部的无条件 `run()` 改成 `require.main === module` 守卫 + 导出 `bumpVersion` / `releaseDate`——不然单测一 `require` 就会真的把版本号加上去（「被测试执行到的副作用」那类事故）。**判据**：新增 `packages/core/tests/release-date.test.ts` 四条：① require 不写盘（比对 root `package.json` 版本号前后一致）；② 输出必为补零的 `YYYY-MM-DD`；③ 取本地日而非 UTC 日——用一个「本地 00:30」瞬时构造出 UTC 日与本地日必然不同的场景，并配**非空转对照**（同瞬时下断言 `utcDay ≠ localDay`，否则这条判据是空跑）；机器本身跑在 UTC±0 时该瞬时不存在，此条**显式打印跳过理由**而不是假装通过；④ `bumpVersion` 三档与 `0.9.9 → 0.10.0` 进位。**删除实验**：把实现退回旧 UTC 写法 ⇒ ②③ 两条转红，报出的正是本次事故本体 `expected '2026-10-09' to be '2026-10-10'`；还原后四条全绿。**历史不回改**：v0.0.65 / v0.0.66 两段的 UTC 日期保持原样（发布记录已公开，`gh release view` 的 `publishedAt` 可查），差异在 T16 关闭说明里登记。**验证**：单测 core 40 → **41 文件 / 562 → 566** 用例、ui 22/213 全绿（AGENTS.md 与中英 `testing.md` 的规模行同轮校准，覆盖表补 `release-date.test.ts` 一行）；`pnpm lint` 七道全绿（含 `verify-doc-pairs` 14 篇成对）；本轮随后 bump 出的 v0.0.67 段落由修好的脚本写出、日期为本地 `2026-10-10`，即修复的活体证据。
 
 ## \[0.0.66] - 2026-10-09
