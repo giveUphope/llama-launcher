@@ -2,6 +2,15 @@
 
 本文件是**工程待办的唯一活归口**：CHANGELOG 条目只记已发生的事实，凡「未修 / 待确认 / 备查 / 待裁定」的事项一律登记在此，关闭后移至文末「已关闭」区并注明关闭版本。UI 风格类待办另有归口：[zh/style/STYLE_TODO.md](zh/style/STYLE_TODO.md)（双语两树）。本文件与 CHANGELOG 同属不译清单，只维护中文单份。
 
+## 发布事故
+
+### R01 v0.0.55 / v0.0.56 发版失败，版本号延续补发（2026-10-09 登记）
+
+- **出了什么事**：v0.0.55 与 v0.0.56 两次推送的 CI `verify` job 红牌（run 37865210758、37910555980，ubuntu 上 `modelParamsKey` 跨平台键漂移与 `dev-session-integ` 组杀超时两项，本地 Windows 全绿无感），`release` job 被连坐跳过——**两个版本均未发版**（tag 与 GitHub Release 停在 v0.0.54）。
+- **原因**：① 两处失败都是 Linux 特有契约（`basename` 平台分隔符、进程组组长前提），本地 Windows 测试对这类契约零证明力，推送前无从复现；② verify 红牌连坐 release（`needs: [verify, changes]`），且当时无「verify 红了 release 照查」的旁路。
+- **修复方案（2026-10-09 已落地）**：① 两处实现/测试修复随 f12a729 提交；② **版本号不跨版**：七处版本声明从 0.0.56 回落 0.0.55，CHANGELOG 的 [Unreleased]/[0.0.55]/[0.0.56] 三段合并为 [0.0.55] 一段（附补发说明），原定 0.0.56 的全部变更并入 v0.0.55 一次发出，**后续发版自 0.0.56 起继续递增**，不跳号。
+- **关闭条件**：推送后 CI verify 绿 + release job 打出 v0.0.55 tag + Release 发布成功（资产 `llama.Launcher.0.0.55.exe`、packaging.md 的实测陈述重新为真）。
+
 ## 观察项
 
 ### T06 「引擎比基线新 ⇒ 静默」分支缺真机证据
