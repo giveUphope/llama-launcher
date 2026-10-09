@@ -20,18 +20,21 @@ let listCalls = 0;
 let onLogCalls = 0;
 let clearCalls = 0;
 let listShouldThrow = false;
+let listReject = false;
 
 (globalThis as any).window = (globalThis as any).window ?? {};
 (globalThis as any).window.api = {
   logs: {
-    // 注意：这里的「抛错」必须是**同步** throw（list() 调用当场炸），不是返回 rejected promise。
-    // store 的 subscribe 用 try/catch 兜的是同步分支（浏览器预览下 window.api.logs 直接 undefined，
-    // 访问 .list 即同步 TypeError）；若改成 async 函数返回 rejection，store 侧 `void promise`
-    // 没有挂 catch，会以 Unhandled Rejection 的形式把整个 vitest 进程的退出码打成 1（恰是
-    // 本文件曾长期带病运行的根因）。「异步 list() 拒绝」是另一个生产侧课题，见任务报告。
+    // 「抛错」有两种形态，store 侧各有兜底：
+    // ① 同步 throw（listShouldThrow，list() 调用当场炸）——subscribe 的 try/catch 兜
+    //    （浏览器预览下 window.api.logs 直接 undefined，访问 .list 即同步 TypeError）；
+    // ② 异步拒绝（listReject，返回 rejected promise）——promise 链上的 .catch 兜（T04：
+    //    此前 `void list().then(...)` 没挂 catch，会以 Unhandled Rejection 把 vitest 进程
+    //    退出码打成 1，恰是本文件曾长期带病运行的根因）。
     list: vi.fn((): Promise<AppLogEntry[] | null> => {
       listCalls++;
       if (listShouldThrow) throw new Error('no preload');
+      if (listReject) return Promise.reject(new Error('history read failed'));
       return Promise.resolve(listResult);
     }),
     onLog: vi.fn((cb: (e: AppLogEntry) => void) => {
@@ -56,6 +59,7 @@ beforeEach(() => {
   onLogCalls = 0;
   clearCalls = 0;
   listShouldThrow = false;
+  listReject = false;
   setActivePinia(createPinia());
 });
 
@@ -148,6 +152,24 @@ describe('appLog store - 订阅与初始缓冲', () => {
     expect(store.entries).toHaveLength(0);
     logCb!(entry('info', 'after-null'));
     expect(store.entries.map((l) => l.lower)).toEqual(['after-null']);
+  });
+
+  it('list 异步拒绝（T04）：不产生 Unhandled Rejection，推送订阅照常工作', async () => {
+    // 真实场景：主进程读历史日志文件失败（权限/磁盘），list() 以 rejected promise 落空。
+    // store 必须吞掉这次初始拉取失败（无历史可补，live 推送不受影响），而不是把
+    // Unhandled Rejection 抛给整个进程。
+    listReject = true;
+    const store = useAppLogStore();
+    expect(() => store.subscribe()).not.toThrow();
+    // 让被拒的 promise 走完微任务链；vitest 4 会把未处理的 rejection 记为测试失败，
+    // 这里能跑过即证明 .catch 已兜住
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(listCalls).toBe(1);
+    expect(store.entries).toHaveLength(0);
+    expect(onLogCalls, '初始缓冲失败不得影响推送订阅的挂接').toBe(1);
+    logCb!(entry('info', 'after-reject'));
+    expect(store.entries.map((l) => l.lower)).toEqual(['after-reject']);
   });
 });
 

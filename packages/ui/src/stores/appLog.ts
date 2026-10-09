@@ -66,10 +66,17 @@ export const useAppLogStore = defineStore('appLog', () => {
     if (subscribed) return;
     subscribed = true;
     try {
-      // 初始拉取当前缓冲（浏览器预览/mock 环境下 list 可能返回 null）
-      void window.api.logs.list().then((list) => {
-        if (Array.isArray(list) && list.length > 0) entries.value = list.slice(-APP_LOG_MAX_LINES).map(decorate);
-      });
+      // 初始拉取当前缓冲（浏览器预览/mock 环境下 list 可能返回 null）。
+      // 异步拒绝也要兜：list() 返回 rejected promise 时若无 catch，会以 Unhandled
+      // Rejection 污染进程（T04）；初始拉取失败不阻断订阅，后续 onLog 事件照常入队。
+      void window.api.logs
+        .list()
+        .then((list) => {
+          if (Array.isArray(list) && list.length > 0) entries.value = list.slice(-APP_LOG_MAX_LINES).map(decorate);
+        })
+        .catch(() => {
+          // 初始缓冲拉取失败（读取异常/预载缺失）静默放弃，live 推送不受影响
+        });
       window.api.logs.onLog((e) => push(e));
     } catch {
       // 浏览器预览环境（无 Electron preload）忽略订阅

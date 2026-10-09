@@ -285,18 +285,19 @@ export function solveMaxContext(input: ContextSolveInput): ContextSolveResult | 
 
   // 全卸载可行域
   const fullCtx = (vramBudgetMiB - weightsMiB) / kvBptMiB;
+  // fullCtx 恒为有限值(预算/权重有限,kvBpt>0 已在入口拦截),且本函数各返回点
+  // 都保证 fullCtx < trainedCap——trainedCap 的 Infinity 只是「无训练上限」内部哨兵,
+  // min/trainedCap 不可能再产出 Infinity,无需再判空(T02:删除两处不可达的 Infinity→null 分支)。
   const finishFull = (): ContextSolveResult => ({
-    contextTokens: Math.min(trainedCap, Math.max(0, fullCtx)) === Number.POSITIVE_INFINITY
-      ? null
-      : floorCtx(Math.min(trainedCap, Math.max(0, fullCtx))),
+    contextTokens: floorCtx(Math.min(trainedCap, Math.max(0, fullCtx))),
     offloadLayers: blocks,
     fullOffload: true,
   });
 
-  // 全卸载即可达训练上限（或非常充裕）：无需部分卸载
+  // 全卸载即可达训练上限(或非常充裕):无需部分卸载
   if (fullCtx >= trainedCap) {
     return {
-      contextTokens: trainedCap === Number.POSITIVE_INFINITY ? null : floorCtx(trainedCap),
+      contextTokens: floorCtx(trainedCap),
       offloadLayers: blocks,
       fullOffload: true,
     };

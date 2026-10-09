@@ -17,6 +17,8 @@ export const LEGACY_META_SUFFIX = '.llama_dl.json';
 /** start 事件中的段布局（不含进度，进度由后续 segment 事件累积）。 */
 export interface DownloadLogSegmentStart {
   start: number;
+  /** 段结束字节（含）；-1 表示未知大小的无界段——JSON 无法承载 Infinity，
+   *  写入时以 -1 哨兵落盘、重放时还原为 Infinity（download-manager 两侧转换）。 */
   end: number;
 }
 
@@ -78,14 +80,11 @@ const SEGMENT_MAX = 1024;
 function validSegmentStart(s: unknown): s is DownloadLogSegmentStart {
   if (!s || typeof s !== 'object') return false;
   const o = s as Record<string, unknown>;
-  return (
-    typeof o.start === 'number' &&
-    typeof o.end === 'number' &&
-    Number.isFinite(o.start) &&
-    Number.isFinite(o.end) &&
-    o.start >= 0 &&
-    o.end >= o.start
-  );
+  if (typeof o.start !== 'number' || !Number.isFinite(o.start) || o.start < 0) return false;
+  if (typeof o.end !== 'number' || !Number.isFinite(o.end)) return false;
+  // -1 哨兵:未知大小的无界段(见接口注释),不满足 end>=start 但合法
+  if (o.end === -1) return true;
+  return o.end >= o.start;
 }
 
 function parseEvent(line: string): DownloadLogEvent | undefined {
@@ -204,8 +203,9 @@ export function replayDownloadLog(localPath: string): DownloadLogReplay | undefi
     if (ev.type === 'segment') {
       const seg = replay.segments[ev.index];
       if (!seg) continue;
-      // 进度必须落在段范围内，否则该行视为损坏跳过（不破坏其余段）
-      if (seg.start + ev.downloaded > seg.end + 1) continue;
+      // 进度必须落在段范围内，否则该行视为损坏跳过（不破坏其余段）；
+      // 无界段(end=-1 哨兵)没有上界,进度恒合法
+      if (seg.end !== -1 && seg.start + ev.downloaded > seg.end + 1) continue;
       if (ev.downloaded >= seg.downloaded) {
         seg.downloaded = ev.downloaded;
       }

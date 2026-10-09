@@ -142,12 +142,15 @@ export type DownloadEvent =
 interface Segment {
   /** 段起始字节(含) */
   start: number;
-  /** 段结束字节(含);Infinity 表示未知大小 */
+  /** 段结束字节(含);Infinity 表示未知大小(无界段,读到服务器关流为止) */
   end: number;
   /** 本段已下载字节数 */
   downloaded: number;
   /** 当前重试次数 */
   retryCount: number;
+  /** 段已成功完成(服务器正常关流)。有界段可由数值终点判定,无界段没有数值终点,全靠它收口——
+   *  否则 worker 认领条件(start+downloaded<=Infinity)永真,完成后的段会被再次认领、无限重下 */
+  done?: boolean;
   /** 当前活动的请求流(https ClientRequest 或 h2 响应流,均有 destroy()) */
   req?: { destroy(): void };
   /** 当前活动的写入流 */
@@ -733,9 +736,15 @@ export class DownloadManager extends EventEmitter {
 
   /** 创建分段 */
   private createSegments(totalSize: number, supportsRange: boolean, downloadedSize: number): Segment[] {
-    // 未知大小或不支持 Range:单段(从已下载位置继续)
-    if (totalSize <= 0 || !supportsRange) {
-      return [{ start: downloadedSize, end: totalSize - 1, downloaded: 0, retryCount: 0 }];
+    // 未知大小(探测无 content-length/content-range):单段无界,读到服务器关流为止。
+    // 此前误写 totalSize-1 → 负 end,worker 认领条件(start+downloaded<=end)永假,
+    // 空 .part 被当即判「完成」(T01);其余消费点(Range 头/溢出守卫/全文件段判定)本就支持 Infinity。
+    if (totalSize <= 0) {
+      return [{ start: downloadedSize, end: Infinity, downloaded: 0, retryCount: 0, done: false }];
+    }
+    // 不支持 Range:单段(从已下载位置继续)
+    if (!supportsRange) {
+      return [{ start: downloadedSize, end: totalSize - 1, downloaded: 0, retryCount: 0, done: false }];
     }
 
     // 动态分段:按目标段大小计算段数(使段数 >> worker 数),
@@ -757,7 +766,7 @@ export class DownloadManager extends EventEmitter {
         i === segmentCount - 1
           ? totalSize - 1
           : Math.floor(((i + 1) * totalSize) / segmentCount) - 1;
-      segments.push({ start, end, downloaded: 0, retryCount: 0 });
+      segments.push({ start, end, downloaded: 0, retryCount: 0, done: false });
     }
 
     return segments;
@@ -807,9 +816,10 @@ export class DownloadManager extends EventEmitter {
       downloadedSum += s.downloaded;
       segments.push({
         start: s.start,
-        end: s.end,
+        end: s.end === -1 ? Infinity : s.end, // -1 哨兵还原为无界段
         downloaded: s.downloaded,
         retryCount: 0,
+        done: false,
       });
     }
 
@@ -817,7 +827,9 @@ export class DownloadManager extends EventEmitter {
     try {
       if (fs.existsSync(filePath)) {
         const size = fs.statSync(filePath).size;
-        if (size < downloadedSum || size > totalSize) return undefined;
+        // 上界校验只在总大小已知时有意义:未知大小(totalSize<=0,无界段)没有「文件大于总量」
+        // 可言,跳过之——否则未知大小的断点续传恒被这里作废、每次都从头重下
+        if (size < downloadedSum || (totalSize > 0 && size > totalSize)) return undefined;
       } else {
         // 有日志但无文件,无法续传
         return undefined;
@@ -840,7 +852,8 @@ export class DownloadManager extends EventEmitter {
       totalSize: task.totalSize,
       source: task.source,
       createdAt: task.createdAt,
-      segments: segments.map((s) => ({ start: s.start, end: s.end })),
+      // -1 哨兵:JSON 无法承载 Infinity,未知大小的无界段落盘为 -1(重放时还原)
+      segments: segments.map((s) => ({ start: s.start, end: Number.isFinite(s.end) ? s.end : -1 })),
     });
   }
 
@@ -1103,8 +1116,8 @@ export class DownloadManager extends EventEmitter {
       const task = this.tasks.get(id);
       if (!task || task.status !== 'downloading') return;
 
-      // 认领下一个未完成、未被其他 worker 占用的段
-      const segment = segments.find((s) => !s.busy && s.start + s.downloaded <= s.end);
+      // 认领下一个未完成、未被其他 worker 占用的段(done:无界段没有数值终点,靠标志收口)
+      const segment = segments.find((s) => !s.busy && !s.done && s.start + s.downloaded <= s.end);
       if (!segment) return; // 所有段已完成或被认领
 
       segment.busy = true;
@@ -1124,7 +1137,7 @@ export class DownloadManager extends EventEmitter {
   /** 下载单个段（含重试） */
   private async downloadSegment(id: string, segment: Segment, finalUrl: URL): Promise<void> {
     // 已完成的段无需重新下载
-    if (segment.start + segment.downloaded > segment.end) {
+    if (segment.done || segment.start + segment.downloaded > segment.end) {
       return;
     }
 
@@ -1134,6 +1147,9 @@ export class DownloadManager extends EventEmitter {
       if (!task || task.status !== 'downloading') return;
       try {
         await this.runSegmentRequest(id, segment, finalUrl);
+        // 服务器正常关流 = 段完成:无界段(end=Infinity)只能靠此标志收口,
+        // 否则 worker 循环会把它当未完成段无限重下
+        segment.done = true;
         // 段进度事件由 downloadWorker 在成功返回后追加(append-only,无节流窗口)
         return;
       } catch (err) {

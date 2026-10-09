@@ -65,9 +65,19 @@
 ### T10 下载进度条是否加 width 过渡（观感待裁定）
 
 - **来源**：0.0.34（2026-09-19）「下载进度改为按真实字节连续推进」条目。
-- **现状**：进度条样式刻意 `transition: none`（Arco 默认 0.6s all 与 120ms 推送节拍不匹配且动 width 触发重排）。当时留下取舍：如需更顺滑，可加与 120ms 节拍匹配的 width 过渡或改 transform 缩放。注：进度推送节拍早已是 120ms，组件内注释仍写 500ms，属陈旧注释。
-- **下一步**：用户裁定观感方向；若维持现状，顺手把注释里的 500ms 改成 120ms。
+- **现状**：进度条样式刻意 `transition: none`（Arco 默认 0.6s all 与 120ms 推送节拍不匹配且动 width 触发重排）。当时留下取舍：如需更顺滑，可加与 120ms 节拍匹配的 width 过渡或改 transform 缩放。2026-10-09 已把组件内陈旧的 500ms 注释勘误为 120ms（见 [CHANGELOG.md](CHANGELOG.md) [Unreleased]）。
+- **下一步**：用户裁定观感方向（维持无过渡 / 加匹配节拍的过渡）。
 
 ## 已关闭
 
-（暂无）
+### T01 未知大小下载生成 `end=-1` 段，空 .part 秒「完成」（2026-10-09 关闭）
+
+修复比登记时预想的深——不止 `createSegments` 一处，是「无界段」语义的完整收口（5 处）：① `createSegments` 未知大小时产出 `end: Infinity`（此前误写 `totalSize-1` 负值，worker 认领条件永假 → 空 .part 秒「完成」）；② 新增 `Segment.done` 完成标记——无界段没有数值终点，不做此标记 worker 会把已完成的段无限重认领；③ 续传日志以 `-1` 哨兵落盘/重放还原（JSON 无法承载 Infinity）；④ `download-log.ts` 两处校验放行哨兵（`validSegmentStart` 的 `end>=start`、重放进度范围检查）；⑤ 续传文件上界校验对未知大小跳过（`totalSize<=0` 无「文件大于总量」可言，否则断点续传恒作废）。用例：无界段 `bytes=0-` 全量落盘（200 全文件回退）+ 中断续传 `-1` 哨兵往返从断点继续（download-manager-edge）。
+
+### T02 `solveMaxContext` 两处 Infinity→null 分支不可达（2026-10-09 关闭）
+
+删除两处死分支：`fullCtx` 恒为有限值（预算/权重有限、kvBpt>0 已在入口拦截），且各返回点都保证 `fullCtx < trainedCap`，故 `min(trainedCap, …)` 不可能产出 Infinity——`finishFull` 与「全卸载直达上限」分支的 `=== POSITIVE_INFINITY ? null` 判空永假。trainedCap 的 Infinity 保留为「无训练上限」内部哨兵，行为零变化（vram-solve 既有 10 用例原样全绿即证）。
+
+### T04 `appLog.subscribe` 对 `list()` 异步拒绝无兜底（2026-10-09 关闭）
+
+`subscribe` 的初始 `list()` 挂 `.catch` 静默兜底：初始缓冲拉取失败（权限/磁盘）不再产生 Unhandled Rejection，live 推送订阅照常挂接。新增异步拒绝用例（appLog.test.ts，同步 throw 与异步拒绝两条形态的注释也一并厘清）。

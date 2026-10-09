@@ -356,3 +356,72 @@ describe('DownloadManager - 注入传输（hf-mirror 源走 DownloadTransport，
     manager.dispose();
   });
 });
+
+describe('DownloadManager - 未知大小下载（T01：负 end 曾致空 .part 秒「完成」）', () => {
+  it('探测无 content-length/content-range：单条无界段 bytes=0-，200 全文件回退落盘', async () => {
+    const content = Buffer.from('unknown-size-payload-0123456789');
+    const seenRanges: string[] = [];
+    currentResolver = (options) => {
+      const range = parseRange(options.headers['Range']);
+      if (!range) return { statusCode: 500, headers: {} };
+      seenRanges.push(options.headers['Range']);
+      if (range.start === 0 && range.end === 0) {
+        // 探测:200 且无 content-length → totalSize=-1、supportsRange=false
+        return { statusCode: 200, headers: {} };
+      }
+      // 无界段请求;start=0 允许服务器回退 200(全文件段语义)
+      return { statusCode: 200, headers: {}, body: content };
+    };
+
+    const manager = new DownloadManager();
+    const req = makeRequest('test/model', 'model.gguf', 0);
+    await manager.startDownload(req);
+    await new Promise<unknown>((resolve) => manager.once('complete', resolve));
+
+    expect(seenRanges, '无界段请求必须是开放终点').toContain('bytes=0-');
+    expect(fs.readFileSync(path.join(tmpDir, 'test', 'model', 'model.gguf')).equals(content)).toBe(true);
+    manager.dispose();
+  });
+
+  it('Range 可用但总大小未知（Content-Range: bytes 0-0/*）：中断续传走 -1 哨兵，从断点继续', async () => {
+    const first = Buffer.alloc(16, 0x41);
+    const rest = Buffer.alloc(16, 0x42);
+    const seenRanges: string[] = [];
+    let segmentRound = 0;
+    currentResolver = (options) => {
+      const range = parseRange(options.headers['Range']);
+      if (!range) return { statusCode: 500, headers: {} };
+      seenRanges.push(options.headers['Range']);
+      if (range.start === 0 && range.end === 0) {
+        // 探测:206 但总数为 * → totalSize=-1、supportsRange=true
+        return { statusCode: 206, headers: { 'Content-Range': 'bytes 0-0/*' }, body: Buffer.alloc(1) };
+      }
+      segmentRound++;
+      if (segmentRound === 1) {
+        // 首轮段请求:回 16 字节后挂起(模拟传输中断)
+        return { statusCode: 206, headers: { 'Content-Range': `bytes 0-${first.length - 1}/*` }, body: first, hang: true };
+      }
+      // 续传段请求:从断点继续到服务器关流
+      return { statusCode: 206, headers: { 'Content-Range': `bytes ${range.start}-${range.start + rest.length - 1}/*` }, body: rest };
+    };
+
+    const manager = new DownloadManager();
+    const req = makeRequest('test/model', 'model.gguf', 0);
+    const id = (await manager.startDownload(req)).id;
+    const localPath = path.join(tmpDir, 'test', 'model', 'model.gguf');
+    // 等首批字节真实落盘(写流异步 open),再暂停:logCurrentProgress 记录断点
+    await vi.waitFor(() => expect(fs.statSync(localPath + '.part').size).toBe(first.length));
+    manager.pauseDownload(id);
+    // start 事件的段布局里 Infinity 以 -1 哨兵落盘(JSON 无法承载 Infinity)
+    expect(fs.readFileSync(downloadLogPath(localPath), 'utf-8')).toContain('"end":-1');
+
+    manager.resumeDownload(id);
+    await new Promise<unknown>((resolve) => manager.once('complete', resolve));
+
+    // 续传段从断点继续(无界),两段内容拼接后与全量一致
+    expect(seenRanges).toContain('bytes=0-');
+    expect(seenRanges).toContain(`bytes=${first.length}-`);
+    expect(fs.readFileSync(localPath).equals(Buffer.concat([first, rest]))).toBe(true);
+    manager.dispose();
+  });
+});

@@ -1491,9 +1491,10 @@ function quantTooltip(q: QuantizationInfo | null): string {
 .task-progress-bar {
   min-width: 0;
 
-  /* Arco 进度条默认 `transition: all .6s`——动的是 width（布局属性），而进度每 500ms
-     推送一次，0.6s 的过渡永远跑不完就被重启，任务行持续重排。进度本身已是逐步语义，
-     关掉过渡后 2Hz 的步进观感一致且零重排（§7.5.7 动效：只允许 transform/opacity） */
+  /* Arco 进度条默认 `transition: all .6s`——动的是 width（布局属性），而进度以 120ms
+     节拍推送（T10 勘误：注释曾写 500ms，是 0.0.34 改 120ms 采样前的旧值），0.6s 的过渡
+     永远跑不完就被重启，任务行持续重排。进度本身已是逐步语义，关掉过渡后节拍观感一致
+     且零重排（§7.5.7 动效：只允许 transform/opacity） */
   :deep(.arco-progress-line-bar) {
     transition: none;
   }

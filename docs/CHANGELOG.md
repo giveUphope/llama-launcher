@@ -6,6 +6,8 @@
 
 ## \[Unreleased]
 
+- **TODO 清单首轮修复：T01 未知大小下载、T02 死分支、T04 日志订阅兜底（按 docs/TODO.md 执行，三项关闭）**：出了什么事——TODO 清单里最实的三件事。① **T01（下载）**：下载源既不返回 size、响应也无 content-length 时，`createSegments` 产出 `end = totalSize-1 = -2` 的负段，worker 认领条件（`start+downloaded <= end`）永假 → 空 `.part` 被当即改名为 `.gguf`「秒完成」。修复是「无界段」语义的完整收口共 5 处：未知大小改产 `end: Infinity`（Range 头 `bytes=start-` / 溢出守卫 / 全文件段判定等 4 个既有消费点本就支持 Infinity，唯一没按设计注释实现的就是 createSegments）；新增 `Segment.done` 完成标记——无界段没有数值终点，不做此标记 worker 会把已完成的段无限重认领；续传日志 `-1` 哨兵落盘/重放还原（JSON 无法承载 Infinity）；`download-log.ts` 的 `validSegmentStart`（`end>=start`）与重放进度范围检查放行哨兵；续传文件上界校验对 `totalSize<=0` 跳过（无「文件大于总量」可言，否则未知大小的断点续传恒作废）。② **T02（显存估算）**：`solveMaxContext` 两处 `=== POSITIVE_INFINITY ? null` 分支不可达（`fullCtx` 恒有限且各返回点保证 `fullCtx < trainedCap`），删除；trainedCap 的 Infinity 保留为「无训练上限」内部哨兵，行为零变化（vram-solve 10 用例原样全绿）。③ **T04（应用日志）**：`appLog.subscribe` 的初始 `list()` 挂 `.catch`——主进程读历史日志失败不再产生 Unhandled Rejection，live 推送订阅照常挂接。**验证**：core 38 文件（download-manager-edge 新增无界段全量落盘 + 中断续传 `-1` 哨兵往返从断点继续 2 条用例、appLog 新增异步拒绝用例）/ ui 18 文件全绿；`pnpm lint` 全绿。CHANGELOG 拆分的关联对齐同轮完成：workflow.md 中英两树的不译清单/例外条目补 `docs/TODO.md` 与归档结构说明。T10 的陈旧注释（500ms → 120ms）顺手勘误，观感裁定仍开放。
+
 ## \[0.0.55] - 2026-10-09
 
 
