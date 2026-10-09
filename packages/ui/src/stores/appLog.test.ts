@@ -124,6 +124,22 @@ describe('appLog store - 订阅与初始缓冲', () => {
     expect(store.entries.map((l) => l.lower)).toEqual(['boot', 'runtime']);
   });
 
+  it('本地已推的行不被快照冲掉：合并去重而不是整体替换（[params]/[mmproj] 概览闪失回归）', async () => {
+    const store = useAppLogStore();
+    // 渲染层本地先推（App.vue 启动即恢复模型，早于订阅与快照落地）
+    store.push(entry('info', '[params] loaded'));
+    store.push(entry('info', '[mmproj] not detected'));
+    // 主进程缓冲快照里有新行，也有一条与本地重复的行（同 ts+data）
+    listResult = [entry('info', '[params] loaded'), entry('info', 'Service start requested')];
+    store.subscribe();
+    await vi.waitFor(() => expect(store.entries.length).toBe(3));
+    expect(store.entries.map((l) => l.lower)).toEqual([
+      '[params] loaded',
+      '[mmproj] not detected',
+      'service start requested',
+    ]);
+  });
+
   it('初始缓冲超过上限时只留尾部 N 条', async () => {
     listResult = Array.from({ length: APP_LOG_MAX_LINES + 30 }, (_, i) => entry('info', `old-${i}`));
     const store = useAppLogStore();

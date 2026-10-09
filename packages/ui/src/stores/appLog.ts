@@ -72,7 +72,19 @@ export const useAppLogStore = defineStore('appLog', () => {
       void window.api.logs
         .list()
         .then((list) => {
-          if (Array.isArray(list) && list.length > 0) entries.value = list.slice(-APP_LOG_MAX_LINES).map(decorate);
+          if (!Array.isArray(list) || list.length === 0) return;
+          // 快照必须**合并**而不是整体替换：渲染层本地也会推应用级事件（params/launcher 等
+          // 经 appLog.push，早于本快照落地），整体替换会把它们冲掉（实测 [params]/[mmproj]
+          // 行在概览卡闪失）。按 ts+data 判重只补本地没有的行，本地行保持原序在前。
+          const seen = new Set(entries.value.map((e) => `${e.ts}:${e.data}`));
+          const merged = [...entries.value];
+          for (const e of list) {
+            if (seen.has(`${e.ts}:${e.data}`)) continue;
+            seen.add(`${e.ts}:${e.data}`);
+            merged.push(decorate(e));
+          }
+          merged.sort((a, b) => a.ts - b.ts); // 合并后按事件时间排序（本地行与快照行互相穿插）
+          entries.value = merged.slice(-APP_LOG_MAX_LINES);
         })
         .catch(() => {
           // 初始缓冲拉取失败（读取异常/预载缺失）静默放弃，live 推送不受影响
