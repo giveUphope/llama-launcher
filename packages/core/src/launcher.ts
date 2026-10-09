@@ -262,9 +262,11 @@ export class Launcher extends EventEmitter {
    *
    * 触发时机：就绪时一次；此后一律由外部事件驱动 `recheckProps()`——
    * ① 渲染层「本页真的有人在看」时的自适应节拍（`server` store 的 `enterPropsWatch`：
-   *    可见 + 只在 running + 结论连续不变就 ×2^n 退避到封顶，走 `server:status(refresh:true)`）；
-   * ② 用户点「重新校验」；③ 窗口重新聚焦（`launcher-bridge` 挂 `win.on('focus')`，
+   *    可见 + 只在 running + 结论连续不变就 ×2^n 退避到封顶，走 `server:status(refresh:true)`，
+   *    status 变 running 与 host/port 变化也经同一通道带 refresh:true）；
+   * ② 窗口重新聚焦（`launcher-bridge` 挂 `win.on('focus')`，
    *    不经渲染层：窗口没聚焦时渲染层自己也收不到那个信号）。
+   *    （历史上还有第三条「用户点重新校验按钮」，2026-10-06 该按钮已删除，别再往界面上加。）
    * 本类自身不排任何定时器——「有没有人在看」只有渲染层知道，核心只知道端口。
    * 引擎的参数只可能被外部 `POST /props` 改动，那件事在本机没有可订阅的事件源，
    * 所以节拍器必须存在；被删掉的是「无人看也照敲、结论没变也照敲」的盲轮询。

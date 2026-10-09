@@ -242,4 +242,30 @@ describe('settings-store', () => {
     expect(data.server_exe).toBe('/merged/exe');
     expect(data.settings_version).toBe(1);
   });
+
+  // T13 回归钉：该键曾只在 shared 的 AppSettings 里声明、未进 zod settingsSchema，
+  // 于是被当未知键剥除——界面点了「忽略」也永远存不进磁盘（重启即失效，且无报错）。
+  it('engine_hint_dismissed 写入后落盘并可载回', () => {
+    saveSettings({
+      ...getDefaultSettings(),
+      engine_hint_dismissed: ['提示甲', '提示乙'],
+    });
+    expect(JSON.parse(readFileSync(SETTINGS_FILE, 'utf-8')).engine_hint_dismissed)
+      .toEqual(['提示甲', '提示乙']);
+    expect(loadSettings().engine_hint_dismissed).toEqual(['提示甲', '提示乙']);
+  });
+
+  it('engine_hint_dismissed 脏数据回退 undefined（等价于「没有已忽略条目」）', () => {
+    for (const bad of ['not-an-array', ['提示甲', 42], { a: 1 }, null]) {
+      if (existsSync(SETTINGS_FILE)) rmSync(SETTINGS_FILE);
+      writeFileSync(SETTINGS_FILE, JSON.stringify({ theme_mode: 'light', engine_hint_dismissed: bad }));
+      expect(loadSettings().engine_hint_dismissed).toBeUndefined();
+    }
+  });
+
+  it('未使用「忽略」时不在磁盘上凭空补一个空数组', () => {
+    saveSettings({ ...getDefaultSettings() });
+    expect('engine_hint_dismissed' in JSON.parse(readFileSync(SETTINGS_FILE, 'utf-8'))).toBe(false);
+    expect(loadSettings().engine_hint_dismissed).toBeUndefined();
+  });
 });

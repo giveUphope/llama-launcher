@@ -63,6 +63,30 @@ describe('config doctor：settings 侧', () => {
     expect(healed.settings_version).toBe(1);
   });
 
+  it('已声明的字符串数组字段不被当未知键剥除（T13）', () => {
+    const p = settingsPath();
+    writeFileSync(p, JSON.stringify({
+      ...getDefaultSettings(),
+      engine_hint_dismissed: ['提示甲', '提示乙'],
+    }, null, 2), 'utf-8');
+    const r = healSettingsFile(p);
+    // 内容与规范形一致：既不该报 unknown_keys，也不该写盘
+    expect(r.issues).toEqual([]);
+    expect(r.healed).toBe(false);
+    expect(JSON.parse(readFileSync(p, 'utf-8')).engine_hint_dismissed).toEqual(['提示甲', '提示乙']);
+    // 反面对照：同一条文件里混进真未知键时，只剥它、留下已声明的数组字段
+    writeFileSync(p, JSON.stringify({
+      ...getDefaultSettings(),
+      engine_hint_dismissed: ['提示甲'],
+      session_values: { legacy: true },
+    }, null, 2), 'utf-8');
+    const r2 = healSettingsFile(p);
+    expect(r2.issues.find((i) => i.kind === 'unknown_keys')?.keys).toEqual(['session_values']);
+    expect(JSON.parse(readFileSync(p, 'utf-8')).engine_hint_dismissed).toEqual(['提示甲']);
+    // 修复后再跑一次必干净
+    expect(healSettingsFile(p).healed).toBe(false);
+  });
+
   it('损坏 JSON：备份 .bak 后重置为全新默认文件', () => {
     const p = settingsPath();
     writeFileSync(p, '{ this is not json', 'utf-8');

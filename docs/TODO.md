@@ -4,21 +4,23 @@
 
 ## 开放项
 
-### T13 设置页「忽略引擎提示」的忽略状态存不进磁盘（2026-10-10 登记）
-
-- **出了什么事**：在设置页引擎行下方点「忽略」关掉某条提示，界面当场安静，但**重启应用后提示又回来了**，而界面上没有任何报错。
-- **现状（逐处实测）**：`packages/ui/src/components/settings/GeneralPanel.vue:276` 写入 `settings.engine_hint_dismissed`（UI 侧按 `HINT_DISMISS_CAP = 50` 裁剪）后调用 `settings.save()`；`packages/shared/src/types/settings.ts:44` 声明了该字段；但 core `packages/core/src/settings-store.ts` 的 zod `settingsSchema` **没有这个键**，`normalizeSettings` 对未知键的既定行为是剥除，于是它永远进不了 `settings.json`；启动时的配置诊疗（`healSettingsFile`）还会把盘上手工添加的同名键当 `unknown_keys` 清掉。
-- **同型排查已做**：把 `AppSettings` 的 16 个键与 `settingsSchema` 的 15 个键逐个对拍（脚本取数，非目测），**差集只有 `engine_hint_dismissed` 一条**，schema 侧无多余键——本条是目前唯一一例「类型声明有、schema 没有」。
-- **影响面**：只丢这一条偏好，不影响启动参数与命令构建；属静默失效，用户的体感是「点了忽略不管用」。
-- **下一步（修法待裁定）**：① 在 `settingsSchema` 补 `engine_hint_dismissed: z.array(z.string()).catch(undefined)`（与其余字段同式的逐字段容错），文档即可写回「存入磁盘」；或 ② 裁定「忽略只活本次运行」，则改 `data-persistence.md` 的字段说明并去掉 UI 侧的 50 条裁剪。两案都要补一条 save→load 往返单测钉住（含 50 条裁剪），否则「类型有 / schema 无」这类漂移还会再犯。**当前文档已按现状书写**（`docs/{zh,en}/data-persistence.md` 的该字段行），修法落地后须一并回改。
-
-### T14 `docs/CHANGELOG.md` 已越过归档滚动阈值（2026-10-10 登记）
-
-- **出了什么事**：AGENTS.md 定的规则是主文件超过约 100 KB 或累计 3–4 个版本，就把最旧的版本段整体搬进 `docs/archive/CHANGELOG-*.md`。实测现状：本轮开始前主文件 **112.4 KB**，已越线；本轮补上「文档全量对齐」条目后 **116.5 KB**。文件里现有 **13 个版本段**（0.0.53 → 0.0.65 + `[Unreleased]`），远超「3–4 个版本」。
-- **成因**：0.0.57–0.0.65 九轮连发，每轮条目都按「出了什么事 / 改法 / 验证」长书写，条目越记越细，归档一次没做过。归档区间目前止于 0.0.52（`CHANGELOG-0.0.40-0.0.52.md`），即 0.0.53 起全在主文件里。
-- **下一步**：按纯移动、不改写原文的规矩，把 0.0.53–0.0.60（或按当轮体量取更小区间）整段搬进新建的归档文件 `docs/archive/CHANGELOG-<start>-<end>.md`（此处为占位名，勿当真实路径），同步改主文件开头的指路行（现列 0.0.40–0.0.52 / 0.0.01–0.0.39 / 1.x 三段），搬完确认主文件第一个版本段仍是最新已发布版本——`bump-version.cjs` 划段与 `verify-version-sync.cjs` 取最新标题都只认主文件。**动完必跑 `pnpm docs:check`**（指路行是真实链接；本条正文原先写了一个尚未存在的归档文件名，被该门禁当场判死路径，故改写为占位形式）。本轮未做，因它属结构调整、需单独一笔提交与单独目测。
+当前无开放项。（新登记请写在本节，关闭后整条移入下方「已关闭」并注明关闭版本；本文件保持**恰好一个** `## 开放项` 与 **一个** `## 已关闭`——两个同名 `## 已关闭` 加一个空 `## 观察项` 就是 T12 搬走时新建标题而非合并留下的，2026-10-10 已并回来。）
 
 ## 已关闭
+
+### T14 `docs/CHANGELOG.md` 越过归档滚动阈值（2026-10-10 登记并关闭）
+
+- **出了什么事**：AGENTS.md 定的规则是主文件超过约 100 KB 或累计 3–4 个版本，就把最旧的版本段整体搬进 `docs/archive/CHANGELOG-*.md`。登记时实测：主文件 **116.5 KB / 13 个版本段**（0.0.53 → 0.0.65 + `[Unreleased]`），上一轮开始前就已是 112.4 KB。
+- **成因**：0.0.57–0.0.65 九轮连发，每轮条目按「出了什么事 / 改法 / 验证」长书写，归档一次没做过；归档区间当时止于 0.0.52。
+- **关闭**：2026-10-10 把 **0.0.53–0.0.60 共 8 段**整段搬入新建的 [archive/CHANGELOG-0.0.53-0.0.60.md](archive/CHANGELOG-0.0.53-0.0.60.md)（103.7 KB）。主文件剩 **13.2 KB / 5 段 +** `[Unreleased]`（0.0.61–0.0.65），首段仍是最新已发布版本——`bump-version.cjs` 划段与 `verify-version-sync.cjs` 取标题都只认主文件，已复跑绿。**纯移动的可证明性**：搬运脚本先做逐字节对账「原文件 = 未改动的头部 + 被搬块（逐字节） + 尾部」，不通过就拒绝落盘；diff 中搬运自身只表现为被搬段的整段删除 + 开头指路行 1 行改写（同轮 `[Unreleased]` 新写的条目另计插入行，两个数别当同一个东西读）。被搬段落里有一处 `[TODO.md](TODO.md)` 在新深度下会断，按既有归档先例（`CHANGELOG-0.0.40-0.0.52.md` 里写的是 `../CHANGELOG.md`）改成 `../TODO.md`——只调链接深度、不动正文，这属搬运的必要修正。同步处：主文件指路行、AGENTS.md 的归档清单（补 `CHANGELOG-0.0.53-0.0.60.md`）。**踩到的一次门禁自证**：本条原先把「未来的归档文件名」写成了真实路径样式，被 `check-docs-links` 判死路径——占位名请写成 `docs/archive/CHANGELOG-<start>-<end>.md` 形式。
+
+### T13 设置页「忽略引擎提示」的忽略状态存不进磁盘（2026-10-10 登记并关闭）
+
+- **出了什么事**：在设置页引擎行下方点「忽略」关掉某条提示，界面当场安静，但**重启应用后提示又回来了**，而界面上没有任何报错。
+- **成因（逐处实测）**：`packages/ui/src/components/settings/GeneralPanel.vue:276` 写入 `settings.engine_hint_dismissed`（UI 侧按 `HINT_DISMISS_CAP = 50` 裁剪）后调用 `settings.save()`；`packages/shared/src/types/settings.ts:44` 声明了该字段；但 core `packages/core/src/settings-store.ts` 的 zod `settingsSchema` **没有这个键**，`normalizeSettings` 对未知键的既定行为是剥除，于是它永远进不了 `settings.json`；启动时的配置诊疗（`healSettingsFile`）还会把盘上手工添加的同名键当 `unknown_keys` 清掉。
+- **同型排查**：把 `AppSettings` 的 16 个键与 `settingsSchema` 的 15 个键逐个对拍（脚本取数，非目测），差集只有 `engine_hint_dismissed` 一条，schema 侧无多余键——即「类型声明有、schema 没有」当时唯一一例。
+- **关闭**：2026-10-10 采纳裁定 ①，在 `settingsSchema` 补 `engine_hint_dismissed: z.array(z.string()).optional().catch(undefined)`（zod 4 下 `.catch(undefined)` 必须挂在 `.optional()` 之后才过类型），并加四条判据：`settings-store.test.ts` 的「写入后落盘并可载回」/「脏数据回退 undefined」/「键缺失不凭空补空数组」，`config-doctor.test.ts` 的「已声明的字符串数组字段不被当未知键剥除」（同一条文件里混进真未知键时只剥 `session_values`、留下数组字段，且修复后复跑必干净）。测试规模随之 core 40 文件 / **558 → 562** 用例（AGENTS.md 与中英 `testing.md` 的规模行同步校准，全绿实跑）。文档侧 `docs/{zh,en}/data-persistence.md` 的该字段行已由「落不进磁盘」回改为「随 `settings.json` 落盘」。
+- **留下的教训**：新增 `AppSettings` 字段时必须同轮进 zod schema，否则界面写入照常、磁盘静默丢弃；判据写法是「save→load 往返 + 该键在盘上的存在性」，光测内存对象等于没测。
 
 ### T12 b11524 引擎 help 漂移——切换日常引擎前必须 re-pin（2026-10-09 登记并关闭）
 

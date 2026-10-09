@@ -38,8 +38,9 @@ export function registerServerIpc(ipcMain: IpcMain): void {
     }
   });
   // refresh:true 时顺带触发一次 /props 回读（不阻塞本次返回——状态数据本地即得，
-  // 回读结果变化时由 server:status 反向推送补发）。渲染层在页签可见/窗口聚焦/
-  // 用户点「重新校验」时带上该标志，取代此前的 60s 盲轮询。
+  // 回读结果变化时由 server:status 反向推送补发）。渲染层在持结果的卡片/面板重新可见时带上该标志
+  // （取代此前 60s 盲轮询；窗口聚焦那一路由 launcher-bridge 直接复检，不经此通道；
+  //  手动「重新校验」按钮已于 2026-10-06 删除，别再照这句往界面上加回去）。
   ipcMain.handle(IPC.SERVER_STATUS, (_e, refresh?: boolean) => {
     if (refresh) launcherBridge.recheckProps();
     return launcherBridge.getStatus();

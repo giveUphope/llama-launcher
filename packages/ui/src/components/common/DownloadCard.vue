@@ -1025,8 +1025,10 @@ function quantTooltip(q: QuantizationInfo | null): string {
   align-items: center;
   justify-content: center;
 
-  /* 空态：a-empty 官方组件（#103 同族统一）。38 档配对槽不变：默认插图在此档放不下
-     隐藏之，只留描述行（槽几何由 min-height 38 保证，layout-stability ④ 判据继续成立） */
+  /* 空态：a-empty 官方组件（#103 同族统一）。默认插图在此档放不下，隐藏之，只留描述行。
+     38px 这档原与解析状态槽配对预留；那类 visibility:hidden 的整行预留已于 2026-10-09 废除，
+     本数值照旧保留——现行判据由 layout-stability ④ 直接量这里（解析告警按需渲染 + 任务空态可见），
+     读到这句不要据此改动 min-height */
   :deep(.arco-empty-image) {
     display: none;
   }

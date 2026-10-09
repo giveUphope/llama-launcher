@@ -1,6 +1,8 @@
 // 开发热重载监视器：由 `scripts/dev.cjs` 编排（与 `tsc -b --watch`、Vite dev server 并行）。
-// 主进程构建产物 / preload 源 / shared 类型（含 IPC 常量）变更时，
-// 自动重新生成并复制 preload、重启 Electron —— 改 core/shared/主进程代码即热更，无需手动重启。
+// 主进程构建产物 / preload 源 / shared 类型（含 IPC 常量）变更时重启 Electron ——
+// 改 core/shared/主进程代码即热更，无需手动重启。preload 常量只在**会话启动时**生成并复制一次
+// （注册监视器之前，见下方 regenPreload 调用点）：此后改 preload 源只会重启 Electron，仍加载上一份
+// dist/preload，要重生成得重开会话——主进程要拿新 IPC 常量时手工跑 `pnpm generate:ipc`。
 // 通过 LLAMA_DEV_SKIP_QUIT_KILL 通知主进程跳过"退出时杀 dev 会话树"，避免连带杀掉本监视器。
 const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');

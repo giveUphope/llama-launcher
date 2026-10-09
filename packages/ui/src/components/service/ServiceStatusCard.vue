@@ -390,11 +390,11 @@ function onApplyRelief(key: string, value: string | number | boolean) {
         </a-button>
       </ToolTip>
     </a-space>
-    <!-- 失败/异常退出提示（设计稿 §8.4：错误摘要 + 解决方案）。
-         ⚠️ 布局防跳动（STYLE_TODO #81 档 2 第 2 处）：外层 slot 常驻，内部拆成**两档**行——
-         banner 行与建议行各自预留固定高度、未触发时 visibility:hidden。
-         此前只预留了 banner 的 30px，OOM 建议（含 2 个按钮）是扫日志异步判出的，到位后再把
-         下方内容顶高约 28px；现在两种状态高度恒等，建议到不到都不动。 -->
+    <!-- 失败/异常退出与减负提示：Arco 官方 a-alert 按需渲染（v-if），出现即占位、不出现不占位。
+         这里曾写作「外层 slot 常驻 + banner 30px / 建议行 28px 两档各自 visibility:hidden 预留，
+         两种状态高度恒等」（STYLE_TODO #81 档 2 第 2 处）——那套整行隐藏预留已于 2026-10-09
+         按用户裁定全部废除；判据随之改写为「出声态告警合规 / 无声态连告警元素都不渲染 /
+         把告警藏起来必须转红」（e2e/web/offload-advice.spec.ts、layout-stability.spec.ts ③）。 -->
     <!-- 失败归因：Arco 官方 a-alert error 按需展示（v-if，不占位；role=alert 保留读屏播报） -->
     <a-alert
       v-if="statusInfo.status === 'error'"

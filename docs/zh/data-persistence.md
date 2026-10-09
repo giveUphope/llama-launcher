@@ -48,7 +48,7 @@
 | `download_max_concurrent` | number                        | 最大并发下载数（1–5，默认 3；边界与默认值唯一来源是 `shared/src/settings-limits.ts` 的 `DOWNLOAD_CONCURRENCY_*` + `clampDownloadConcurrency`，core 的 schema/下载器钳制与设置页下拉同源） |
 | `hf_mirror_host`          | string                        | HuggingFace 镜像源（空 = 默认 hf-mirror.com，默认站名唯一来源 `shared/src/hosts.ts`），保存时同步 `setHfMirrorHost` 驱动镜像链路 |
 | `custom_args`             | string                        | **扩展参数**：用户自定义命令行参数原文，命令预览独立文本框编辑，`buildCommand` 按 shell 词法切分后追加到实际启动命令末尾；与内置参数命令完全分离，「还原」参数不影响它 |
-| `engine_hint_dismissed`   | string[]                      | **引擎提示已忽略条目**：设置页引擎行下方的可忽略提示点「忽略」时，UI 侧把当前行各条消息全文写入并按 50 条裁剪（`GeneralPanel.vue`）。**现状是它落不进磁盘**：core 的 `settingsSchema` 未声明该键，`normalizeSettings` 按「未知键剥除」处理，因此忽略状态只活本次运行、重启即失效（配置诊疗也会把盘上手工加的同名键清掉）。已登记 [TODO.md](../TODO.md) T13，修向（补 schema 或裁定只活会话）未定；被忽略的条目保持安静、新消息照常显示这一条按条判据本身不受影响 |
+| `engine_hint_dismissed`   | string[]                      | **引擎提示已忽略条目**：设置页引擎行下方的可忽略提示点「忽略」时，UI 侧把当前行各条消息全文写入并按 50 条裁剪（`GeneralPanel.vue`），随 `settings.json` 落盘、重启后依然生效；被忽略的条目保持安静，新出现的消息照常显示——按条而非按整行，因「N 项不同」计数随参数编辑逐次变化。脏数据（非数组、或数组里含非字符串）一律回退 `undefined`，等同「没有已忽略条目」；键缺失时不会在盘上凭空补一个空数组。**2026-10-10 修（TODO T13）**：该键此前只在 `AppSettings` 里声明、没进 core 的 zod `settingsSchema`，于是被当未知键剥除——点了「忽略」当场生效、重启就回来，且界面不报任何错；往返与脏数据判据见 `packages/core/tests/settings-store.test.ts` 与 `config-doctor.test.ts` |
 
 > 参数不再存于 settings.json：`session_values` / `session_baseline` / `last_preset` / `last_preset_id` 四个双轨字段已随**每模型自动持久化**移除（2026-10-08，参数迁往 `~/.llama_launcher/model-params/`，见下）。旧设置文件里的这些键由 schema 剥除，静默忽略。
 

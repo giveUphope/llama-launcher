@@ -96,7 +96,9 @@ class LauncherBridge {
       this.focusHookedWin = win;
       // 窗口重新聚焦 = 「有人真的在看」的事件信号（与 ipc/download.ts 的 focus 补发进度同构）。
       // 放在主进程而不是渲染层：窗口没聚焦时渲染层自己也收不到 focus，且这里不需要跨桥。
-      // 这是三个即时触发点之一（另两个：渲染层 store 的可见自适应节拍、用户点「重新校验」）；
+      // 这是复检的三个入口之一（另两个：核心就绪时那一次、渲染层 store 的可见自适应节拍——
+      // 页签重新可见 / status 变 running / host·port 变化都走那一套）；
+      // 曾有的第三个「用户点重新校验按钮」已于 2026-10-06 随按钮删除，别照旧说法往回加。
       // 核心自身不排定时器，每次 recheckProps 只发一次本地 GET，结论没变就不补发状态事件。
       win.on('focus', () => this.launcher.recheckProps());
     }

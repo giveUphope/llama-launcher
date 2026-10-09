@@ -279,9 +279,11 @@ export const useServerStore = defineStore('server', () => {
   }
 
   /**
-   * 拉取主进程状态。`refresh: true` 顺带触发一次 /props 回读——触发点有两类：
-   * ① 自动刷新（下面的 `enterPropsWatch` 那一套「可见 + 只在 running + 空闲退避」的节拍）；
-   * ② 用户点「重新校验」按钮想立刻要答案。
+   * 拉取主进程状态。`refresh: true` 顺带触发一次 /props 回读——只有一个来源：
+   * 下面的 `enterPropsWatch` 那一套「可见 + 只在 running + 结论连续不变就退避到封顶」的自适应节拍
+   * （页签重新可见、status 变 running、host/port 变化都算「有人在看」，都在这一套里）。
+   * 曾有的手动「重新校验」按钮已于 2026-10-06 删除——自动刷新覆盖了这条路径，按钮只剩操作摩擦，
+   * 读到这句别据此再往界面上加回去。
    * 「窗口重新聚焦」那一侧的信号不经这里，由主进程 `launcher-bridge` 挂 `win.on('focus')`
    * 直接调 `Launcher.recheckProps()`（窗口没聚焦时渲染层自己也收不到 focus，放在主进程才可靠）。
    * 核心侧始终不含定时器：敲端口与否由这里的可见性决定。

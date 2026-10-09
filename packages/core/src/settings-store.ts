@@ -73,6 +73,8 @@ const bool = (fallback: boolean) =>
   );
 const enumOf = <T extends readonly [string, ...string[]]>(values: T, fallback: T[number]) =>
   z.enum(values).catch(fallback);
+// 字符串数组（无默认值：缺失/类型不符一律回退 undefined，即「没有已忽略条目」）
+const strList = () => z.array(z.string()).optional().catch(undefined);
 
 const settingsSchema = z.object({
   settings_version: num(SETTINGS_VERSION, 0, 999),
@@ -90,6 +92,10 @@ const settingsSchema = z.object({
   download_max_concurrent: num(DOWNLOAD_CONCURRENCY_DEFAULT, DOWNLOAD_CONCURRENCY_MIN, DOWNLOAD_CONCURRENCY_MAX),
   hf_mirror_host: str(''),
   custom_args: str(''),
+  // 设置页引擎行「忽略」过的提示全文（渲染层按 50 条裁剪后写入）。
+  // 曾因只在 shared 的 AppSettings 里声明、未进本 schema 而被当作未知键剥除，
+  // 于是忽略状态永远落不进磁盘（重启即失效，界面无任何报错）——见 docs/TODO.md T13。
+  engine_hint_dismissed: strList(),
 });
 
 /**
