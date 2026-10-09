@@ -376,16 +376,10 @@ function onApplyRelief(key: string, value: string | number | boolean) {
       </div>
     </div>
 
-    <!-- 端点暴露常驻提示（成因见 openEndpoint 注释）：槽恒在、未触发时 visibility:hidden。
-         此前 v-if 插在字段表与快捷按钮之间，进页面/改这两项再回来会把按钮行以下整块下推
-         （STYLE_TODO #81 档 2）。预留按较长那态算：中文一行、英文两行，故两档封顶 + 省略，
-         完整文案走 ToolTip（a-tooltip；#81 静态 CSS 范式不变，悬浮载体随官方组件收敛）。 -->
-    <div class="sec-hint-slot" :class="{ 'is-active': openEndpoint }">
-      <a-tag class="sec-hint-tag" color="orange" size="small" nowrap>
-        <template #icon><Icon name="alert" :size="12" /></template>
-        <ToolTip :text="secHintText"><span class="sec-hint-text">{{ secHintText }}</span></ToolTip>
-      </a-tag>
-    </div>
+    <!-- 端点暴露提示：Arco 官方 a-alert 按需展示（v-if，不占位）。
+         2026-10-09 用户裁定废除 #81 隐藏预留槽模式：出现即占位、不出现不占位，
+         布局随内容流动；完整文案本来就在行内（不再需要单行省略 + ToolTip）。 -->
+    <a-alert v-if="openEndpoint" class="sec-hint" type="warning" show-icon>{{ secHintText }}</a-alert>
 
     <!-- 快捷操作（自原概览 Q2/Q3 保留）：按钮不属于信息展示，不构成重复。
          打开 Web UI：本应用运行中跳内置页；停止但接管了外部实例时在系统浏览器打开其地址 -->
@@ -413,41 +407,32 @@ function onApplyRelief(key: string, value: string | number | boolean) {
          banner 行与建议行各自预留固定高度、未触发时 visibility:hidden。
          此前只预留了 banner 的 30px，OOM 建议（含 2 个按钮）是扫日志异步判出的，到位后再把
          下方内容顶高约 28px；现在两种状态高度恒等，建议到不到都不动。 -->
-    <div class="failure-banner-slot">
-      <div class="failure-row" :class="{ 'has-banner': statusInfo.status === 'error' }">
-        <a-tag v-if="statusInfo.status === 'error'" class="failure-banner" color="red" size="small" nowrap role="alert">
-          <template #icon><Icon name="alert" :size="12" /></template>
-          {{ server.effectiveStatus === 'crashed' ? i18n.t('msg_service_crashed') : i18n.t('msg_service_failed') }}
-          · {{ i18n.t('msg_check_console_below') }}
-        </a-tag>
-      </div>
-      <!-- 常驻一档（28px）内两种出声，互斥不并列，所以行高不随内容变：
-           ① OOM 归因（进程已报错，扫输出尾部判出）——上下文减半 / KV 量化；
-           ② 减负建议（还没跑就看出装不下，判据在 core recommendOffloadAdvice）——
-              条目来自下发数据，本行只按 offloadRelief 分流，最多两个按钮 + 单行省略，
-              理由走 ToolTip（a-tooltip；§7.5 原生 title 边界已随官方组件收敛撤销）。 -->
-      <div class="oom-row" :class="{ 'is-active': oomDetected || reliefActive }">
-        <div v-if="oomDetected" class="oom-hint">
-          <a-tag class="oom-tag" color="orange" size="small" nowrap>
-            <template #icon><Icon name="alert" :size="12" /></template>
-            <ToolTip :text="i18n.t('msg_oom_detected')"><span class="oom-text">{{ i18n.t('msg_oom_detected') }}</span></ToolTip>
-          </a-tag>
-          <a-button size="mini" @click="onOomHalveCtx">{{ i18n.t('act_oom_halve_ctx') }}</a-button>
-          <a-button size="mini" @click="onOomKvQuant">{{ i18n.t('act_oom_kv_quant') }}</a-button>
-        </div>
-        <div v-else-if="reliefActive" class="oom-hint oom-hint--relief">
-          <a-tag class="oom-tag" color="orange" size="small" nowrap>
-            <template #icon><Icon name="info" :size="12" /></template>
-            <ToolTip :text="i18n.t('msg_offload_advice')"><span class="oom-text">{{ i18n.t('msg_offload_advice') }}</span></ToolTip>
-          </a-tag>
-          <ToolTip v-for="line in reliefShown" :key="line.id" :text="line.reason">
-            <a-button size="mini" @click="onApplyRelief(line.key, line.value)">
-              {{ line.action }}
-            </a-button>
-          </ToolTip>
-        </div>
-      </div>
-    </div>
+    <!-- 失败归因：Arco 官方 a-alert error 按需展示（v-if，不占位；role=alert 保留读屏播报） -->
+    <a-alert
+      v-if="statusInfo.status === 'error'"
+      class="failure-alert"
+      type="error"
+      show-icon
+      role="alert"
+    >
+      {{ server.effectiveStatus === 'crashed' ? i18n.t('msg_service_crashed') : i18n.t('msg_service_failed') }}
+      · {{ i18n.t('msg_check_console_below') }}
+    </a-alert>
+    <!-- OOM 归因 / 减负建议（互斥不并列，判据在 core）：Arco 官方 a-alert warning 按需展示。
+         建议按钮走官方组件流程，条目来自下发数据、按 offloadRelief 分流，最多两个。 -->
+    <a-alert v-if="oomDetected" class="oom-alert" type="warning" show-icon>
+      <span class="oom-alert-msg">{{ i18n.t('msg_oom_detected') }}</span>
+      <a-button size="mini" class="oom-act" @click="onOomHalveCtx">{{ i18n.t('act_oom_halve_ctx') }}</a-button>
+      <a-button size="mini" class="oom-act" @click="onOomKvQuant">{{ i18n.t('act_oom_kv_quant') }}</a-button>
+    </a-alert>
+    <a-alert v-else-if="reliefActive" class="oom-alert oom-alert--relief" type="warning" show-icon>
+      <span class="oom-alert-msg">{{ i18n.t('msg_offload_advice') }}</span>
+      <ToolTip v-for="line in reliefShown" :key="line.id" :text="line.reason">
+        <a-button size="mini" class="oom-act" @click="onApplyRelief(line.key, line.value)">
+          {{ line.action }}
+        </a-button>
+      </ToolTip>
+    </a-alert>
   </Card>
 </template>
 
@@ -457,91 +442,27 @@ function onApplyRelief(key: string, value: string | number | boolean) {
   margin-bottom: 12px;
 }
 
-/* 端点暴露提示常驻槽：与命令预览卡的警示行同色同字号（橙色业务语义色）。
-   min-height = 两档 fs-sm 行高（12px × 1.5 = 18px/档），中英两态都不撑高。 */
-/* 端点暴露提示常驻槽：2026-10-08 本体换 a-tag 官方 orange 预设（自绘橙字行删除）。
-   min-height = 两档 fs-sm 行高（12px × 1.5 = 18px/档），中英两态都不撑高（e2e 判
-   槽高恒等于 min-height）。tag 弹性收缩：超宽由内部 ToolTip host（min-width 0）
-   带动内层 span 省略，完整文案走 ToolTip。 */
-.sec-hint-slot {
-  display: flex;
-  align-items: flex-start;
-  margin: 0 0 12px;
-  min-height: 36px;
-  visibility: hidden; // 未触发：保留占位但不显示，位置不动
-
-  &.is-active {
-    visibility: visible;
-  }
+/* 端点暴露 / 失败归因 / OOM·减负：Arco 官方 a-alert 按需展示（v-if，不占位）。
+   2026-10-09 用户裁定废除 #81/#82 隐藏预留槽模式——出现即占位、不出现不占位，
+   布局随内容流动；仅保留卡内 12px 纵向节奏。 */
+.sec-hint {
+  margin-bottom: 12px;
 }
 
-.sec-hint-tag {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 100%;
+.failure-alert {
+  margin-bottom: 12px;
 }
 
-/* Arco Tag 会把默认插槽包进 .arco-tag-text：该包装层是 flex 项且无 min-width: 0，
-   min-content 撑住不收缩——英文长文在 1024 视口溢出 118.7px（窄视口 e2e 实测）。
-   放开收缩并转 flex，让「host → 内层 span」的省略链接上（规则 12/20 不涉及：
-   非内部态类、非配色）。oom-tag 同理（单行硬约束，见 .oom-hint）。 */
-.sec-hint-tag :deep(.arco-tag-text),
-.oom-tag :deep(.arco-tag-text) {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-}
-
-// 单行省略（tag 内无换行）：超宽收省略号，完整文案走 ToolTip
-.sec-hint-text {
-  display: block;
-  min-width: 0;
-  line-height: 1.5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-// （旧的两档封顶 clamp 已随 a-tag 化删除：.sec-hint-text 单行省略规则见槽位块）
-
-/* 字段区四列网格：标签在值上方；模型名/地址各跨 2 列。
-   minmax(0,1fr) 防长值撑破列（省略链：cell min-width 0 → value → 文本 ellipsis）。
-   卡片高度两态同变，不碰 #81/#82 判据。 */
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px 16px;
+.oom-alert {
   margin-bottom: 12px;
 
-  > .span-2 {
-    grid-column: span 2;
-    min-width: 0;
+  // 建议按钮随文案内联在官方 alert 内容流里（mini 档不撑高一行告警）
+  .oom-act {
+    margin-left: 8px;
+    flex-shrink: 0;
   }
 }
 
-.field-label {
-  margin-bottom: 2px;
-  font-size: var(--fs-sm);
-  color: var(--color-text-2);
-}
-
-.field-value {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-
-  // 可复制值行（模型名/API 地址）：icon + 文本 + 复制图标并排，
-  // 图标与文本间距归一到 6px（对齐 Arco size-small 按钮 icon 间距；默认 0 贴文本）
-  :deep(.arco-typography) {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    max-width: 100%;
-  }
-}
-
-// 数值/路径用 mono（§7.5.1）
 .mono-val {
   font-family: var(--font-mono);
 }
@@ -566,61 +487,4 @@ function onApplyRelief(key: string, value: string | number | boolean) {
   margin-bottom: 12px;
 }
 
-/* 失败提示槽位：常驻两档（banner 行 + OOM 建议行），margin-top 归一到 slot 上。
-   两档各自 min-height + visibility，出现/消失都不再下推下方内容（#81 既有范式）。 */
-.failure-banner-slot {
-  margin-top: 0;
-}
-
-.failure-row {
-  min-height: 30px; // = tag 高度 + 上下余量，两种状态高度恒等（e2e 判槽高 = 两档之和）
-  visibility: hidden;
-
-  &.has-banner {
-    visibility: visible;
-  }
-}
-
-.oom-row {
-  margin-top: 8px;
-  min-height: 28px; // = 建议行一档（文案 18px / mini 按钮 24px 取高者 + 余量），到位前后高度恒等
-  visibility: hidden;
-
-  &.is-active {
-    visibility: visible;
-  }
-}
-
-/* 失败提示：2026-10-08 本体换 a-tag 官方 red 预设（自绘 pill 的配色 / 圆角 / 字重删除，
-   role="alert" 保留在 tag 上——出现即对读屏播报）。tag 24px 在 30px 档内，槽几何不变 */
-
-// OOM 归因建议行 / 减负建议行：紧随失败 banner 的次级提示 + 行内动作按钮
-// （行高由 .oom-row 的常驻槽负责，这里只管内容呈现）
-// ⚠ 单行硬约束：槽只预留一档 28px，所以这一行**不许换行**——换行就是卡片长高，
-// #81 登记的正是这个。文案变长（尤其中转英）时省略号收住、完整内容走 ToolTip，
-// 按钮 flex: 0 0 auto 保证按钮永远完整可见（动作比描述文字更重要）。
-.oom-hint {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: nowrap;
-  min-width: 0;
-
-  .oom-text {
-    display: block;
-    min-width: 0;
-    flex: 0 1 auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .oom-tag {
-    flex: 0 1 auto;
-    min-width: 0;
-  }
-  :deep(.arco-btn) {
-    flex: 0 0 auto;
-  }
-}
 </style>

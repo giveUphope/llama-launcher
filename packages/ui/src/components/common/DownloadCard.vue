@@ -698,14 +698,12 @@ function quantTooltip(q: QuantizationInfo | null): string {
         </a-button>
       </div>
 
-      <!-- #81 ①：解析状态槽常驻——错误提示与解析信息在同一槽内互换（min-height 见样式块），
-           不再往正常流里整块插入/删除；英文错误文案更长，预留按 1 行 + 上下内距算 -->
-      <div class="parse-status-slot">
-        <div v-if="parseError" class="error-msg">{{ parseError }}</div>
-        <div v-else-if="parsedInfo" class="parsed-info">
-          <span class="info-id">{{ parsedInfo.modelId }}</span>
-          <span v-if="parsedInfo.fileName" class="info-file">→ {{ parsedInfo.fileName }}</span>
-        </div>
+      <!-- 解析状态按需展示（2026-10-09 隐藏预留废除）：错误走官方 a-alert error，
+           解析信息行走原样式；两者都不在时不再保留 38px 空白占位 -->
+      <a-alert v-if="parseError" class="parse-status" type="error">{{ parseError }}</a-alert>
+      <div v-else-if="parsedInfo" class="parsed-info">
+        <span class="info-id">{{ parsedInfo.modelId }}</span>
+        <span v-if="parsedInfo.fileName" class="info-file">→ {{ parsedInfo.fileName }}</span>
       </div>
 
       <!-- 搜索结果列表（分页式） -->
@@ -982,8 +980,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
    · Arco 默认 a-tag 高 24px（§7.5.4 ⑥）→ .cat-filter
    · a-pagination 项高 32px + .pager 上下内距 4px×2 → .pager
    · 单行消息 = --fs-base 行高约 22px + .loading-msg/.empty-msg 上下内距 8px×2 = 38px
-     → .files-state-slot / .parse-status-slot（.error-msg 内距 4px 较矮，统一到 38 档）
-   双语按较长那态算：文案换行属数据量而非状态互换，槽只保证「状态互换」时高度不变。
+     → .files-state-slot（解析状态已随隐藏预留废除改为按需渲染，2026-10-09）
    .files-section 的 194px = 头部 28 + 24 + 38 + 40 + 32 + 4 段 flex gap(8) ——
    即选中模型那一刻本段已按最终外形出现，后续文件到位不再改变它的最小高。 */
 .parse-btn {
@@ -1000,10 +997,6 @@ function quantTooltip(q: QuantizationInfo | null): string {
   &.is-idle {
     visibility: hidden;
   }
-}
-
-.parse-status-slot {
-  min-height: 38px;
 }
 
 .files-section {

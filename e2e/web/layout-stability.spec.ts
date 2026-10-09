@@ -159,96 +159,82 @@ function judgeModelRows(rows: ModelRowStat[]): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// ③ 概览页两档失败槽 + 端点提示槽
+// ③ 概览服务状态卡：无隐藏预留 + 端点提示按需 a-alert（2026-10-09 用户裁定废除
+//    #81/#82 静态预留槽模式——出现即占位、不出现不占位，布局随内容流动）
 // ---------------------------------------------------------------------------
-type FailureStat = { exists: boolean; slotH: number; rowH: number; oomH: number; rowMin: number; oomMin: number; oomMargin: number };
+type ServiceCardStat = {
+  hiddenReserves: Array<{ cls: string; h: number }>;
+  alertVisible: boolean;
+  alertType: string | null;
+};
 
-async function collectFailureSlot(page: Page): Promise<FailureStat> {
+async function collectServiceCard(page: Page): Promise<ServiceCardStat> {
   return page.evaluate(() => {
-    const pick = (sel: string) => document.querySelector(sel) as HTMLElement | null;
-    const box = (el: HTMLElement | null) => (el ? el.getBoundingClientRect().height : 0);
-    const min = (el: HTMLElement | null) => (el ? parseFloat(getComputedStyle(el).minHeight) || 0 : 0);
-    const marg = (el: HTMLElement | null) => (el ? parseFloat(getComputedStyle(el).marginTop) || 0 : 0);
-    const slot = pick('.failure-banner-slot');
-    const row = pick('.failure-row');
-    const oom = pick('.oom-row');
+    const card = document.querySelector('.section-card:has(.status-grid)') as HTMLElement | null;
+    if (!card) return { hiddenReserves: [], alertVisible: false, alertType: null };
+    const hiddenReserves: Array<{ cls: string; h: number }> = [];
+    // 隐藏预留 = 布局中占据真实高度（static 定位）却 visibility:hidden 的块；
+    // absolute 悬浮层（出错跳转钮）不占布局，不算预留
+    const walk = (el: HTMLElement) => {
+      for (const child of Array.from(el.children) as HTMLElement[]) {
+        const st = getComputedStyle(child);
+        const r = child.getBoundingClientRect();
+        if (st.visibility === 'hidden' && st.position === 'static' && r.height > 8) {
+          hiddenReserves.push({ cls: String(child.className).split(' ')[0], h: Math.round(r.height) });
+        }
+        walk(child);
+      }
+    };
+    walk(card);
+    const alert = card.querySelector('a-alert.sec-hint, .sec-hint') as HTMLElement | null;
+    const alertSt = alert ? getComputedStyle(alert) : null;
     return {
-      exists: !!slot && !!row && !!oom,
-      slotH: box(slot),
-      rowH: box(row),
-      oomH: box(oom),
-      rowMin: min(row),
-      oomMin: min(oom),
-      oomMargin: marg(oom),
+      hiddenReserves,
+      alertVisible: !!alert && !!alertSt && alertSt.visibility === 'visible' && alertSt.display !== 'none',
+      alertType: alert ? alert.getAttribute('type') : null,
     };
   });
 }
 
-function judgeFailureSlot(s: FailureStat): string[] {
+function judgeServiceCard(s: ServiceCardStat): string[] {
   const v: string[] = [];
-  if (!s.exists) return ['.failure-banner-slot / .failure-row / .oom-row 有缺席（两档预留被拆）'];
-  if (s.rowMin <= 0 || s.oomMin <= 0) v.push(`两档 min-height 出现 0（banner ${s.rowMin} / oom ${s.oomMin}），内容到位就会顶高下方`);
-  if (s.rowH <= 0 || s.oomH <= 0) v.push(`隐藏态档位高度塌为 0（banner ${s.rowH} / oom ${s.oomH}），占位没留住`);
-  const sum = s.rowH + s.oomH + s.oomMargin;
-  if (!samePx(s.slotH, sum)) v.push(`槽高 ${toPx(s.slotH)} ≠ 两档之和 ${toPx(sum)}（banner ${toPx(s.rowH)} + oom ${toPx(s.oomH)} + 上边距 ${toPx(s.oomMargin)}）`);
+  if (s.hiddenReserves.length) {
+    v.push(`卡内仍有隐藏预留块（直接占用空间）：${JSON.stringify(s.hiddenReserves)}`);
+  }
+  if (!s.alertVisible) v.push('端点暴露提示未按需展示为可见的官方告警（a-alert）');
   return v;
 }
 
-type SecHintStat = { exists: boolean; h: number; min: number };
-
-async function collectSecHint(page: Page): Promise<SecHintStat> {
-  return page.evaluate(() => {
-    const el = document.querySelector('.sec-hint-slot') as HTMLElement | null;
-    return {
-      exists: !!el,
-      h: el ? el.getBoundingClientRect().height : 0,
-      min: el ? parseFloat(getComputedStyle(el).minHeight) || 0 : 0,
-    };
-  });
-}
-
-function judgeSecHint(s: SecHintStat): string[] {
-  if (!s.exists) return ['.sec-hint-slot 缺席（提示行改回 v-if 了）'];
-  if (s.min <= 0) return [`.sec-hint-slot min-height 为 0，档位不再锁定（实测高 ${toPx(s.h)}）`];
-  if (!samePx(s.h, s.min)) return [`.sec-hint-slot 高 ${toPx(s.h)} ≠ min-height ${toPx(s.min)}（内容超出预留档，会顶高下方）`];
-  return [];
-}
-
 // ---------------------------------------------------------------------------
-// ④ 下载卡空态即占位：.parse-status-slot（解析结果空态）与 .task-empty（无任务空态）
-//    两者是同一预留档（DownloadCard 注释「统一到 38 档」），故判「各自 > 0 且同高」；
-//    同高比「只判 > 0」更可判别：.task-empty 自带文案，删掉 min-height 后它仍 > 0，
-//    但对不上兄弟槽的档位——单靠 > 0 会漏。
+// ④ 下载卡：解析状态按需展示（隐藏预留废除）+ 任务空态为可见的官方空态展示
 // ---------------------------------------------------------------------------
-type EmptySlot = { exists: boolean; h: number; min: number };
-type DownloadStat = { parse: EmptySlot; taskEmpty: EmptySlot };
+type EmptySlot = { exists: boolean; visible: boolean; hasText: boolean };
+type DownloadStat = { parseSlotCount: number; taskEmpty: EmptySlot };
 
 async function collectDownloadSlots(page: Page): Promise<DownloadStat> {
   return page.evaluate(() => {
-    const one = (sel: string): EmptySlot => {
-      const el = document.querySelector(sel) as HTMLElement | null;
-      return {
-        exists: !!el,
-        h: el ? el.getBoundingClientRect().height : 0,
-        min: el ? parseFloat(getComputedStyle(el).minHeight) || 0 : 0,
-      };
+    const slots = document.querySelectorAll('.parse-status-slot');
+    const taskEmpty = document.querySelector('.task-empty') as HTMLElement | null;
+    const st = taskEmpty ? getComputedStyle(taskEmpty) : null;
+    return {
+      parseSlotCount: slots.length,
+      taskEmpty: {
+        exists: !!taskEmpty,
+        visible: !!taskEmpty && !!st && st.visibility !== 'hidden' && st.display !== 'none',
+        hasText: !!(taskEmpty?.textContent ?? '').trim(),
+      },
     };
-    return { parse: one('.parse-status-slot'), taskEmpty: one('.task-empty') };
   });
 }
 
 function judgeDownloadSlots(s: DownloadStat): string[] {
   const v: string[] = [];
-  if (!s.parse.exists) v.push('.parse-status-slot 缺席（解析状态槽改回 v-if 了）');
-  if (!s.taskEmpty.exists) v.push('.task-empty 缺席（0 任务时任务区不再有空态占位）');
-  for (const [name, one] of [['.parse-status-slot', s.parse], ['.task-empty', s.taskEmpty]] as const) {
-    if (!one.exists) continue;
-    if (one.min <= 0) v.push(`${name} min-height 为 0，预留档消失（实测高 ${toPx(one.h)}）`);
-    if (one.h <= 0) v.push(`${name} 空态高度塌为 0（内容到位即整块下移）`);
+  if (s.parseSlotCount > 0) {
+    v.push(`.parse-status-slot 仍在（${s.parseSlotCount} 个）：隐藏预留废除后解析状态必须按需渲染`);
   }
-  if (s.parse.exists && s.taskEmpty.exists && !samePx(s.parse.h, s.taskEmpty.h)) {
-    v.push(`两处空态不同档：.parse-status-slot ${toPx(s.parse.h)} vs .task-empty ${toPx(s.taskEmpty.h)}`);
-  }
+  if (!s.taskEmpty.exists) v.push('.task-empty 缺席（0 任务时不再有官方空态展示）');
+  if (s.taskEmpty.exists && !s.taskEmpty.visible) v.push('.task-empty 存在但不可见（空态展示失效）');
+  if (s.taskEmpty.exists && !s.taskEmpty.hasText) v.push('.task-empty 空态没有文案（纯空白占位）');
   return v;
 }
 
@@ -334,17 +320,16 @@ for (const lang of ['zh', 'en'] as const) {
       expect(judgeModelRows(await collectModelRows(page)), `${langName}态模型表`).toEqual([]);
     });
 
-    test(`③概览失败槽两档常驻且等高，端点提示槽恒等于 min-height`, async ({ page }) => {
+    test(`③概览服务状态卡无隐藏预留，端点提示按需 a-alert 展示`, async ({ page }) => {
       await gotoPage(page, lang, 'dashboard');
-      await expect(page.locator('.failure-banner-slot')).toBeAttached();
-      expect(judgeFailureSlot(await collectFailureSlot(page)), `${langName}态失败槽`).toEqual([]);
-      expect(judgeSecHint(await collectSecHint(page)), `${langName}态端点提示槽`).toEqual([]);
+      await expect(page.locator('.status-grid')).toBeVisible();
+      expect(judgeServiceCard(await collectServiceCard(page)), `${langName}态服务状态卡`).toEqual([]);
     });
 
-    test(`④下载卡空态即占位（解析槽与任务空态同档非零）`, async ({ page }) => {
+    test(`④下载卡解析状态按需展示，任务空态为可见官方空态`, async ({ page }) => {
       await gotoPage(page, lang, 'models');
       await openModelsTab(page, lang, 'library');
-      await expect(page.locator('.parse-status-slot')).toBeAttached();
+      await expect(page.locator('.task-empty')).toBeVisible();
       expect(judgeDownloadSlots(await collectDownloadSlots(page)), `${langName}态下载卡`).toEqual([]);
     });
 
@@ -426,39 +411,25 @@ test.describe('判据自证：删除预留后必须报警', () => {
     expect(afterMin.length, 'min-height 归零后判据未报警＝②-预留档空转').toBeGreaterThan(0);
   });
 
-  test('③两档 min-height 归零 → 失败槽判据转红', async ({ page }) => {
+  test('③端点提示 a-alert 被隐藏 → 按需可见判据转红', async ({ page }) => {
     await gotoPage(page, 'zh', 'dashboard');
-    const before = judgeFailureSlot(await collectFailureSlot(page));
+    const before = judgeServiceCard(await collectServiceCard(page));
     expect(before, '基线（注入前）应无报警').toEqual([]);
-    const h = await injectStyle(page, '.failure-row,.oom-row{min-height:0 !important}');
-    const after = judgeFailureSlot(await collectFailureSlot(page));
+    const h = await injectStyle(page, '.sec-hint{display:none !important}');
+    const after = judgeServiceCard(await collectServiceCard(page));
     await removeStyle(h);
-    expect(after.length, `min-height 归零后仍无报警＝③-失败槽空转（两档高 ${JSON.stringify(await collectFailureSlot(page))}）`).toBeGreaterThan(0);
+    expect(after.length, '端点提示被隐藏后仍无报警＝③按需展示判据空转').toBeGreaterThan(0);
   });
 
-  test('③端点提示槽 min-height 归零 → 恒等 min-height 的判据转红', async ({ page }) => {
-    await gotoPage(page, 'zh', 'dashboard');
-    const before = judgeSecHint(await collectSecHint(page));
-    expect(before, '基线（注入前）应无报警').toEqual([]);
-    const h = await injectStyle(page, '.sec-hint-slot{min-height:0 !important}');
-    const after = judgeSecHint(await collectSecHint(page));
-    await removeStyle(h);
-    expect(after.length, 'min-height 归零后仍无报警＝③-提示槽空转').toBeGreaterThan(0);
-  });
-
-  test('④空态预留归零 → 下载卡判据转红（两个槽分别试）', async ({ page }) => {
+  test('④任务空态被隐藏 → 空态展示判据转红', async ({ page }) => {
     await gotoPage(page, 'zh', 'models');
     await openModelsTab(page, 'zh', 'library');
     const before = judgeDownloadSlots(await collectDownloadSlots(page));
     expect(before, '基线（注入前）应无报警').toEqual([]);
-    const h1 = await injectStyle(page, '.task-empty{min-height:0 !important}');
+    const h1 = await injectStyle(page, '.task-empty{display:none !important}');
     const afterEmpty = judgeDownloadSlots(await collectDownloadSlots(page));
     await removeStyle(h1);
-    expect(afterEmpty.length, '.task-empty 预留归零后仍无报警＝④-任务空态空转').toBeGreaterThan(0);
-    const h2 = await injectStyle(page, '.parse-status-slot{min-height:0 !important}');
-    const afterParse = judgeDownloadSlots(await collectDownloadSlots(page));
-    await removeStyle(h2);
-    expect(afterParse.length, '.parse-status-slot 预留归零后仍无报警＝④-解析槽空转').toBeGreaterThan(0);
+    expect(afterEmpty.length, '.task-empty 被隐藏后仍无报警＝④-空态展示判据空转').toBeGreaterThan(0);
   });
 
   test('⑤model-name 的 min-width 归零 → 短名探针转红', async ({ page }) => {
