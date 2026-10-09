@@ -1,6 +1,6 @@
 {
   "name": "llama-launcher",
-  "version": "0.0.59",
+  "version": "0.0.60",
   "license": "MIT",
   "private": true,
   "type": "module",
