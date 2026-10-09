@@ -9,6 +9,8 @@ import ToolTip from '@/components/common/ToolTip.vue';
 import ParamRow from '@/components/params/ParamRow.vue';
 import { confirm } from '@/composables/useConfirm';
 import { useVramEstimate } from '@/composables/useVramEstimate';
+import { useStaleParams } from '@/composables/useStaleParams';
+import { useStartServer } from '@/composables/useStartServer';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 
@@ -20,6 +22,15 @@ const SUBCATEGORY_ORDER: string[] = [
 
 const params = useParamsStore();
 const i18n = useI18nStore();
+
+// 「运行中 ≠ 当前参数」提示槽：复用 useStaleParams 单一信号源（设置页引擎提示、
+// 顶栏重启钮注意力态同源，2026-10-09），服务未运行/无快照恒 0，槽内不渲染任何内容。
+// 重启直达 useStartServer().restart()——与 TopBar 同一流程（前置校验、错误跨页引导同源）
+const staleCount = useStaleParams();
+const { restart: launchRestart } = useStartServer();
+async function onStaleRestart() {
+  await launchRestart();
+}
 
 // 按 subcategory 分组参数（保持定义顺序 + 自定义排序）
 const subcategoryGroups = computed(() => {
@@ -256,6 +267,24 @@ async function onResetAll() {
           </div>
         </template>
       </a-dropdown>
+      <!-- 「运行中 ≠ 当前参数」提示槽：槽常驻（#81 防跳动——status-right 右锚
+           margin-left:auto 吸收剩余空间，内容出现只吃中间空隙，左侧 stat 与目标
+           选择器不挪、条高恒定），差异数 > 0 才出内容。
+           a-tag 官方 orange 预设承载短句（hint_stale_running_s），完整长句
+           （cmd_stale_running）走 ToolTip；重启直达 useStartServer().restart()
+           与顶栏同流程。文案零新增 i18n 键（2026-10-09 用户裁定复用现有三键） -->
+      <div class="stale-slot">
+        <template v-if="staleCount > 0">
+          <ToolTip :text="i18n.t('cmd_stale_running', [String(staleCount)])">
+            <a-tag color="orange" size="small" class="stale-tag">
+              {{ i18n.t('hint_stale_running_s', [String(staleCount)]) }}
+            </a-tag>
+          </ToolTip>
+          <a-button size="small" type="outline" status="warning" @click="onStaleRestart">
+            {{ i18n.t('restart') }}
+          </a-button>
+        </template>
+      </div>
       <div class="status-right">
         <!-- 分区折叠总控 -->
         <ToolTip :text="i18n.t('act_expand_all')">
@@ -357,6 +386,27 @@ async function onResetAll() {
 // 性能目标按钮尾箭头：间距镜像官方前导图标 margin（size-small 为 6px）
 .target-caret {
   margin-left: 6px;
+}
+
+// 「运行中 ≠ 当前参数」槽（#81 防跳动）：槽常驻、内容 v-if。自身 flex: 0 1 auto
+// + min-width: 0——空态零宽不占位，有内容时吃掉 status-right（margin-left:auto）
+// 让出的中间空隙；窄窗挤压时槽先收缩、标签文本省略，两种状态条高与左侧元素位置恒定
+.stale-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+// 标签文本省略：a-tag 内文本层不收缩会让槽顶开兄弟元素，放开收缩转 ellipsis
+.stale-tag {
+  max-width: 100%;
+  min-width: 0;
+  :deep(.arco-tag-text) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .status-right {

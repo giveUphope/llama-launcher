@@ -11,6 +11,7 @@ import Icon from '@/components/common/Icon.vue';
 import AppLogo from '@/components/common/AppLogo.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
 import { useStartServer } from '@/composables/useStartServer';
+import { useStaleParams } from '@/composables/useStaleParams';
 
 const settings = useSettingsStore();
 const server = useServerStore();
@@ -28,6 +29,12 @@ const models = shallowRef<ModelInfo[]>([]);
 const modelDropdownOpen = ref(false);
 
 const isRunning = computed(() => server.status === 'running' || server.status === 'starting');
+
+// 重启按钮注意力态：服务 running 且当前参数与运行快照有差异（复用 useStaleParams
+// 单一信号源，与设置页引擎提示/参数页提示槽同源，2026-10-09）——按钮脉冲提示
+// 「改了参数还没重启」。starting 期间按钮禁用，不给注意力态
+const staleCount = useStaleParams();
+const restartAttention = computed(() => server.status === 'running' && staleCount.value > 0);
 
 // 当前选中模型文件名（用于下拉显示）
 const currentModelName = computed(() => {
@@ -200,7 +207,14 @@ async function onOpenWeb() {
         </a-button>
       </ToolTip>
       <ToolTip :text="i18n.t('restart')">
-        <a-button class="tb-restart" type="outline" status="warning" :disabled="!isRunning" @click="onRestart">
+        <a-button
+          class="tb-restart"
+          :class="{ 'tb-restart-attention': restartAttention }"
+          type="outline"
+          status="warning"
+          :disabled="!isRunning"
+          @click="onRestart"
+        >
           <template #icon><Icon name="refresh" :size="14" /></template>
           {{ i18n.t('restart') }}
         </a-button>
@@ -291,6 +305,25 @@ async function onOpenWeb() {
 // 的组件，已按「观感与库一致优先」回退，不达标的那几处登记在 §7.5.2 的豁免清单里。
 // 反过来也不要覆写按钮的 color 声明：覆写会冻结 hover/active 的文字色（实测描边变深、
 // 文字不变，两个方向分叉）。
+
+// 重启按钮注意力脉冲：服务 running 且参数与运行快照有差异时提醒「改了参数还没重启」。
+// 只动 opacity（动效铁律：动画仅 transform/opacity），时长/缓动走 token
+// （style-audit 第 14 条硬门禁：字面时长/无限循环必须 var(--dur-*)；环境提示档
+// --dur-ambient 允许 infinite，ConsolePanel pulse-glow 同范式）；配色零覆写（第 18 条）。
+// 系统级 reduced-motion 兜底由 token 层 reset.scss 承担
+.tb-restart-attention {
+  animation: tb-restart-pulse var(--dur-ambient) var(--ease-smooth) infinite;
+}
+
+@keyframes tb-restart-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
 
 // 窗口控制按钮簇：a-button type=text 基座 + 窗口铬覆盖（46×52 贴边热区、
 // 无边框窗口角落用小圆角、关闭钮红色 hover）；尺寸/配色覆盖压过 Arco 默认

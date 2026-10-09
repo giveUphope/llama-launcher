@@ -477,3 +477,42 @@ describe('params store 换模型：每模型自动持久化下的切换语义（
     }
   });
 });
+
+// ---- countDiffers：与给定参数集的比较口径（「运行中 ≠ 当前参数」信号源的地基，
+// 2026-10-09 补测——useStaleParams.test.ts 只测状态门控，比较口径归这里） ----
+describe('countDiffers', () => {
+  it('other 为空（服务未运行/无快照）返回 0', () => {
+    const params = useParamsStore();
+    expect(params.countDiffers(null)).toBe(0);
+    expect(params.countDiffers(undefined)).toBe(0);
+  });
+
+  it('逐键按 String 比较：数字与同值字符串不算差异（other 语义 = 完整快照，先 snapshot 打底）', () => {
+    const params = useParamsStore();
+    params.set('ctx_size', 4096);
+    const snap = params.snapshot();
+    snap['ctx_size'] = '4096';
+    expect(params.countDiffers(snap)).toBe(0);
+    snap['ctx_size'] = '8192';
+    expect(params.countDiffers(snap)).toBe(1);
+  });
+
+  it('自动检测字段不计入差异（mmproj/spec_draft_model/alias 随模型自动管理）', () => {
+    const params = useParamsStore();
+    params.set('mmproj', 'D:/a.mmproj');
+    params.set('spec_draft_model', 'D:/draft.gguf');
+    params.set('alias', 'x');
+    const snap = params.snapshot();
+    snap['mmproj'] = 'D:/b.mmproj';
+    snap['spec_draft_model'] = 'E:/draft2.gguf';
+    snap['alias'] = 'y';
+    expect(params.countDiffers(snap)).toBe(0);
+  });
+
+  it('模型键差异计入（运行中的服务用的不是当前选中的模型）', () => {
+    const params = useParamsStore();
+    const snap = params.snapshot();
+    snap[MODEL_KEY] = 'D:/other.gguf';
+    expect(params.countDiffers(snap)).toBe(1);
+  });
+});

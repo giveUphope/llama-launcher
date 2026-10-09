@@ -10,9 +10,9 @@ import ToolTip from '@/components/common/ToolTip.vue';
 import { vInnerAriaLabel } from '@/directives/innerAriaLabel';
 import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
-import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
 import { pickDir } from '@/composables/useFilePicker';
+import { useStaleParams } from '@/composables/useStaleParams';
 import { LLAMA_CPP_RELEASES_URL } from '@llama-launcher/shared';
 import type { CloseBehavior } from '@llama-launcher/shared';
 
@@ -191,12 +191,10 @@ const closeBehavior = computed<CloseBehavior>({
 // §7.1 铁律①）；store 侧节拍只在 running 时排表、结论连续不变就 ×2^n 退避到封顶，
 // 与概览页外部实例探测同一套形状。
 const server = useServerStore();
-const params = useParamsStore();
 
-const staleCount = computed(() => {
-  if (server.status !== 'running' && server.status !== 'starting') return 0;
-  return params.countDiffers(server.runningValues);
-});
+// 「运行中 ≠ 当前参数」差异数：2026-10-09 起信号源收敛到 useStaleParams
+// （参数页状态条提示槽与顶栏重启钮注意力态同源共用，此处不再保留本地实现）
+const staleCount = useStaleParams();
 const propsMismatch = computed(() => server.propsCheck?.mismatched ?? []);
 const mismatchList = computed(() => propsMismatch.value.map((m) => `${m.flag}: ${m.sent} ≠ ${m.actual}`).join(', '));
 const baselineDrift = computed(() => server.propsCheck?.baselineDrift ?? null);
