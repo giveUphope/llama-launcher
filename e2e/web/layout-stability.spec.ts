@@ -161,7 +161,8 @@ function judgeModelRows(rows: ModelRowStat[]): string[] {
 // ---------------------------------------------------------------------------
 // ③ 概览服务状态卡：无隐藏预留 + 端点提示按需 a-alert（2026-10-09 用户裁定废除
 //    #81/#82 静态预留槽模式——出现即占位、不出现不占位，布局随内容流动）
-//    + 字段区「字段名+字段」左右排布（2026-10-09 用户裁定：a-descriptions 双组一行）
+//    + 字段区「字段名+字段」左右排布（2026-10-09 用户裁定：a-descriptions；2026-10-10
+//    再裁定单组一行——双组一行的四列底层空白分配不均）
 // ---------------------------------------------------------------------------
 type PairGeo = { sameRow: boolean; labelLeft: boolean };
 type ServiceCardStat = {
@@ -232,8 +233,8 @@ function judgeServiceCard(s: ServiceCardStat): string[] {
     if (!p.sameRow) v.push(`第 ${i + 1} 对字段的名与值不在同一行（版式退回「标签在值上方」）`);
     else if (!p.labelLeft) v.push(`第 ${i + 1} 对字段的名字不在值左侧`);
   });
-  if (s.itemCount > 0 && s.rowTops !== Math.ceil(s.itemCount / 2)) {
-    v.push(`字段排成 ${s.rowTops} 行，双组一行应为 ${Math.ceil(s.itemCount / 2)} 行（四列版式：字段名|值|字段名|值）`);
+  if (s.itemCount > 0 && s.rowTops !== s.itemCount) {
+    v.push(`字段排成 ${s.rowTops} 行，单组一行应为 ${s.itemCount} 行（两列版式：字段名|值）`);
   }
   return v;
 }

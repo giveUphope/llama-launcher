@@ -322,10 +322,11 @@ function onApplyRelief(key: string, value: string | number | boolean) {
       </ToolTip>
     </a-space>
 
-    <!-- 字段区：a-descriptions 双组一行（四列底层：字段名|值|字段名|值，6 字段排 3 行），
-         字段名在值左侧（2026-10-09 用户裁定自「标签在值上方」网格改回字段名+字段左右排布）。
+    <!-- 字段区：a-descriptions 单组一行（字段名|值两列，6 字段排 6 行），字段名在值左侧。
+         2026-10-09 自「标签在值上方」网格改回字段名+字段左右排布；2026-10-10 再裁定
+         单组一行——双组一行的四列底层按内容分宽，左右两组空白分配不均。
          可复制值用 a-typography-text copyable（原生复制图标，@copy 走 Electron 剪贴板兜底） -->
-    <a-descriptions class="status-desc" :column="2" size="small">
+    <a-descriptions class="status-desc" :column="1" size="small">
       <a-descriptions-item :label="i18n.t('lbl_dash_model')">
         <a-typography-text v-if="currentModel" copyable :copy-text="currentModel" @copy="copyViaApi(currentModel)">
           <Icon name="models" :size="13" />
@@ -450,10 +451,10 @@ function onApplyRelief(key: string, value: string | number | boolean) {
   }
 }
 
-/* 字段区：a-descriptions 双组一行（四列底层：字段名|值|字段名|值）。
-   2026-10-09 用户裁定自「标签在值上方」网格改回字段名+字段左右排布——只调间距节奏，
-   结构/配色全走官方组件；标签取 text-2 次级档（库的 gray-10 比正文重，层级颠倒，
-   实测压卡片底 3.24 不达标，style-audit 有登记例外）。 */
+/* 字段区：a-descriptions 单组一行（字段名|值两列，2026-10-10 用户裁定——双组一行的
+   四列底层按内容分宽、空白分配不均）。只调间距节奏，结构/配色全走官方组件；
+   标签取 text-2 次级档（库的 gray-10 比正文重，层级颠倒，实测压卡片底 3.24 不达标，
+   style-audit 有登记例外）。 */
 .status-desc {
   margin-bottom: 12px;
 
