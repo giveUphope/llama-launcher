@@ -83,6 +83,8 @@ export interface ElectronAPI {
     cleanTrash: (items: TrashItem[]) => Promise<CleanResult>;
     listDir: (path: string) => Promise<FsDirResult>;
     mkdir: (path: string) => Promise<boolean>;
+    /** 系统原生目录选择对话框（T23）：返回所选目录绝对路径；取消返回 null */
+    pickDir: (defaultPath?: string) => Promise<string | null>;
     estimateVram: (modelPath: string, dtype?: string, target?: string, occ?: Partial<OccupancyConfig>) => Promise<VramEstimateResult>;
     benchLlamaRun: (modelPath: string) => Promise<IpcResponse<LlamaBenchJobState>>;
     benchLlamaStatus: (modelPath: string) => Promise<LlamaBenchJobState | null>;

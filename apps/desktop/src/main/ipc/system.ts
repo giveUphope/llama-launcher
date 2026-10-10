@@ -1,5 +1,5 @@
 // IPC 域：系统（端口/文件/引擎检测、回收站、文件系统只读列举、剪贴板、外链/打开目录）。
-import { BrowserWindow, clipboard, shell, type IpcMain } from 'electron';
+import { BrowserWindow, clipboard, dialog, shell, type IpcMain } from 'electron';
 import { existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { readdir as fsReaddir, stat as fsStat } from 'node:fs/promises';
 import { createServer } from 'node:net';
@@ -155,6 +155,19 @@ export function registerSystemIpc(ipcMain: IpcMain): void {
     } catch {
       return false;
     }
+  });
+
+  // 系统原生目录选择对话框（T23「浏览…」快捷入口）：渲染进程无权弹原生 dialog，由主进程代弹。
+  // defaultPath 让对话框落在当前浏览位置；取消或未选返回 null，调用方保持原状。
+  ipcMain.handle(IPC.FS_PICK_DIR, async (e, defaultPath?: string) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    const opts: Electron.OpenDialogOptions = {
+      defaultPath: defaultPath && defaultPath.trim() ? defaultPath : undefined,
+      properties: ['openDirectory'],
+    };
+    // fromWebContents 可能返回 null（webContents 已销毁等）：无窗口时退化为应用级对话框
+    const result = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
+    return result.canceled ? null : (result.filePaths[0] ?? null);
   });
 
   // Clipboard

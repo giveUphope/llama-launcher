@@ -18,7 +18,7 @@
 | `vram.ts` | `DeviceMemInfo`、`PerfTarget`/`TargetRecommendation`（性能目标四档）、`OccupancySide`/`HardwareOccupancy`/`VramEstimateResult`/`OccupancyConfig`（显存/内存占用估算）、`ModelFitVerdict`/`ModelFitResult`（模型适配判定） |
 | `download.ts` | `StartDownloadRequest`、下载任务/进度类型 |
 | `trash.ts` | `TrashKind`、`TrashRoot`、`TrashItem`、`DetectResult`、`CleanResult`（应用生成文件清理：配置目录 + 模型目录双根） |
-| `ipc.ts` | `IPC` 常量对象（56 通道）、`IpcChannel` |
+| `ipc.ts` | `IPC` 常量对象（57 通道）、`IpcChannel` |
 | `index.ts` | 统一导出 |
 
 ---

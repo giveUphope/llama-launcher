@@ -920,6 +920,9 @@ export function createDemoApi() {
         return Promise.resolve({ path: node.display, parent: demoFsParent(node.display), entries, exists: true } as never);
       },
       mkdir: () => Promise.resolve(true),
+      // T23：原生目录对话框在预览环境不存在（渲染层无 dialog 可弹），桩固定返回演示模型根，
+      // 让「浏览…」按钮的完整链路（弹窗回调 → 路径写回 → 列表载入）在 mock 里可目测
+      pickDir: () => Promise.resolve('D:\\Models' as never),
       /**
        * 显存/落位估算演示：返回 HW_SCENE_DATA[hwScene] 那份 core 快照（现场切换见本节开头的说明）。
        * 目标建议部分仍按 target 四档给（参数页的目标选择器要用），减负条目只在 relief 现场发，

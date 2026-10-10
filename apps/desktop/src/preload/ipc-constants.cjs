@@ -49,6 +49,7 @@ const IPC = {
   SYSTEM_ESTIMATE_MODEL_FIT: 'system:estimateModelFit',
   FS_LIST_DIR: 'fs:listDir',
   FS_MKDIR: 'fs:mkdir',
+  FS_PICK_DIR: 'fs:pickDir',
   DOWNLOAD_PARSE_URL: 'download:parseUrl',
   DOWNLOAD_SEARCH: 'download:search',
   DOWNLOAD_LIST_FILES: 'download:listFiles',

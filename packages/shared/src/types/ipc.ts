@@ -55,6 +55,8 @@ export const IPC = {
   SYSTEM_ESTIMATE_MODEL_FIT: 'system:estimateModelFit',
   FS_LIST_DIR: 'fs:listDir',
   FS_MKDIR: 'fs:mkdir',
+  // 系统原生目录选择对话框（T23）：渲染进程无权弹原生 dialog，由主进程代弹并回传所选路径
+  FS_PICK_DIR: 'fs:pickDir',
   DOWNLOAD_PARSE_URL: 'download:parseUrl',
   DOWNLOAD_SEARCH: 'download:search',
   DOWNLOAD_LIST_FILES: 'download:listFiles',

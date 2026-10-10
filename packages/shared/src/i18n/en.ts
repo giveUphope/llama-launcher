@@ -41,6 +41,7 @@ export const en: Dict = {
   dlg_cancel: 'Cancel',
   // 自定义文件/目录浏览器（替代原生文件选择器）
   picker_up: 'Up',
+  picker_browse: 'Browse…',
   picker_open: 'Open',
   picker_save: 'Save',
   picker_select: 'Select',
