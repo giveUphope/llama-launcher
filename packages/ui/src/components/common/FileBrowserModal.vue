@@ -107,7 +107,8 @@ function onUp() {
 
 // T23：系统原生目录对话框快捷入口——原生 dialog 只能主进程弹（渲染层无权），选中即载入该目录；
 // 自绘列表保留（手输路径 / 不存在则创建是原生做不到的）。defaultPath 让对话框落在当前浏览位置，
-// 取消（null）不动当前位置。
+// 取消（null）不动当前位置。注意与 useFilePicker 导出的 pickDir(options) 同名不同物：
+// 那是「发起选择请求、打开本弹窗」的组合函数入口，这里是弹窗内部调系统对话框的动作。
 async function onBrowse() {
   const picked = await window.api.system.pickDir(dir.value || undefined);
   if (picked) void loadDir(picked);
