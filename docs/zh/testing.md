@@ -6,7 +6,7 @@
 
 - **框架**：Vitest 4（`pnpm test` 经 turbo 一并运行 core 与 ui 两包）
 
-- **规模**：core 41 个测试文件 / **566** 个用例 + ui **22** 个测试文件 / **213** 个用例（`pnpm test` 经 turbo 一并运行两包；2026-10-10 T16 轮按实跑校准）
+- **规模**：core 41 个测试文件 / **566** 个用例 + ui **22** 个测试文件 / **217** 个用例（`pnpm test` 经 turbo 一并运行两包；2026-10-10 mock 空态开关轮按实跑校准）
 
 - **覆盖模块**：
 
@@ -58,7 +58,7 @@
 | `src/composables/useStartServer.test.ts` | 启停编排：错误归集走应用日志通道、端口占用后找空闲端口重试、外部实例接管 |
 | `src/composables/useStaleParams.test.ts` | 「运行中 ≠ 当前参数」的差异计数（含接管外部实例无启动快照时不出数） |
 | `src/composables/useUrlHistory.test.ts` | URL 历史记录                                                                  |
-| `src/dev/demo-mock.test.ts`         | 浏览器 mock 的命令预览：初值态发出 4 个基线推荐值、哨兵不发射、扩展参数不进内置框、与 `shared` 发射实现逐字相等        |
+| `src/dev/demo-mock.test.ts`         | 浏览器 mock 的命令预览：初值态发出 4 个基线推荐值、哨兵不发射、扩展参数不进内置框、与 `shared` 发射实现逐字相等；另钉 `?fresh=1` 首次使用空态开关双向（空态预填全归零 / 默认预填仍在）        |
 | `src/testing/arco-theme.test.ts`       | 主题 token 对齐（HTML `data-theme` / body `arco-theme`）                            |
 | `src/testing/status-tag.test.ts`       | `StatusTag` 状态标签变体渲染                                                         |
 | `src/components/models/LocalModelsPanel.test.ts` | 本地模型面板（`rowMeta` 行内徽章预计算随条目携带——语言切换不再走渲染路径；体检记录跨子标签保留）                     |
@@ -86,7 +86,7 @@ dev 会话收尾的端到端集成验证已迁入 `pnpm test`（`packages/core/t
 
 - 浏览器二进制：首次运行需 `pnpm exec playwright install chromium`（CI 的 e2e job 已带 `--with-deps`）。
 - **preview 进程单点归 `e2e/run-web-e2e.mjs` 拥有（本地与 CI 同一条路径）**——`pnpm e2e:web` 的定义就是「build ui + 跑该驱动」，CI 亦不例外。**端口号也只此一处**（`PREVIEW_PORT`）：驱动起好服务后经 `E2E_PREVIEW_URL` 传给 `playwright test` 子进程，`playwright.config.ts` 的 `baseURL` 读该变量、不再写第二份 `4173`；缺变量时配置在 `test` 调用下**直接 exit 1**（2026-09-20 实测过绕开驱动的后果：没人起 4173，浏览器连到任意占端口的残留进程，11 条用例全红且原因难定位）。`playwright.config.ts` **不再声明 `webServer`**：旧配置只写 `port` 未写 `url`，而 Playwright 仅在给定 `url` 时才建可用性回调（`runner/index.js:839`），于是①不检测端口占用、②照样 spawn 一个 vite（因驱动已占 4173 而 EADDRINUSE 退出）、③`_waitForProcess` 在无 url/无 stdio 等待时直接 `processExitedPromise.catch(() => {})` 吞掉退出（`runner/index.js:935-939`）。净效果是每次白起一个必死进程、**由谁服务 4173 取决于两进程抢绑顺序**，且 `reuseExistingServer` / `timeout` 两个旋钮完全无效。驱动侧另加两道确定性保障：开跑前探测 4173，**已被占用即 exit 1**（不静默复用，避免"绿了但验的是旧产物/别人的服务"）；子进程 stdout/stderr 留末 60 行，超时或 spawn 失败时一并打印（此前 `stdio: 'ignore'` 只能看到干巴巴的超时）。
-- 演示数据：浏览器环境无 `window.api` 时 `main.ts` 注入 demo-mock，静态离线可验；但 demo 设置的 `last_tab` 会在启动时回跳「概览」，故用例统一从侧栏导航进目标页。
+- 演示数据：浏览器环境无 `window.api` 时 `main.ts` 注入 demo-mock，静态离线可验；但 demo 设置的 `last_tab` 会在启动时回跳「概览」，故用例统一从侧栏导航进目标页。**首次使用空态**：URL 带 `?fresh=1`（例如 `http://127.0.0.1:5173/?fresh=1`，须整页导航——同文档只改 hash 不重载）时 demo-mock 的预填数据全部归空——模型列表、引擎与模型目录、已选模型、每模型参数集、应用日志、体检历史、可清理项、显存落位现场、服务初始 running 与引擎输出喂送，用来目测「刚装好什么都没配」的界面。默认不带该参数仍出预填（e2e 的演示模型列表与 running 状态卡判据依赖它），两个方向都有单测钉住（`src/dev/demo-mock.test.ts`）。
 - Electron 冒烟为 headless 启动（`--headless --disable-gpu`），结束后直接按进程树强杀（`taskkill /T`）而非优雅退出——应用会拦截 close 弹「退出二次确认」导致挂起；Windows 本地不会弹真实窗口。
 - 单实例锁：应用 `requestSingleInstanceLock`——跑 Electron 冒烟前请确保没有正在运行的应用实例。
 

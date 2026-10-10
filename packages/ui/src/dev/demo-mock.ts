@@ -1,6 +1,7 @@
 // 开发预览演示数据（仅浏览器 mock 环境注入，Electron 真实 api 不受影响）。
 // main.ts 在无 Electron preload 时调用 createDemoApi()，让预览环境呈现完整业务状态，
 // 便于目测 UI 布局与交互。数据为静态仿真 + 周期性模拟服务日志/下载进度。
+// URL 带 ?fresh=1 时下面所有预填数据一律不出，预览回到「刚装好什么都没配」的首次使用态。
 import { PARAMS, MODEL_KEY, parseQuantization, formatBytes, argvFromPreviewOptions, buildArgv, checkEngineProps, ENGINE_BASELINE_BUILD } from '@llama-launcher/shared';
 import type {
   AppSettings, ModelInfo, ModelParams, GgufReadResult,
@@ -15,6 +16,33 @@ import type {
 
 const ENGINE_DIR = 'D:/Models/llama-bins';
 const MODELS_DIR = 'D:/Models';
+
+/**
+ * 首次使用空态开关：URL 带 `?fresh=1` 时，本文件所有预填演示数据一律不出——
+ * 模型列表 / 引擎与模型目录 / 已选模型 / 每模型参数集 / 应用日志 / 体检历史 /
+ * 可清理项 / 显存落位现场 / 服务初始 running 与引擎输出喂送，全部回到
+ * 「刚装好、什么都没配」的形状（各字段的空值取 core `getDefaultSettings()` 与
+ * `system.ts` estimateVram 早退分支的同名默认，不是随手写 null）。
+ *
+ * 为什么做成开关、而不是把默认直接改成空态：e2e 的判据要吃预填内容——
+ * `e2e/web/app.spec.ts` 断言模型页出现演示模型、服务页出现 running 状态卡，
+ * 另有多条语义/布局用例依赖填充数据。默认清空等于把那些判据一起作废。
+ *
+ * 用法：整页导航到 `http://127.0.0.1:5173/?fresh=1`（同文档只改 hash 不触发重载）。
+ *
+ * 一处例外：`models.readGgufMeta` 没有随空态归零——空态下 `selected_model` 是空串，
+ * `stores/params.ts` 的 `loadGguf()` 空路径守卫直接短路返回，这个桩根本不会被调用；
+ * 给它造一份「失败响应」反而要把中文错误串塞进跨桥载荷（违反「数据层不产文案」）。
+ */
+const FRESH = (() => {
+  try {
+    const raw = new URLSearchParams(window.location.search).get('fresh');
+    return raw !== null && raw !== '0';
+  } catch {
+    return false;
+  }
+})();
+
 /** 体检作业演示状态表与推送订阅者（与真实侧同一契约：完成走推送，不走被轮询） */
 const benchJobStates = new Map<string, unknown>();
 const benchStatusCbs: Array<(job: unknown) => void> = [];
@@ -33,16 +61,18 @@ const DEMO_MODELS: ModelInfo[] = [
 // 真实侧这条记录来自 ~/.llama_launcher/bench-records.json：应用重启后主进程把落盘的终态
 // 回灌进结果缓存，模型面板按路径问一次 system:benchLlamaStatus 就把徽章补回来。
 // 这里预置一条已完成记录，用来目测「重启后记录仍在」这条路径（不必真跑一次 1–3 分钟的体检）。
-benchJobStates.set(DEMO_MODELS[1].path, {
-  modelPath: DEMO_MODELS[1].path,
-  state: 'done',
-  summary: {
+if (!FRESH) {
+  benchJobStates.set(DEMO_MODELS[1].path, {
     modelPath: DEMO_MODELS[1].path,
-    ppTokS: 1421.6, tgTokS: 96.4, ngl: 99,
-    backend: 'Vulkan', modelType: 'qwen3 8B Q8_0（历史记录）',
-    testedAt: new Date(Date.now() - 26 * 3600_000).toISOString(),
-  },
-});
+    state: 'done',
+    summary: {
+      modelPath: DEMO_MODELS[1].path,
+      ppTokS: 1421.6, tgTokS: 96.4, ngl: 99,
+      backend: 'Vulkan', modelType: 'qwen3 8B Q8_0（历史记录）',
+      testedAt: new Date(Date.now() - 26 * 3600_000).toISOString(),
+    },
+  });
+}
 
 // ---- GGUF 元数据（模型信息卡 + 建议参数） ----
 const DEMO_GGUF: GgufReadResult = {
@@ -410,7 +440,9 @@ export function createDemoApi() {
   // 初始状态跟随 hw 现场：relief / relief-off 演示的是「还没跑就看出装不下」，
   // 而减负行在服务 running 时按设计闭嘴（引擎已把这份模型装起来了，此刻喊装不下自相矛盾），
   // 所以这两个现场必须从「已停止」起步，否则概览卡上看不到那行——详见 HW 现场一节。
-  const demoInitialStatus: ServerStatus = hwSceneNeedsStoppedServer(hwScene) ? 'stopped' : 'running';
+  // 首次使用空态同样从「已停止」起步（还没点过启动）。
+  const demoInitialStatus: ServerStatus =
+    FRESH || hwSceneNeedsStoppedServer(hwScene) ? 'stopped' : 'running';
   let serverStatus: ServerStatus = demoInitialStatus;
   // 与 core 同语义的「本轮就绪时刻」：首次 running 记下、进程真死才归零（stopping 保留）。
   // mock 不给这个字段的话，演示页的运行时长永远是 0，界面上看不出这条修复。
@@ -423,6 +455,13 @@ export function createDemoApi() {
     lastStop = s === 'stopped' ? stop : null;
     if (s === 'running' && readyAtMs === null) readyAtMs = Date.now();
     if (s === 'stopped') readyAtMs = null;
+    // 引擎输出只随「服务活着」这件事：running 才起喂送（空态没有那个 300ms 预喂定时器，靠这里补上），
+    // stopped 就收口——否则停服之后控制台还在每 2.5s 冒一行，等于界面自己谎报在跑
+    if (s === 'running') startOutputFeed();
+    if (s === 'stopped' && outputTimer) {
+      clearInterval(outputTimer);
+      outputTimer = null;
+    }
     for (const cb of statusCbs) cb({ status: s, stop: lastStop, readyAt: readyAtMs });
   }
   /** 主动停止的停止事实（用户点停止/重启）——渲染层据此保持「已停止」而非「异常退出」 */
@@ -548,7 +587,8 @@ export function createDemoApi() {
       pushOutput('stdout', LLAMA_LINES[outputIdx]);
     }, 2500);
   }
-  setTimeout(startOutputFeed, 300);
+  // 空态不预喂：服务没跑起来时控制台里不该有行（打开页面就看到引擎日志是谎报状态）
+  if (!FRESH) setTimeout(startOutputFeed, 300);
 
   /**
    * 控制台钩子：`__mockPushConsole(320)` 一次灌入 320 行框架输出，返回实际条数。
@@ -610,11 +650,14 @@ export function createDemoApi() {
   }
 
   // ---- settings ----
+  // 空态三个路径字段与 selected_model 取 core getDefaultSettings() 的同名默认
+  // （llama_dir/models_dir/selected_model 皆空串；server_exe 在生产首次安装也是空串，
+  // 由用户在设置页选择引擎目录后内联检测）。
   const demoSettings: AppSettings = {
-    server_exe: `${ENGINE_DIR}/llama-server.exe`,
-    llama_dir: ENGINE_DIR,
-    models_dir: MODELS_DIR,
-    selected_model: DEMO_MODELS[0].path,
+    server_exe: FRESH ? '' : `${ENGINE_DIR}/llama-server.exe`,
+    llama_dir: FRESH ? '' : ENGINE_DIR,
+    models_dir: FRESH ? '' : MODELS_DIR,
+    selected_model: FRESH ? '' : DEMO_MODELS[0].path,
     window_geometry: '',
     window_maximized: true,
     theme_mode: 'light',
@@ -623,7 +666,8 @@ export function createDemoApi() {
     // 预览钩子：URL 带 ?lang=en 时以英文态启动（既有 ?demo= 同范式）。
     // 布局类取证要中英各跑一轮 7 个页面，而 mock 的设置不落盘——界面切完语言一刷新就回中文。
     language: (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lang') === 'en') ? 'en' : 'zh',
-    last_tab: '/dashboard',
+    // 空态没有「上次页签」（落在默认页）；填充态回概览，供 e2e 复位导航
+    last_tab: FRESH ? '' : '/dashboard',
     download_max_concurrent: 3,
     hf_mirror_host: '',
     custom_args: '',
@@ -635,7 +679,7 @@ export function createDemoApi() {
       save: () => Promise.resolve(),
     },
     models: {
-      scan: (_dir: string, _opts?: { createIfMissing?: boolean }) => Promise.resolve(DEMO_MODELS),
+      scan: (_dir: string, _opts?: { createIfMissing?: boolean }) => Promise.resolve(FRESH ? [] : DEMO_MODELS),
       detectMmproj: () => Promise.resolve(''),
       detectDraft: () => Promise.resolve(''),
       readGgufMeta: (_path: string) => Promise.resolve({ ok: true, data: DEMO_GGUF }),
@@ -645,7 +689,8 @@ export function createDemoApi() {
     },
     modelParams: {
       // 与真实侧同一契约：按模型路径存取，load 未命中返回 null
-      load: (modelPath: string) => Promise.resolve(DEMO_MODEL_PARAMS.get(modelPath) ?? null),
+      // 空态下没有任何已存参数集（首次使用 = 每个模型都还没落过盘），但 save 照常写入
+      load: (modelPath: string) => Promise.resolve(FRESH ? null : DEMO_MODEL_PARAMS.get(modelPath) ?? null),
       save: (modelPath: string, values: PresetValues) => {
         const clean = { ...values };
         delete (clean as Record<string, unknown>)[MODEL_KEY];
@@ -751,14 +796,15 @@ export function createDemoApi() {
       fileExists: () => Promise.resolve(
         (globalThis as unknown as { __mockEngineFileExists?: boolean }).__mockEngineFileExists === true,
       ),
-      findLlamaExe: () => Promise.resolve(`${ENGINE_DIR}/llama-server.exe`),
+      findLlamaExe: () => Promise.resolve(FRESH ? '' : `${ENGINE_DIR}/llama-server.exe`),
       // 清理配置目录演示桩（有状态，与真实侧同一契约）：检测返回「尚未清理」的条目，
       // 清理把所选条目从演示集中移除——再点检测只看剩余，不会对同一批幻影文件反复
       // 「释放 1.0 MB」（此前无状态桩每次都全量返回，清理结果看起来像大小算错）。
       // 形状与 shared DetectResult/CleanResult 同构。__mockResetTrash() 恢复演示集
       // （既有范式：globalThis.__mockPushAppLog）。
       detectTrash: () => {
-        const items = DEMO_TRASH_ITEMS.filter((i) => !i.cleaned);
+        // 空态：应用刚生成过文件，没有可清理的历史遗留
+        const items = FRESH ? [] : DEMO_TRASH_ITEMS.filter((i) => !i.cleaned);
         return Promise.resolve({ items, totalSize: items.reduce((s, i) => s + i.size, 0) } as never);
       },
       cleanTrash: (items: Array<{ absPath: string; size: number }>) => {
@@ -781,6 +827,16 @@ export function createDemoApi() {
        */
       estimateVram: (_modelPath: string, dtype?: string, target?: string, _occ?: { ngl?: string; ctxSize?: number }) => {
         const t = (target ?? 'balanced') as PerfTarget;
+        // 空态没有模型文件：与 core handler 的早退分支同形（`!modelPath || !existsSync(modelPath)`
+        // 时连设备都不去探，devices/recommendations/occupancy 全空），演示现场不外泄
+        if (FRESH) {
+          return Promise.resolve({
+            devices: [], weightsMiB: null, kvLayers: null, kvBytesPerToken: null,
+            maxContext: null, fullOffloadFits: null,
+            dtype: dtype ?? 'q8_0', target: t,
+            recommendations: [], occupancy: null, probeError: null,
+          } satisfies VramEstimateResult);
+        }
         const kv: Record<string, string> = { 'max-context': 'q8_0', balanced: 'q8_0', latency: 'f16', memory: 'q4_0' };
         // max-context：联合显存+内存预算（部分卸载 ngl 59/64 换上下文）推到训练上限；其余全卸载预算
         const ctx: Record<string, number> = { 'max-context': 32768, balanced: 20480, latency: 10240, memory: 32768 };
@@ -815,6 +871,8 @@ export function createDemoApi() {
       // 显存适配徽章演示：19.5GB 主模型 → fit；>24GB（总显存）→ no
       estimateModelFit: (paths: string[], dtype?: string) => {
         const out: Record<string, { verdict: 'fit' | 'partial' | 'no' | null; maxContext: number | null; weightsMiB: number | null; dtype: string }> = {};
+        // 空态没有模型可判（真实侧此时根本不会被调用，返回空映射而不是给每个路径都盖一枚 fit）
+        if (FRESH) return Promise.resolve(out);
         for (const p of paths) {
           out[p] = { verdict: 'fit', maxContext: 8192, weightsMiB: 19931.79, dtype: dtype ?? 'q8_0' };
         }
@@ -963,7 +1021,8 @@ export function createDemoApi() {
       onError: () => () => {},
     },
     logs: {
-      list: () => Promise.resolve(DEMO_APP_LOGS),
+      // 空态没有历史应用日志（启动后的真实推送仍照常进订阅者）
+      list: () => Promise.resolve(FRESH ? [] : DEMO_APP_LOGS),
       clear: () => Promise.resolve(true),
       onLog: (cb: (entry: AppLogEntry) => void) => {
         appLogCbs.push(cb);

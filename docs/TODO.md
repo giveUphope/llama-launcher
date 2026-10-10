@@ -8,7 +8,15 @@
 
 ## 开放项
 
-当前无开放项。（新条目写在本节，关闭后整条移入下方「已关闭」并注明关闭版本；本文件保持**恰好一个** `## 开放项` 与 **一个** `## 已关闭`。）
+### T17 e2e `arco-locale.spec.ts` 竞态复现（2026-10-10 登记，翻 [T11] 的案）
+
+- **位置**：`e2e/web/arco-locale.spec.ts:31`（模型页搜索框 `toBeVisible`）与 `:62`（`html[lang]` 一次性读取）。
+- **描述**：T11 于 2026-10-09 按「观察期零复现」关闭，本轮实测**仍在复现且不是偶发**：在不含本轮改动的 HEAD 构建上 `--repeat-each=10` 连跑两次，分别 3 红 / 20 条 与 2 红 / 20 条，两条腿都出现过（zh 态搜索框 `element(s) not found`、en 态 `html[lang]` 读到 `zh-CN`）。同轮带 mock 空态改动的首次全量 e2e 也是这一条红（82 绿 / 1 红），已用 HEAD 基线对拍排除「本轮改动引入」。
+- **成因（两条，互不相同）**：① `:62` 写作 `await ...getAttribute('lang')` 后再 `expect(...).toBe()`——一次性读取不重试，而应用启动是异步的（`main.ts` 动态 import demo-mock → `settings.load()` → i18n store 才写 `document.documentElement.lang`），`page.goto` 在 load 事件即返回，此时读到的还是 `index.html` 里静态的 `zh-CN`；② `:31` 的前一步 `page.goto('/?lang=xx#/models')` 若早于应用挂载完成，`last_tab` 恢复会把路由 replace 回 `/dashboard`，搜索框自然找不到。
+- **建议修复**：① 换成会重试的断言 `await expect(page.locator('html')).toHaveAttribute('lang', …)`；② 带 hash 的 goto 之后先等挂载完成标志（如 `.sidebar`）再取搜索框——不要在用例里用 `waitForTimeout` 猜时长。
+- **修复效果验证**：`--repeat-each=12` 定向复跑 24 条全绿 + 两轮全量 e2e 全绿；补一条负向实验（把 ① 退回一次性读取应能稳定复现红），关闭时在 CHANGELOG 写明「翻 T11 案」。
+- **为何不当轮就修**：本轮交付的是 mock 空态开关；改 e2e 判据属另一件事，且取证需 ≥24 次重复跑，待裁定。
+- **与 T11 的关系**：T11 的「观察期届满零复现」在当时为真，但 12 次重复的样本量不足以证伪一个概率约 10–15% 的竞态；T11 保持已关闭原样不改写，本案以 T17 重开。
 
 ## 已关闭
 
@@ -30,8 +38,6 @@
 - **英文镜像的取舍（明确判断，非遗漏）**：原英文树 `docs/en/style/` 下那份 STYLE_TODO 是同内容的译文，按「归档不译、单份维护」的既有规矩**不再另存英文副本**。代价：英文读者要看风格修复明细得读中文归档。这是本条唯一由我拍板的取舍，若要另存副本随时可以补。
 - **删除后的引用治理**：`git rm` 两文件后由 `check-docs-links` 枚举出 **14 处断链**（含我自己写错的一处 §7.5.9 归档链接深度），逐处改指归档或删除；另有 5 处散文把 STYLE_TODO 称作现存文件（AGENTS.md 归口句、`docs/{zh,en}/workflow.md` 第 8 条与示例路径）一并改正。代码注释 / e2e / frontend.md 里的 `STYLE_TODO #NN`（约 25 + 7 + 20×2 处）**按「历史陈述不改写」的纪律原样保留**，改在归档头部与 §7.5.9 各写一句「本仓 `STYLE_TODO #NN` 指 `style-todo-resolved.md` 的条目」让它们继续可解析。
 - **验证**：`pnpm lint` 全绿——`check-docs-links` 342 条链接 + 139 处写死路径有效、`verify-doc-pairs` 双语两树成对（删的是同名一对文件）、`verify-version-sync` / i18n 不受影响；`pnpm style:audit` 24 条仍全绿（搬的是文档，脚本未动）。**我自己造的一个错**：合并脚本的正则把新加的说明引用块与原过渡引用块粘连成一行（`。> 本段历史上叫…`），已拆开；另有一次 oxlint 报 5 个错，来源是我放在仓库根的临时脚本被 `.` 扫进 lint——临时脚本今后不落仓库根。
-
-## 已关闭
 
 ### T14 `docs/CHANGELOG.md` 越过归档滚动阈值（2026-10-10 登记并关闭）
 
