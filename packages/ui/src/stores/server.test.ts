@@ -709,3 +709,52 @@ describe('端口占用友好提示（portBusyHint：只在启动/运行期 + 同
     expect(server.outputs.filter((o) => o.data.includes('svc_port_busy_hint')).at(-1)?.kind).toBe('error');
   });
 });
+
+describe('previewCommand - 失败码必须活着到渲染层（2026-10-10 首次使用告警）', () => {
+  /** 换掉 window.api 的预览桩，返回 store 里那条调用 */
+  function stubPreview(res: unknown) {
+    (globalThis as any).window.api.server.previewCommand = () => Promise.resolve(res);
+    const server = useServerStore();
+    return server.previewCommand({} as never, {} as never);
+  }
+
+  it('主进程回了码：抛出的异常仍带着码，界面才选得出「去哪儿配」那句', async () => {
+    const call = stubPreview({
+      ok: false,
+      error: 'Server executable path is not configured',
+      code: 'exe_not_configured',
+    });
+    await expect(call).rejects.toThrow('Server executable path is not configured');
+    let caught: any;
+    try {
+      await call;
+    } catch (e) {
+      caught = e;
+    }
+    // 这一条就是原事故的判据：曾经这里走 invokeOk，码被拼进 Error 文本后丢失，
+    // 界面只能把后端英文原文当文案显示出来
+    expect(caught.code).toBe('exe_not_configured');
+  });
+
+  it('主进程没给码（未知失败）：异常不带码，界面据此走通用文案', async () => {
+    let caught: any;
+    try {
+      await stubPreview({ ok: false, error: 'IPC down' });
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught.code, '码表之外的东西不该被当成码传下去').toBeUndefined();
+    expect(caught.message).toBe('IPC down');
+  });
+
+  it('桩缺失（mock 环境返回 null）时仍然抛错，不静默返回空命令', async () => {
+    let caught: any;
+    try {
+      await stubPreview(null);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught.code).toBeUndefined();
+  });
+});

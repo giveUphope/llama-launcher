@@ -3,7 +3,7 @@ import type { IpcMain } from 'electron';
 import { launcherBridge } from '../launcher-bridge.js';
 import { logApp } from '../app-log.js';
 import { previewCommand } from '@llama-launcher/core';
-import { IPC } from '@llama-launcher/shared';
+import { IPC, readCommandErrorCode } from '@llama-launcher/shared';
 import type { AppSettings, PresetValues } from '@llama-launcher/shared';
 
 export function registerServerIpc(ipcMain: IpcMain): void {
@@ -50,7 +50,10 @@ export function registerServerIpc(ipcMain: IpcMain): void {
       // 内置参数命令预览：不含扩展参数（扩展参数在 UI 独立文本框，复制时合并）
       return { ok: true, data: previewCommand({ values, settings, includeCustomArgs: false }) };
     } catch (err: any) {
-      return { ok: false, error: err?.message ?? String(err) };
+      // code 给界面（渲染层按码出 i18n 文案），error 只给日志——首次使用时 server_exe 为空
+      // 是常态，把 core 的英文诊断文本直出到中文界面上等于给用户看堆栈
+      const code = readCommandErrorCode(err);
+      return { ok: false, error: err?.message ?? String(err), ...(code ? { code } : {}) };
     }
   });
 }

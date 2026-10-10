@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
-import { DEFAULT_HOST, DEFAULT_PORT } from '@llama-launcher/shared';
+import { DEFAULT_HOST, DEFAULT_PORT, readCommandErrorCode } from '@llama-launcher/shared';
 import type { ServerStatus, ServerStatusEvent, ServerStopInfo, OutputEntry, PropsCheck } from '@llama-launcher/shared';
 import { useIPC, invokeOk, toPlain } from '@/composables/useIPC';
 import { useI18nStore } from '@/stores/i18n';
@@ -442,8 +442,19 @@ export const useServerStore = defineStore('server', () => {
     }
   }
 
+  /**
+   * 命令预览：失败时**保住 code**（不用 invokeOk——它把 res.error 拼成 Error 文本，
+   * 码一丢，界面就只剩后端英文可显示，首次使用时用户看到的就是那句话）。
+   */
   async function previewCommand(values: PresetValues, settings: AppSettings): Promise<string[]> {
-    return invokeOk(api.server.previewCommand(toPlain(values), toPlain(settings)));
+    const res = await api.server.previewCommand(toPlain(values), toPlain(settings));
+    if (!res || !res.ok) {
+      const code = readCommandErrorCode(res);
+      const err = new Error(res?.error ?? 'Command preview failed');
+      if (code) (err as Error & { code?: typeof code }).code = code;
+      throw err;
+    }
+    return res.data as string[];
   }
 
   function clearOutputs() {

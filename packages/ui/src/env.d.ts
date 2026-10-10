@@ -9,7 +9,7 @@ import type {
   CloseDialogRequest, CloseDialogResult,
   AppLogEntry,
   VramEstimateResult, ModelFitResult, OccupancyConfig,
-  LlamaBenchJobState,
+  LlamaBenchJobState, PreviewErrorCode,
 } from '@llama-launcher/shared';
 
 export interface IpcResult<T = void> {
@@ -19,7 +19,10 @@ export interface IpcResult<T = void> {
 
 export interface IpcError {
   ok: false;
+  /** 诊断文本（日志用）；界面文案一律按 code 走 i18n，不插值这段文本 */
   error: string;
+  /** 可辨识失败码（目前由 SERVER_PREVIEW 下发，见 shared 的 PREVIEW_ERROR_CODES） */
+  code?: PreviewErrorCode;
 }
 
 export type IpcResponse<T = void> = IpcResult<T> | IpcError;

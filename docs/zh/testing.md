@@ -6,7 +6,7 @@
 
 - **框架**：Vitest 4（`pnpm test` 经 turbo 一并运行 core 与 ui 两包）
 
-- **规模**：core 41 个测试文件 / **566** 个用例 + ui **22** 个测试文件 / **217** 个用例（`pnpm test` 经 turbo 一并运行两包；2026-10-10 mock 空态开关轮按实跑校准）
+- **规模**：core 41 个测试文件 / **566** 个用例 + ui **22** 个测试文件 / **230** 个用例（`pnpm test` 经 turbo 一并运行两包；2026-10-10 mock 空态开关轮按实跑校准）
 
 - **覆盖模块**：
 
@@ -78,7 +78,7 @@ dev 会话收尾的端到端集成验证已迁入 `pnpm test`（`packages/core/t
 
 | 命令 | 前置条件 | 验证内容 |
 | ---- | ---- | ---- |
-| `pnpm e2e:web` | 无（内部先 build `shared`，再 build `ui`） | 真实构建产物（vite preview 服务 `packages/ui/dist` + demo-mock 注入）驱动 Chromium：侧边栏 7 项导航逐一可达、模型页演示列表、服务页 running 状态卡、参数页 a-switch / 滑杆交互；另有**可访问性判据**（侧栏键盘可达与 Enter/Space 导航、弹窗对话框语义与焦点环、控件命名普查，`e2e/web/a11y.spec.ts`）与**最小视口判据**（视口取 `apps/desktop/src/main/window.ts` 的 `minWidth/minHeight`，7 页逐页测文档级与元素级横向溢出，`e2e/web/narrow-viewport.spec.ts`），另有**语义骨架判据**（唯一 `main` 地标、每页恰好一个 `<h1>`、卡片小节标题为 `<h2>`、状态行自身 `aria-live="polite"`，`e2e/web/semantics.spec.ts`）。三类判据都配删除实验。用例见 `e2e/web/*.spec.ts` |
+| `pnpm e2e:web` | 无（内部先 build `shared`，再 build `ui`） | 真实构建产物（vite preview 服务 `packages/ui/dist` + demo-mock 注入）驱动 Chromium：侧边栏 7 项导航逐一可达、模型页演示列表、服务页 running 状态卡、参数页 a-switch / 滑杆交互；另有**可访问性判据**（侧栏键盘可达与 Enter/Space 导航、弹窗对话框语义与焦点环、控件命名普查，`e2e/web/a11y.spec.ts`）与**最小视口判据**（视口取 `apps/desktop/src/main/window.ts` 的 `minWidth/minHeight`，7 页逐页测文档级与元素级横向溢出，`e2e/web/narrow-viewport.spec.ts`），另有**语义骨架判据**（唯一 `main` 地标、每页恰好一个 `<h1>`、卡片小节标题为 `<h2>`、状态行自身 `aria-live="polite"`，`e2e/web/semantics.spec.ts`），另有**目录选择器滚动判据**（滚动宿主必须是 `a-list` 内层 `.arco-list` 而非被库裁掉的 wrapper：内容高 > 可视高、真滚轮推得动 `scrollTop`、滚到底末行进入可视区，`e2e/web/file-browser.spec.ts`；依赖 demo-mock 的 `DEMO_FS` 目录树——`listDir` 曾是恒回空列表的桩，这条判据此前不可达）。四类判据都配删除实验。用例见 `e2e/web/*.spec.ts` |
 | `pnpm e2e:electron` | 无（内部先构建 desktop） | `_electron` 以生产模式（loadFile `dist/ui/index.html`）headless 启动打包产物，断言主进程版本、窗口标题、侧边栏渲染，并做一次**推送通道真机往返**：渲染层经真实 preload 订阅 `system:benchOnStatus`，主进程在作业终态迁移时推一次（探针取「确实存在但不是 GGUF」的文件当 modelPath，必然快速失败，不加载模型、不占 GPU）；脚本 `e2e/electron/run-smoke.mjs` |
 | `pnpm test:e2e` | 无 | 先全量构建，再依次执行 `pnpm e2e:web` 与 `pnpm e2e:electron`（2026-09-20 起统一走这两个脚本——旧写法直接 `playwright test --project=web`，绕开了 preview 驱动，配置里 `webServer` 移除后就没人起 4173 了） |
 

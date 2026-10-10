@@ -18,6 +18,25 @@
 - **为何不当轮就修**：本轮交付的是 mock 空态开关；改 e2e 判据属另一件事，且取证需 ≥24 次重复跑，待裁定。
 - **与 T11 的关系**：T11 的「观察期届满零复现」在当时为真，但 12 次重复的样本量不足以证伪一个概率约 10–15% 的竞态；T11 保持已关闭原样不改写，本案以 T17 重开。
 
+### T18 Electron 日志里的 `DNS config watch failed`——已定性为上游良性噪声，决定不处理（2026-10-10 备查）
+
+- **现象**：真实 Electron 运行的终端日志出现 `[45376:...:ERROR:net\dns\dns_config_service.cc:273] DNS config watch failed.`，用户不知道要不要管。
+- **结论（不修）**：这是 Chromium 网络栈自己的 DNS 配置变更监听在 Windows 上注册失败时打印的一行，与本应用无关——本应用没有任何功能因此失灵。
+  - 启动期没有自发网络请求：全仓无 `electron-updater` / 遥测 / 崩溃上报；唯一走 Chromium 网络栈的通道是 hf-mirror 列表与下载（`apps/desktop/src/main/net/hf-transport.ts`、`download-transport.ts`），要用户进下载页才触发；ModelScope 与非 HF 下载走 `node:https`，`/props` 回读走 Node `fetch`，域名解析由操作系统解析器完成，不经这个监听器。
+  - 这行也**不进应用日志页**：主进程没有转发 Chromium 日志的代码（`console-message` / `appendSwitch` / `--enable-logging` 全仓零命中），它是 Electron 原生 stderr——`scripts/dev-watch.cjs` 以 `stdio:'inherit'` 起 Electron，`scripts/dev.cjs` 按行加 `[electron]` 前缀，所以只有 dev 终端看得见。
+  - 唯一理论影响：**运行期间改系统 DNS 设置，Chromium 的网络服务不会即时感知**（上游源码在此处把监听器标记为失败后不再重启，注释见 crbug.com/116139），重启应用即恢复。常见诱因是 Dnscache 服务被停、VPN/代理/TAP 网卡或安全策略干扰注册表通知；与本应用 `sandbox: false` 无关。
+- **下一步**：无需动作。若日后出现「真机网络功能确实失败」的回报，再凭 trace 重开并复查这一假设（当前证据：electron/electron 仓库按该串搜索 0 结果，无专属 issue）。
+- **出处**：Chromium `net/dns/dns_config_service.cc`（`OnConfigChangedDelayed()` 打印该行）与 `net/dns/dns_config_service_win.cc`（`RegistryWatcher::OnObjectSignaled` 重注册失败）；[crbug.com/116139](https://crbug.com/116139)。
+
+### T19 core 全量跑时 `download-manager` 的 resume 用例偶发 20s 超时（2026-10-10 登记，观察项）
+
+- **位置**：`packages/core/tests/download-manager.test.ts:567`（`resumeDownload restarts a paused task to completion`）。
+- **现象**：`pnpm --filter @llama-launcher/core test` 连红 3 次，报 `Error: Test timed out in 20000ms`；同一文件单独跑 1.7s 通过。
+- **已排除**：① 与 2026-10-10 那批首次使用修复无关——退回 HEAD 与带着改动各跑「download-manager + gguf-meta」这一对，分别是 2.3s / 2.5s 通过；② 不是用例本身慢（安静时段全量复跑 41 文件全绿）；③ 关掉文件并行（`--fileParallelism=false`）当次仍超时，但同环境重跑又正常，复现率与机器负载相关。
+- **当前假设**：该用例自建 `200 * 1024 * 1024` 的 Buffer 并逐字节填充，再落 200 MB 临时文件；并行 worker 各自分配时内存压力会把这段 CPU/IO 推到 20s 之外。本机 32 GiB，跑 e2e + dev 服务 + 子代理同时在场时最先遭殃。
+- **下一步**：若 CI 出现同一条红，按两件事处理——把该用例的 fixture 缩小（几百 KB 足以验 resume 语义，不需要 200 MB）或给它单独提高 `testTimeout`；在没量化出 CI 复现率之前先不动测试面（缩小 fixture 会削弱「大文件续传」这一原始覆盖意图）。
+- **不修代码的理由**：产品侧无已知故障，登记为观察项避免下次再花时间重查一遍。
+
 ## 已关闭
 
 ### T16 `bump-version.cjs` 用 UTC 日期写 CHANGELOG 版本段（2026-10-10 登记并关闭，v0.0.67 轮）

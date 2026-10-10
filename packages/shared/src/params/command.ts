@@ -166,3 +166,32 @@ export function formatCommandLines(cmd: string[]): string {
   }
   return lines.join('\n');
 }
+
+/**
+ * 命令构建的可辨识失败码（`SERVER_PREVIEW` 响应里的 `code` 字段）。
+ *
+ * 为什么要有码而不是直接把后端错误文本给界面：引擎路径没配 / 文件不存在这两态在**首次使用**
+ * 时必然出现，而 core 抛的是给人看日志的英文（`Server executable path is not configured`）。
+ * 把那句原文插进「命令预览生成失败：{0}」，用户看到的就是一句中文里塞一段英文标识符，
+ * 既不知道是哪儿没配、也没有下一步。本仓库的规矩是跨桥只发码 + 参数，文案由渲染端按 i18n 出
+ * （见 AGENTS「数据层不产文案」）。
+ */
+export const PREVIEW_ERROR_CODES = ['exe_not_configured', 'exe_missing'] as const;
+export type PreviewErrorCode = (typeof PREVIEW_ERROR_CODES)[number];
+
+/** 给异常附上失败码：core 抛出，主进程读出来填进 IPC 响应，异常文本本身只作诊断 */
+export function makeCommandError(code: PreviewErrorCode, message: string): Error {
+  const err = new Error(message) as Error & { code?: PreviewErrorCode };
+  err.code = code;
+  return err;
+}
+
+/**
+ * 从 IPC 响应（`{ok:false, code}`）或异常（`err.code`）里取回失败码。
+ * 码表之外一律 undefined——渲染层据此走通用文案，不照抄任何后端文本。
+ */
+export function readCommandErrorCode(src: unknown): PreviewErrorCode | undefined {
+  if (typeof src !== 'object' || src === null) return undefined;
+  const code = (src as { code?: unknown }).code;
+  return (PREVIEW_ERROR_CODES as readonly unknown[]).includes(code) ? (code as PreviewErrorCode) : undefined;
+}

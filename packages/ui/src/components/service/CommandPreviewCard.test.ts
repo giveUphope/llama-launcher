@@ -6,7 +6,8 @@
  *    经 150ms 防抖合并后才走 IPC（拖滑块/预设应用时 params 每帧都在变）；
  *  - 复制 = formatCommand 单行形态，且 = 内置 argv + 扩展参数词法切分后的**合并**（二者同源等价，
  *    复制出去的命令要能在 shell 里原样执行）；无命令或生成失败时按钮禁用；
- *  - 生成失败给 i18n 友好提示（parseFailed 占住预览框），不暴露底层错误文本，恢复后自动清掉；
+ *  - 生成失败按 **失败码** 出对应文案（未配引擎 / 引擎文件不存在 / 未知），文案落在预览框下方的
+ *    a-alert 里而不是文本框内；后端英文原文绝不插值进界面，未知那一态只进应用日志；恢复后自动清掉；
  *  - 扩展参数框是 settings.custom_args 的唯一编辑口，改动即触发持久化。
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -34,10 +35,17 @@ const serverMock = {
   previewCommand: vi.fn(async (): Promise<string[]> => []),
 };
 
+// 应用日志桩：只记「未知失败」那一态会写进去的原始诊断文本，用例据此断言界面没拿到它
+const appLogEntries: Array<{ kind: string; data: string }> = [];
+const appLogMock = {
+  push: vi.fn((e: { kind: string; data: string }) => { appLogEntries.push(e); }),
+};
+
 vi.mock('@/stores/i18n', () => ({ useI18nStore: () => i18nMock }));
 vi.mock('@/stores/settings', () => ({ useSettingsStore: () => settingsMock }));
 vi.mock('@/stores/params', () => ({ useParamsStore: () => paramsMock }));
 vi.mock('@/stores/server', () => ({ useServerStore: () => serverMock }));
+vi.mock('@/stores/appLog', () => ({ useAppLogStore: () => appLogMock }));
 
 // ---- window.api.clipboard 桩 ----
 const clipboardWrites: string[] = [];
@@ -80,6 +88,7 @@ function copyButton(): HTMLButtonElement {
 beforeEach(() => {
   vi.clearAllMocks();
   clipboardWrites.length = 0;
+  appLogEntries.length = 0;
   lang.value = 'zh';
   settingsMock.settings = { custom_args: '' };
   paramsMock.values = { model: 'D:/models/m.gguf' };
@@ -153,19 +162,53 @@ describe('CommandPreviewCard - 复制与扩展参数合并', () => {
 });
 
 describe('CommandPreviewCard - 生成失败与恢复', () => {
-  it('previewCommand 拒绝：预览框换成交好提示，复制禁用；恢复后自动清掉错误', async () => {
+  /** 失败态下方的 a-alert 文本（无失败时为空串） */
+  function alertText(): string {
+    return wrapper.find('.cmd-alert').exists() ? wrapper.find('.cmd-alert').text() : '';
+  }
+  /** 带码失败 = 主进程从 core 异常里取出的 code 原样下发（见 ipc/server.ts SERVER_PREVIEW） */
+  const codedError = (code: string, message: string) => Object.assign(new Error(message), { code });
+
+  it('未配置引擎（首次使用常态）：给「去哪儿配」的文案，预览框不塞后端原文', async () => {
+    serverMock.previewCommand.mockRejectedValueOnce(
+      codedError('exe_not_configured', 'Server executable path is not configured'),
+    );
+    await mountCard();
+    expect(alertText(), '提示必须指到配置入口').toBe('msg_no_exe_hint|zh|0');
+    expect(textareas()[0].element.value, '预览框留空，后端英文文本不进界面').toBe('');
+    expect(copyButton().disabled).toBe(true);
+    expect(appLogEntries, '已知码的界面文案已经说清楚，不该再往日志塞一句').toEqual([]);
+  });
+
+  it('引擎文件不存在：换成对应那一态的文案', async () => {
+    serverMock.previewCommand.mockRejectedValueOnce(
+      codedError('exe_missing', 'Server executable does not exist: D:/llama/llama-server.exe'),
+    );
+    await mountCard();
+    expect(alertText()).toBe('msg_exe_file_missing|zh|0');
+    expect(textareas()[0].element.value).toBe('');
+  });
+
+  it('无码的未知失败：只说一句失败并把原文送进应用日志', async () => {
     serverMock.previewCommand.mockRejectedValueOnce(new Error('IPC down'));
     await mountCard();
-    // 预览框显示 i18n 文案（含底层消息作插值参数），而不是把 argv 混进去
-    expect(textareas()[0].element.value).toBe('msg_cmd_preview_error|zh|1');
+    expect(alertText()).toBe('msg_cmd_preview_failed|zh|0');
+    expect(textareas()[0].element.value).toBe('');
     expect(copyButton().disabled).toBe(true);
+    expect(appLogEntries.map((e) => e.data)).toEqual(['[preview] IPC down\n']);
+  });
 
-    // 参数再变 → 重走防抖 → 成功 → 错误清掉、预览回来
+  it('参数再变 → 重走防抖 → 成功：告警自动清掉、预览回来（失败一次即定格的回归判据）', async () => {
+    serverMock.previewCommand.mockRejectedValueOnce(new Error('IPC down'));
+    await mountCard();
+    expect(alertText()).not.toBe('');
+
     paramsMock.values.ctx_size = 8192;
     await flushPromises();
     await new Promise((r) => setTimeout(r, DEBOUNCE));
     await flushPromises();
     await nextTick();
+    expect(alertText(), '恢复后告警必须消失').toBe('');
     expect(textareas()[0].element.value).toBe(PREVIEW);
     expect(copyButton().disabled).toBe(false);
   });

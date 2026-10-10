@@ -28,6 +28,14 @@ const pathInput = ref<string>(''); // 可编辑路径栏
 const isWin = /Win/i.test(navigator.platform);
 const sep = isWin ? '\\' : '/';
 
+/**
+ * 列表区可视高度（px）：既当外层盒子的高度（弹窗尺寸不随条目多少跳动），又当 `a-list`
+ * 开始滚动的阈值。两处必须是同一个数——分开写过就会出现「盒子 300 高、滚动阈值 260」
+ * 这类底部留白，所以只留这一个常量，外层用 style 绑定取它。
+ */
+const LIST_VIEWPORT_HEIGHT = 300;
+const listWrapStyle = { height: `${LIST_VIEWPORT_HEIGHT}px` };
+
 function joinPath(base: string, name: string): string {
   if (!base) return name;
   return base.endsWith(sep) ? base + name : base + sep + name;
@@ -174,10 +182,15 @@ function cancel() {
       />
     </div>
 
-    <div class="fb-list-wrap">
+    <div class="fb-list-wrap" :style="listWrapStyle">
       <!-- 加载态与空态都交回 a-list 的官方入口（:loading 内部就是 a-spin，#empty 是它的空态槽）：
-           原先外面自包一层 a-spin + 四个 v-if/v-else-if 分支，等于把库已有的两个 prop 重做一遍 -->
-      <a-list class="fb-list" size="small" :bordered="false" :loading="loading">
+           原先外面自包一层 a-spin + 四个 v-if/v-else-if 分支，等于把库已有的两个 prop 重做一遍。
+           滚动同样走官方入口 `max-height`——库把 maxHeight + overflow-y:auto 加在**内层 .arco-list**
+           （List.js 的 contentStyle），而 `.fb-list` 这个类落在外层 `.arco-list-wrapper` 上，
+           库对该 wrapper 写死 `overflow: hidden`（list/index.css:32）。此前在这里写
+           `height:100%; overflow:auto` 等于给一个被裁的容器加滚动条：条目超过 300px 直接看不见，
+           也没有可拖的滚动条（Electron 真机报「所有目录选择器滚不动」，mock 因 listDir 恒回空列表而从未暴露）。 -->
+      <a-list size="small" :bordered="false" :loading="loading" :max-height="LIST_VIEWPORT_HEIGHT">
         <a-list-item
           v-for="entry in (loading ? [] : visibleEntries)"
           :key="entry.name"
@@ -240,15 +253,7 @@ function cancel() {
   min-width: 0;
 }
 
-.fb-list-wrap {
-  height: 300px; // 限定列表区高度，内容滚动由 a-list 内置滚动条承载
-}
-
-.fb-list {
-  height: 100%;
-  overflow: auto;
-}
-
+// .fb-list-wrap 的高度由模板绑定 LIST_VIEWPORT_HEIGHT（同一处数字源），此处不再重复写 300px
 .fb-row {
   cursor: pointer;
   /* .fb-row 即 a-list-item 本身（.arco-list-item 是它的根元素），原 `&.is-selected :deep(.arco-list-item)`

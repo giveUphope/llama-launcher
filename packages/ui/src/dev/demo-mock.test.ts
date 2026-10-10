@@ -103,6 +103,9 @@ describe('demo-mock 首次使用空态开关', () => {
       getStatus: () => Promise<{ status: ServerStatus; pid: number | null; readyAt: number | null }>;
       start: (values: never, settings: never) => Promise<{ ok: boolean }>;
       stop: () => Promise<{ ok: boolean }>;
+      previewCommand: (values: PresetValues, settings: AppSettings) => Promise<{
+        ok: boolean; data?: string[]; code?: string;
+      }>;
       onOutputBatch: (cb: (entries: unknown[]) => void) => () => void;
     };
     system: {
@@ -110,6 +113,10 @@ describe('demo-mock 首次使用空态开关', () => {
       detectTrash: () => Promise<{ items: unknown[]; totalSize: number }>;
       benchLlamaStatus: (p: string) => Promise<unknown>;
       estimateModelFit: (paths: string[], dtype?: string) => Promise<Record<string, unknown>>;
+      listDir: (p: string) => Promise<{
+        path: string | null; parent: string | null; exists: boolean;
+        entries: Array<{ name: string; isDir: boolean; isFile: boolean }>;
+      }>;
       estimateVram: (p: string, dtype?: string, target?: string) => Promise<{
         devices: unknown[]; occupancy: unknown; recommendations: unknown[];
       }>;
@@ -155,6 +162,21 @@ describe('demo-mock 首次使用空态开关', () => {
     expect(await api.system.estimateModelFit([MODEL])).toEqual({});
   });
 
+  it('空态的命令预览与真实侧同样失败：回传码而不是硬造一条命令', async () => {
+    // 真实侧 server_exe 为空时 core 抛 exe_not_configured，界面出「去设置页配引擎」那句；
+    // mock 若恒回 ok:true，首次使用这一态在预览环境就永远看不见（用户报的正是这点）。
+    const api = await demoApiWithSearch('?fresh=1');
+    const s = await api.settings.load();
+    const res = await api.server.previewCommand({ model: '' } as never, s);
+    expect(res.ok).toBe(false);
+    expect(res.code).toBe('exe_not_configured');
+    // argv 仍由 shared 的发射实现产出：非空态这条路径必须照常成功
+    const filled = await demoApiWithSearch('');
+    const ok = await filled.server.previewCommand({ model: '' } as never, await filled.settings.load());
+    expect(ok.ok).toBe(true);
+    expect(ok.data).toBeTypeOf('object');
+  });
+
   it('不带 ?fresh 时预填照常（e2e 判据依赖演示模型列表与 running 状态卡）', async () => {
     const api = await demoApiWithSearch('');
     const models = await api.models.scan('');
@@ -192,5 +214,101 @@ describe('demo-mock 首次使用空态开关', () => {
     api.server.onOutputBatch((entries) => { for (const e of entries) rows.push(JSON.stringify(e)); });
     vi.advanceTimersByTime(6_300); // 300ms 预喂 + 5 行启动回放 + 两次 2.5s 周期
     expect(rows.length).toBeGreaterThan(5);
+  });
+});
+
+// 目录浏览演示树：`FileBrowserModal` 的列表数据源。弹窗本身的几何判据在
+// `e2e/web/file-browser.spec.ts`（真布局才能量到滚不滚得动），这里钉的是**数据形状**——
+// 归一化、排序、根/失效路径的 parent 规则，以及「列出来的目录点进去必须存在」这条自洽性。
+// 这些数据此前只被 e2e 间接消费：树写坏了要等到跑 e2e 才发现，而 e2e 的失败信息是「没滚起来」。
+describe('demo-mock 目录浏览树', () => {
+  type ListDir = (p: string) => Promise<{
+    path: string | null; parent: string | null; exists: boolean;
+    entries: Array<{ name: string; isDir: boolean; isFile: boolean }>;
+  }>;
+  type Scan = () => Promise<Array<{ name: string; path: string }>>;
+
+  async function fsApi(search = ''): Promise<{ listDir: ListDir; scan: Scan }> {
+    (globalThis as unknown as { window?: unknown }).window = { location: { search } };
+    vi.resetModules();
+    const { createDemoApi } = await import('./demo-mock');
+    const api = createDemoApi() as unknown as {
+      system: { listDir: ListDir };
+      models: { scan: Scan };
+    };
+    return { listDir: api.system.listDir, scan: api.models.scan };
+  }
+
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => {
+    vi.useRealTimers();
+    delete (globalThis as unknown as { window?: unknown }).window;
+    delete (globalThis as unknown as { __mockPreviewExeMissing?: boolean }).__mockPreviewExeMissing;
+  });
+
+  it('大小写、分隔符与收尾斜杠都归一（用户手输路径是常态）', async () => {
+    const { listDir } = await fsApi();
+    const a = await listDir('d:/models');
+    const b = await listDir('D:\\Models\\');
+    expect(a.exists).toBe(true);
+    expect(b.exists).toBe(true);
+    expect(a.path).toBe('D:\\Models');
+    expect(b.entries.map((e) => e.name)).toEqual(a.entries.map((e) => e.name));
+  });
+
+  it('目录在前、文件在后，同组按名称排序（与主进程 FS_LIST_DIR 同一形状）', async () => {
+    const { listDir } = await fsApi();
+    const { entries } = await listDir('C:\\Users\\wensm2');
+    const dirRun = entries.filter((e) => e.isDir).map((e) => e.name);
+    const fileRun = entries.filter((e) => !e.isDir).map((e) => e.name);
+    expect(entries.map((e) => e.isDir)).toEqual([...dirRun.map(() => true), ...fileRun.map(() => false)]);
+    expect(dirRun).toEqual([...dirRun].sort((x, y) => x.localeCompare(y, undefined, { sensitivity: 'base' })));
+  });
+
+  it('根没有 parent；失效路径 entries 为空但仍给出 parent 供向上导航', async () => {
+    const { listDir } = await fsApi();
+    expect((await listDir('C:\\')).parent).toBeNull();
+    const missing = await listDir('D:\\Models\\nope-not-here');
+    expect(missing.exists).toBe(false);
+    expect(missing.entries).toEqual([]);
+    expect(missing.parent).toBe('D:\\Models');
+  });
+
+  it('列表里出现的每个目录都点得进去（演示树不能自相矛盾）', async () => {
+    const { listDir, scan } = await fsApi();
+    const models = await scan();
+    // 模型页列出的每个模型，其所在目录必须在树里存在且含该文件
+    for (const m of models) {
+      const dir = m.path.split(/[\\/]/).slice(0, -1).join('\\');
+      const res = await listDir(dir);
+      expect(res.exists, `模型目录 ${dir} 应在演示树里`).toBe(true);
+      expect(res.entries.map((e) => e.name), `${dir} 应含 ${m.name}`).toContain(m.name);
+    }
+    const top = await listDir('D:\\Models');
+    for (const e of top.entries.filter((x) => x.isDir)) {
+      const sub = await listDir(`D:\\Models\\${e.name}`);
+      expect(sub.exists, `D:\\Models\\${e.name} 不该是死胡同`).toBe(true);
+    }
+  });
+
+  it('?fresh=1 也照常返回目录树（磁盘状态与应用是否首次使用无关）', async () => {
+    const { listDir } = await fsApi('?fresh=1');
+    expect((await listDir('D:\\Models')).exists).toBe(true);
+  });
+
+  it('预览的「文件不存在」态用专用钩子演示，不与 system.fileExists 共用一个开关', async () => {
+    const api = await fsApi();
+    const { createDemoApi } = await import('./demo-mock');
+    const full = createDemoApi() as unknown as {
+      settings: { load: () => Promise<AppSettings> };
+      server: { previewCommand: (v: never, s: AppSettings) => Promise<{ ok: boolean; code?: string }> };
+    };
+    const settings = await full.settings.load();
+    // 默认（不设钩子）：server_exe 有值 → 预览照常成功
+    expect((await full.server.previewCommand({} as never, settings)).ok).toBe(true);
+    // 钩子只影响预览这一条路径；它的反义默认留给 system.fileExists（徽章那一态）
+    (globalThis as unknown as { __mockPreviewExeMissing?: boolean }).__mockPreviewExeMissing = true;
+    expect((await full.server.previewCommand({} as never, settings)).code).toBe('exe_missing');
+    expect(typeof api.listDir).toBe('function');
   });
 });

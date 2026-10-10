@@ -148,6 +148,69 @@ const DEMO_TRASH_ITEMS: DemoTrashItem[] = [
   { relPath: 'llama-demo.gguf.part', absPath: 'D:/Models/llama-demo.gguf.part', root: 'models', kind: 'download_orphan', size: 1057418, cleaned: false },
 ];
 
+// ---- 目录浏览树（FileBrowserModal 的列表数据）----
+// 为什么要有：`listDir` 曾是个恒回 `entries: []` 且 `path: null` 的空桩——弹窗里永远只有空态，
+// 「条目满一屏之后滚不滚得动」这类判据在预览环境根本测不出来（归档里就记着这条不可达）。
+// 这里给一棵静态树，形状与主进程 FS_LIST_DIR 完全一致：目录在前、文件在后、各自按名称排序，
+// 已在根时 parent 为 null，路径失效时 entries 为空但 parent 仍可用于向上导航。
+// 磁盘上有没有某个目录不取决于应用是否首次使用，所以 `?fresh=1` 也照常返回这棵树。
+const DEMO_MODEL_DIRS = Array.from(new Set(DEMO_MODELS.map((m) => m.path.split(/[\\/]/).slice(-2, -1)[0])));
+/** 30 个量化档：只为把列表撑过 300px，让滚动条有东西可滚 */
+const DEMO_QUANT_FILES = ['F16', 'BF16', 'Q8_0', 'Q6_K', 'Q5_K_M', 'Q5_K_S', 'Q4_K_XL', 'Q4_K_M', 'Q4_K_S', 'Q4_0',
+  'Q4_1', 'Q3_K_XL', 'Q3_K_L', 'Q3_K_M', 'Q3_K_S', 'Q2_K_XL', 'Q2_K_L', 'Q2_K', 'IQ4_XS', 'IQ4_XL', 'IQ4_NL',
+  'IQ3_XXS', 'IQ3_S', 'IQ3_M', 'IQ2_XS', 'IQ2_XXS', 'IQ2_S', 'IQ1_S', 'IQ1_M', 'NLFP']
+  .map((q) => `Qwen3-32B-A3B-Instruct-${q}.gguf`);
+
+const DEMO_FS: Record<string, { dirs: string[]; files: string[] }> = {
+  'C:\\': { dirs: ['Program Files', 'Users', 'Windows'], files: [] },
+  'C:\\Users': { dirs: ['wensm2'], files: [] },
+  'C:\\Users\\wensm2': { dirs: ['.llama_launcher', 'Documents', 'Downloads'], files: ['notes.txt'] },
+  'C:\\Users\\wensm2\\.llama_launcher': { dirs: ['model-params', 'presets'], files: ['settings.json'] },
+  'C:\\Windows': { dirs: ['System32'], files: [] },
+  'D:\\': { dirs: ['Models'], files: [] },
+  'D:\\Models': { dirs: [...DEMO_MODEL_DIRS, 'llama-bins'], files: ['README.md'] },
+  'D:\\Models\\Qwen3-32B-A3B-Instruct': { dirs: [], files: DEMO_QUANT_FILES },
+  'D:\\Models\\llama-bins': { dirs: ['llama-b11524-bin-vulkan-x64'], files: ['llama-server.exe'] },
+  '/': { dirs: ['Applications', 'Users', 'Volumes'], files: [] },
+  '/Users': { dirs: ['demo'], files: [] },
+};
+
+// 每个模型目录都按 DEMO_MODELS 派生出自己的文件，引擎子目录也补一个节点：
+// 上面 'D:\\Models' 列出的目录若本身没有条目，点进去会报「路径不存在」——
+// 演示数据自己前后矛盾，用户会当成 mock 坏了而不是去查真机（本轮首次使用排查就是靠这棵树目测的）。
+for (const m of DEMO_MODELS) {
+  const parts = m.path.split(/[\\/]/);
+  const dirKey = parts.slice(0, -1).join('\\');
+  const node = DEMO_FS[dirKey] ?? (DEMO_FS[dirKey] = { dirs: [], files: [] });
+  const fileName = parts[parts.length - 1];
+  if (!node.files.includes(fileName)) node.files.push(fileName);
+}
+if (!DEMO_FS['D:\\Models\\llama-bins\\llama-b11524-bin-vulkan-x64']) {
+  DEMO_FS['D:\\Models\\llama-bins\\llama-b11524-bin-vulkan-x64'] = { dirs: [], files: ['llama-server.exe', 'llama-bench.exe'] };
+}
+
+/** 大小写不敏感 + 分隔符归一 + 收尾斜杠裁剪（Windows 语义）；索引键与查询键同一个函数 */
+function demoFsKey(p: string): string {
+  const s = p.toUpperCase().replace(/\//g, '\\');
+  if (s === '\\') return '\\'; // POSIX 根
+  const t = s.replace(/\\+$/, '');
+  return /^[A-Z]:$/.test(t) ? `${t}\\` : (t || '\\');
+}
+
+/** 父目录（两种分隔符都认）；已在根时返回 null，与主进程 dirname 后同判据一致 */
+function demoFsParent(display: string): string | null {
+  const s = display.replace(/[\\/]+$/, '');
+  const i = Math.max(s.lastIndexOf('\\'), s.lastIndexOf('/'));
+  if (i < 0) return null;
+  if (i === 0) return s.startsWith('/') ? '/' : null;
+  const p = s.slice(0, i);
+  return /^[A-Za-z]:$/.test(p) ? `${p}\\` : p;
+}
+
+const DEMO_FS_INDEX = new Map(
+  Object.entries(DEMO_FS).map(([display, node]) => [demoFsKey(display), { display, ...node }]),
+);
+
 // ---- 应用日志（日志页初始内容） ----
 const DEMO_APP_LOGS: AppLogEntry[] = [
   { kind: 'info', data: 'Service start requested (model: Qwen3-32B-A3B-Instruct-Q4_K_M.gguf)', ts: Date.now() - 62000 },
@@ -745,6 +808,28 @@ export function createDemoApi() {
       // 返回 argv 数组（单行/一行一参数两种展示形态由渲染层格式化），与真实 IPC 对齐。
       previewCommand: (values: PresetValues, settings: AppSettings) => {
         lastSeenValues = { ...values };
+        // 与 core `buildCommand` 同一道 exe 守卫、同一组失败码，否则「首次使用」那一态在预览
+        // 环境永远看不见：真实侧 server_exe 为空是常态，此前 mock 恒回 ok:true。
+        // argv 本身仍由 shared 的 buildArgv 产出（发射实现唯一，见 scripts/verify-params-sync ⑤）。
+        // 浏览器没有文件系统，「路径配了但文件不存在」这一态由**专用钩子**控制：
+        // globalThis.__mockPreviewExeMissing = true → 演示 exe_missing。
+        // 刻意不复用 system.fileExists 的 `__mockEngineFileExists`：那个钩子是「=== true 才算存在
+        // （默认视为不存在）」，与本守卫的默认正好相反；共用一个变量会让设置页徽章说「引擎文件不存在」
+        // 而服务页预览照样给出完整命令——两个界面又对不上，正是本轮要消除的那类不一致。
+        if (!settings.server_exe.trim()) {
+          return Promise.resolve({
+            ok: false,
+            error: 'Server executable path is not configured',
+            code: 'exe_not_configured',
+          } as never);
+        }
+        if ((globalThis as unknown as { __mockPreviewExeMissing?: boolean }).__mockPreviewExeMissing === true) {
+          return Promise.resolve({
+            ok: false,
+            error: `Server executable does not exist: ${settings.server_exe}`,
+            code: 'exe_missing',
+          } as never);
+        }
         return Promise.resolve({
           ok: true,
           data: buildArgv(argvFromPreviewOptions({ values, settings, includeCustomArgs: false })),
@@ -818,7 +903,22 @@ export function createDemoApi() {
           failures: [],
         } as never);
       },
-      listDir: () => Promise.resolve({ path: null, parent: null, entries: [], exists: true }),
+      listDir: (path: string) => {
+        const input = (path ?? '').trim();
+        const node = DEMO_FS_INDEX.get(demoFsKey(input || 'C:\\'));
+        if (!node) {
+          // 失效路径：entries 空但 parent 仍给出，用户可向上导航（主进程同一契约）
+          const display = input || 'C:\\';
+          return Promise.resolve({ path: display, parent: demoFsParent(display), entries: [], exists: false } as never);
+        }
+        const entries = [
+          ...node.dirs.map((name) => ({ name, isDir: true, isFile: false })),
+          ...node.files.map((name) => ({ name, isDir: false, isFile: true })),
+        ].sort((a, b) => (a.isDir !== b.isDir
+          ? (a.isDir ? -1 : 1)
+          : a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })));
+        return Promise.resolve({ path: node.display, parent: demoFsParent(node.display), entries, exists: true } as never);
+      },
       mkdir: () => Promise.resolve(true),
       /**
        * 显存/落位估算演示：返回 HW_SCENE_DATA[hwScene] 那份 core 快照（现场切换见本节开头的说明）。

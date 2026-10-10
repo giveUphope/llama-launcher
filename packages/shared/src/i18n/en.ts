@@ -421,7 +421,7 @@ export const en: Dict = {
   msg_cmd_preview_placeholder: 'Waiting for params and settings…',
   msg_trash_hint: 'Scan app-generated files in config & model dirs: temp files / broken JSON / download leftovers (.part, resume logs) / legacy stats / orphaned model params; active & paused downloads are protected',
   msg_detecting: 'Detecting…',
-  msg_cmd_preview_error: 'Failed to build command preview: {0}',
+  msg_cmd_preview_failed: 'Failed to build the command preview — see the app action log for details',
   lbl_cmd_builtin: 'Built-in command (auto-generated, read-only)',
   lbl_cmd_extra: 'Extra args (custom, persisted)',
   cmd_extra_placeholder: 'Custom flags appended to the command, one per line:\n--no-warmup\n--special',

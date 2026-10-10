@@ -15,18 +15,49 @@ import { useSettingsStore } from '@/stores/settings';
 import { useServerStore } from '@/stores/server';
 import { useParamsStore } from '@/stores/params';
 import { useI18nStore } from '@/stores/i18n';
-import { formatCommand, formatCommandLines, tokenizeArgs } from '@llama-launcher/shared';
+import { useAppLogStore } from '@/stores/appLog';
+import { formatCommand, formatCommandLines, readCommandErrorCode, tokenizeArgs } from '@llama-launcher/shared';
 
 const settings = useSettingsStore();
 const server = useServerStore();
 const params = useParamsStore();
 const i18n = useI18nStore();
+const appLog = useAppLogStore();
 
 // 内置参数命令（只读展示，随参数实时自动生成）。IPC 回传 **argv 数组**（发射唯一实现的
 // 产物），两种展示形态都从它格式化——预览框 = formatCommandLines（一行一个参数），
 // 复制 = formatCommand（单行，跨 shell 可直接执行）。
 const commandArgv = ref<string[]>([]);
-const parseFailed = ref('');
+/**
+ * 失败码 → 界面文案键。两个码复用设置页引擎行既有的那两句（同一件事在两个界面说法必须一致），
+ * unknown 走新键。
+ *
+ * 为什么把键放进映射表（字段名以 Key 结尾）而不是在 switch 里直接 return 一个键名串：
+ * `verify-i18n-usage.cjs` 只认两种引用形态——t 调用里的字面量、以及以 Key 结尾的字段所赋的字面量。
+ * 裸 return 属于盲区：将来删掉那个键，门禁和界面都不会红，只会让界面把原始键名渲染出来。
+ * （本段刻意不写这两种形态的示例串——门禁连注释里的示例都当真实引用去查键，一写就自造悬空引用。）
+ */
+const PREVIEW_HINT_KEYS = {
+  notConfiguredKey: 'msg_no_exe_hint',
+  missingKey: 'msg_exe_file_missing',
+  unknownKey: 'msg_cmd_preview_failed',
+} as const;
+
+/**
+ * 预览失败类型：`exe_not_configured` / `exe_missing` 是**首次使用的正常态**（还没配引擎目录），
+ * 必须翻成「哪儿没配 + 去哪儿配」；其余归 unknown，界面只说一句失败，后端英文原文进应用日志。
+ * 绝不把 `err.message` 插进界面文案——那是「中文句子里塞一句英文标识符」的成因。
+ */
+const previewFailure = ref<'exe_not_configured' | 'exe_missing' | 'unknown' | null>(null);
+
+const previewHintKey = computed(() => {
+  switch (previewFailure.value) {
+    case 'exe_not_configured': return PREVIEW_HINT_KEYS.notConfiguredKey;
+    case 'exe_missing': return PREVIEW_HINT_KEYS.missingKey;
+    case 'unknown': return PREVIEW_HINT_KEYS.unknownKey;
+    default: return '';
+  }
+});
 
 // 预览框：一行一个参数（业界惯例——llama.cpp 官方 README / Dockerfile / apt 均以
 // 行尾续行符拆参数提升可读性；本框是只读查看器，不加续行符，逐行即等价 argv）
@@ -35,16 +66,18 @@ const commandPreview = computed(() => formatCommandLines(commandArgv.value));
 async function updatePreview() {
   if (!settings.settings) {
     commandArgv.value = [];
-    parseFailed.value = '';
+    previewFailure.value = null;
     return;
   }
   try {
     commandArgv.value = await server.previewCommand(params.snapshot(), settings.settings);
-    parseFailed.value = '';
+    previewFailure.value = null;
   } catch (err: any) {
-    // 生成失败时给出友好提示（i18n），不直接暴露底层错误文本
     commandArgv.value = [];
-    parseFailed.value = i18n.t('msg_cmd_preview_error', [err?.message ?? String(err)]);
+    const code = readCommandErrorCode(err);
+    previewFailure.value = code ?? 'unknown';
+    // 只有说不清原因的那一态才留原文进日志：两个已知码的界面文案已经指到配置入口
+    if (!code) appLog.push({ kind: 'error', data: `[preview] ${err?.message ?? String(err)}\n`, ts: Date.now() });
   }
 }
 
@@ -76,7 +109,7 @@ const extraArgs = computed<string>({
 // 复制/展示用完整命令 = 内置 argv + 扩展参数词法切分后合并，**复制的是单行形态**
 // （跨 shell 可直接执行；预览框的一行一个参数是查看形态，二者同源等价）
 const fullCommand = computed(() => {
-  if (parseFailed.value || commandArgv.value.length === 0) return '';
+  if (previewFailure.value || commandArgv.value.length === 0) return '';
   const extra = tokenizeArgs(extraArgs.value.trim());
   return formatCommand([...commandArgv.value, ...extra]);
 });
@@ -106,11 +139,16 @@ onUnmounted(() => {
         <span class="cmd-section-label">{{ i18n.t('lbl_cmd_builtin') }}</span>
         <a-textarea
           class="cmd-preview"
-          :model-value="parseFailed || commandPreview"
+          :model-value="commandPreview"
           :placeholder="i18n.t('msg_cmd_preview_placeholder')"
           :auto-size="{ minRows: 4, maxRows: 20 }"
           :textarea-attrs="{ readonly: true, spellcheck: false }"
         />
+        <!-- 失败原因按需展示（a-alert 是全站告警范式）：只出「哪儿没配 / 去哪儿配」，
+             后端英文原文不进界面（unknown 那一态的原文落进应用日志） -->
+        <a-alert v-if="previewHintKey" class="cmd-alert" type="warning" show-icon>
+          {{ i18n.t(previewHintKey) }}
+        </a-alert>
       </div>
 
       <!-- 扩展参数：唯一可编辑区，持久化，追加到实际启动命令末尾 -->
@@ -203,4 +241,7 @@ onUnmounted(() => {
   font-size: var(--fs-sm);
   color: var(--fg-hint);
 }
-</style>
+
+// 预览失败告警（按需出现，全站 a-alert 范式）：不覆写 Arco 的字号与配色——
+// .sec-hint / .oom-alert / .parse-status 都没覆写，单独压低一处就是新的风格偏离（§7.5）。
+// `cmd-alert` 类名保留：它是单测定位这条告警的唯一钩子（CommandPreviewCard.test.ts 找 .cmd-alert）</style>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildCommand, previewCommand } from '../src/command-builder.js';
 // 发射规则与纯字符串工具已收敛到 shared（预览方与执行方共用同一实现）
-import { formatCommand, formatCommandLines, quoteArg, tokenizeArgs } from '@llama-launcher/shared';
+import { formatCommand, formatCommandLines, quoteArg, readCommandErrorCode, tokenizeArgs } from '@llama-launcher/shared';
 import type { AppSettings } from '@llama-launcher/shared';
 
 // 使用真实存在的可执行文件路径，以便通过 buildCommand 的存在性校验
@@ -145,11 +145,29 @@ describe('buildCommand', () => {
   });
 
   it('throws when executable path is empty', () => {
+    // 文本给人看日志，code 给界面（渲染层按码出 i18n 文案——首次使用时 server_exe 就是空的）
     expect(() => buildCommand({ exePath: '', modelPath: '', values: {} })).toThrow('Server executable path is not configured');
+    let code: string | undefined;
+    try {
+      buildCommand({ exePath: '', modelPath: '', values: {} });
+    } catch (err) {
+      code = readCommandErrorCode(err);
+    }
+    expect(code, '空路径必须是可辨识码，否则界面只能显示后端原文').toBe('exe_not_configured');
   });
 
   it('throws when executable does not exist', () => {
     expect(() => buildCommand({ exePath: '/non/existent/llama-server', modelPath: '', values: {} })).toThrow('Server executable does not exist');
+    let code: string | undefined;
+    try {
+      buildCommand({ exePath: '/non/existent/llama-server', modelPath: '', values: {} });
+    } catch (err) {
+      code = readCommandErrorCode(err);
+    }
+    expect(code).toBe('exe_missing');
+    // 码表之外的 code 一律读不出来（后端塞进 error 的文本不该影响界面选哪条文案）
+    expect(readCommandErrorCode(Object.assign(new Error('x'), { code: 'whatever' }))).toBeUndefined();
+    expect(readCommandErrorCode(new Error('x'))).toBeUndefined();
   });
 });
 

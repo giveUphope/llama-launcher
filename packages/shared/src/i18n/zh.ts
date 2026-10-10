@@ -421,7 +421,7 @@ export const zh = {
   msg_cmd_preview_placeholder: '等待参数与设置……',
   msg_trash_hint: '扫描配置目录与模型目录中应用生成的文件：临时文件/损坏 JSON/下载残留（.part、续传日志）/旧版统计/孤儿模型参数；活动与暂停中的下载任务自动保护',
   msg_detecting: '检测中…',
-  msg_cmd_preview_error: '命令预览生成失败：{0}',
+  msg_cmd_preview_failed: '命令预览生成失败，详情见应用操作日志',
   lbl_cmd_builtin: '内置参数命令（自动生成，只读）',
   lbl_cmd_extra: '扩展参数（自定义，持久化）',
   cmd_extra_placeholder: '追加到命令末尾的自定义参数，一行一个：\n--no-warmup\n--special',
