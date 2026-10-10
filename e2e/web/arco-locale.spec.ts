@@ -24,9 +24,17 @@ const url = (lang: Lang, hash = '') => `/?lang=${lang}${hash}`;
 
 /** 把模型表筛到空集，返回 Arco 空态节点的文字 */
 async function tableEmptyText(page: Page, lang: Lang) {
+  // T21：不在启动期深链 `/?lang=xx#/models`——若 last_tab 恢复晚于路由解析，会把路由
+  // replace 回 /dashboard，搜索框自然找不到（T17 成因②）。改为两步：先 goto 裸 URL 等
+  // .sidebar（挂载完成标志），**再**改 hash 进模型页——同文档导航由路由直接响应，last_tab
+  // 恢复只在启动期跑一次不会抢跑；也不耦合菜单文案（en 态是 "Models"，中文标签点击
+  // 会干等 30s 超时，负实验 12/12 红在点击上）。全程不用 waitForTimeout 猜时长。
+  await page.goto(url(lang));
+  await expect(page.locator('.sidebar'), `${lang} 态侧栏应可见（挂载完成标志）`).toBeVisible();
   await page.goto(url(lang, '#/models'));
-  // 用 .search-row input 而不是 main input：上一步停在参数页，路由切换是异步的，
-  // 泛选择器可能命中旧页面的输入框，fill 落空后判据就成了「空态没出现」的假失败
+  await expect(page).toHaveURL(/#\/models(\?|$)/);
+  // 用 .search-row input 而不是 main input：进页路由切换是异步的，泛选择器可能命中
+  // 尚未卸载的旧页面输入框，fill 落空后判据就成了「空态没出现」的假失败
   const input = page.locator('.search-row input');
   await expect(input, `${lang} 态模型页搜索框应存在`).toBeVisible();
   await input.fill('zzzz-no-such-model');
@@ -58,8 +66,14 @@ async function cjkInArcoNodes(page: Page) {
 for (const lang of ['zh', 'en'] as const) {
   test(`Arco 自带文案语言一致性（${lang} 态）`, async ({ page }) => {
     await page.goto(url(lang));
-    expect(await page.locator('html').getAttribute('lang'), `${lang} 态 html[lang] 应跟随界面语言`)
-      .toBe(lang === 'en' ? 'en' : 'zh-CN');
+    // T21：一次性 getAttribute + toBe 不重试，而应用启动是异步的——page.goto 在 load 事件
+    // 即返回，早于 i18n store 写 document.documentElement.lang 时读到静态 zh-CN
+    // （T17 成因①；负实验实证：退回一次性读取时 en 腿 --repeat-each=12 12/12 全红）。
+    // 改 web-first 自动重试断言，由 Playwright 轮询到值正确或超时。
+    await expect(page.locator('html'), `${lang} 态 html[lang] 应跟随界面语言`).toHaveAttribute(
+      'lang',
+      lang === 'en' ? 'en' : 'zh-CN',
+    );
 
     const emptyText = await tableEmptyText(page, lang);
     console.log(`[arco-i18n][${lang}] 表格空态：${emptyText}`);

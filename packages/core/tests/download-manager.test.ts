@@ -565,12 +565,18 @@ describe('DownloadManager', () => {
   });
 
   it('resumeDownload restarts a paused task to completion', async () => {
-    const totalSize = 200 * 1024 * 1024;
+    // T19/T22: 曾是 200 MB（Buffer.alloc + 逐字节填充循环 + 完成后落盘 200 MB 临时文件），
+    // 全量并行时 worker 内存叠加把这段 CPU/IO 推到 20s 超时之外（本机连红 3 次，复现率随负载）。
+    // 验续传语义 MB 级足够：缩到 4 MB 并去掉逐字节填充（断言只看状态迁移与续传起点，
+    // 不校验字节内容）；不动全局 testTimeout——超卖属资源问题，调大超时会让真超时缺陷隐身。
+    const totalSize = 4 * 1024 * 1024;
     const content = Buffer.alloc(totalSize);
-    for (let i = 0; i < totalSize; i++) content[i] = i % 256;
 
     // 控制是否 hang：暂停前 hang（阻塞下载），恢复后允许完成
     let hanging = true;
+    // 断点守卫：记录恢复后首个段请求的 Range 起点——若续传点丢失、任务从头重下
+    // （负实验：把 loadDownloadLog 临时改成恒 undefined），它落回 0，本用例转红（T22）
+    let resumeStart = -1;
     currentResolver = (options) => {
       const range = parseRange(options.headers['Range']);
       if (!range) return { statusCode: 500, headers: {} };
@@ -590,6 +596,7 @@ describe('DownloadManager', () => {
           hang: true,
         };
       }
+      if (resumeStart < 0) resumeStart = range.start;
       return {
         statusCode: 206,
         headers: { 'Content-Range': `bytes ${range.start}-${end}/${totalSize}`, 'Accept-Ranges': 'bytes' },
@@ -620,6 +627,9 @@ describe('DownloadManager', () => {
 
     const task = manager.getTask(id);
     expect(task?.status).toBe('completed');
+
+    // 断点语义：恢复后的首个段请求必须从暂停时的断点接着下，而不是从头重下（T22）
+    expect(resumeStart, 'resume 应从断点起点接着下（>0），而不是从头重下').toBeGreaterThan(0);
 
     manager.dispose();
   });
