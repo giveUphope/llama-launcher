@@ -220,6 +220,7 @@ export const zh = {
   msg_oom_detected: '检测到显存不足特征，可尝试以下调整：',
   act_oom_halve_ctx: '上下文减半',
   act_oom_kv_quant: 'KV 量化 q8_0（自动开 FA）',
+  act_goto_settings: '去应用设置',
   // 权重落位说明（服务页命令预览卡，§5.6 第 2 项）：数字来自 core 的占用估算，未估算的一律不写
   // 装不下时的减负建议（概览页状态卡常驻行，§5.6 第 3 项）：条目由 core recommendOffloadAdvice 下发
   msg_offload_advice: '权重超出空闲显存，可把闲置部分放内存：',

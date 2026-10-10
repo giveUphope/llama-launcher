@@ -220,6 +220,7 @@ export const en: Dict = {
   msg_oom_detected: 'Out-of-memory signature detected. Try:',
   act_oom_halve_ctx: 'Halve context',
   act_oom_kv_quant: 'KV q8_0 (enables FA)',
+  act_goto_settings: 'Go to Settings',
   // Weight-placement line (service page command card, §5.6 item 2).
   // Numbers come from core's occupancy estimate; nothing unmeasured is stated here.
   // Relief advice for "won't fit" (overview status card permanent row, §5.6 item 3);

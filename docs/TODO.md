@@ -10,16 +10,6 @@
 
 ## 开放项
 
-### T20 命令预览告警补「去应用设置」CTA（2026-10-10 登记，源自首次使用调研）
-
-- **做什么**：未配引擎 / 引擎文件不存在时的预览告警里加一只按钮，一键跳到应用设置页。现在只说「请在应用设置页配置…」——差最后一步动作（微软错误消息指南与 Ant Design 空状态规范都要求「问题 + 原因 + 一个可执行动作」）。
-- **怎么做**：
-  - `packages/shared/src/i18n/{zh,en}.ts` 加 `act_goto_settings`（短句、无插值槽）。
-  - `packages/ui/src/components/service/CommandPreviewCard.vue`：`.cmd-alert` 内加 `a-button size="mini"`（范式抄 `ServiceStatusCard.vue` 的 `oom-act`），点击 `useRouter().push('/settings')`。**只在 `exe_not_configured` / `exe_missing` 两态给按钮**——unknown 那一态说不清原因，给跳转是误导。
-  - 检查点：☐ 双字典键落地且 `verify-i18n-usage` 绿；☐ `CommandPreviewCard.test.ts` 加一条（两态出现按钮且点击触发 push、unknown 不出现）；☐ mock `?fresh=1#/service` 目测；☐ `pnpm lint` + `pnpm style:audit` 绿。
-- **怎么验**：`pnpm --filter @llama-launcher/ui test`、`node scripts/verify-i18n-usage.cjs`、mock 目测（vite 常驻 5173）。
-- **什么算合格**：未配引擎时预览区是「一句指路文案 + 一只按钮」，点按钮落在设置页；unknown 态无按钮；按钮必须是 `a-button`（无自定义控件、无新 token）。
-
 ### T23 目录选择器增加原生「浏览…」快捷入口（2026-10-10 登记，**待用户裁定是否做**）
 
 - **做什么**：应用内目录浏览弹窗的工具栏加一只「浏览…」按钮，调主进程的 `dialog.showOpenDialog({ properties: ['openDirectory'] })` 作系统原生快速通道；自绘列表保留，负责原生对话框做不到的「手输路径 / 不存在则创建」。

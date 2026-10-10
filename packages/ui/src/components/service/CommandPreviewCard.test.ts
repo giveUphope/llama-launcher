@@ -41,6 +41,10 @@ const appLogMock = {
   push: vi.fn((e: { kind: string; data: string }) => { appLogEntries.push(e); }),
 };
 
+// vue-router 桩：只记 push 目的地（T20 的「去应用设置」CTA 用它断言跳转）
+const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }));
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: routerPush }) }));
+
 vi.mock('@/stores/i18n', () => ({ useI18nStore: () => i18nMock }));
 vi.mock('@/stores/settings', () => ({ useSettingsStore: () => settingsMock }));
 vi.mock('@/stores/params', () => ({ useParamsStore: () => paramsMock }));
@@ -174,10 +178,39 @@ describe('CommandPreviewCard - 生成失败与恢复', () => {
       codedError('exe_not_configured', 'Server executable path is not configured'),
     );
     await mountCard();
-    expect(alertText(), '提示必须指到配置入口').toBe('msg_no_exe_hint|zh|0');
+    // T20 起告警内含「去应用设置」按钮，text() 是文案 + 按钮的拼接，文案断言改包含式
+    //（按钮出现与否由下方 T20 三条专守）
+    expect(alertText(), '提示必须指到配置入口').toContain('msg_no_exe_hint|zh|0');
     expect(textareas()[0].element.value, '预览框留空，后端英文文本不进界面').toBe('');
     expect(copyButton().disabled).toBe(true);
     expect(appLogEntries, '已知码的界面文案已经说清楚，不该再往日志塞一句').toEqual([]);
+  });
+
+  it('两个已知码的告警带「去应用设置」CTA，点击跳设置页（T20）', async () => {
+    serverMock.previewCommand.mockRejectedValueOnce(
+      codedError('exe_not_configured', 'Server executable path is not configured'),
+    );
+    await mountCard();
+    const act = wrapper.find('.cmd-alert .cmd-alert-act');
+    expect(act.exists(), '未配引擎态应有跳转按钮').toBe(true);
+    expect(act.text()).toBe('act_goto_settings|zh|0');
+    await act.trigger('click');
+    expect(routerPush, '点击必须落到应用设置页').toHaveBeenCalledWith('/settings');
+  });
+
+  it('引擎文件不存在态同样带「去应用设置」按钮（T20）', async () => {
+    serverMock.previewCommand.mockRejectedValueOnce(
+      codedError('exe_missing', 'Server executable does not exist: D:/llama/llama-server.exe'),
+    );
+    await mountCard();
+    expect(wrapper.find('.cmd-alert .cmd-alert-act').exists()).toBe(true);
+  });
+
+  it('unknown 态说不清原因：不给跳转按钮（给了是误导，T20）', async () => {
+    serverMock.previewCommand.mockRejectedValueOnce(new Error('IPC down'));
+    await mountCard();
+    expect(wrapper.find('.cmd-alert').exists()).toBe(true);
+    expect(wrapper.find('.cmd-alert .cmd-alert-act').exists()).toBe(false);
   });
 
   it('引擎文件不存在：换成对应那一态的文案', async () => {
@@ -185,7 +218,7 @@ describe('CommandPreviewCard - 生成失败与恢复', () => {
       codedError('exe_missing', 'Server executable does not exist: D:/llama/llama-server.exe'),
     );
     await mountCard();
-    expect(alertText()).toBe('msg_exe_file_missing|zh|0');
+    expect(alertText()).toContain('msg_exe_file_missing|zh|0');
     expect(textareas()[0].element.value).toBe('');
   });
 

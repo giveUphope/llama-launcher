@@ -9,6 +9,7 @@
 // 卡片下方的常驻状态行（参数不一致 / /props 回读 / env 覆写 / 基线漂移）已于 2026-10-07
 // 按用户决定迁出：现落在应用设置「常规」卡引擎目录行下方，作为可忽略提示（GeneralPanel）。
 import { computed, onUnmounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
 import { useSettingsStore } from '@/stores/settings';
@@ -23,6 +24,13 @@ const server = useServerStore();
 const params = useParamsStore();
 const i18n = useI18nStore();
 const appLog = useAppLogStore();
+const router = useRouter();
+
+// T20：预览告警的「去应用设置」CTA——首次使用（未配引擎 / 引擎文件不存在）差最后一步动作
+// （微软错误消息指南与 Ant Design 空状态规范：问题 + 原因 + 一个可执行动作）
+function gotoSettings() {
+  void router.push('/settings');
+}
 
 // 内置参数命令（只读展示，随参数实时自动生成）。IPC 回传 **argv 数组**（发射唯一实现的
 // 产物），两种展示形态都从它格式化——预览框 = formatCommandLines（一行一个参数），
@@ -148,6 +156,15 @@ onUnmounted(() => {
              后端英文原文不进界面（unknown 那一态的原文落进应用日志） -->
         <a-alert v-if="previewHintKey" class="cmd-alert" type="warning" show-icon>
           {{ i18n.t(previewHintKey) }}
+          <!-- T20：只在两个「说得清去哪儿配」的态给 CTA；unknown 说不清原因，给跳转是误导 -->
+          <a-button
+            v-if="previewFailure === 'exe_not_configured' || previewFailure === 'exe_missing'"
+            size="mini"
+            class="cmd-alert-act"
+            @click="gotoSettings"
+          >
+            {{ i18n.t('act_goto_settings') }}
+          </a-button>
         </a-alert>
       </div>
 
@@ -244,4 +261,12 @@ onUnmounted(() => {
 
 // 预览失败告警（按需出现，全站 a-alert 范式）：不覆写 Arco 的字号与配色——
 // .sec-hint / .oom-alert / .parse-status 都没覆写，单独压低一处就是新的风格偏离（§7.5）。
-// `cmd-alert` 类名保留：它是单测定位这条告警的唯一钩子（CommandPreviewCard.test.ts 找 .cmd-alert）</style>
+// `cmd-alert` 类名保留：它是单测定位这条告警的唯一钩子（CommandPreviewCard.test.ts 找 .cmd-alert）
+
+// 告警内 CTA（T20）：mini 按钮随文案内联在官方 alert 内容流里（范式同 ServiceStatusCard 的
+// .oom-act），不覆写 Arco 的字号与配色（§7.5）
+.cmd-alert .cmd-alert-act {
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+</style>
