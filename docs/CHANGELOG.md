@@ -16,6 +16,8 @@
 
 - **feat(ui): 命令预览告警补「去应用设置」CTA（TODO T20，首次使用调研项）**：出了什么事——未配引擎 / 引擎文件不存在时预览框下的告警只说「请在应用设置页配置…」，差最后一步动作（微软错误消息指南与 Ant Design 空状态规范：问题 + 原因 + 一个可执行动作）。**改法**：`CommandPreviewCard.vue` 的 `.cmd-alert` 内加 `a-button size="mini"`（范式抄 ServiceStatusCard 的 `.oom-act`：按钮随文案内联在官方 alert 内容流，`margin-left: 8px`、不覆写 Arco 字号配色），点击 `useRouter().push('/settings')`；**只在 `exe_not_configured` / `exe_missing` 两态给按钮**——unknown 说不清原因，给跳转是误导；新 i18n 键 `act_goto_settings`（中英 399→400 键，短句无插值槽）。**判据**：`CommandPreviewCard.test.ts` 新增三条——两个已知码的告警带按钮且点击触发 `push('/settings')`（vue-router 桩 `vi.hoisted` 记 push）、`exe_missing` 态带按钮、unknown 态无按钮；预存两条文案断言随告警内多出按钮由严格相等改包含式（按钮出现与否由新三条专守）。**验证**：ui 22 文件 / 230→233 用例全绿；`pnpm lint` 七道门禁全绿（i18n 400 键一致）；`pnpm style:audit` 24 条全绿；mock `?fresh=1#/service` 目测——告警与按钮同行排布、无控制台错误。
 
+- **docs(todo): T23 调研补充落条目——「暂不做原生『浏览…』入口不产生功能问题」（用户问询驱动）**：逐条核对 `FileBrowserModal.vue` + `FS_LIST_DIR` 实况后的结论：功能语义完整（滚动已修 + e2e 锁定、遍历/手输跳转/盘符切换/不存在即创建/扩展名过滤俱全），损失仅在效率与习惯层；识别一个真实潜在风险——列表无虚拟化、数万条目目录会卡（这是 T23 唯一涉及体验上限的理由）；条目写明三条触发条件（用户回报找目录麻烦 / 目录规模卡顿 / 出现依赖系统习惯的新场景），满足其一再立项；顺带登记盘符根 Up 按钮原地空转的小瑕疵。
+
 ## \[0.0.68] - 2026-10-10
 
 
