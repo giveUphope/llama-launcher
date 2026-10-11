@@ -161,6 +161,14 @@ const DEMO_QUANT_FILES = ['F16', 'BF16', 'Q8_0', 'Q6_K', 'Q5_K_M', 'Q5_K_S', 'Q4
   'IQ3_XXS', 'IQ3_S', 'IQ3_M', 'IQ2_XS', 'IQ2_XXS', 'IQ2_S', 'IQ1_S', 'IQ1_M', 'NLFP']
   .map((q) => `Qwen3-32B-A3B-Instruct-${q}.gguf`);
 
+/**
+ * 24 个子目录：把演示家目录的列表也撑过 300px 可视高。
+ * 为什么不只让 D:\Models 那一条支路拥挤——滚动条要在弹窗的**默认起点**就能测：
+ * 首次使用空态下模型目录是空的，弹窗开在 C:\，一路点到 Qwen3 目录才有长列表，
+ * 目测成本比判据本身还高（2026-10-11 用户要求）。
+ */
+const DEMO_HOME_DIRS = Array.from({ length: 24 }, (_, i) => `demo-folder-${String(i + 1).padStart(2, '0')}`);
+
 // 演示树里不出现任何真实机器的目录名或用户名（2026-10-11 用户裁定）：这里曾写着
 // Program Files / Windows / System32 与一个真实用户名，目测时会误以为弹窗真的在浏览本机——
 // 而 mock 跑在浏览器里根本读不到磁盘，那份「像真的」只会污染判断。`DEMO-HOME` 这类名字
@@ -168,7 +176,7 @@ const DEMO_QUANT_FILES = ['F16', 'BF16', 'Q8_0', 'Q6_K', 'Q5_K_M', 'Q5_K_S', 'Q4
 // 全仓测试夹具同一套演示约定，本身不含任何本机信息）。
 const DEMO_FS: Record<string, { dirs: string[]; files: string[] }> = {
   'C:\\': { dirs: ['DEMO-HOME'], files: [] },
-  'C:\\DEMO-HOME': { dirs: ['.llama_launcher', 'Documents'], files: ['notes.txt'] },
+  'C:\\DEMO-HOME': { dirs: ['.llama_launcher', 'Documents', ...DEMO_HOME_DIRS], files: ['notes.txt'] },
   'C:\\DEMO-HOME\\.llama_launcher': { dirs: ['model-params'], files: ['settings.json'] },
   'C:\\DEMO-HOME\\.llama_launcher\\model-params': { dirs: [], files: ['qwen3-32b-ab12cd34.json'] },
   'C:\\DEMO-HOME\\Documents': { dirs: [], files: [] },
@@ -177,11 +185,17 @@ const DEMO_FS: Record<string, { dirs: string[]; files: string[] }> = {
   'D:\\Models\\Qwen3-32B-A3B-Instruct': { dirs: [], files: DEMO_QUANT_FILES },
   'D:\\Models\\llama-bins': { dirs: ['llama-b11524-bin-vulkan-x64'], files: ['llama-server.exe'] },
   '/': { dirs: ['DEMO-HOME'], files: [] },
-  '/DEMO-HOME': { dirs: ['.llama_launcher', 'Documents'], files: ['notes.txt'] },
+  '/DEMO-HOME': { dirs: ['.llama_launcher', 'Documents', ...DEMO_HOME_DIRS], files: ['notes.txt'] },
   '/DEMO-HOME/.llama_launcher': { dirs: ['model-params'], files: ['settings.json'] },
   '/DEMO-HOME/.llama_launcher/model-params': { dirs: [], files: ['qwen3-32b-ab12cd34.json'] },
   '/DEMO-HOME/Documents': { dirs: [], files: [] },
 };
+
+// 演示家目录列出的那 24 个子目录都得有自己的节点（否则点进去报「路径不存在」——
+// demo-mock.test.ts 的「每个目录都点得进去」守卫走三棵根全树，漏一个就红）
+for (const [home, sep] of [['C:\\DEMO-HOME', '\\'], ['/DEMO-HOME', '/']] as const) {
+  for (const d of DEMO_HOME_DIRS) DEMO_FS[`${home}${sep}${d}`] = { dirs: [], files: ['readme.txt'] };
+}
 
 // 每个模型目录都按 DEMO_MODELS 派生出自己的文件，引擎子目录也补一个节点：
 // 上面 'D:\\Models' 列出的目录若本身没有条目，点进去会报「路径不存在」——

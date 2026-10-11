@@ -30,6 +30,8 @@
 
 - **fix(ui): mock 的目录树不再照抄真实机器（用户批注）**：出了什么事——预览环境的目录浏览弹窗一开就是 `C:\` 下的 `Program Files / Users / Windows`，点进去是 `C:\Users\<一个真实用户名>\.llama_launcher`，看起来像应用真在枚举本机磁盘；而 mock 跑在浏览器里根本读不到文件系统中任何一处，这份「像真的」让目测变成误判（分不清看到的是演示数据还是真实目录）。**改法**：`packages/ui/src/dev/demo-mock.ts` 的 `DEMO_FS` 把系统目录那几条整体换成真机上不存在的 `DEMO-HOME`（POSIX 侧 `/` 同步镜像一棵），目录清理卡的 `C:/Users/demo/...` 一并改指同一棵合成家目录，全仓演示数据从此只有一个合成根；顺带删掉树里残留的 `presets` 节点（双轨预设机制早已移除，树里还挂着它属于自相矛盾）。**有意保留 `D:\Models` 作模型/引擎脊柱**：它是设置页「模型目录」显示的那份演示约定，与 30 余处单测夹具同源，且本身不含任何本机信息。**验证**：`pnpm lint` / `pnpm test`（core 41 文件 566 + ui 22 文件 233）/ `pnpm e2e:web` 89 条退出码全 0；mock 实测 `C:\` 只列 `DEMO-HOME`，逐层点进 `.llama_launcher` 得 `model-params` 与 `settings.json`，路径栏随行更新、目录在前文件在后不变。**守卫用例同步扩面**（测试面审查子代理抓到）：`demo-mock.test.ts` 的「列表里每个目录都点得进去」原本只走 `D:\Models` 一层——POSIX 那棵少镜像一层同样没人报，正是这类漏网；改成三棵根（`C:\`、`D:\`、`/`）全部 breadth-first 走完，列出的每个目录都必须有节点、每棵至少 3 层可走。
 
+- **fix(ui): mock 的滚动样本搬到弹窗默认起点（用户要求）**：出了什么事——演示树里只有 `D:\Models\Qwen3-32B-A3B-Instruct` 一条支路够长（30 个量化文件），而首次使用空态下模型目录是空的、弹窗开在 `C:\`，想目测滚动条得先一路点进三层，成本比判据本身还高。**改法**：`packages/ui/src/dev/demo-mock.ts` 给合成家目录 `DEMO-HOME` 增列 24 个 `demo-folder-NN` 子目录（POSIX 侧同棵一并镜像），并按上一轮定的「列出的每个目录都得有节点」规则同时生成它们的节点——否则点进去报「路径不存在」，而那条守卫会直接红。**验证**：mock 实测 `C:\DEMO-HOME` 列 27 行、内容高 1152 > 可视 300，滚到底末行 `notes.txt` 进入可视区；`pnpm test`（core 41 文件 566 + ui 22 文件 233）/ `pnpm e2e:web` 89 条 / `pnpm lint` 退出码全 0。注意「真滚轮推得动 `scrollTop`」仍只由 `e2e/web/file-browser.spec.ts` 用 Playwright 的真实滚轮事件覆盖——脚本里 `dispatchEvent(new WheelEvent(...))` 不产生滚动（实测 scrollTop 恒 0），别拿它当回归证据。
+
 ## \[0.0.68] - 2026-10-10
 
 
