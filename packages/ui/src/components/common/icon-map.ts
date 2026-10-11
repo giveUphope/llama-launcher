@@ -6,7 +6,6 @@
 import IconBook from '@arco-design/web-vue/es/icon/icon-book/index.js';
 import IconCheck from '@arco-design/web-vue/es/icon/icon-check/index.js';
 import IconCheckCircle from '@arco-design/web-vue/es/icon/icon-check-circle/index.js';
-import IconCheckSquare from '@arco-design/web-vue/es/icon/icon-check-square/index.js';
 import IconClose from '@arco-design/web-vue/es/icon/icon-close/index.js';
 import IconCloseCircle from '@arco-design/web-vue/es/icon/icon-close-circle/index.js';
 import IconCloud from '@arco-design/web-vue/es/icon/icon-cloud/index.js';
@@ -52,7 +51,7 @@ export const icons = {
   dashboard: IconDashboard, models: IconRobot, params: IconTool, console: IconCodeBlock, settings: IconSettings, presets: IconBook,
   server: IconCloud, download: IconDownload, play: IconPlayArrow, stop: IconStop, refresh: IconRefresh,
   chevron_right: IconRight, chevron_left: IconLeft, chevron_up: IconUp, chevron_down: IconDown, folder: IconFolder,
-  file: IconFile, file_check: IconCheckSquare, copy: IconCopy, trash: IconDelete, search: IconSearch,
+  file: IconFile, copy: IconCopy, trash: IconDelete, search: IconSearch,
   external: IconExport, close: IconClose, check: IconCheck, globe: IconPublic, theme: IconSunFill, link: IconLink,
   check_circle: IconCheckCircle, alert: IconExclamationCircle, info: IconInfoCircle, error: IconCloseCircle,
   star: IconStar, disk: IconStorage, bench: IconExperiment,

@@ -10,13 +10,6 @@
 
 ## 开放项
 
-### T27 引擎检测状态机的 `detecting` / `ok` / `not_found` 三态无断言覆盖（2026-10-11 T26 测试面审查时发现）
-
-- **现状**：`packages/ui/src/components/settings/GeneralPanel.vue` 的 `exeStatus` 有五个取值（`idle` / `detecting` / `ok` / `missing` / `not_found`），现在只有两态有判据——`idle`（T26 新加的 e2e：行内不出胶囊）与 `missing`（胶囊文本「引擎文件缺失」）。`ok`（绿色「引擎就绪」+ ToolTip 显示检测到的 exe 全路径）与 `not_found`（「未找到」）没有任何断言，`detecting`（400ms 去抖后的转圈态）同样。根因两条：① `settings/` 目录下零组件测试（`GeneralPanel` 没有 `.test.ts`，而同级有 `ParamsPage.test.ts` 这类先例）；② mock 的 `findLlamaExe` 恒回路径、`fileExists` 默认 false，默认态走不出 `ok` 分支（`demo-mock.ts` 有 `__mockEngineFileExists` 钩子可翻，但没人用它下判据）。
-- **下一步**：二选一即可，别两边都建第二套真相。① 组件测试路线：仿 `packages/ui/src/components/params/ParamsPage.test.ts` 给 `GeneralPanel` 建一份，注入 `system.findLlamaExe` 返回路径 + `system.fileExists` 返回 true → 断言 `ok` 态胶囊文案与 ToolTip 里的完整路径；返回空串 → 断言 `not_found`。② e2e 路线：在 `e2e/web/settings-path-rows.spec.ts` 里用 `__mockEngineFileExists` 钩子翻成 true，补一条「胶囊转绿且 ToolTip 带 exe 路径」判据。
-- **怎么验**：`pnpm test` 或 `pnpm e2e:web` 里能看到点名 `ok` / `not_found` 的断言；把 `exeBadge` 的 `ok` 分支文案或颜色改坏，判据必须转红。
-- **什么算合格**：五态里至少 `idle` / `ok` / `not_found` / `missing` 四态各有断言；`detecting` 若因 400ms 去抖难以稳定可不钉，但要在测试注释里写明为什么不钉（不留「看起来覆盖了」的假象）。
-
 ### T23 目录选择器的原生「浏览…」入口——已实施，2026-10-11 按用户裁定**整条回退**，本条回到「待触发」状态
 
 - **做什么**：把 `fs:pickDir` 通道与目录弹窗工具栏的「浏览…」按钮整条撤掉，通道数回到 56、i18n 键回到 400；自绘目录弹窗既有能力一律保留（手输路径回车直达 / 不存在则创建 / 逐级向上 / file 与 save 模式的扩展名过滤）。

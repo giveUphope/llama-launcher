@@ -2,7 +2,6 @@
 // 阶段三：设置页「常规」分组 —— 模型目录、llama 后端（引擎目录）+ 引擎检测、关闭窗口行为。
 // 设计稿 §14.10 / 补充指南 §14.10：模型目录与引擎目录两行控件对等，各有「更改」+「打开目录」；
 // 原独立「llama.cpp」标签（LlamaPanel）已整合为本卡片内的引擎目录行。
-import type { IconName } from '@/components/common/icon-map';
 import { computed, ref, watch, nextTick, getCurrentInstance, onActivated, onDeactivated, onUnmounted } from 'vue';
 import Card from '@/components/common/Card.vue';
 import Icon from '@/components/common/Icon.vue';
@@ -41,38 +40,26 @@ const llamaDir = computed<string>({
   set: (v) => { if (settings.settings) { settings.settings.llama_dir = v; void settings.save(); } },
 });
 
-type ExeStatus = 'idle' | 'detecting' | 'ok' | 'missing' | 'not_found';
-const exeStatus = ref<ExeStatus>('idle');
-const detectedExePath = ref('');
-
+// 引擎检测只负责「把找到的 exe 路径写进 settings.server_exe」——摘要与启动链路都读这个字段。
+// 行内不再挂状态胶囊（2026-10-11 用户二次批注）：顶部摘要那一格已经逐字说过同样的话，
+// 一枚「引擎文件缺失」出现在同一屏两次就是第二套出口。检测中/就绪/缺失/未找到四态
+// 全部由 SettingsPage 的 status-summary 承载。
 async function detectExe() {
   const dir = llamaDir.value;
   if (!dir) {
-    exeStatus.value = 'idle';
-    detectedExePath.value = '';
     if (settings.settings && settings.settings.server_exe) {
       settings.settings.server_exe = '';
       void settings.save();
     }
     return;
   }
-  exeStatus.value = 'detecting';
   let path = '';
   try {
     const result = await window.api.system.findLlamaExe(dir);
     path = typeof result === 'string' ? result : '';
-    if (path) {
-      let exists = false;
-      try { exists = !!(await window.api.system.fileExists(path)); } catch { exists = false; }
-      exeStatus.value = exists ? 'ok' : 'missing';
-    } else {
-      exeStatus.value = 'not_found';
-    }
   } catch {
     path = '';
-    exeStatus.value = 'not_found';
   }
-  detectedExePath.value = path;
   if (settings.settings && path !== settings.settings.server_exe) {
     settings.settings.server_exe = path;
     void settings.save();
@@ -84,30 +71,6 @@ watch(llamaDir, () => {
   if (detectTimer) clearTimeout(detectTimer);
   detectTimer = setTimeout(() => { detectTimer = null; void detectExe(); }, 400);
 }, { immediate: true });
-
-const exeBadge = computed<{ icon: IconName; color: 'gray' | 'arcoblue' | 'green' | 'red'; tip: string; label: string; loading?: boolean } | null>(() => {
-  switch (exeStatus.value) {
-    case 'idle':
-      // 没配引擎目录时不出胶囊：输入框本身就是空的，再说一遍「未配置」是同一屏说两遍
-      // （2026-10-11 用户批注）。定宽槽 .exe-status-slot 保留，检测结论落地时行宽不跳。
-      return null;
-    case 'detecting':
-      // loading 态由 a-tag 的官方 loading prop 渲染转圈，图标留空
-      return { icon: 'refresh', color: 'arcoblue', tip: i18n.t('msg_exe_detecting'), label: i18n.t('lbl_exe_state_detecting'), loading: true };
-    case 'ok':
-      return {
-        icon: 'file_check', color: 'green',
-        tip: detectedExePath.value
-          ? i18n.t('lbl_exe_detected_path', [detectedExePath.value])
-          : i18n.t('lbl_exe_state_ready'),
-        label: i18n.t('lbl_exe_state_ready'),
-      };
-    case 'missing':
-      return { icon: 'alert', color: 'red', tip: i18n.t('msg_exe_file_missing'), label: i18n.t('lbl_exe_state_missing') };
-    default:
-      return { icon: 'alert', color: 'red', tip: i18n.t('msg_exe_not_found'), label: i18n.t('lbl_exe_state_not_found') };
-  }
-});
 
 async function onBrowseExeDir() {
   const dir = await pickDir({ title: i18n.t('msg_select_exe_dir'), defaultPath: llamaDir.value || undefined });
@@ -372,19 +335,6 @@ onActivated(() => {
               {{ i18n.t('btn_open_dir') }}
             </a-button>
           </ToolTip>
-            <!-- 引擎状态胶囊：a-tag 官方预设色（2026-10-08 按用户要求对齐 Arco 官方最佳实践，
-                 自绘 chip 是官方 Tag 的平行实现）。常驻定宽槽保留：槽宽按双语最宽状态文案预留，
-                 检测结论落地时行内固有宽度不变；nowrap 防文案折行 -->
-            <span class="exe-status-slot">
-              <ToolTip v-if="exeBadge" :text="exeBadge.tip">
-                <a-tag class="exe-tag" :color="exeBadge.color" size="small" nowrap :loading="exeBadge.loading === true">
-                  <template #icon>
-                    <Icon v-if="!exeBadge.loading" :name="exeBadge.icon" :size="12" />
-                  </template>
-                  {{ exeBadge.label }}
-                </a-tag>
-              </ToolTip>
-            </span>
 
           <!-- 引擎提示（2026-10-07 自服务页命令预览卡迁入）：参数不一致 / /props 回读 /
                env 覆写 / 基线漂移，有事才出声。形态三轮收敛（2026-10-08 用户再次要求对齐
@@ -431,7 +381,7 @@ onActivated(() => {
 
 // 路径输入：Arco a-input（small=28px 与原自绘同高），仅保留布局尺寸与 mono 字体覆盖
 // （input 原生不继承 font，mono 需打在内层 .arco-input 上，§7.5.1 路径一律 --font-mono）。
-// 固定 200px 不参与 grow（#107 宽度对齐）：模型/引擎两行的行尾内容不同（按钮数/徽章/提示），
+// 固定 200px 不参与 grow（#107 宽度对齐）：两行行尾内容仍不等（引擎行尾部另有可忽略的引擎提示），
 // grow 会让两行输入框宽度随行尾内容漂移（实测 214 vs 200），固定基准宽才恒等对齐
 .path-input {
   flex: 0 0 200px;
@@ -440,17 +390,6 @@ onActivated(() => {
     font-size: var(--fs-md);
   }
 }
-
-// 胶囊定宽槽：156px 覆盖英文最宽态「Engine file missing」+ 图标 + 内距（中文态留白但几何恒定）。
-// 槽内是 a-tag 官方预设色（2026-10-08 对齐官方组件，自绘 chip 的配色/圆角/字重全部删除），
-// Tag 自带尺寸与配色，此处不写任何 Arco 节点样式（风格审计第 20 条零登记面）
-.exe-status-slot {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 156px;
-  min-width: 0;
-}
-/* 检测中图标走 a-tag 的官方 loading prop（Arco IconLoading 自带旋转动画） */
 
 .card-help-icon {
   display: inline-flex;

@@ -912,7 +912,14 @@ export function createDemoApi() {
       fileExists: () => Promise.resolve(
         (globalThis as unknown as { __mockEngineFileExists?: boolean }).__mockEngineFileExists === true,
       ),
-      findLlamaExe: () => Promise.resolve(FRESH ? '' : `${ENGINE_DIR}/llama-server.exe`),
+      // 引擎可执行文件探测：空态恒找不到；默认回演示引擎路径（配合上面 fileExists 默认 false，
+      // 摘要读出「引擎文件缺失」）。`globalThis.__mockEngineNotFound = true` 翻成「目录填了但
+      // 里面没有 llama-server」——行内状态胶囊撤除后（2026-10-11 用户批注），摘要引擎格的
+      // 「引擎未找到」分支是这一情形的唯一出口，得有钩子才下得了判据。
+      findLlamaExe: () => Promise.resolve(
+        FRESH || (globalThis as unknown as { __mockEngineNotFound?: boolean }).__mockEngineNotFound
+          ? '' : `${ENGINE_DIR}/llama-server.exe`,
+      ),
       // 清理配置目录演示桩（有状态，与真实侧同一契约）：检测返回「尚未清理」的条目，
       // 清理把所选条目从演示集中移除——再点检测只看剩余，不会对同一批幻影文件反复
       // 「释放 1.0 MB」（此前无状态桩每次都全量返回，清理结果看起来像大小算错）。

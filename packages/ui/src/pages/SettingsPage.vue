@@ -77,6 +77,11 @@ async function checkModelsDir() {
 // 配置变化时实时重新检测（引擎目录/模型目录被修改、保存后立即刷新指示）
 watch(serverExe, () => { void checkExe(); }, { immediate: true });
 watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
+
+// 「没配好」有两种，得分开说：目录压根没填（未配置）与填了目录但里面没有 llama-server（未找到）。
+// 引擎行的状态胶囊撤除后（2026-10-11 用户批注：同一屏两枚逐字相同的指示器是第二套出口），
+// 摘要这一格是唯一出口，含糊成一句「未配置」就会把「填错了目录」误导成「还没动手」。
+const exeNotFound = computed(() => exeState.value === 'idle' && !!llamaDir.value.trim());
 </script>
 
 <template>
@@ -110,7 +115,7 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
       </div>
       <div class="summary-item">
         <Icon
-          :name="exeState === 'checking' ? 'loading' : exeState === 'ok' ? 'check_circle' : exeState === 'missing' ? 'alert' : 'info'"
+          :name="exeState === 'checking' ? 'loading' : exeState === 'ok' ? 'check_circle' : exeState === 'missing' || exeNotFound ? 'alert' : 'info'"
           :size="14"
         />
         <ToolTip :text="serverExe || llamaDir" :disabled="!serverExe && !llamaDir">
@@ -118,6 +123,7 @@ watch(modelsDir, () => { void checkModelsDir(); }, { immediate: true });
             <template v-if="exeState === 'checking'">{{ i18n.t('msg_detecting') }}</template>
             <template v-else-if="exeState === 'ok'">{{ i18n.t('lbl_exe_state_ready') }}</template>
             <template v-else-if="exeState === 'missing'">{{ i18n.t('lbl_exe_state_missing') }}</template>
+            <template v-else-if="exeNotFound">{{ i18n.t('lbl_exe_state_not_found') }}</template>
             <template v-else>{{ i18n.t('lbl_exe_state_idle') }}</template>
           </span>
         </ToolTip>
