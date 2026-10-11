@@ -228,15 +228,15 @@ describe('demo-mock 目录浏览树', () => {
   }>;
   type Scan = () => Promise<Array<{ name: string; path: string }>>;
 
-  async function fsApi(search = ''): Promise<{ listDir: ListDir; pickDir: () => Promise<string | null>; scan: Scan }> {
+  async function fsApi(search = ''): Promise<{ listDir: ListDir; scan: Scan }> {
     (globalThis as unknown as { window?: unknown }).window = { location: { search } };
     vi.resetModules();
     const { createDemoApi } = await import('./demo-mock');
     const api = createDemoApi() as unknown as {
-      system: { listDir: ListDir; pickDir: () => Promise<string | null> };
+      system: { listDir: ListDir };
       models: { scan: Scan };
     };
-    return { listDir: api.system.listDir, pickDir: api.system.pickDir, scan: api.models.scan };
+    return { listDir: api.system.listDir, scan: api.models.scan };
   }
 
   beforeEach(() => { vi.useFakeTimers(); });
@@ -294,13 +294,6 @@ describe('demo-mock 目录浏览树', () => {
   it('?fresh=1 也照常返回目录树（磁盘状态与应用是否首次使用无关）', async () => {
     const { listDir } = await fsApi('?fresh=1');
     expect((await listDir('D:\\Models')).exists).toBe(true);
-  });
-
-  it('原生「浏览…」桩返回演示模型根，且该路径在树里可解析（T23 预览链路）', async () => {
-    const { listDir, pickDir } = await fsApi();
-    const picked = await pickDir();
-    expect(picked).toBe('D:\\Models');
-    expect((await listDir(picked!)).exists).toBe(true);
   });
 
   it('预览的「文件不存在」态用专用钩子演示，不与 system.fileExists 共用一个开关', async () => {

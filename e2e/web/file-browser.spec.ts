@@ -65,21 +65,6 @@ async function measureList(page: Page) {
 
 for (const lang of ['zh', 'en'] as const) {
   test.describe(`目录选择器滚动（${lang === 'zh' ? '中文' : '英文'}态）`, () => {
-    test('原生「浏览…」一键写回：选中目录写进路径栏并载入列表（T23）', async ({ page }) => {
-      await openPicker(page, lang);
-      const browse = page.locator('.fc-file-browser .fb-browse');
-      await expect(browse, '工具栏应有原生浏览入口（T23）').toBeVisible();
-      // mock 的 pickDir 桩固定返回演示模型根：点击即模拟「用户在系统对话框里选中了 D:\Models」，
-      // 真机上这一步弹的是系统对话框（渲染层无 dialog，预览环境用桩走同一条写回链路）
-      await browse.click();
-      // `.fb-path-input` 落在 Arco a-input 的 wrapper 上，toHaveValue 必须打内层 <input>
-      //（与 .cmd-preview wrapper 同一类坑）
-      const input = page.locator('.fc-file-browser .fb-path-input input');
-      await expect(input, '选中目录必须写回路径栏').toHaveValue('D:\\Models');
-      // 列表确实载入了新目录的内容（llama-bins 是 D:\Models 特有的子目录，原目录 C:\ 没有）
-      await expect(page.locator('.fc-file-browser .fb-row', { hasText: 'llama-bins' })).toBeVisible();
-    });
-
     test('列表挂错层就滚不动：宿主是内层 .arco-list，滚轮推得动，末行滚得进', async ({ page }) => {
       await openPicker(page, lang);
       const m = await measureList(page);

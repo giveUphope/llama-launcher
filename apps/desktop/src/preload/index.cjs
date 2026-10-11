@@ -162,7 +162,6 @@ const api = {
     cleanTrash: (items) => invoke(IPC.SYSTEM_CLEAN_TRASH, items),
     listDir: (path) => invoke(IPC.FS_LIST_DIR, path),
     mkdir: (path) => invoke(IPC.FS_MKDIR, path),
-    pickDir: (defaultPath) => invoke(IPC.FS_PICK_DIR, defaultPath),
   },
   download: {
     parseUrl: (url) => invoke(IPC.DOWNLOAD_PARSE_URL, url),

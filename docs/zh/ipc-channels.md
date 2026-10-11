@@ -1,10 +1,10 @@
 # IPC 通道清单
 
 > 语言：中文 · [English](../en/ipc-channels.md)
-> 范围：IPC 通道完整清单（共 57 个），按类别分组。改 IPC 前必读。常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧常量由 `scripts/generate-preload.cjs` 生成（改完运行 `pnpm generate:ipc`），`scripts/verify-ipc-sync.cjs` 在 lint 阶段检查产物未过期。
+> 范围：IPC 通道完整清单（共 56 个），按类别分组。改 IPC 前必读。常量唯一事实源为 `packages/shared/src/types/ipc.ts`，preload 侧常量由 `scripts/generate-preload.cjs` 生成（改完运行 `pnpm generate:ipc`），`scripts/verify-ipc-sync.cjs` 在 lint 阶段检查产物未过期。
 > 索引：[README.md](../../README.md) · 相关：[desktop-main.md](desktop-main.md)
 
-共 57 个 IPC 通道，按类别分组如下：
+共 56 个 IPC 通道，按类别分组如下：
 
 ### Settings（2）
 
@@ -92,13 +92,12 @@
 | `system:detectTrash`  | 检测应用生成文件中的可清理项（配置目录 + 模型目录双根扫描；活动/暂停/可重试下载任务路径自动保护）                                                                  |
 | `system:cleanTrash`   | 执行清理（逐项重校验根归属、kind 特征、保护集与符号链接）                                                                                      |
 
-### FS（3）
+### FS（2）
 
 | 通道           | 用途     |
 | ------------ | ------ |
 | `fs:listDir` | 列出目录内容 |
 | `fs:mkdir`   | 创建目录   |
-| `fs:pickDir` | 弹系统原生目录选择对话框并回传所选路径（T23「浏览…」快捷入口；取消返回 null） |
 
 ### Download（10）
 

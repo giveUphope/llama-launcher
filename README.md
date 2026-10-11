@@ -117,7 +117,7 @@ Electron 44 · Vue 3.5 + Pinia 4 + Vue Router 5 · TypeScript 6 · Vite 8 + vue-
 | 核心模块（进程、命令构建、GGUF、下载、清理）与关键函数索引     | [core-modules.md](docs/zh/core-modules.md)                             |
 | 参数系统与每模型自动持久化、依赖联动、控件组件          | [params-system.md](docs/zh/params-system.md)                           |
 | Electron 主进程（窗口、IPC 注册、托盘、preload）  | [desktop-main.md](docs/zh/desktop-main.md)                             |
-| 57 个 IPC 通道清单（改 IPC 前必读）            | [ipc-channels.md](docs/zh/ipc-channels.md)                             |
+| 56 个 IPC 通道清单（改 IPC 前必读）            | [ipc-channels.md](docs/zh/ipc-channels.md)                             |
 | 前端架构 + **UI 风格规范 §7.5**            | [frontend.md](docs/zh/frontend.md)                                     |
 | 类型定义与持久化（`settings.json` 全字段、每模型参数集格式） | [data-persistence.md](docs/zh/data-persistence.md)                     |
 | 打包配置与常见故障（junction 陷阱、输出目录锁定）      | [packaging.md](docs/zh/packaging.md)                                   |

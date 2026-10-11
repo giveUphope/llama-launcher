@@ -105,15 +105,6 @@ function onUp() {
   if (parent.value) void loadDir(parent.value);
 }
 
-// T23：系统原生目录对话框快捷入口——原生 dialog 只能主进程弹（渲染层无权），选中即载入该目录；
-// 自绘列表保留（手输路径 / 不存在则创建是原生做不到的）。defaultPath 让对话框落在当前浏览位置，
-// 取消（null）不动当前位置。注意与 useFilePicker 导出的 pickDir(options) 同名不同物：
-// 那是「发起选择请求、打开本弹窗」的组合函数入口，这里是弹窗内部调系统对话框的动作。
-async function onBrowse() {
-  const picked = await window.api.system.pickDir(dir.value || undefined);
-  if (picked) void loadDir(picked);
-}
-
 function onPathSubmit() {
   const p = pathInput.value.trim();
   if (p) void loadDir(p);
@@ -189,11 +180,6 @@ function cancel() {
         :placeholder="dir"
         @press-enter="onPathSubmit"
       />
-      <!-- T23：原生「浏览…」快捷入口（系统对话框零滚动容器风险），与自绘列表并存 -->
-      <a-button size="small" class="fb-browse" @click="onBrowse">
-        <template #icon><Icon name="folder" :size="13" /></template>
-        {{ i18n.t('picker_browse') }}
-      </a-button>
     </div>
 
     <div class="fb-list-wrap" :style="listWrapStyle">
@@ -265,11 +251,6 @@ function cancel() {
 .fb-path-input {
   flex: 1;
   min-width: 0;
-}
-
-// 浏览…按钮（T23）：不随路径输入伸缩，固定在工具栏右端
-.fb-browse {
-  flex-shrink: 0;
 }
 
 // .fb-list-wrap 的高度由模板绑定 LIST_VIEWPORT_HEIGHT（同一处数字源），此处不再重复写 300px

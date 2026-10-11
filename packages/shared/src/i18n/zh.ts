@@ -39,7 +39,6 @@ export const zh = {
   dlg_cancel: '取消',
   // 自定义文件/目录浏览器（替代原生文件选择器）
   picker_up: '上一级',
-  picker_browse: '浏览…',
   picker_open: '打开',
   picker_save: '保存',
   picker_select: '选择',
