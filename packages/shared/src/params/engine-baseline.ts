@@ -37,7 +37,7 @@ export const PARAM_ENGINE_BASELINE: Record<string, EngineBaseline> = {
   host: { engineDefault: '127.0.0.1' },
   port: {
     engineDefault: 9931,
-    note: '启动器基线推荐 8080：引擎 b11524 起默认改 9931，按界面值显式发射 --port，探活与监听不再依赖引擎缺省',
+    note: '界面初值已跟随引擎缺省 9931（引擎 b11524 起从 8080 改此值），但参数表标了 alwaysEmit：端口恒显式发射，探活与监听不依赖引擎缺省——指向 b11524 之前引擎（缺省仍是 8080）的用户才不会「界面说 9931、服务起在 8080」',
   },
   ctx_size: { engineDefault: 0 }, // help: 0 = loaded from model
   batch_size: { engineDefault: 2048 },

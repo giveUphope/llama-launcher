@@ -236,7 +236,7 @@ const DEMO_FS_INDEX = new Map(
 // ---- 应用日志（日志页初始内容） ----
 const DEMO_APP_LOGS: AppLogEntry[] = [
   { kind: 'info', data: 'Service start requested (model: Qwen3-32B-A3B-Instruct-Q4_K_M.gguf)', ts: Date.now() - 62000 },
-  { kind: 'success', data: 'Service listening on http://127.0.0.1:8080', ts: Date.now() - 58000 },
+  { kind: 'success', data: 'Service listening on http://127.0.0.1:9931', ts: Date.now() - 58000 },
   { kind: 'info', data: 'Download started: Qwen3-8B/Qwen3-8B-Instruct-Q8_0.gguf', ts: Date.now() - 30000 },
   { kind: 'warn', data: 'Download paused: d1', ts: Date.now() - 18000 },
   { kind: 'info', data: 'Download resumed: d1', ts: Date.now() - 15000 },
@@ -511,7 +511,7 @@ const LLAMA_LINES: string[] = [
   'llama_model_loader: - tensor 0: text_embd.0.weight 4096 x 2640, type = Q4_K_M',
   'load_tensors: offloading 64 layers to GPU, model memory 12556.50 MiB',
   'llama_new_context_with_model: n_ctx = 32768',
-  'llama-server: initialized, server listening on http://127.0.0.1:8080',
+  'llama-server: initialized, server listening on http://127.0.0.1:9931',
   'slot 0: ctx size = 32768 (2048.00 MB), n_parallel = 1',
   '{"timestamp":1756100000,"level":"INFO","function":"update_slots","line":1559,"msg":"n_slot = 1 - request processed OK"}',
 ];
@@ -822,7 +822,7 @@ export function createDemoApi() {
         const snap = runningValuesSnapshot ? { ...runningValuesSnapshot } : null;
         // 演示路径用「预览卡刚传进来的当前值」当在跑的值；真实快照语义不动
         const check = demoPropsCheck(snap ?? lastSeenValues);
-        return Promise.resolve({ status: serverStatus, pid: serverStatus === 'running' || serverStatus === 'starting' ? 23508 : null, host: '127.0.0.1', port: 8080, url: serverStatus === 'running' ? 'http://127.0.0.1:8080' : '', readyAt: readyAtMs, values: snap, stop: lastStop, envOverrides: demoEnvOverrides(check), propsCheck: check });
+        return Promise.resolve({ status: serverStatus, pid: serverStatus === 'running' || serverStatus === 'starting' ? 23508 : null, host: '127.0.0.1', port: 9931, url: serverStatus === 'running' ? 'http://127.0.0.1:9931' : '', readyAt: readyAtMs, values: snap, stop: lastStop, envOverrides: demoEnvOverrides(check), propsCheck: check });
       },
       // 与真实侧同一发射规则：apps/desktop 的 SERVER_PREVIEW 走 core 的 previewCommand，
       // 那里只多一层 exe 存在性校验（浏览器没有文件系统），argv 本身两边共用 shared 的实现。

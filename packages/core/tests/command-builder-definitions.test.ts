@@ -164,7 +164,11 @@ describe('按参数类型发射行为（表驱动）', () => {
     }
   });
 
-  it('值等于【引擎缺省】时不发射任何 flag（checkbox 除外：始终发射 flag/invert_flag）', () => {
+  it('值等于【引擎缺省】时不发射任何 flag（checkbox 与 alwaysEmit 两类例外各自反向钉住）', () => {
+    // checkbox 恒定发射 flag / invert_flag；alwaysEmit 是发射规则的另一个例外——
+    // 启动器自己拿端口探活、拼 URL，不写进命令行就等于把结论交给「用户用的是哪一版引擎」。
+    // 两个例外都必须被反向断言钉住，否则「跳过」会变成没人守的空档。
+    const alwaysEmitted: string[] = [];
     for (const p of PARAMS) {
       if (p.type === 'checkbox') continue;
       const cmd = buildCommand({
@@ -172,8 +176,14 @@ describe('按参数类型发射行为（表驱动）', () => {
         modelPath: '',
         values: { [p.key]: engineDefault(p) },
       });
+      if (p.alwaysEmit) {
+        alwaysEmitted.push(p.key);
+        expect(cmd, `${p.key} 标了 alwaysEmit，等于引擎缺省也必须发射`).toContain(p.flag);
+        continue;
+      }
       expect(cmd, `${p.key} 值=引擎缺省却发射了`).toEqual([EXE_PATH]);
     }
+    expect(alwaysEmitted, 'alwaysEmit 目前只该有 port；多一处就该重新评估是不是在绕开发射规则').toEqual(['port']);
   });
 
   it('显式哨兵值不发射（UI 用它表示「不指定」）', () => {
@@ -191,8 +201,8 @@ describe('按参数类型发射行为（表驱动）', () => {
 
   // 2026-09-25 的坑：这批是 definitions.ts 文件头记录的「基线推荐值」，
   // 旧规则拿界面初值当发射基准，于是它们从未进过命令行——引擎一直按自己的缺省跑。
-  // --port 8080 同型：b11524 起引擎缺省改 9931，界面推荐的 8080 必须显式发射（re-pin 后加入）。
-  it('基线推荐值必须真的发射（-ctk/-ctv q8_0、--load-mode none、--fit off、--port 8080）', () => {
+  // --port 同型但理由不同：界面初值已跟随引擎缺省 9931（b11524 起），靠 alwaysEmit 才留在命令行里。
+  it('基线推荐值必须真的发射（-ctk/-ctv q8_0、--load-mode none、--fit off、--port 9931）', () => {
     const cmd = buildCommand({ exePath: EXE_PATH, modelPath: '', values: { ...PARAMS_DEFAULTS } });
     expect(cmd).toContain('--load-mode');
     expect(cmd[cmd.indexOf('--load-mode') + 1]).toBe('none');
@@ -203,7 +213,7 @@ describe('按参数类型发射行为（表驱动）', () => {
     expect(cmd).toContain('-ctv');
     expect(cmd[cmd.indexOf('-ctv') + 1]).toBe('q8_0');
     expect(cmd).toContain('--port');
-    expect(cmd[cmd.indexOf('--port') + 1]).toBe('8080');
+    expect(cmd[cmd.indexOf('--port') + 1]).toBe('9931');
   });
 
   it('默认状态下的发射集合固定（新增参数/改默认值都会在这里显式暴露）', () => {
@@ -212,7 +222,8 @@ describe('按参数类型发射行为（表驱动）', () => {
     const cmd = buildCommand({ exePath: EXE_PATH, modelPath: '', values: PARAMS_DEFAULTS });
     const emitted = cmd.slice(1).filter((t) => String(t).startsWith('-')).sort();
     // 10 项来自 checkbox（恒定发射，含收录 CORS 后默认即为 enabled 的 --cors-credentials），
-    // 5 项是启动器覆盖引擎缺省的基线推荐（--port 8080：b11524 起引擎缺省改 9931）
+    // 4 项是启动器覆盖引擎缺省的基线推荐（-ctk/-ctv q8_0、--load-mode none、--fit off），
+    // --port 另走一条路：初值已等于引擎缺省（9931），靠参数表的 alwaysEmit 留在命令行里
     expect(emitted).toEqual([
       '--cache-prompt', '--cors-credentials', '--fit', '--jinja', '--load-mode',
       '--mmproj-offload', '--no-context-shift', '--no-kv-unified', '--port', '--slots', '--ui',

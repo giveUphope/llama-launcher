@@ -50,6 +50,13 @@ export interface ParamDef {
   dependsOn?: ParamDependsOn;
   /** 关联的 GGUF 元数据字段名（用于内联提示） */
   ggufField?: keyof import('./gguf.js').GgufModelInfo;
+  /**
+   * 值等于引擎缺省时**也**发射。发射规则默认「等于引擎缺省就不发」，而启动器要拿端口去
+   * 探活与拼 URL——不显式发出去，实际监听端口就由引擎版本决定（b11524 起 `--port` 缺省
+   * 从 8080 改 9931，老引擎上「界面说的端口」与「服务起的端口」就会分家）。
+   * 只给这类「启动器自己要用」的参数，别拿它当默认值逃生舱。
+   */
+  alwaysEmit?: boolean;
   // i18n: label and help come from i18n dictionaries via param_label(key)/param_help(key)
 }
 

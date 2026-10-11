@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+// 默认端口从参数表派生（DEFAULT_PORT = ParamDef.default），断言引常量而不是抄数字
+import { DEFAULT_PORT } from '@llama-launcher/shared';
 
 // 与 launcher.test.ts 同形的进程夹具，另加 _triggerSpawned：spawned 事件是主进程建立
 // 「窗口 ↔ 进程」关联映射的入口（窗口关闭时精准清理子进程全靠它），值得单独钉住。
@@ -193,12 +195,12 @@ describe('Launcher - host/port 取值回退与状态快照', () => {
     if (launcher.getStatus().status !== 'stopped') launcher.stop();
   });
 
-  it('host 空串回落默认 127.0.0.1；port 非数字回落默认 8080', () => {
+  it('host 空串回落默认 127.0.0.1；port 非数字回落默认端口（DEFAULT_PORT）', () => {
     launcher.start({ values: { host: '', port: 'abc' }, settings: baseSettings });
     const info = launcher.getStatus();
     expect(info.host).toBe('127.0.0.1');
-    expect(info.port).toBe(8080);
-    expect(info.url).toBe('http://127.0.0.1:8080/');
+    expect(info.port).toBe(DEFAULT_PORT);
+    expect(info.url).toBe(`http://127.0.0.1:${DEFAULT_PORT}/`);
     launcher.stop();
   });
 

@@ -174,7 +174,7 @@ The **JSONL source of truth** for download resume (the counterpart of DSH's appe
 - **No need to enable `--props` for this**: that flag only governs POST /props global-property mutation; `GET /props` is readable by default (measured: full JSON while `endpoint_props=false`).
 - **Where `envOverrides` comes from**: `Launcher.start()` calls `detectLlamaEnvOverrides(process.env)` (`shared/params/engine-baseline.ts`) to collect the `LLAMA_ARG_*` variables present for this launch, ships them on `ServerInfo.envOverrides`, and the settings-page engine row states outright that "these rewrites never appear in the command line". It is also the precondition for the six `modelDerived` entries: an unemitted sampling entry is compared only when its env channel was detected, otherwise it counts as skipped.
 
-- **Unit tests must inject `propsFetcher`**: the default implementation uses the global fetch, so without a stub the tests would really request the user's own llama-server on local port 8080 (all 14 `new Launcher(` call sites in `launcher.test.ts` now inject one).
+- **Unit tests must inject `propsFetcher`**: the default implementation uses the global fetch, so without a stub the tests would really request the user's own llama-server on the local default port (9931, derived from `port.default` in the parameter table) (all 14 `new Launcher(` call sites in `launcher.test.ts` now inject one).
 
 ### 4.12 Process cleanup logger (cleanup-logger.ts)
 

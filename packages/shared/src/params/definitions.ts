@@ -32,7 +32,7 @@ export const PARAMS: ParamDef[] = [
   // ---------------- basic (15) ----------------
   // 子分组 network：网络配置
   { key: 'host', group: 'basic', type: 'text', flag: '--host', default: '127.0.0.1', subcategory: 'network' },
-  { key: 'port', group: 'basic', type: 'int_entry', flag: '--port', default: 8080, min: 1, max: 65535, subcategory: 'network' },
+  { key: 'port', group: 'basic', type: 'int_entry', flag: '--port', default: 9931, min: 1, max: 65535, subcategory: 'network', alwaysEmit: true },
   // 子分组 context：上下文与批处理
   { key: 'ctx_size', group: 'basic', type: 'int_slider', flag: '-c', default: 0, min: 0, max: 262144, step: 2048, subcategory: 'context', ggufField: 'context_length' },
   { key: 'batch_size', group: 'basic', type: 'int_slider', flag: '-b', default: 2048, min: 128, max: 16384, step: 256, subcategory: 'context' },

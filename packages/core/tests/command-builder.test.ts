@@ -32,13 +32,22 @@ describe('buildCommand', () => {
   });
 
   it('skips default values', () => {
-    // port 9931 是 b11524 起的引擎缺省（基线表 engineDefault）；8080 是启动器推荐值，会发射
+    // ctx_size 0 = 引擎缺省（help 注明 0 表示「由模型决定」）⇒ 不发射
     const cmd = buildCommand({
       exePath: EXE_PATH,
       modelPath: '',
-      values: { ctx_size: 0, port: 9931 },
+      values: { ctx_size: 0 },
     });
     expect(cmd).toEqual([EXE_PATH]);
+  });
+
+  it('alwaysEmit 的参数即使等于引擎缺省也发射（--port 9931）', () => {
+    // 端口是启动器探活与拼 URL 的依据，不写进命令行就等于把结论交给「用户用的是哪一版
+    // 引擎」：本机实测 b11408 的 --port 缺省是 8080，b11524 起才是 9931
+    const cmd = buildCommand({ exePath: EXE_PATH, modelPath: '', values: { port: 9931 } });
+    expect(cmd).toEqual([EXE_PATH, '--port', '9931']);
+    // 但 alwaysEmit 不越过空值守卫：清空端口就是不发，绝不能发射成 `--port ''`
+    expect(buildCommand({ exePath: EXE_PATH, modelPath: '', values: { port: '' } })).toEqual([EXE_PATH]);
   });
 
   it('emits checkbox flag when true', () => {
@@ -188,9 +197,9 @@ describe('buildCommand - default-skip semantics', () => {
       modelPath: '',
       values: { ctx_size: 4096, port: 9931 },
     });
-    // port 9931=引擎缺省（b11524 起）不发射，ctx_size 4096 非默认发射；
-    // 8080 是启动器推荐初值，相对引擎缺省非默认 ⇒ 会发射
-    expect(cmd).toEqual([EXE_PATH, '-c', '4096']);
+    // ctx_size 4096 非引擎缺省 ⇒ 发射；port 9931 虽是引擎缺省，但标了 alwaysEmit 也发射。
+    // 顺序按 PARAMS 表（port 在 ctx_size 之前），不是按入参顺序
+    expect(cmd).toEqual([EXE_PATH, '--port', '9931', '-c', '4096']);
   });
 
   it('ignores legacy _enabled field (backward compat)', () => {

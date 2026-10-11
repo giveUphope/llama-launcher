@@ -155,13 +155,13 @@ describe('Launcher', () => {
     const info = launcher.getStatus();
     expect(info.status).toBe('stopped');
     expect(info.pid).toBeNull();
-    expect(info.url).toBe('http://127.0.0.1:8080/');
+    expect(info.url).toBe('http://127.0.0.1:9931/');
   });
 
-  it('initial host/port defaults are 127.0.0.1 and 8080', () => {
+  it('initial host/port defaults are 127.0.0.1 and 9931', () => {
     const info = launcher.getStatus();
     expect(info.host).toBe('127.0.0.1');
-    expect(info.port).toBe(8080);
+    expect(info.port).toBe(9931);
   });
 
   it('starts a process with correct command and emits command event', async () => {

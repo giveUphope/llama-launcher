@@ -174,7 +174,7 @@ download-manager 与 huggingface-client 共用的网络韧性层（收敛两份�
 - **不需要为此开 `--props`**：该 flag 只控制 POST /props 改全局属性，`GET /props` 默认可读（实测 `endpoint_props=false` 时仍返回完整 JSON）。
 - **`envOverrides` 从哪来**：`Launcher.start()` 里调 `detectLlamaEnvOverrides(process.env)`（`shared/params/engine-baseline.ts`）检出本次启动存在的 `LLAMA_ARG_*` 变量名，随 `ServerInfo.envOverrides` 下发，并在**设置页引擎目录行下方**明说「这些改写不会出现在命令行里」——它同时是 `modelDerived` 六项比对的前提（未发射的采样项只有在同名 env 通道被检出时才参与对账，否则计入跳过）。
 
-- **单测必须注入 `propsFetcher`**：默认实现走全局 fetch，不注入就会真去请求本机 8080 上用户正在跑的实例（`launcher.test.ts` 的 14 处 `new Launcher(` 已全部注入桩，一处不剩）。
+- **单测必须注入 `propsFetcher`**：默认实现走全局 fetch，不注入就会真去请求本机默认端口（9931，由参数表 `port.default` 派生）上用户正在跑的实例（`launcher.test.ts` 的 14 处 `new Launcher(` 已全部注入桩，一处不剩）。
 
 ### 4.12 进程清理日志 (cleanup-logger.ts)
 

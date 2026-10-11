@@ -63,6 +63,10 @@ function shouldSkip(p: ParamDef, v: string | number | boolean, values: PresetVal
   if (p.dependsOn && !isDependencyMet(p.dependsOn, values)) return true;
   // 显式哨兵：UI 值本身就表示「不指定，交给引擎」（如 chat_template 的 'none'）
   if (isSentinelValue(p, v)) return true;
+  // 端口这类参数即使等于引擎缺省也要发出去（`alwaysEmit`）：启动器拿它探活、拼 URL，
+  // 不写进命令行就等于把结论交给「用户用的是哪一版引擎」。放在空值/依赖/哨兵三道守卫
+  // 之后——清空了的端口不能发射成 `--port ''`。
+  if (p.alwaysEmit) return false;
   // 发射判定基准是**引擎缺省值**，不是界面初值：后者的本意常常是启动器的基线推荐
   // （q8_0 / --load-mode none / --fit off），拿它当基准会让推荐值永远不进命令行。
   return sameParamValue(v, engineDefaultOf(p));
