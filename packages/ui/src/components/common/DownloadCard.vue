@@ -685,18 +685,19 @@ function quantTooltip(q: QuantizationInfo | null): string {
         <a-button
           type="primary"
           class="parse-btn"
+          :loading="parsing"
           :disabled="!urlInput.trim() || parsing"
           @click="onParseUrl"
         >
-          <!-- #81 ②：图标位常驻（非解析态用 visibility:hidden 仍占 12px），配合 .parse-btn
-               的 min-width（按中英两态较宽者算，推导见样式块注释），「搜索 ↔ 搜索中」
-               换字与 loading 图标都不改写按钮宽度。解析态文案走专用的 btn_parsing（短形态，
-               2026-10-11 用户批注「优化按钮宽度」——旧文案 msg_parsing 带省略号，最宽态 121px
-               把 idle 的 78px 撑成 132px 预留），整行加载提示仍读 msg_parsing 的完整说法 -->
-          <span class="parse-btn-icon" :class="{ 'is-idle': !parsing }">
-            <Icon name="loading" :size="12" />
-          </span>
-          <span class="parse-btn-text">{{ parsing ? i18n.t('btn_parsing') : i18n.t('btn_parse_url') }}</span>
+          <!-- #81 ②（2026-10-11 修订）：状态切换不改宽不再靠 min-width 预留，改由 Arco 的同一
+               图标槽承担——idle 常驻放大镜，parsing 时 es/button/button.js 在同一个
+               .arco-btn-icon 内换成 IconLoading（槽位与 margin-right 都不动），两态实测等宽。
+               :size 必须取 14 = medium 按钮字号，否则图标比 IconLoading 窄，切换仍会抖 2px。
+               旧写法是「visibility:hidden 的 12px 占位图标 + 114px 预留 + 搜索↔搜索中换字」，
+               代价是 idle 空档且余量左 53 / 右 33 不对称。
+               class="parse-btn" 已无对应样式规则，保留是给 e2e 判据 ⑤ 当定位锚 -->
+          <template #icon><Icon name="search" :size="14" /></template>
+          {{ i18n.t('btn_parse_url') }}
         </a-button>
       </div>
 
@@ -978,33 +979,14 @@ function quantTooltip(q: QuantizationInfo | null): string {
 
 /* ── STYLE_TODO #81 ①②：静态高度预留（纯 CSS，不做「每帧测量再回填」，§7.1 铁律③）──────
    档位取值来源（都是各元素本已存在的自然高，预留只是让它恒在，不新造视觉规格）：
-   · Arco medium 按钮高 32px → .parse-btn / .files-actions
+   · Arco medium 按钮高 32px → .files-actions
    · Arco 默认 a-tag 高 24px（§7.5.4 ⑥）→ .cat-filter
    · a-pagination 项高 32px + .pager 上下内距 4px×2 → .pager
    · 单行消息 = --fs-base 行高约 22px + .loading-msg/.empty-msg 上下内距 8px×2 = 38px
      → .files-state-slot（解析状态已随隐藏预留废除改为按需渲染，2026-10-09）
    .files-section 的 194px = 头部 28 + 24 + 38 + 40 + 32 + 4 段 flex gap(8) ——
-   即选中模型那一刻本段已按最终外形出现，后续文件到位不再改变它的最小高。 */
-.parse-btn {
-  /* 预留 = 中英两态较宽者的自然宽度（实测 1280 视口：Searching 111 > 搜索中 92 > Search 92 >
-     搜索 78，取 114 留 3px 余量）。旧值 132 是按「正在搜索...」121 算的，2026-10-11 用户批注
-     「优化按钮宽度」后解析态改用短文案 btn_parsing，预留随之收紧——判据见
-     e2e/web/layout-stability.spec.ts 的「解析按钮预留覆盖两态」一条（上下都卡：不得小于最宽态，
-     也不得虚高太多回到 idle 空档）。 */
-  min-width: 114px;
-  gap: 8px;
-}
-
-.parse-btn-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-  width: 12px;
-  justify-content: center;
-
-  &.is-idle {
-    visibility: hidden;
-  }
-}
+   即选中模型那一刻本段已按最终外形出现，后续文件到位不再改变它的最小高。
+   「②」段的解析按钮已从预留写法迁到 Arco 同槽换图标（见模板内注释），故此处不再有 .parse-btn。 */
 
 .files-section {
   min-height: 194px;

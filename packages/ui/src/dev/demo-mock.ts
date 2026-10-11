@@ -1083,18 +1083,25 @@ export function createDemoApi() {
       },
     },
     download: {
-      parseUrl: (url: string) => Promise.resolve({
-        ok: true,
-        data: {
-          raw: url,
-          source: url.includes('hf-mirror.com') || url.includes('huggingface.co') ? 'huggingface' : 'modelscope',
-          author: 'Qwen',
-          modelName: 'Qwen3-8B',
-          modelId: 'Qwen/Qwen3-8B',
-          filePath: '',
-          fileName: '',
-        } as never as ParsedModelUrl,
-      }),
+      // 演示侧解析即时返回。要看/去量「解析中」那一态（下载卡按钮的 loading 图标只在这一段
+      // 存在，无延迟则 e2e 与肉眼都抓不到），置 `globalThis.__mockParseDelay = 30000`（ms）
+      // 让它慢下来——钩子范式同 __mockPushConsole / __mockExternalServer，默认 0 不改既有行为。
+      parseUrl: (url: string) => {
+        const res = {
+          ok: true,
+          data: {
+            raw: url,
+            source: url.includes('hf-mirror.com') || url.includes('huggingface.co') ? 'huggingface' : 'modelscope',
+            author: 'Qwen',
+            modelName: 'Qwen3-8B',
+            modelId: 'Qwen/Qwen3-8B',
+            filePath: '',
+            fileName: '',
+          } as never as ParsedModelUrl,
+        };
+        const delay = (globalThis as unknown as { __mockParseDelay?: number }).__mockParseDelay ?? 0;
+        return delay > 0 ? new Promise<typeof res>((r) => setTimeout(() => r(res), delay)) : Promise.resolve(res);
+      },
       search: (_author: string, modelName: string) => Promise.resolve({
         ok: true,
         data: {

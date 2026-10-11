@@ -6,7 +6,7 @@
 
 - **Framework**: Vitest 4 (`pnpm test` runs both the core and the ui package through turbo)
 
-- **Scale**: core 41 test files / **567** cases + ui **24** test files / **244** cases (`pnpm test` runs both packages through turbo; calibrated against an actual run in the mock-path/engine-probe round, 2026-10-11)
+- **Scale**: core 41 test files / **567** cases + ui **24** test files / **246** cases (`pnpm test` runs both packages through turbo; calibrated against an actual run in the mock-path/engine-probe round, 2026-10-11)
 
 - **Covered modules**:
 

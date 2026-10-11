@@ -89,6 +89,48 @@ describe('demo-mock 参数预览', () => {
   });
 });
 
+// 解析延迟钩子 `globalThis.__mockParseDelay`：下载卡按钮的 loading 图标只存在于解析期，演示侧
+// 默认即时返回就永远量不到那一态（e2e 判据 ⑤ 的「两态等宽」与肉眼目测都靠它）。
+// 双向都要钉：默认路径**不挂定时器**（改成延迟会让 ⑥ 那类等文件列表的用例变慢），置了值才等时钟，
+// 且两条路径的载荷逐字相同（钩子只该改时间，不该改数据）。
+describe('demo-mock 解析延迟钩子', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => {
+    // 反义钩子会跨用例、跨文件残留（同一 worker 共享 globalThis），必须就地清干净
+    delete (globalThis as unknown as { __mockParseDelay?: number }).__mockParseDelay;
+    vi.useRealTimers();
+  });
+
+  const URL_DEMO = 'https://modelscope.cn/models/Qwen/Qwen3-8B';
+  async function parse(url: string) {
+    const api = createDemoApi() as unknown as {
+      download: { parseUrl: (u: string) => Promise<{ ok: boolean; data: { modelId: string } }> };
+    };
+    return api.download.parseUrl(url);
+  }
+
+  it('默认（不设钩子）立即 resolve：不依赖时钟推进', async () => {
+    const res = await parse(URL_DEMO);
+    expect(res.ok).toBe(true);
+    expect(res.data.modelId).toBe('Qwen/Qwen3-8B');
+  });
+
+  it('钩子 > 0：推进时钟前不 resolve，推进后载荷与即时路径逐字相同', async () => {
+    const immediate = await parse(URL_DEMO);
+    (globalThis as unknown as { __mockParseDelay?: number }).__mockParseDelay = 30_000;
+    const settled = vi.fn();
+    const pending = parse(URL_DEMO).then((r) => {
+      settled();
+      return r;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled, '未推进时钟就 resolve ⇒ 钩子没生效，e2e 停在不了解析态').not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(settled).toHaveBeenCalledTimes(1);
+    expect(await pending).toEqual(immediate);
+  });
+});
+
 // 首次使用空态开关（`?fresh=1`）：mock 的预填数据全部归零，用来目测「刚装好什么都没配」的界面。
 // 双向都要钉：空态漏出预填 = 看不到首次使用的问题；默认态被改成空 = e2e 的
 // app.spec.ts（演示模型列表 / running 状态卡）判据连带作废，而红的是测试不是产品。

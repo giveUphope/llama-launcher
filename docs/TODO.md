@@ -10,6 +10,20 @@
 
 ## 开放项
 
+### T36 style(ui) 清理卡两枚按钮的 `#icon` 尺寸比 Arco 的 loading 图标窄 2px ⇒ 检测/清理时按钮宽抖一下
+
+- **位置**：`packages/ui/src/components/settings/TrashCleanCard.vue:141`（`trash-detect-btn`）与 `:169`（`trash-clean-btn`），两处都是 `<template #icon><Icon name="trash" :size="12" /></template>` + `size="small"` + `:loading`。
+- **描述（大白话）**：T35 修下载卡时确认了一件事——Arco 按钮的 `:loading` 是在**同一个 `.arco-btn-icon` 槽位**里把图标换成官方转圈图形，换的图形尺寸 = 按钮字号，所以只要常驻图标与字号等宽，切换就完全不改宽度。清理卡这两处不满足那个前提：`es/button/style/index.css:753-756` 实测 `size="small"` 的字号是 **14px**（与 medium 同为 14，只有 mini 是 12），而槽里放的是 `:size="12"` 的垃圾桶图标 ⇒ 点「检测垃圾桶」/「清理已选」那一刻图标从 12 变 14，按钮宽 +2px，卡片头操作区横向抖一点。幅度小（2px）、只持续点击瞬间，但和用户批注过的「换状态改宽」是同一类。
+- **建议修复**：两处 `:size="12"` 改 `:size="14"`（与按钮字号对齐），并把 `DownloadCard.vue:691-697` 那段注释里「`:size` 必须等于按钮字号，否则切换仍会抖 2px」的口径引过去；改完顺带复核 `.trash-detect-btn` 的 `min-width: 142px` 是否还需要（该预留是为「换文案」写的，现在文案恒定、只换图标，可能与新口径重复）。
+- **修复效果验证**：`e2e/web/layout-stability.spec.ts` 的 ⑤ 判据（chrome 三条腿 + 两态等宽）是**按 `.parse-btn` 写的**，不覆盖清理卡；修法二选一——① 把 measure/judge 参数化成「量某个按钮」，给清理卡两枚按钮各加一条两态等宽判据（需要 mock 侧 `detectTrash`/`cleanTrash` 的可控延迟钩子，同 `__mockParseDelay` 口径）；② 只按 #81 的通用验证方式（浏览器在两态各量一次 `getBoundingClientRect`）并在此登记结论。合格线：切换前后宽差 ≤ 1px。
+
+### T37 a11y 下载卡解析态不再向读屏出声（T35 换写法的有意取舍，无人守护）
+
+- **位置**：`packages/ui/src/components/common/DownloadCard.vue:685-700`。
+- **描述**：旧写法解析时文案从「搜索」变「搜索中」，读屏用户至少在按钮文字变化时能感到状态变了；T35 后文案恒定、只换图标，而 Arco 的 `button.js` **不加 `aria-busy`**（全文无 aria 属性），于是解析期对读屏没有任何播报。属本轮有意取舍（视觉侧的收益更大），但记下来避免被当成「已无障碍」。
+- **建议修复**：给按钮补 `:aria-busy="parsing"`（一行），并考虑把「正在搜索」这句放进既有的按需 `a-alert`/加载行（`msg_parsing` 已在文件加载期用着，见 `:803`）——先确认解析期界面上是否已有可见的加载提示，避免补了视觉没有的静音播报。
+- **修复效果验证**：`e2e/web/a11y.spec.ts` 目前不覆盖下载卡（无 url/下载/library 相关用例），补判据须在该文件加一条「点搜索后 `.parse-btn` 的 `aria-busy` 转 true、完成后转 false」；mock 侧靠 `globalThis.__mockParseDelay` 停在解析态。
+
 ### T23 目录选择器的原生「浏览…」入口——已实施，2026-10-11 按用户裁定**整条回退**，本条回到「待触发」状态
 
 - **做什么**：把 `fs:pickDir` 通道与目录弹窗工具栏的「浏览…」按钮整条撤掉，通道数回到 56、i18n 键回到 400；自绘目录弹窗既有能力一律保留（手输路径回车直达 / 不存在则创建 / 逐级向上 / file 与 save 模式的扩展名过滤）。
