@@ -258,7 +258,7 @@ describe('demo-mock 目录浏览树', () => {
 
   it('目录在前、文件在后，同组按名称排序（与主进程 FS_LIST_DIR 同一形状）', async () => {
     const { listDir } = await fsApi();
-    const { entries } = await listDir('C:\\Users\\wensm2');
+    const { entries } = await listDir('C:\\DEMO-HOME');
     const dirRun = entries.filter((e) => e.isDir).map((e) => e.name);
     const fileRun = entries.filter((e) => !e.isDir).map((e) => e.name);
     expect(entries.map((e) => e.isDir)).toEqual([...dirRun.map(() => true), ...fileRun.map(() => false)]);
@@ -284,10 +284,28 @@ describe('demo-mock 目录浏览树', () => {
       expect(res.exists, `模型目录 ${dir} 应在演示树里`).toBe(true);
       expect(res.entries.map((e) => e.name), `${dir} 应含 ${m.name}`).toContain(m.name);
     }
-    const top = await listDir('D:\\Models');
-    for (const e of top.entries.filter((x) => x.isDir)) {
-      const sub = await listDir(`D:\\Models\\${e.name}`);
-      expect(sub.exists, `D:\\Models\\${e.name} 不该是死胡同`).toBe(true);
+    // 三棵根全走（此前只走 D:\Models 一层，POSIX 那棵少镜像一层也没人报）：
+    // 列出来的每个目录都必须有节点，否则用户点进去是「路径不存在」，会当成 mock 坏了
+    for (const root of ['C:\\', 'D:\\', '/']) {
+      const sep = root === '/' ? '/' : '\\';
+      const seen = new Set<string>();
+      const queue = [root];
+      let walked = 0;
+      while (queue.length) {
+        const at = queue.shift()!;
+        if (seen.has(at)) continue;
+        seen.add(at);
+        const res = await listDir(at);
+        expect(res.exists, `${at} 应在演示树里`).toBe(true);
+        for (const e of res.entries.filter((x) => x.isDir)) {
+          const child = at === sep || at.endsWith(sep) ? `${at}${e.name}` : `${at}${sep}${e.name}`;
+          const kid = await listDir(child);
+          expect(kid.exists, `${child} 不该是死胡同`).toBe(true);
+          queue.push(child);
+        }
+        walked++;
+      }
+      expect(walked, `${root} 一棵至少要有 3 层可走（实测 ${walked}）`).toBeGreaterThanOrEqual(3);
     }
   });
 

@@ -143,8 +143,8 @@ const DEMO_MODEL_PARAMS = new Map<string, ModelParams>([
 // 再点检测看到的是剩余，不会对同一批条目反复「释放 N」；__mockResetTrash() 恢复。
 interface DemoTrashItem { relPath: string; absPath: string; root: 'config' | 'models'; kind: string; size: number; cleaned: boolean }
 const DEMO_TRASH_ITEMS: DemoTrashItem[] = [
-  { relPath: 'stats.jsonl', absPath: 'C:/Users/demo/.llama_launcher/stats.jsonl', root: 'config', kind: 'legacy_stats', size: 18428, cleaned: false },
-  { relPath: 'model-params/old-model-abc12345.tmp', absPath: 'C:/Users/demo/.llama_launcher/model-params/old-model-abc12345.tmp', root: 'config', kind: 'temp_file', size: 512, cleaned: false },
+  { relPath: 'stats.jsonl', absPath: 'C:/DEMO-HOME/.llama_launcher/stats.jsonl', root: 'config', kind: 'legacy_stats', size: 18428, cleaned: false },
+  { relPath: 'model-params/old-model-abc12345.tmp', absPath: 'C:/DEMO-HOME/.llama_launcher/model-params/old-model-abc12345.tmp', root: 'config', kind: 'temp_file', size: 512, cleaned: false },
   { relPath: 'llama-demo.gguf.part', absPath: 'D:/Models/llama-demo.gguf.part', root: 'models', kind: 'download_orphan', size: 1057418, cleaned: false },
 ];
 
@@ -161,18 +161,26 @@ const DEMO_QUANT_FILES = ['F16', 'BF16', 'Q8_0', 'Q6_K', 'Q5_K_M', 'Q5_K_S', 'Q4
   'IQ3_XXS', 'IQ3_S', 'IQ3_M', 'IQ2_XS', 'IQ2_XXS', 'IQ2_S', 'IQ1_S', 'IQ1_M', 'NLFP']
   .map((q) => `Qwen3-32B-A3B-Instruct-${q}.gguf`);
 
+// 演示树里不出现任何真实机器的目录名或用户名（2026-10-11 用户裁定）：这里曾写着
+// Program Files / Windows / System32 与一个真实用户名，目测时会误以为弹窗真的在浏览本机——
+// 而 mock 跑在浏览器里根本读不到磁盘，那份「像真的」只会污染判断。`DEMO-HOME` 这类名字
+// 在真机上不存在，一眼可辨是造的。模型/引擎脊柱仍用 D:\Models（与设置页「模型目录」、
+// 全仓测试夹具同一套演示约定，本身不含任何本机信息）。
 const DEMO_FS: Record<string, { dirs: string[]; files: string[] }> = {
-  'C:\\': { dirs: ['Program Files', 'Users', 'Windows'], files: [] },
-  'C:\\Users': { dirs: ['wensm2'], files: [] },
-  'C:\\Users\\wensm2': { dirs: ['.llama_launcher', 'Documents', 'Downloads'], files: ['notes.txt'] },
-  'C:\\Users\\wensm2\\.llama_launcher': { dirs: ['model-params', 'presets'], files: ['settings.json'] },
-  'C:\\Windows': { dirs: ['System32'], files: [] },
+  'C:\\': { dirs: ['DEMO-HOME'], files: [] },
+  'C:\\DEMO-HOME': { dirs: ['.llama_launcher', 'Documents'], files: ['notes.txt'] },
+  'C:\\DEMO-HOME\\.llama_launcher': { dirs: ['model-params'], files: ['settings.json'] },
+  'C:\\DEMO-HOME\\.llama_launcher\\model-params': { dirs: [], files: ['qwen3-32b-ab12cd34.json'] },
+  'C:\\DEMO-HOME\\Documents': { dirs: [], files: [] },
   'D:\\': { dirs: ['Models'], files: [] },
   'D:\\Models': { dirs: [...DEMO_MODEL_DIRS, 'llama-bins'], files: ['README.md'] },
   'D:\\Models\\Qwen3-32B-A3B-Instruct': { dirs: [], files: DEMO_QUANT_FILES },
   'D:\\Models\\llama-bins': { dirs: ['llama-b11524-bin-vulkan-x64'], files: ['llama-server.exe'] },
-  '/': { dirs: ['Applications', 'Users', 'Volumes'], files: [] },
-  '/Users': { dirs: ['demo'], files: [] },
+  '/': { dirs: ['DEMO-HOME'], files: [] },
+  '/DEMO-HOME': { dirs: ['.llama_launcher', 'Documents'], files: ['notes.txt'] },
+  '/DEMO-HOME/.llama_launcher': { dirs: ['model-params'], files: ['settings.json'] },
+  '/DEMO-HOME/.llama_launcher/model-params': { dirs: [], files: ['qwen3-32b-ab12cd34.json'] },
+  '/DEMO-HOME/Documents': { dirs: [], files: [] },
 };
 
 // 每个模型目录都按 DEMO_MODELS 派生出自己的文件，引擎子目录也补一个节点：
