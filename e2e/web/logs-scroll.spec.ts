@@ -211,9 +211,6 @@ for (const lang of ['zh', 'en'] as Lang[]) {
     test('计数在工具条右簇可见、底部状态条零残留；藏起计数时判据转红', async ({ page }) => {
       await openLogs(page, lang);
       expect(judgeCount(await collectCount(page)), `${lang}态计数归属`).toEqual([]);
-      // 计数文案真实在（命中数 / 缓冲区总行数，i18n 单位在尾）
-      const text = await page.locator('.show-limit').innerText();
-      expect(text).toMatch(/^\d+ \/ \d+ \S/);
 
       // 删除实验：把计数藏起来，判据必须转红（证明「可见」那条腿不是恒真）
       const handle = await injectStyle(page, '.show-limit{visibility:hidden !important}');
@@ -222,6 +219,49 @@ for (const lang of ['zh', 'en'] as Lang[]) {
       await removeStyle(handle);
       await page.waitForTimeout(120);
       expect(judgeCount(await collectCount(page)), '还原后判据必须转绿').toEqual([]);
+    });
+
+    // 计数文案（2026-10-11 用户裁定）：两个相同数字并排不携带信息，只有真的筛掉了行才报分母。
+    // 数字全部从页面读，不写死——mock 的喂送定时器会让缓冲区继续增长。
+    test('未筛选只报一个数字，筛掉行时才出现「命中 / 总数」', async ({ page }) => {
+      await openLogs(page, lang);
+      const countText = () => page.locator('.show-limit').innerText().then((t) => t.trim());
+
+      // ① 未筛选：单数字 + 单位，斜杠不得出现（旧写法恒为「N / N 行」，这条判据即为其反例）
+      expect(await countText(), `${lang}态未筛选应为单数字`).toMatch(/^\d+ \S+$/);
+
+      // ② 灌 120 行后仍未筛选：还是单数字，且数值真的跟上来了（防「写死 0」的恒等式假绿）
+      await pushConsole(page, 120);
+      const grown = await countText();
+      expect(grown, `${lang}态灌行后仍不得出现分母`).toMatch(/^\d+ \S+$/);
+      expect(Number(grown.split(' ')[0]), `${lang}态计数未反映缓冲区：${grown}`).toBeGreaterThanOrEqual(120);
+
+      // ③ 搜索命中一个子集（mock 的 LLAMA_LINES 里只有 2/9 行含 cuda）：分母必须出现，且命中 < 总数
+      await page.locator('.search-box input').fill('cuda');
+      await expect
+        .poll(countText, { message: `${lang}态筛掉行后应报「命中 / 总数」`, timeout: 3000 })
+        .toMatch(/^(\d+) \/ (\d+) \S+$/);
+      const [hit, total] = (await countText()).split(' ').filter((s) => /^\d+$/.test(s)).map(Number);
+      // 命中数必须 >0：漂成 0 命中时「0 / N 行」同样带斜杠，只判 hit<total 会把「搜索一行没命中」
+      // 放过去（斜杠本身已蕴含 hit<total，这一条才是真样本要求）
+      expect(hit, `${lang}态样本要求：搜索必须真的命中若干行`).toBeGreaterThan(0);
+      expect(hit, `${lang}态样本要求：搜索必须真的筛掉行（命中 ${hit} / 总数 ${total}）`).toBeLessThan(total);
+
+      // ④ 清空搜索回到未筛选：分母必须收回（否则③的分支只是加上了没去掉）
+      await page.locator('.search-box input').fill('');
+      await expect
+        .poll(countText, { message: `${lang}态清空搜索应回到单数字`, timeout: 3000 })
+        .toMatch(/^\d+ \S+$/);
+    });
+
+    // 首次使用空态（?fresh=1 不喂送输出，缓冲区恒 0）：用户批注抓到的正是这一格的「0 / 0 行」
+    test('空缓冲区报「0 行」，不得出现「0 / 0」', async ({ page }) => {
+      await page.goto(lang === 'en' ? '/?fresh=1&lang=en' : '/?fresh=1');
+      await expect(page.locator('.sidebar')).toBeVisible();
+      await page.locator('.sidebar .arco-menu-item', { hasText: NAV_LOGS[lang] }).click();
+      const lim = page.locator('.show-limit');
+      await expect(lim).toBeVisible();
+      await expect(lim).toHaveText(lang === 'zh' ? '0 行' : '0 lines');
     });
   });
 }

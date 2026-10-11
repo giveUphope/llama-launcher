@@ -52,8 +52,11 @@ if (missingRef.length) {
  * 2026-09-24 起文档分双语两树（docs/zh/** 与 docs/en/**），扫描改为**递归**——
  * 只扫顶层会让整个子树静默落在检查之外（同一天在 README 英文化时已踩过一次）。
  * 历史陈述不比对：docs/CHANGELOG.md 与 docs/archive/** 记的是当时的事实。
+ * 数字前不得紧贴字母/数字（2026-10-11 踩到）：条目编号「T23 通道轮」「the T23 channel round」
+ * 里的 23 紧邻「通道/channel」，被旧正则读成「23 个通道」，AGENTS.md 与双语 testing.md 三处同报
+ * ——而 `pnpm lint | tail` 会把退出码吞成 0，于是红牌拖了一轮才看见。
  */
-const DOC_CHANNEL_RE = /(\d+)\s*个?\s*(?:IPC\s*)?(?:通道|channels?\b)/g;
+const DOC_CHANNEL_RE = /(?<![A-Za-z0-9])(\d+)\s*个?\s*(?:IPC\s*)?(?:通道|channels?\b)/g;
 function docFilesWithChannelClaims() {
   const files = ['AGENTS.md', 'README.md', 'README.en.md'];
   const walk = (dir) => {

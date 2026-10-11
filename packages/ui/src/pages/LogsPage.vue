@@ -96,6 +96,14 @@ const displayRows = computed(() => {
 
 const filteredCount = computed(() => filteredOutputs.value.length);
 
+// 行计数文案：命中数与缓冲区总量相等时只报一个数——「0 / 0 行」的分母不携带任何信息，
+// 两个相同数字并排只会被读成「重复显示出了 bug」（2026-10-11 用户裁定）
+const lineCountText = computed(() => {
+  const unit = i18n.t('col_lines');
+  const total = server.outputs.length;
+  return filteredCount.value === total ? `${filteredCount.value} ${unit}` : `${filteredCount.value} / ${total} ${unit}`;
+});
+
 // 空态两分：缓冲区真的空（服务还没说过话）vs 筛选/搜索无命中——同一张空态图，文案区分
 const emptyText = computed(() =>
   server.outputs.length === 0 ? i18n.t('msg_empty_no_logs') : i18n.t('msg_no_matching_logs'),
@@ -151,9 +159,9 @@ function onClear() {
         </a-input>
       </div>
       <div class="toolbar-right">
-        <!-- 行数计数（2026-10-09 用户裁定自底部状态条并回工具条）：命中数 / 缓冲区总行数，
-             分母取缓冲区总量，筛选无命中时读得出一共有多少行；信息在左、动作在右 -->
-        <span class="show-limit">{{ filteredCount }} / {{ server.outputs.length }} {{ i18n.t('col_lines') }}</span>
+        <!-- 行数计数（2026-10-09 用户裁定自底部状态条并回工具条）：筛选掉了行才报「命中 / 总数」，
+             否则单数字；分母取缓冲区总量，筛选无命中时读得出一共有多少行；信息在左、动作在右 -->
+        <span class="show-limit">{{ lineCountText }}</span>
         <ToolTip :text="i18n.t('copy_console')">
           <a-button
             size="small"
