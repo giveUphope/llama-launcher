@@ -456,9 +456,10 @@ function buttonClasses(text) {
   return set;
 }
 
-/** 把 style 块展平成 {selector, line, props:[配色属性]}，支持单行规则与 SCSS 嵌套。
- *  readLines 已抹掉块注释并把 CRLF 归一，这里只管结构与声明。 */
-function colorRules(cssLines, baseLine) {
+/** 把 style 块展平成 {selector, line, props:[命中的属性]}，支持单行规则与 SCSS 嵌套。
+ *  readLines 已抹掉块注释并把 CRLF 归一，这里只管结构与声明。
+ *  filter 决定哪些声明算命中（默认配色，第 18 条用）；第 25 条传 min-width 判定复用同一套展平。 */
+function colorRules(cssLines, baseLine, filter = (p) => CSS_COLOR_PROP.test(p)) {
   const rules = [];
   const stack = []; // {sel, line, props}
   let pending = null; // 跨行声明累积
@@ -467,8 +468,8 @@ function colorRules(cssLines, baseLine) {
     if (!ln.trim()) continue;
     const single = ln.match(/^\s*([^{};]+)\{([^{}]*)\}\s*$/);
     if (single) {
-      const props = single[2].split(';').map((s) => s.match(/^\s*([a-z-]+)\s*:/)).filter(Boolean)
-        .map((m) => m[1]).filter((p) => CSS_COLOR_PROP.test(p));
+      const props = single[2].split(';').map((s) => s.match(/^\s*([a-z-]+)\s*:\s*(.*)$/)).filter(Boolean)
+        .filter((m) => filter(m[1], m[2])).map((m) => m[1]);
       if (props.length) rules.push({ selector: single[1].trim(), line: baseLine + i, props });
       continue;
     }
@@ -488,7 +489,7 @@ function colorRules(cssLines, baseLine) {
     if (dm) {
       const top = stack[stack.length - 1];
       const done = /;\s*$/.test(ln);
-      if (done && top && CSS_COLOR_PROP.test(dm[1])) top.props.push(dm[1]);
+      if (done && top && filter(dm[1], dm[2])) top.props.push(dm[1]);
       pending = done ? null : { prop: dm[1] };
       continue;
     }
@@ -797,6 +798,71 @@ const a24 = new Audit();
   }
 }
 
+// ---------- 25. 按钮不写宽度预留（min-width 禁令，§7.5.7「加载中的按钮」） ----------
+// 成因（2026-10-11 / 10-12 两轮用户批注，TODO T35 / T36）：为了「状态切换不改宽」，下载卡与
+// 清理卡的按钮都写过按最宽态算的 min-width，实测分别虚宽 32px 与 34px——用户批注即
+// 「按钮还是过于宽，空白与文本已经不均匀了」。两处的正解都是 Arco 自己的机制：`:loading`
+// 在同一个 `.arco-btn-icon` 槽里换图标（槽与 margin-right 都不动），两态天然等宽，预留没有
+// 存在理由。这条纪律此前只由 e2e 守（`layout-stability` ⑤/⑤b——要 build + 起 preview + 驱动
+// Chromium，且报的是「按钮比内容宽」这种几何现象），本条把它变成毫秒级的静态检查并指出行号。
+// 例外走登记（同 17 / 18 / 20 的口径）：登记必须带 expect 行数与理由，登记数与实际命中数
+// 不符即报——防止有人用「加个例外」把纪律悄悄改掉。
+// 注：顶栏 `.model-name` 的 `min-width: 180px` 是**独立选择器**（不挂在按钮类上），不落入本条
+// 射程，因此登记表里不需要为它开例外；若将来有人把它改写成 `.tb-model .model-name` 嵌套形式，
+// 本条会命中并要求带理由登记。
+const BTN_MIN_WIDTH_ALLOW = [
+  { file: 'packages/ui/src/components/settings/GeneralPanel.vue', marker: '.card-help-icon', expect: 1,
+    why: '纯图标的帮助钮（a-button size=mini 基座）：min-width 与 height 同取 21px 是「方形图标钮」的定档，不是带文案按钮的宽度预留' },
+];
+const MIN_WIDTH_ZERO = /^\s*0(px|rem|em)?\b/i; // min-width: 0 是省略链的必需项，不是宽度预留
+const a25 = new Audit();
+{
+  let classTotal = 0;
+  const counted = new Map();
+  for (const f of files) {
+    if (!f.endsWith('.vue')) continue;
+    const relFile = path.relative(ROOT, f).split(path.sep).join('/');
+    const lines = readLines(f);
+    const btnClasses = buttonClasses(lines.join('\n'));
+    classTotal += btnClasses.size;
+    if (!btnClasses.size) continue;
+    let cursor = 0;
+    while (cursor < lines.length) {
+      const openIdx = lines.findIndex((ln, i) => i >= cursor && /^\s*<style\b/.test(ln));
+      if (openIdx < 0) break;
+      let closeIdx = openIdx + 1;
+      while (closeIdx < lines.length && !/^\s*<\/style>/.test(lines[closeIdx])) closeIdx++;
+      for (const r of colorRules(lines.slice(openIdx + 1, closeIdx), openIdx + 1,
+        (p, v) => p === 'min-width' && !MIN_WIDTH_ZERO.test(v))) {
+        const hitsBtn = /\.arco-btn[\w-]*/.test(r.selector) ||
+          [...btnClasses].some((c) => new RegExp(`\\.${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(r.selector));
+        if (!hitsBtn) continue;
+        const allow = BTN_MIN_WIDTH_ALLOW.find((a) => a.file === relFile && r.selector.includes(a.marker));
+        if (allow) {
+          counted.set(allow, (counted.get(allow) || 0) + 1);
+          continue;
+        }
+        a25.add(f, r.line,
+          `${r.selector} 声明了 min-width——文案恒定的按钮宽度只由内容决定，状态切换交给 :loading 同槽换图标` +
+            `（确属反向需求请带理由登记进 BTN_MIN_WIDTH_ALLOW）`);
+      }
+      cursor = closeIdx + 1;
+    }
+  }
+  for (const a of BTN_MIN_WIDTH_ALLOW) {
+    const got = counted.get(a) || 0;
+    if (got !== a.expect) {
+      a25.add(path.join(ROOT, a.file), 0, `例外登记数不符：「${a.marker}」期望 ${a.expect} 处，实测 ${got} 处（理由：${a.why}）`);
+    }
+  }
+  // 尺子自证：全仓挂在 <a-button> 上的 class 实测 24 个（parse-btn / tb-model / win-btn /
+  // row-action / trash-detect-btn …），解析到过少说明 buttonClasses 与文件形状脱节，
+  // 那时「零命中」不再等于「干净」
+  if (classTotal < 12) {
+    a25.add(path.join(ROOT, 'scripts/style-audit.cjs'), 0, `只解析到 ${classTotal} 个按钮类（实测 24）：buttonClasses 失灵，本条判据不可信`);
+  }
+}
+
 // ---------- 输出 ----------
 const out = [
   render('1. 组件内裸颜色（token 禁令）', a1.items),
@@ -826,12 +892,13 @@ const out = [
   render('22. 控制台 token 家族（--log-kind-* / --console-*）有定义且有读者', a22.items),
   render('23. a-button 无 #suffix 死槽（只有 icon/default，尾图标进默认槽）', a23.items),
   render('24. 原生 title 禁令（浮层提示一律 ToolTip；豁免 a-* 组件 prop / iframe）', a24.items),
+  render('25. 按钮不写宽度预留（min-width 禁令；例外须带理由登记并核对行数）', a25.items),
   `\n扫描 ${files.length} 个文件 · 规范依据 docs/zh/frontend.md §7.5`,
 ];
 
 console.log(out.join('\n'));
 
 const failed =
-  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19, a20, a21, a22, a23, a24]
+  [a1, a2, a3, a4, a5, a6, a8, a9, a10, a11, a12, a13, a14, a15, a16a, a16b, a16c, a18, a19, a20, a21, a22, a23, a24, a25]
     .some((a) => a.items.length > 0) || STATE_UNREG.length > 0;
 process.exit(failed ? 1 : 0);

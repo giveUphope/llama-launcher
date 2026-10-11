@@ -4,6 +4,8 @@
 
 > 更早历史已按版本区间拆出归档：[0.0.53–0.0.60](archive/CHANGELOG-0.0.53-0.0.60.md) · [0.0.40–0.0.52](archive/CHANGELOG-0.0.40-0.0.52.md) · [0.0.01–0.0.39](archive/CHANGELOG-0.0.01-0.0.39.md) · [1.x 时代（版本重置前）](archive/CHANGELOG-v1-era.md)。仍未决的疑似问题与观察项归口 [TODO.md](TODO.md)，本文件只记已发生的事实。
 
+- **chore(scripts): `style-audit` 新增第 25 条「按钮不写宽度预留」静态门禁（关闭 TODO T38）**：出了什么事——按钮宽度纪律（文案恒定的按钮不写 `min-width` 预留，状态切换交给 `:loading` 同槽换图标）此前只由 e2e 守：跑一次要 build + 起 preview + 驱动 Chromium（本机 ~16s），报的还是「按钮比内容宽出多少」这种几何现象，定位慢。**改法**：`scripts/style-audit.cjs` 加第 25 条，复用第 18 条的 `buttonClasses()` 取「挂在 `<a-button>` 上的 class 集合」，把 style 块展平（含 SCSS 嵌套的祖先拼接），凡选择器命中按钮类或 `.arco-btn*` 且声明 `min-width` 即报，指到选择器与行号；`min-width: 0` 放行（它是省略链的必需项，不是预留）。例外走 `BTN_MIN_WIDTH_ALLOW` 登记（`file` + `marker` + `expect` 行数 + `why`），登记数与实际命中数不符即报——同第 17/18/20 条口径。**顺带把 `colorRules()` 泛化**：原先只筛配色，现接受 `filter(prop, value)` 参数，两条规则共用同一套展平实现，不另抄第二份。**首跑就抓到一处既有声明**：`GeneralPanel.vue:394` 的 `.card-help-icon`（21×21 纯图标钮，`min-width` 与 `height` 同值，是方形定档而非文案预留）⇒ 带理由登记，不是放行。**两条负实验**：给 `.parse-btn` 加 `min-width:120px` ⇒ 报 `DownloadCard.vue:991 .parse-btn 声明了 min-width…` 且 exit 1；把登记的 `expect` 从 1 改成 2 ⇒ 报「例外登记数不符：期望 2 处，实测 1 处」且 exit 1；两次撤净后 25 条全绿。**预判更正**：T38 原写「顶栏 `.model-name` 属合法例外、需登记」，实测它是**独立选择器**（不挂在按钮类上），不落入本条射程，登记表因此只有 `.card-help-icon` 一例。**范围说明**：本条只管 `min-width`；「`visibility: hidden` 却占宽的占位节点」仍归 e2e（静态判它要先算盒模型，超出 style-audit 的文本级口径）。**文档**：双语 `frontend.md` §7.5.9 清单加第 25 行、标题与正文计数 24 → 25，§7.5.7「加载中的按钮」末尾把静态兜底指过去。**验证**：`node scripts/style-audit.cjs` 退出码 0（44 文件 · 25 条全绿）；`pnpm lint` / `pnpm test`（core 41 文件 567 + ui 24 文件 247）/ `pnpm e2e:web`（115 条）退出码全 0；全仓按规则编号引用 style-audit 的注释（第 8/14/21/22 条）不受影响，无测试断言规则总数。
+
 ## \[Unreleased]
 
 - **style(ui),a11y: 清理卡两枚按钮对齐「同槽换图标」口径，三枚加载按钮补 `aria-busy`（关闭 TODO T36 / T37）**：

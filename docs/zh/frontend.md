@@ -222,7 +222,7 @@
 - **应用 Logo 统一**（2026-08-29，见 STYLE_TODO #29）：所有出现位置使用 `AppLogo` 组件（`components/common/AppLogo.vue`，`size` prop 指定边长）——同一 svg 资源（`assets/app-icon.svg`，与打包/任务栏图标同源）、统一胶囊圆角（`--radius-pill`）；出现位置：TopBar（20px）、设置-关于品牌头（40px + 应用名 + 版本）、浏览器标签 favicon（index.html `link rel="icon"` 同源）。新增 Logo 出现位置时必须复用该组件，禁止直接 `import app-icon.svg` 或 `<img>` 散写。
 - **API 地址语义收敛到 server store 单一来源**（2026-08-31；2026-10-11 增加第二口径）：界面一切「API 地址」展示/复制只取 store 的两个 computed——**`server.apiEndpoint`**（带 `/v1` 的完整端点，显示与复制一律用它，用户粘贴即可直接调 `/v1/chat/completions`）与 **`server.apiUrl`**（基址，唯一读者是内置 Web UI 的 iframe：llama.cpp 的 Web UI 挂在 `/`，带上 `/v1` 会 404）。**禁止页面各自从 `server.url`/`host`/`port` 就地派生**。store 内 `apiUrl` 与真实服务状态绑定——`running` 返回 `url`（为空时回退 `http://host:port`）、`starting` 返回推导地址、`stopped` 返回**空串**。原因：`onStatus` 事件只更新 `status` 不刷新 `url`，停止后 `server.url` 仍残留上次启动的地址，页面直接读 `url` 会显示已失效的旧 URL。显示层对空值统一以占位符（`—`/`status_stopped`）呈现，标签位与复制按钮常驻（无值时 `disabled`），保证运行前后行结构零跳动。当前消费方：概览服务状态卡（`ServiceStatusCard`）、状态栏（URL 可点复制，停止后整条消失）、WebUiFrame（iframe src，保留自身 `running` 门控作双保险）。新增任何 API 地址展示点必须复用 `server.apiUrl`。
 - **文档语义骨架（2026-10-07，STYLE_TODO #92）**：① **全站只有一个 `main` 地标**——`AppLayout` 的 `.app-content` 就是它，页面根 `PageFrame` 必须是普通 `div`（Arco 的 `a-layout-content` 渲染成 `<main>`，再套一层就是 `main > main`，模型页嵌套两层时实测三个；给内层加 `role="none"` 只是遮罩，不解决「地标到底哪个是真」，故删层而不遮层）。② **每页恰好一个 `<h1>`**，由 `PageHost` 单点渲染：元素用 Arco `a-typography-title :heading="1"`，文本取 `features` 注册表里该路由的 `nav.labelKey`（与侧栏页名同源，七页不再各写一份标题，新增页结构上漏不掉）。页名本来就只出现在侧栏，页面里没有一个可见大字标题，所以这是一个 **sr-only 标题**——`position: absolute` + 1×1 + `overflow: hidden` + `clip-path: inset(50%)`（就地写在 `PageHost.vue`，`theme.scss` 不为此开全局工具类）；**不得用 `display:none` / `visibility:hidden`**，那样读屏也一并读不到。它挂在 `.page-host` **外面**而不是里面：`.page-host > *` 是四份 e2e 共用的「异步页面组件已挂载」就绪门禁，标题（同步渲染）插进去会让门禁第一次就命中它而空转。③ **卡片小节标题是 `<h2>`**（`Card.vue` 单点）：非折叠卡 `<h2>` 承载标题文字，折叠卡用 `<h2>` 包 `a-button`（WAI-ARIA APG 手风琴写法——标题包按钮；反过来把 `role="heading"` 塞进按钮会吃掉按钮语义）。字号字重行高**继承 Arco 卡片头自己的声明**（`margin: 0; font: inherit`，实测 16px / 500 / 1.5715），不另造一档标题字号（Arco `a-typography-title` 的 h2 档是 32px，用在卡片头就是改版）；改前后 5 页 22 张卡片的 header / title / 首个内容盒逐项同几何。④ **状态变化要出声**：概览状态卡的状态行 `a-space` 直接透传 `aria-live="polite"`（Arco Space 没关 `inheritAttrs`，属性落进它渲染的那个 `div`），**不新包元素**——判据要求 live 根与状态行是同一个节点，包一层就是第二套几何（#81/#82 当年判的是整行预留槽两态等高；2026-10-09 起整行预留已废除，现行判据是状态行自身高度不跳，见 `e2e/web/semantics.spec.ts`）。「启动失败 / 异常退出」这两态的文字已由 `ServerStatusEvent.stop` 带下来，播报只是同一条状态文字发生变化，**不新开 IPC 通道、不在渲染层新增定时器**。判据与删除实验：`e2e/web/semantics.spec.ts`。
-- **加载中的按钮（2026-10-11 定版，#81 ② 的现行实现）**：动作按钮的忙态一律用 `a-button :loading`，**不换文案、不写 `min-width` 预留**。机制依据 `es/button/button.js`——`loading` 为真时是在**同一个 `<span class="arco-btn-icon">`** 内把插槽内容换成 `IconLoading`（尺寸 = 按钮字号），槽位与它的 `margin-right` 都不动 ⇒ 两态宽度天然相等，预留没有存在理由。三条推论：① 槽里常驻图标的 `Icon :size` **必须等于按钮字号**（`size="small"` 与 medium 都是 14px、mini 12px，见 `es/button/style/index.css:753-791`），窄一档就会在切换瞬间抖 2px（清理卡两枚按钮即此，T36 已修）；② 文案恒定的按钮不需要任何宽度预留，写 `min-width` 只造出「空白比字多」的空档（历史：下载卡 132 → 114 → 无预留，清理卡的 142 同批撤除）；③ 隐形占位（`visibility: hidden` 却占宽）是同一类缺陷的另一种形态，判据按「不可见节点不计入可见内容」抓它。控件级忙态同时补 `:aria-busy`——转圈图形读屏读不到，而 `aria-busy` 给的是**控件状态**、不是整句播报，别写成「已无障碍」。判据与删除实验见 `e2e/web/layout-stability.spec.ts` ⑤/⑤b 与 `e2e/web/a11y.spec.ts` ⑤。
+- **加载中的按钮（2026-10-11 定版，#81 ② 的现行实现）**：动作按钮的忙态一律用 `a-button :loading`，**不换文案、不写 `min-width` 预留**。机制依据 `es/button/button.js`——`loading` 为真时是在**同一个 `<span class="arco-btn-icon">`** 内把插槽内容换成 `IconLoading`（尺寸 = 按钮字号），槽位与它的 `margin-right` 都不动 ⇒ 两态宽度天然相等，预留没有存在理由。三条推论：① 槽里常驻图标的 `Icon :size` **必须等于按钮字号**（`size="small"` 与 medium 都是 14px、mini 12px，见 `es/button/style/index.css:753-791`），窄一档就会在切换瞬间抖 2px（清理卡两枚按钮即此，T36 已修）；② 文案恒定的按钮不需要任何宽度预留，写 `min-width` 只造出「空白比字多」的空档（历史：下载卡 132 → 114 → 无预留，清理卡的 142 同批撤除）；③ 隐形占位（`visibility: hidden` 却占宽）是同一类缺陷的另一种形态，判据按「不可见节点不计入可见内容」抓它。控件级忙态同时补 `:aria-busy`——转圈图形读屏读不到，而 `aria-busy` 给的是**控件状态**、不是整句播报，别写成「已无障碍」。判据与删除实验见 `e2e/web/layout-stability.spec.ts` ⑤/⑤b 与 `e2e/web/a11y.spec.ts` ⑤；「按钮类选择器写 `min-width`」这一条另有 `style-audit` 第 25 条做静态兜底（毫秒级、指到文件行号，例外须带理由登记）。
 - **禁止**：组件内 `style="color:#..."` 内联色值（动态状态色如 StatusBar 状态点除外）；非 token 的裸 `rgba(...)` 阴影/背景；逐行/逐列表项 backdrop-filter。
 
 #### 7.5.8 一致性检查清单（改动 UI 前对照）
@@ -250,7 +250,7 @@
 - [ ] **图标语义对账**：一个 Arco 字形只挂一个语义名（历史上 `folder` 与 `folder_open` 都是纯文件夹，结果「上一级」和「打开目录」长得一样），字形必须与动作语义一致；名字写错或引用已删的名字由 `IconName` 类型在 `vue-tsc` 阶段拦下，一名一图与零读者由门禁第 21 条拦下，不靠人记
 - [ ] 深色/浅色主题都检查一遍（`html[data-theme]` + `body[arco-theme]`；控制台/命令预览恒定深色面）
 
-#### 7.5.9 风格审计的复现方式（24 条已固化进 `scripts/style-audit.cjs`）
+#### 7.5.9 风格审计的复现方式（25 条已固化进 `scripts/style-audit.cjs`）
 
 > 审计口径与规范同源：本节是「怎么复现风格检查」的唯一活落点（原先写在 STYLE_TODO 清单头部，2026-10-10 该清单并入归档后搬到这里）。正文里出现的历史编号 `#NN` 一律指 [style-todo-resolved.md](../archive/style-todo-resolved.md) 的条目（含 2026-10-10 并进来的 #54–#121 明细与索引表）。
 
@@ -258,7 +258,7 @@
 node scripts/style-audit.cjs      # 或 pnpm style:audit
 ```
 
-24 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
+25 条检查已固化进 `scripts/style-audit.cjs`，全绿 = 与 frontend.md §7.5 规范一致；❌ 项输出 `文件:行号` 明细并以非零码退出（可接入 CI / pre-commit）。各条说明：
 
 1. 组件内裸颜色（token 禁令；`#fff`/`#1a1a1a` 仅限彩色按钮文字）
 2. 组件内裸字号（应走 `--fs-*`）
@@ -284,3 +284,4 @@ node scripts/style-audit.cjs      # 或 pnpm style:audit
 22. 控制台 token 家族（`--log-kind-*` / `--console-*`）有定义且有读者：`var(--x)` 无定义时浏览器**静默回退继承色**——实案是 1e73a17 把 `theme.scss` 的四个级别色定义当属性覆写误删，控制台着色整体失效而既有各条「颜色写对没有」的检查全绿；本条对家族双向核对（消费必有定义、定义必有读者）并自证解析规模（解析不到 6 条定义即报尺子变形）
 23. `a-button` 无 `#suffix` 死槽（只有 icon/default，尾图标进默认槽，#110）
 24. 原生 `title` 禁令（浮层提示一律 `ToolTip`，#118）：模板内 `title` / `:title` 的宿主只允许 `a-*` 组件（官方 title prop）与 `iframe`，其余元素即报并指认标签名；自证解析规模（合法命中 < 6 即报尺子变形）
+25. 按钮不写宽度预留（§7.5.7「加载中的按钮」，T35 / T36）：style 块里凡选择器命中「挂在 `<a-button>` 上的 class」或 `.arco-btn*`、且声明 `min-width`（`0` 放行，它是省略链必需项）即报并指认选择器与行号；例外必须带理由登记进 `BTN_MIN_WIDTH_ALLOW` 且核对命中行数，登记数与实际不符即报（同 17 / 18 / 20 口径）。当前登记 1 例：`GeneralPanel.vue` 的 `.card-help-icon`（纯图标钮，21×21 定档）。自证解析规模（按钮类总数 < 12 即报尺子变形，实测 24）

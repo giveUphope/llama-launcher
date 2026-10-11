@@ -10,9 +10,4 @@
 
 ## 开放项
 
-### T38 chore(scripts) 按钮宽度纪律只有 e2e 在守，静态门禁缺位（回退能红但定位慢）
-
-- **来源**：2026-10-12 修 T36 时的顺带发现（`scripts/style-audit.cjs` 全文没有任何与按钮宽度相关的规则，只有第 5/16b/18/20 条与按钮配色/图标槽相关）。
-- **现状**：「a-button 的类选择器写 `min-width` 预留」与「`visibility: hidden` 却占宽的占位节点」这两类回退，目前**只由 e2e 抓**（`e2e/web/layout-stability.spec.ts` ⑤/⑤b + 各自的删除实验）。e2e 要 build + 起 preview + 驱动 Chromium（本机 ~16s），且报的是「按钮宽出内距」这种几何现象；而这是一条纯语法可判的规矩（`.vue` 里选择器命中 `*-btn` 且声明了 `min-width`），静态扫一次毫秒级、还能指出文件行号。
-- **建议修复**：给 `style-audit.cjs` 加第 25 条——扫 `packages/ui/src/**/*.vue` 的 `<style>` 块，凡选择器末段是按钮类（含 `.parse-btn` 这类 e2e 锚）且块内声明 `min-width` 即报警，例外须像第 17/18/20 条那样**逐条登记 + 写理由**（顶栏 `.model-name` 的 `min-width` 是「名字长短不一」这种反向需求，属合法例外，登记而非放行）。同时把规范落点写进 `docs/{zh,en}/frontend.md` §7.5.7「加载中的按钮」末尾（现该段只说判据在 e2e）。
-- **修复效果验证**：`pnpm style:audit` 在**当前 HEAD**（虚宽已清零）应报 0 条；注入一条 `.parse-btn{min-width:120px}` 到任一 `.vue` 后必须点名该文件与行号并转红（负实验），撤掉即绿。`pnpm lint` 与既有 24 条不受影响。
+当前无未关闭条目。新待办按本文件头部的规矩登记在这里（T 编号 + 来源 + 现状 + 下一步；UI 风格类同样登记，标题标注 `style(ui)`，正文写「位置 / 描述 / 建议修复 / 修复效果验证」）；已裁定不做、但结论要长期留档的取舍进 [zh/design-decisions.md](zh/design-decisions.md)（英文镜像在 en 侧同名文件），不占待办位。
