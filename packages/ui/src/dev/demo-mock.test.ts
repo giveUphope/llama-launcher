@@ -228,15 +228,15 @@ describe('demo-mock 目录浏览树', () => {
   }>;
   type Scan = () => Promise<Array<{ name: string; path: string }>>;
 
-  async function fsApi(search = ''): Promise<{ listDir: ListDir; scan: Scan }> {
+  async function fsApi(search = ''): Promise<{ listDir: ListDir; scan: Scan; fileExists: (p: string) => Promise<boolean> }> {
     (globalThis as unknown as { window?: unknown }).window = { location: { search } };
     vi.resetModules();
     const { createDemoApi } = await import('./demo-mock');
     const api = createDemoApi() as unknown as {
-      system: { listDir: ListDir };
+      system: { listDir: ListDir; fileExists: (p: string) => Promise<boolean> };
       models: { scan: Scan };
     };
-    return { listDir: api.system.listDir, scan: api.models.scan };
+    return { listDir: api.system.listDir, scan: api.models.scan, fileExists: api.system.fileExists };
   }
 
   beforeEach(() => { vi.useFakeTimers(); });
@@ -244,6 +244,8 @@ describe('demo-mock 目录浏览树', () => {
     vi.useRealTimers();
     delete (globalThis as unknown as { window?: unknown }).window;
     delete (globalThis as unknown as { __mockPreviewExeMissing?: boolean }).__mockPreviewExeMissing;
+    // 反义钩子会跨用例、跨文件残留（同一 worker 共享 globalThis），必须就地清干净
+    delete (globalThis as unknown as { __mockFsMissing?: boolean }).__mockFsMissing;
   });
 
   it('大小写、分隔符与收尾斜杠都归一（用户手输路径是常态）', async () => {
@@ -254,6 +256,26 @@ describe('demo-mock 目录浏览树', () => {
     expect(b.exists).toBe(true);
     expect(a.path).toBe('D:\\Models');
     expect(b.entries.map((e) => e.name)).toEqual(a.entries.map((e) => e.name));
+  });
+
+  it('fileExists 与 listDir 同源：树里列得出的才算存在（2026-10-11 用户批注）', async () => {
+    const { listDir, fileExists, scan } = await fsApi();
+    expect(await fileExists('D:/Models'), '目录节点必须判存在').toBe(true);
+    expect(await fileExists('D:\\Models\\'), '分隔符与收尾斜杠同样归一').toBe(true);
+    // 文件：父目录列得出的名字才算存在——不是「一律真」的假对齐
+    const engine = await listDir('D:\\Models\\llama-bins');
+    const exe = engine.entries.find((e) => !e.isDir);
+    expect(exe, '样本要求：引擎目录演示数据里必须有文件').toBeTruthy();
+    expect(await fileExists(`D:/Models/llama-bins/${exe!.name}`)).toBe(true);
+    expect(await fileExists('D:/Models/nope-not-here.gguf'), '列不出的必须判不存在').toBe(false);
+    // 模型页列出的每个模型文件都必须判存在（摘要那格与启动的 exe 校验都问这条）
+    for (const m of await scan()) {
+      expect(await fileExists(m.path), `模型 ${m.path} 应当判存在`).toBe(true);
+    }
+    // 反义钩子：置位后一律查不到，用来演示「模型目录不存在 / 引擎文件缺失」那一侧
+    (globalThis as unknown as { __mockFsMissing?: boolean }).__mockFsMissing = true;
+    expect(await fileExists('D:/Models')).toBe(false);
+    delete (globalThis as unknown as { __mockFsMissing?: boolean }).__mockFsMissing;
   });
 
   it('目录在前、文件在后，同组按名称排序（与主进程 FS_LIST_DIR 同一形状）', async () => {
@@ -324,7 +346,8 @@ describe('demo-mock 目录浏览树', () => {
     const settings = await full.settings.load();
     // 默认（不设钩子）：server_exe 有值 → 预览照常成功
     expect((await full.server.previewCommand({} as never, settings)).ok).toBe(true);
-    // 钩子只影响预览这一条路径；它的反义默认留给 system.fileExists（徽章那一态）
+    // 钩子只影响预览这一条路径（不动演示树，摘要那格保持就绪）；
+    // 想让两处一起转阴用 `__mockFsMissing`——它们问的是同一个源（见上一条用例）
     (globalThis as unknown as { __mockPreviewExeMissing?: boolean }).__mockPreviewExeMissing = true;
     expect((await full.server.previewCommand({} as never, settings)).code).toBe('exe_missing');
     expect(typeof api.listDir).toBe('function');

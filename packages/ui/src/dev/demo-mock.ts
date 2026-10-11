@@ -233,6 +233,27 @@ const DEMO_FS_INDEX = new Map(
   Object.entries(DEMO_FS).map(([display, node]) => [demoFsKey(display), { display, ...node }]),
 );
 
+/**
+ * 存在性判定与 `listDir` **同源**（2026-10-11 用户批注）：树里列得出的目录或文件就算存在。
+ * 之前这个桩无视入参、默认恒 false，于是出现「目录里明明看得见 `llama-server.exe`，检测却
+ * 说不存在」——两个界面各说一套，而正向链路（目录就绪、引擎就绪、顶栏启动的 exe 校验）
+ * 在预览环境根本看不见。
+ * `globalThis.__mockFsMissing = true` 翻成「全都查不到」，用来演示「模型目录不存在 /
+ * 引擎文件缺失」那一侧；本文件另有 `__mockPreviewExeMissing` 只管命令预览的失败码。
+ */
+function demoPathExists(p: string): boolean {
+  if ((globalThis as unknown as { __mockFsMissing?: boolean }).__mockFsMissing === true) return false;
+  const raw = (p ?? '').trim();
+  if (!raw) return false;
+  if (DEMO_FS_INDEX.has(demoFsKey(raw))) return true; // 目录节点本身
+  const parent = demoFsParent(raw);
+  if (!parent) return false;
+  const node = DEMO_FS_INDEX.get(demoFsKey(parent));
+  if (!node) return false;
+  const base = raw.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? '';
+  return node.files.includes(base);
+}
+
 // ---- 应用日志（日志页初始内容） ----
 const DEMO_APP_LOGS: AppLogEntry[] = [
   { kind: 'info', data: 'Service start requested (model: Qwen3-32B-A3B-Instruct-Q4_K_M.gguf)', ts: Date.now() - 62000 },
@@ -833,11 +854,11 @@ export function createDemoApi() {
         // 与 core `buildCommand` 同一道 exe 守卫、同一组失败码，否则「首次使用」那一态在预览
         // 环境永远看不见：真实侧 server_exe 为空是常态，此前 mock 恒回 ok:true。
         // argv 本身仍由 shared 的 buildArgv 产出（发射实现唯一，见 scripts/verify-params-sync ⑤）。
-        // 浏览器没有文件系统，「路径配了但文件不存在」这一态由**专用钩子**控制：
-        // globalThis.__mockPreviewExeMissing = true → 演示 exe_missing。
-        // 刻意不复用 system.fileExists 的 `__mockEngineFileExists`：那个钩子是「=== true 才算存在
-        // （默认视为不存在）」，与本守卫的默认正好相反；共用一个变量会让设置页徽章说「引擎文件不存在」
-        // 而服务页预览照样给出完整命令——两个界面又对不上，正是本轮要消除的那类不一致。
+        // 浏览器没有文件系统，「路径配了但文件不存在」这一态问的是**同一个源**：
+        // `demoPathExists(server_exe)`——与设置页徽章、listDir 同一棵演示树，不再各说一套
+        // （2026-10-11 用户批注：树里看得见那个文件，检测却说不存在）。
+        // 另有专用钩子 `globalThis.__mockPreviewExeMissing = true`：它只让预览失败、不动树，
+        // 用来单独演示「命令预览的 exe_missing 告警」而不连带改变摘要那一格。
         if (!settings.server_exe.trim()) {
           return Promise.resolve({
             ok: false,
@@ -845,7 +866,8 @@ export function createDemoApi() {
             code: 'exe_not_configured',
           } as never);
         }
-        if ((globalThis as unknown as { __mockPreviewExeMissing?: boolean }).__mockPreviewExeMissing === true) {
+        if (!demoPathExists(settings.server_exe)
+          || (globalThis as unknown as { __mockPreviewExeMissing?: boolean }).__mockPreviewExeMissing === true) {
           return Promise.resolve({
             ok: false,
             error: `Server executable does not exist: ${settings.server_exe}`,
@@ -905,17 +927,14 @@ export function createDemoApi() {
       ),
       killProcess: () => Promise.resolve({ ok: true }),
       findFreePort: () => Promise.resolve(8081),
-      // 引擎文件是否存在：默认 false（设置页的「路径不存在」三态与既有判据都靠这个默认值）。
-      // 顶栏「启动」走 useStartServer 的异步校验，false 时永远起不来——播报判据要看
-      // starting→running 这一程，故留一个开关：`globalThis.__mockEngineFileExists = true`。
-      // 既有范式：globalThis.__mockExternalServer（同为本文件的 system.checkPort）。
-      fileExists: () => Promise.resolve(
-        (globalThis as unknown as { __mockEngineFileExists?: boolean }).__mockEngineFileExists === true,
-      ),
-      // 引擎可执行文件探测：空态恒找不到；默认回演示引擎路径（配合上面 fileExists 默认 false，
-      // 摘要读出「引擎文件缺失」）。`globalThis.__mockEngineNotFound = true` 翻成「目录填了但
-      // 里面没有 llama-server」——行内状态胶囊撤除后（2026-10-11 用户批注），摘要引擎格的
-      // 「引擎未找到」分支是这一情形的唯一出口，得有钩子才下得了判据。
+      // 引擎/文件存在性：按演示树回答（见 demoPathExists）。默认现场是「目录就绪、引擎就绪」，
+      // 且顶栏「启动」走 useStartServer 的 exe 校验也直接走得通（不必再开钩子放行）；
+      // 要看「不存在 / 缺失」那一侧置 `globalThis.__mockFsMissing = true`。
+      fileExists: (p: string) => Promise.resolve(demoPathExists(p)),
+      // 引擎可执行文件探测：空态恒找不到；默认回演示引擎路径（该路径就在演示树里，
+      // 上面 fileExists 认它 ⇒ 摘要引擎格默认读「引擎就绪」）。`globalThis.__mockEngineNotFound = true`
+      // 翻成「目录填了但里面没有 llama-server」——行内状态胶囊撤除后（2026-10-11 用户批注），
+      // 摘要引擎格的「引擎未找到」分支是这一情形的唯一出口，得有钩子才下得了判据。
       findLlamaExe: () => Promise.resolve(
         FRESH || (globalThis as unknown as { __mockEngineNotFound?: boolean }).__mockEngineNotFound
           ? '' : `${ENGINE_DIR}/llama-server.exe`,

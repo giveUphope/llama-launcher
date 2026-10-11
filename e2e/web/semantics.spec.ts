@@ -254,12 +254,7 @@ function judgeLive(s: LiveStat, where: string): string[] {
   return v;
 }
 
-/** 顶栏启停驱动（mock 的 engine 文件存在性默认 false，启动这条路要先开钩子才走得通）。 */
-async function enableEngineFile(page: Page) {
-  await page.evaluate(() => {
-    (globalThis as unknown as { __mockEngineFileExists?: boolean }).__mockEngineFileExists = true;
-  });
-}
+/** 顶栏启停驱动（mock 的存在性检测与演示树同源，exe 校验默认就走得通，不必再开钩子放行）。 */
 async function setMockStopReason(page: Page, reason: string | null) {
   await page.evaluate((r) => {
     const g = globalThis as unknown as { __mockStopReason?: string };
@@ -284,7 +279,6 @@ async function driveStatusCycle(page: Page, lang: Lang): Promise<{ texts: string
     texts.push(s.text);
     heights.push(s.h);
   };
-  await enableEngineFile(page);
   const start = page.locator('.topbar button', { hasText: UI[lang].start }).first();
   const stop = page.locator('.topbar button.tb-stop').first();
   await sample(); // 初始现场：mock 默认 running

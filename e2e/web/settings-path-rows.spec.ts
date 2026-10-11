@@ -1,15 +1,16 @@
 import { test, expect, type Page } from '@playwright/test';
 
 /**
- * 设置页「常规」两行路径控件判据（2026-10-11 用户两条批注）：
+ * 设置页「常规」两行路径控件与状态摘要判据（2026-10-11 用户三条批注）：
  *   ① 两行操作对等——各有「更改」+「打开目录」，目录为空时后者禁用（没处可开）；
  *   ② 引擎状态**只在顶部摘要说一次**——行内那枚状态胶囊连同 156px 定宽槽整体撤除
- *      （此前同一屏会出现两枚逐字相同的指示器，那是第二套出口）。
+ *      （同一屏两枚逐字相同的指示器是第二套出口）；
+ *   ③ mock 的存在性检测与演示目录树**同源**：树里列得出的目录/文件就算存在，
+ *      所以默认现场是「模型目录就绪 + 引擎就绪」这条正向链路，不必开任何钩子。
  * 摘要引擎格四态各有断言：未配置（`?fresh=1`）/ 未找到（`__mockEngineNotFound`）/
- * 文件缺失（默认态）/ 就绪（`__mockEngineFileExists`）。
- * **每个状态各占一条用例**：钩子是经 `addInitScript` 注入的，它对同一 page 的后续每次
- * 导航都生效——四条断言挤在一条用例里，第二条起读到的都是上一条留下的演示现场
- * （第一版就这么假红过：默认态被前一条的 `__mockEngineNotFound` 粘住，读出「引擎未找到」）。
+ * 就绪（默认）/ 文件缺失（`__mockFsMissing`，此时模型目录那格同步转「不存在」）。
+ * **每个状态各占一条用例**：钩子经 `addInitScript` 注入，对同一 page 的后续每次导航都
+ * 持续生效——挤在一条用例里，第二条起读到的都是上一条的演示现场（第一版就这么假红过）。
  * 「打开目录」还须把**本行显示的目录原样**交给 `openPath`——按钮存在不等于接对了路径，
  * mock 侧为此把 openPath 桩升级成 `__mockOpenedPaths` 记录钩子。
  */
@@ -17,40 +18,47 @@ type Lang = 'zh' | 'en';
 
 const UI: Record<Lang, {
   change: string; open: string;
-  unset: string; notFound: string; missing: string; ready: string;
+  exeUnset: string; exeNotFound: string; exeMissing: string; exeReady: string;
+  modelReady: string; modelMissing: string;
 }> = {
-  zh: { change: '更改', open: '打开目录', unset: '引擎未配置', notFound: '引擎未找到', missing: '引擎文件缺失', ready: '引擎就绪' },
+  zh: {
+    change: '更改', open: '打开目录',
+    exeUnset: '引擎未配置', exeNotFound: '引擎未找到', exeMissing: '引擎文件缺失', exeReady: '引擎就绪',
+    modelReady: '模型目录就绪', modelMissing: '模型目录不存在',
+  },
   en: {
     change: 'Change', open: 'Open Folder',
-    unset: 'Engine not configured', notFound: 'Engine not found', missing: 'Engine file missing', ready: 'Engine ready',
+    exeUnset: 'Engine not configured', exeNotFound: 'Engine not found',
+    exeMissing: 'Engine file missing', exeReady: 'Engine ready',
+    modelReady: 'Model dir ready', modelMissing: 'Model dir not found',
   },
 };
 
-interface Flags { fresh?: boolean; engineNotFound?: boolean; engineExists?: boolean }
+interface Flags { fresh?: boolean; engineNotFound?: boolean; fsMissing?: boolean }
 
 /** 打开设置页「常规」；演示钩子经 addInitScript 先于页面脚本置位（桩按调用时刻取值）。 */
 async function openSettings(page: Page, lang: Lang, opts: Flags = {}) {
   const q: string[] = [];
   if (opts.fresh) q.push('fresh=1');
   if (lang === 'en') q.push('lang=en');
-  if (opts.engineNotFound || opts.engineExists) {
+  if (opts.engineNotFound || opts.fsMissing) {
     await page.addInitScript((f) => {
       const g = globalThis as unknown as Record<string, unknown>;
       if (f.notFound) g.__mockEngineNotFound = true;
-      if (f.exists) g.__mockEngineFileExists = true;
-    }, { notFound: !!opts.engineNotFound, exists: !!opts.engineExists });
+      if (f.missing) g.__mockFsMissing = true;
+    }, { notFound: !!opts.engineNotFound, missing: !!opts.fsMissing });
   }
   await page.goto(`/${q.length ? `?${q.join('&')}` : ''}#/settings`);
   await expect(page.locator('.status-summary')).toBeVisible();
   await expect(page.locator('.path-row')).toHaveCount(2);
-  // 摘要三格是「引擎那格排最后」这一前提本身：将来加格或改条件渲染，下面的 nth(2)
-  // 会指到别处——先把前提钉住，宁可假红也不要指错格还判绿
+  // 摘要三格是「模型目录第二格、引擎第三格」这一前提本身：将来加格或改条件渲染，
+  // 下面的 nth() 会指到别处——先把前提钉住，宁可假红也不要指错格还判绿
   await expect(page.locator('.status-summary .summary-item')).toHaveCount(3);
 }
 
 const engineItem = (page: Page) => page.locator('.status-summary .summary-item').nth(2);
+const modelItem = (page: Page) => page.locator('.status-summary .summary-item').nth(1);
 const engineRow = (page: Page) => page.locator('.engine-path-row');
-const noChip = (page: Page, why: string) => expect(engineRow(page).locator('.exe-tag'), why).toHaveCount(0);
 
 for (const lang of ['zh', 'en'] as Lang[]) {
   const name = lang === 'zh' ? '中文' : '英文';
@@ -66,20 +74,31 @@ for (const lang of ['zh', 'en'] as Lang[]) {
 
     test('什么都没配 → 摘要读「未配置」，行内不出胶囊', async ({ page }) => {
       await openSettings(page, lang, { fresh: true });
-      await expect(engineItem(page)).toHaveText(UI[lang].unset);
-      await noChip(page, '空态行内不得有第二处指示');
+      await expect(engineItem(page)).toHaveText(UI[lang].exeUnset);
+      await expect(engineRow(page).locator('.exe-tag'), '行内胶囊必须整体撤除').toHaveCount(0);
     });
 
     test('目录填了但里面没有 llama-server → 摘要读「未找到」而不是「未配置」', async ({ page }) => {
       await openSettings(page, lang, { engineNotFound: true });
-      await expect(engineItem(page), '填错目录与还没动手是两件事，指示必须分开').toHaveText(UI[lang].notFound);
-      await noChip(page, '这一态同样不许在行内再说一遍');
+      await expect(engineItem(page), '填错目录与还没动手是两件事，指示必须分开').toHaveText(UI[lang].exeNotFound);
+      await expect(engineRow(page).locator('.exe-tag')).toHaveCount(0);
     });
 
-    test('找到路径但文件不存在 → 摘要读「文件缺失」，且「打开目录」把本行目录原样交给 openPath', async ({ page }) => {
+    test('默认现场两行都就绪（检测与演示树同源，正向链路不必开钩子）', async ({ page }) => {
       await openSettings(page, lang);
-      await expect(engineItem(page)).toHaveText(UI[lang].missing);
-      await noChip(page, '有结论时也不该在行内重复');
+      await expect(modelItem(page), '模型目录在演示树里列得出，就该判就绪').toHaveText(UI[lang].modelReady);
+      await expect(engineItem(page), '引擎 exe 就在演示树里，就该判就绪').toHaveText(UI[lang].exeReady);
+      await expect(engineRow(page).locator('.exe-tag')).toHaveCount(0);
+    });
+
+    test('路径全查不到时两格同时转阴（模型目录不存在 + 引擎文件缺失）', async ({ page }) => {
+      await openSettings(page, lang, { fsMissing: true });
+      await expect(modelItem(page)).toHaveText(UI[lang].modelMissing);
+      await expect(engineItem(page)).toHaveText(UI[lang].exeMissing);
+    });
+
+    test('「打开目录」把本行显示的目录原样交给 openPath', async ({ page }) => {
+      await openSettings(page, lang);
       const shown = await engineRow(page).locator('.path-input input').first().inputValue();
       expect(shown, '样本要求：引擎目录必须非空，否则这条判据打在禁用态上').not.toBe('');
       const before = await page.evaluate(() => ((globalThis as unknown as { __mockOpenedPaths?: string[] }).__mockOpenedPaths ?? []).length);
@@ -90,12 +109,6 @@ for (const lang of ['zh', 'en'] as Lang[]) {
       });
       expect(rec.n, '点击必须真的打到 openPath 通道').toBe(before + 1);
       expect(rec.last, '传给 openPath 的必须就是引擎行里那个目录').toBe(shown);
-    });
-
-    test('引擎文件存在 → 摘要读「就绪」', async ({ page }) => {
-      await openSettings(page, lang, { engineExists: true });
-      await expect(engineItem(page)).toHaveText(UI[lang].ready);
-      await noChip(page, '好消息也不许在行内再说一遍');
     });
   });
 }
