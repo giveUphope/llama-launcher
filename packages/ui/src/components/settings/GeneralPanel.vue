@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 阶段三：设置页「常规」分组 —— 模型目录、llama 后端（引擎目录）+ 引擎检测、关闭窗口行为。
-// 设计稿 §14.10 / 补充指南 §14.10：模型目录提供「打开目录」；
+// 设计稿 §14.10 / 补充指南 §14.10：模型目录与引擎目录两行控件对等，各有「更改」+「打开目录」；
 // 原独立「llama.cpp」标签（LlamaPanel）已整合为本卡片内的引擎目录行。
 import type { IconName } from '@/components/common/icon-map';
 import { computed, ref, watch, nextTick, getCurrentInstance, onActivated, onDeactivated, onUnmounted } from 'vue';
@@ -88,7 +88,9 @@ watch(llamaDir, () => {
 const exeBadge = computed<{ icon: IconName; color: 'gray' | 'arcoblue' | 'green' | 'red'; tip: string; label: string; loading?: boolean } | null>(() => {
   switch (exeStatus.value) {
     case 'idle':
-      return { icon: 'info', color: 'gray', tip: i18n.t('msg_no_exe_hint'), label: i18n.t('lbl_exe_state_idle') };
+      // 没配引擎目录时不出胶囊：输入框本身就是空的，再说一遍「未配置」是同一屏说两遍
+      // （2026-10-11 用户批注）。定宽槽 .exe-status-slot 保留，检测结论落地时行宽不跳。
+      return null;
     case 'detecting':
       // loading 态由 a-tag 的官方 loading prop 渲染转圈，图标留空
       return { icon: 'refresh', color: 'arcoblue', tip: i18n.t('msg_exe_detecting'), label: i18n.t('lbl_exe_state_detecting'), loading: true };
@@ -110,6 +112,12 @@ const exeBadge = computed<{ icon: IconName; color: 'gray' | 'arcoblue' | 'green'
 async function onBrowseExeDir() {
   const dir = await pickDir({ title: i18n.t('msg_select_exe_dir'), defaultPath: llamaDir.value || undefined });
   if (dir) llamaDir.value = dir;
+}
+
+// 与模型目录行对等的操作（2026-10-11 用户批注）：引擎目录同样要能一步开进资源管理器
+async function onOpenEngineDir() {
+  if (!llamaDir.value) return;
+  try { await window.api.openPath(llamaDir.value); } catch { /* 静默 */ }
 }
 
 async function onOpenLlamaReleases() {
@@ -358,6 +366,12 @@ onActivated(() => {
             <template #icon><Icon name="folder" :size="12" /></template>
             {{ i18n.t('btn_change_dir') }}
           </a-button>
+          <ToolTip :text="i18n.t('btn_open_dir')">
+            <a-button size="small" :disabled="!llamaDir" @click="onOpenEngineDir">
+              <template #icon><Icon name="folder" :size="12" /></template>
+              {{ i18n.t('btn_open_dir') }}
+            </a-button>
+          </ToolTip>
             <!-- 引擎状态胶囊：a-tag 官方预设色（2026-10-08 按用户要求对齐 Arco 官方最佳实践，
                  自绘 chip 是官方 Tag 的平行实现）。常驻定宽槽保留：槽宽按双语最宽状态文案预留，
                  检测结论落地时行内固有宽度不变；nowrap 防文案折行 -->

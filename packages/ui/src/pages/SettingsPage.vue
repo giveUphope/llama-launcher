@@ -42,7 +42,7 @@ function setTab(key: TabKey) {
 }
 
 // 顶部状态摘要：引擎/模型目录按「实际环境」真实检测（fileExists），并随配置变化实时刷新。
-// 三态：idle（未配置）/ ok（已配置且文件存在）/ missing（已配置但文件不存在）
+// 三态：idle（引擎未配置）/ ok（已配置且文件存在）/ missing（已配置但文件不存在）
 type ReadyState = 'idle' | 'checking' | 'ok' | 'missing';
 const llamaDir = computed(() => settings.settings?.llama_dir ?? '');
 const modelsDir = computed(() => settings.settings?.models_dir ?? '');

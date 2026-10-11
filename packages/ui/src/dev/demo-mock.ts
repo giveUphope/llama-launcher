@@ -875,7 +875,16 @@ export function createDemoApi() {
     },
     clipboard: { write: () => Promise.resolve() },
     openExternal: () => Promise.resolve(),
-    openPath: () => Promise.resolve({ ok: true }),
+    /**
+     * 「打开目录」演示桩：浏览器里没有资源管理器可开，但**接错路径**这类缺陷必须看得见，
+     * 所以把每次收到的路径记进 `globalThis.__mockOpenedPaths` 供 e2e 取判据
+     * （与 `__mockPushConsole` 同一套钩子范式——按钮存在不等于传对了目录）。
+     */
+    openPath: (p: string) => {
+      const log = ((globalThis as unknown as { __mockOpenedPaths?: string[] }).__mockOpenedPaths ??= []);
+      log.push(p);
+      return Promise.resolve({ ok: true });
+    },
     window: {
       close: () => Promise.resolve(),
       minimize: () => Promise.resolve(),

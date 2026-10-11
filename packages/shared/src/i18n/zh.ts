@@ -109,7 +109,7 @@ export const zh = {
   lbl_settings_hint: '更改即时保存',
   lbl_exe_state_ready: '引擎就绪',
   lbl_exe_detected_path: '已检测到引擎二进制：{0}',
-  lbl_exe_state_idle: '未配置',
+  lbl_exe_state_idle: '引擎未配置',
   lbl_exe_state_detecting: '检测中…',
   lbl_exe_state_missing: '引擎文件缺失',
   lbl_exe_state_not_found: '未找到',

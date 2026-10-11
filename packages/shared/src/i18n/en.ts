@@ -111,7 +111,7 @@ export const en: Dict = {
   lbl_settings_hint: 'Changes are saved immediately',
   lbl_exe_state_ready: 'Engine ready',
   lbl_exe_detected_path: 'Engine binary detected: {0}',
-  lbl_exe_state_idle: 'Not configured',
+  lbl_exe_state_idle: 'Engine not configured',
   lbl_exe_state_detecting: 'Detecting…',
   lbl_exe_state_missing: 'Engine file missing',
   lbl_exe_state_not_found: 'Not found',
