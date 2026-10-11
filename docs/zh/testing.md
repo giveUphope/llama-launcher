@@ -6,7 +6,7 @@
 
 - **框架**：Vitest 4（`pnpm test` 经 turbo 一并运行 core 与 ui 两包）
 
-- **规模**：core 41 个测试文件 / **567** 个用例 + ui **22** 个测试文件 / **233** 个用例（`pnpm test` 经 turbo 一并运行两包；2026-10-11 端口迭代轮按实跑校准）
+- **规模**：core 41 个测试文件 / **567** 个用例 + ui **23** 个测试文件 / **237** 个用例（`pnpm test` 经 turbo 一并运行两包；2026-10-11 摘要浮层归属轮按实跑校准）
 
 - **覆盖模块**：
 
@@ -61,6 +61,7 @@
 | `src/dev/demo-mock.test.ts`         | 浏览器 mock 的命令预览：初值态发出 4 个基线推荐值、哨兵不发射、扩展参数不进内置框、与 `shared` 发射实现逐字相等；另钉 `?fresh=1` 首次使用空态开关双向（空态预填全归零 / 默认预填仍在）        |
 | `src/testing/arco-theme.test.ts`       | 主题 token 对齐（HTML `data-theme` / body `arco-theme`）                            |
 | `src/testing/status-tag.test.ts`       | `StatusTag` 状态标签变体渲染                                                         |
+| `src/components/service/ParamSummaryCard.test.ts` | 参数摘要 chip 的浮层归属：键名那只挂 flag、值区那只挂完整值且**只在量出省略号截断时启用**、等号不落在任何命中区、chip 自身不被提示包裹（两层嵌套即回潮） |
 | `src/components/models/LocalModelsPanel.test.ts` | 本地模型面板（`rowMeta` 行内徽章预计算随条目携带——语言切换不再走渲染路径；体检记录跨子标签保留）                     |
 
 ## 手动冒烟脚本（需真实引擎/模型）

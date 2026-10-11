@@ -6,7 +6,7 @@
 
 - **Framework**: Vitest 4 (`pnpm test` runs both the core and the ui package through turbo)
 
-- **Scale**: core 41 test files / **567** cases + ui **22** test files / **233** cases (`pnpm test` runs both packages through turbo; calibrated against an actual run in the port-iteration round, 2026-10-11)
+- **Scale**: core 41 test files / **567** cases + ui **23** test files / **237** cases (`pnpm test` runs both packages through turbo; calibrated against an actual run in the summary-tooltip round, 2026-10-11)
 
 - **Covered modules**:
 
@@ -61,6 +61,7 @@ The table indexes the main suites; `git ls-files packages/core/tests` is the aut
 | `src/dev/demo-mock.test.ts`         | Browser-mock command preview: default state emits the 4 baseline recommendations, sentinels stay out, custom args stay out of the built-in box, and the result is byte-equal to the `shared` emitter; also pins both directions of the `?fresh=1` first-use empty-state switch (empty when flagged / prefilled by default) |
 | `src/testing/arco-theme.test.ts`       | Theme token alignment (HTML `data-theme` / body `arco-theme`)             |
 | `src/testing/status-tag.test.ts`       | Variant rendering of the `StatusTag` status label                         |
+| `src/components/service/ParamSummaryCard.test.ts` | Summary-chip tooltip ownership: the key tooltip carries the CLI flag, the value tooltip carries the full value and is enabled **only when truncation is measured**, the "=" sits outside any hit area, and the chip itself is never wrapped (nesting would be a regression) |
 | `src/components/models/LocalModelsPanel.test.ts` | Local-models panel (`rowMeta` per-row badge precomputation travels with the entry — language switching no longer takes the render path; health-check records survive sub-tab switches) |
 
 ## Manual smoke scripts (require a real engine/model)

@@ -2,7 +2,7 @@
 // 阶段四：参数摘要预览卡（从原 LaunchPage 迁入 ServicePage）。
 // 按 PARAM_GROUPS 分组展示已启用参数（值非默认），含启动前快速核对。
 // 提示词 §9：「参数保存与应用清晰分离」— 摘要只读，不提供编辑入口。
-import { computed } from 'vue';
+import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue';
 import { PARAMS, PARAM_GROUPS, MODEL_KEY } from '@llama-launcher/shared';
 import type { ParamDef } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
@@ -77,6 +77,37 @@ const activeParamCount = computed(() => {
   for (const p of PARAMS) if (params.values[p.key] !== p.default) n++;
   return n;
 });
+
+// 值区浮层只在「界面真的装不下」时出现（2026-10-11 用户批注：`0.7` 这种短值也弹完整值
+// 是噪声）。截断与否量得出来、猜不出来——chip 宽度随窗口与字体变，写阈值必错。
+const chipRoot = ref<HTMLElement | null>(null);
+const truncatedVals = ref<Set<string>>(new Set());
+
+function measureTruncated() {
+  const root = chipRoot.value;
+  if (!root) return;
+  const next = new Set<string>();
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>('.chip-val'))) {
+    const key = el.dataset.key;
+    // +1 容差：亚像素取整会让未截断的边界值误判成截断
+    if (key && el.scrollWidth > el.clientWidth + 1) next.add(key);
+  }
+  truncatedVals.value = next;
+}
+
+watch(summaryGroups, () => { void nextTick(measureTruncated); });
+onMounted(() => {
+  void nextTick(measureTruncated);
+  window.addEventListener('resize', measureTruncated);
+});
+// keep-alive 铁律①：服务页常驻缓存，onUnmounted 不执行——监听按激活/停用配对收放。
+// addEventListener 对同一 (type, listener) 幂等，故 mounted 与 activated 都加不会重复。
+onActivated(() => {
+  window.addEventListener('resize', measureTruncated);
+  void nextTick(measureTruncated);
+});
+onDeactivated(() => window.removeEventListener('resize', measureTruncated));
+onUnmounted(() => window.removeEventListener('resize', measureTruncated));
 </script>
 
 <template>
@@ -84,21 +115,23 @@ const activeParamCount = computed(() => {
     <div class="summary-hint">
       {{ i18n.t('msg_param_summary_hint', [String(activeParamCount)]) }}
     </div>
-    <div class="summary-groups">
+    <div ref="chipRoot" class="summary-groups">
       <div v-for="g in summaryGroups" :key="g.groupKey" class="summary-group">
         <div class="summary-group-title">{{ i18n.t(g.labelKey) }}</div>
         <div class="summary-chips">
-          <ToolTip v-for="r in g.rows" :key="r.key" :text="r.flag">
-            <a-tag class="summary-chip" size="small">
-              <span class="chip-key">{{ r.label }}</span>
-              <span class="chip-eq">=</span>
-              <!-- 值区单行省略（#81 低档：模型 chip 的值由短文本变成完整绝对路径 →
-                   chip 超宽换行、摘要卡整块长高）；截断完整值走 ToolTip（a-tooltip，
-                   2026-10-08 撤销 §7.5「截断值保留原生 title」边界，随官方组件收敛）。
-                   双层悬浮沿用原原生 title 语义：悬停键名区看 flag、悬停值区看完整值 -->
-              <ToolTip :text="r.value"><span class="chip-val">{{ r.value }}</span></ToolTip>
-            </a-tag>
-          </ToolTip>
+          <!-- 一处一事（2026-10-11 用户三条批注）：外层原先包着**整只 chip**，于是悬停
+               等号弹的是 flag、悬停值区内外两层同时命中（屏幕上一角一只、两只气泡）。
+               现在键名与值各包各的：悬停键名看 CLI flag、悬停被截断的值看完整值，
+               等号与未截断的短值不出气泡，Arco 的箭头也对准了鼠标下的文本 -->
+          <a-tag v-for="r in g.rows" :key="r.key" class="summary-chip" size="small">
+            <ToolTip :text="r.flag"><span class="chip-key">{{ r.label }}</span></ToolTip>
+            <span class="chip-eq">=</span>
+            <!-- 值区单行省略（#81 低档：模型 chip 的值由短文本变成完整绝对路径 →
+                 chip 超宽换行、摘要卡整块长高）；完整值提示只在量出截断时启用 -->
+            <ToolTip :text="r.value" :disabled="!truncatedVals.has(r.key)">
+              <span class="chip-val" :data-key="r.key">{{ r.value }}</span>
+            </ToolTip>
+          </a-tag>
         </div>
       </div>
     </div>
