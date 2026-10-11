@@ -19,18 +19,19 @@ type Lang = 'zh' | 'en';
 // 设置页与「外观」页签恒按中文点击——每条用例都是全新 context，mock 初始语言是 zh，
 // 语言切换发生在切到目标语言之前（沿用 app.spec.ts setLanguage 的做法）。
 const UI = {
-  zh: { dashboard: '概览', models: '模型管理', params: '参数设置', local: '本地模型', library: '模型库' },
-  en: { dashboard: 'Overview', models: 'Models', params: 'Parameters', local: 'Local', library: 'Library' },
+  zh: { dashboard: '概览', models: '模型管理', params: '参数设置', settings: '应用设置', local: '本地模型', library: '模型库', advanced: '高级', confirm: '确认' },
+  en: { dashboard: 'Overview', models: 'Models', params: 'Parameters', settings: 'Settings', local: 'Local', library: 'Library', advanced: 'Advanced', confirm: 'Confirm' },
 };
 
 const ROUTE: Record<string, string> = {
   dashboard: '#/dashboard',
   models: '#/models',
   params: '#/params',
+  settings: '#/settings',
 };
 
 /** 冷启动 → 需要时切英文 → 走侧栏到目标页（demo 的 last_tab 会回跳概览，故不用 URL 直达）。 */
-async function gotoPage(page: Page, lang: Lang, key: 'dashboard' | 'models' | 'params') {
+async function gotoPage(page: Page, lang: Lang, key: 'dashboard' | 'models' | 'params' | 'settings') {
   await page.goto('/');
   await expect(page.locator('.sidebar')).toBeVisible();
   if (lang === 'en') {
@@ -273,22 +274,28 @@ function judgeDownloadSlots(s: DownloadStat): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// ⑤ 下载卡解析按钮 .parse-btn（#81 ② 的 2026-10-11 修订写法）：宽度只由内容决定，
-//    状态切换靠 Arco 的同一图标槽换图标（idle 放大镜 ↔ parsing IconLoading），故不需预留。
-//    判据分两组：
+// ⑤ 下载卡解析按钮 .parse-btn / ⑤b 清理卡两枚动作按钮（#81 ② 的 2026-10-11 修订写法）：
+//    宽度只由内容决定，状态切换靠 Arco 的同一图标槽换图标（idle 图标 ↔ loading IconLoading），
+//    故不需预留。判据分两组：
 //      chrome（两种状态各量一次）——「按钮宽 − 可见内容宽」必须恰好等于两侧内距+边框：
 //        · 虚宽预留（旧 min-width: 114px）回来 → 差值超标；
 //        · 隐形却占宽的占位（旧 visibility:hidden 图标位）回来 → 也超标，因为隐形节点不算
 //          可见内容；另由 hiddenWideNodes / minWidth 两项给出指名报错（用户批注的原话是
 //          「空白与文本不均匀」，报错也要说这句话）。
-//      states——parsing 必须真的抓到 spinner（否则等于量了两次 idle，等式空转），且宽高与
-//        idle 相同。解析态靠 mock 钩子 __mockParseDelay 拖慢才抓得到（演示侧默认即时返回）。
+//      states——loading 必须真的抓到 spinner（否则等于量了两次 idle，等式空转），且宽高与
+//        idle 相同。两种态靠 mock 钩子拖慢才抓得到：⑤ 用 __mockParseDelay、⑤b 用
+//        __mockTrashDelay（演示侧默认即时返回，肉眼与 e2e 都量不到在途那一瞬）。
 //    两条已知边界（写下来，别后来当判据已覆盖）：
 //      · 隐形占位只看**按钮的直接子节点**——若占位嵌在可见 wrapper 里（wrapper 的 rect 已含
 //        隐形子节点），腿 1 与 hiddenWideNodes 双双漏报；自证用例验的正是「直接子节点」这一形状。
 //      · **两侧内距同步加大**是结构性盲区：chrome 与余量一起变大，腿 1 与余量腿都过。旧缺陷
 //        是「min-width + 左侧隐形块」这种不对称形状，已被覆盖，对称加内距不在本判据职责内。
 // ---------------------------------------------------------------------------
+/** 同一套判据覆盖的三个按钮（⑤ 下载卡解析、⑤b 清理卡检测 / 清理） */
+const PARSE_BTN = '.parse-btn';
+const TRASH_DETECT_BTN = '.trash-detect-btn';
+const TRASH_CLEAN_BTN = '.trash-clean-btn';
+
 type BtnMeasure = {
   width: number;
   height: number;
@@ -301,8 +308,10 @@ type BtnMeasure = {
   hiddenWideNodes: string[];
 };
 
-async function measureParseBtn(page: Page): Promise<BtnMeasure> {
-  return page.locator('.parse-btn').evaluate((el) => {
+/** 量一个按钮的「可见内容宽 / 非内容宽 / 左右余量 / 隐形占位」。选择器参数化是为了同一套判据
+ *  既管下载卡的解析按钮（⑤），也管清理卡的两枚动作按钮（⑤b，T36）。 */
+async function measureBtn(page: Page, sel: string): Promise<BtnMeasure> {
+  return page.locator(sel).evaluate((el) => {
     const cs = getComputedStyle(el);
     const rect = el.getBoundingClientRect();
     let left = Infinity;
@@ -357,18 +366,18 @@ async function measureParseBtn(page: Page): Promise<BtnMeasure> {
 /** `.arco-btn` 带 `transition: all .1s`——刚改完状态或刚注入覆盖样式就采样，读到的是过渡起点
  *  （实测：注入 `padding-left:53px !important` 后立刻量，computed 仍是 15px，判据当场假绿）。
  *  先等过完 100ms 过渡，再连量到两次宽高一致才认账。 */
-async function measureParseBtnSettled(page: Page): Promise<BtnMeasure> {
+async function measureBtnSettled(page: Page, sel: string): Promise<BtnMeasure> {
   await page.waitForTimeout(150);
-  let prev = await measureParseBtn(page);
+  let prev = await measureBtn(page, sel);
   for (let i = 0; i < 10; i++) {
-    const cur = await measureParseBtn(page);
+    const cur = await measureBtn(page, sel);
     if (samePx(prev.width, cur.width, 0.05) && samePx(prev.height, cur.height, 0.05)) return cur;
     prev = cur;
   }
   return prev;
 }
 
-function judgeParseBtnChrome(m: BtnMeasure, label: string): string[] {
+function judgeBtnChrome(m: BtnMeasure, label: string): string[] {
   const v: string[] = [];
   if (m.contentWidth <= 0) return [`${label}：没量到可见内容（按钮里没有文字/图标？）`];
   const excess = m.width - m.contentWidth;
@@ -382,7 +391,7 @@ function judgeParseBtnChrome(m: BtnMeasure, label: string): string[] {
     v.push(`${label}：存在隐形却占宽的节点 ${m.hiddenWideNodes.join(' / ')}（看不见但占地方）`);
   }
   if (m.minWidth !== 'none' && parseFloat(m.minWidth) > 0) {
-    v.push(`${label}：.parse-btn 仍有 min-width: ${m.minWidth}`);
+    v.push(`${label}：仍有 min-width: ${m.minWidth}（文案恒定的按钮不需要宽度预留，它只造出空档）`);
   }
   if (Math.abs(m.leftSlack - m.rightSlack) > 2) {
     v.push(`${label}：内容左右余量不均（左 ${toPx(m.leftSlack)} vs 右 ${toPx(m.rightSlack)}）`);
@@ -390,17 +399,17 @@ function judgeParseBtnChrome(m: BtnMeasure, label: string): string[] {
   return v;
 }
 
-function judgeParseBtnStates(idle: BtnMeasure, parsing: BtnMeasure): string[] {
+function judgeBtnStates(idle: BtnMeasure, loading: BtnMeasure, label = '按钮'): string[] {
   const v: string[] = [];
-  if (!parsing.spinner) {
-    v.push('样本要求：解析态按钮内没有 .arco-icon-loading，量到的其实还是 idle，等宽判据空转');
+  if (!loading.spinner) {
+    v.push(`样本要求：${label}的 loading 态里没有 .arco-icon-loading，量到的其实还是 idle，等宽判据空转`);
     return v;
   }
-  if (!samePx(idle.width, parsing.width, 1)) {
-    v.push(`解析态宽度改为 ${toPx(parsing.width)}（idle ${toPx(idle.width)}）⇒ 图标位没做进同一槽位`);
+  if (!samePx(idle.width, loading.width, 1)) {
+    v.push(`${label}：loading 态宽度改为 ${toPx(loading.width)}（idle ${toPx(idle.width)}）⇒ 图标没做进同一槽位（:size ≠ 字号）`);
   }
-  if (!samePx(idle.height, parsing.height, 1)) {
-    v.push(`解析态高度改为 ${toPx(parsing.height)}（idle ${toPx(idle.height)}）`);
+  if (!samePx(idle.height, loading.height, 1)) {
+    v.push(`${label}：loading 态高度改为 ${toPx(loading.height)}（idle ${toPx(idle.height)}）`);
   }
   return v;
 }
@@ -509,15 +518,51 @@ for (const lang of ['zh', 'en'] as const) {
       await expect(btn).toBeVisible();
       // 先填 URL 再量 idle：空 URL 时按钮是 disabled 态，量它不算「用户看到的常态」
       await page.locator('.url-row input').fill('https://modelscope.cn/models/Qwen/Qwen3-8B');
-      const idle = await measureParseBtn(page);
+      const idle = await measureBtn(page, PARSE_BTN);
       await btn.click();
       await expect(page.locator('.parse-btn .arco-icon-loading')).toBeVisible();
-      const parsing = await measureParseBtnSettled(page);
+      const parsing = await measureBtnSettled(page, PARSE_BTN);
       expect(
-        [...judgeParseBtnChrome(idle, `${langName}态 idle`),
-          ...judgeParseBtnChrome(parsing, `${langName}态 parsing`),
-          ...judgeParseBtnStates(idle, parsing)],
+        [...judgeBtnChrome(idle, `${langName}态 idle`),
+          ...judgeBtnChrome(parsing, `${langName}态 parsing`),
+          ...judgeBtnStates(idle, parsing, '解析按钮')],
         `${langName}态解析按钮`,
+      ).toEqual([]);
+    });
+
+    test(`⑤b 清理卡两枚按钮同样无预留、切换不改宽（T36）`, async ({ page }) => {
+      // 先让检测即时返回——「清理所选」那枚是检测结果到位才渲染的，量它得先有面板
+      await page.addInitScript({ content: 'globalThis.__mockTrashDelay = 0;' });
+      await gotoPage(page, lang, 'settings');
+      // 设置页的页签不在 .page-tabs 里（那是模型/参数页的容器），沿用语言切换那段的选法
+      await page.locator('.arco-tabs-tab', { hasText: UI[lang].advanced }).click();
+      const detect = page.locator(TRASH_DETECT_BTN);
+      await expect(detect).toBeVisible();
+      const detectIdle = await measureBtn(page, TRASH_DETECT_BTN);
+      await detect.click();
+      await expect(page.locator('.trash-kinds')).toBeVisible();
+      const cleanIdle = await measureBtn(page, TRASH_CLEAN_BTN);
+      // 之后两枚按钮各自停在 loading 态供测量。顺序有讲究：点「检测」会先把面板清掉
+      // （onDetect 首行 detected.value = null，面板随检测结果重新到位），所以先量「清理」，
+      // 最后再点检测——那时面板消失也无妨，检测按钮在卡片头。
+      await page.evaluate(() => {
+        (globalThis as unknown as { __mockTrashDelay?: number }).__mockTrashDelay = 30000;
+      });
+      await page.locator(TRASH_CLEAN_BTN).click();
+      await page.locator('.fc-confirm-modal .confirm-actions .arco-btn', { hasText: UI[lang].confirm }).click();
+      await expect(page.locator(`${TRASH_CLEAN_BTN} .arco-icon-loading`)).toBeVisible();
+      const cleanBusy = await measureBtnSettled(page, TRASH_CLEAN_BTN);
+      await detect.click();
+      await expect(page.locator(`${TRASH_DETECT_BTN} .arco-icon-loading`)).toBeVisible();
+      const detectBusy = await measureBtnSettled(page, TRASH_DETECT_BTN);
+      expect(
+        [...judgeBtnChrome(detectIdle, `${langName}态 检测按钮 idle`),
+          ...judgeBtnChrome(detectBusy, `${langName}态 检测按钮 loading`),
+          ...judgeBtnStates(detectIdle, detectBusy, '检测按钮'),
+          ...judgeBtnChrome(cleanIdle, `${langName}态 清理按钮 idle`),
+          ...judgeBtnChrome(cleanBusy, `${langName}态 清理按钮 loading`),
+          ...judgeBtnStates(cleanIdle, cleanBusy, '清理按钮')],
+        `${langName}态清理卡按钮`,
       ).toEqual([]);
     });
 
@@ -625,24 +670,24 @@ test.describe('判据自证：删除预留后必须报警', () => {
     await openModelsTab(page, 'zh', 'library');
     // 与主用例同口径：先填 URL 再量（空 URL 时按钮是 disabled 态，别给后人留「基线量的是哪种状态」的疑问）
     await page.locator('.url-row input').fill('https://modelscope.cn/models/Qwen/Qwen3-8B');
-    const before = judgeParseBtnChrome(await measureParseBtnSettled(page), '基线');
+    const before = judgeBtnChrome(await measureBtnSettled(page, PARSE_BTN), '基线');
     expect(before, '基线（注入前）应无报警').toEqual([]);
     // 删法一：回到「按最宽态预留」——按钮比可见内容宽出一整段，第一腿抓它
     const h1 = await injectStyle(page, '.parse-btn{min-width:140px !important}');
-    const afterMin = judgeParseBtnChrome(await measureParseBtnSettled(page), 'min-width:140');
+    const afterMin = judgeBtnChrome(await measureBtnSettled(page, PARSE_BTN), 'min-width:140');
     await removeStyle(h1);
     expect(afterMin.length, `虚宽预留注入后仍无报警＝⑤-chrome 判据空转（注入前：${before.join('；') || '通过'}）`).toBeGreaterThan(0);
     // 删法二：回到「visibility:hidden 的图标位仍占宽」——隐形节点不计入可见内容，
     // 于是按钮宽出内距之外还多一个图标宽 + 一段间距，两条腿同时报警
     const h2 = await injectStyle(page, '.parse-btn .arco-btn-icon{visibility:hidden !important}');
-    const afterHidden = judgeParseBtnChrome(await measureParseBtnSettled(page), '图标位隐形');
+    const afterHidden = judgeBtnChrome(await measureBtnSettled(page, PARSE_BTN), '图标位隐形');
     await removeStyle(h2);
     expect(afterHidden.length, '隐形却占宽的占位注入后仍无报警＝⑤-隐形占位判据空转').toBeGreaterThan(0);
     // 删法三：复刻用户批注的那个数——余量左 53 / 右 33。这条**只有余量腿抓得到**：两侧内距
     // 都算进 chromeWidth，所以差值腿对「对称加内距」是盲区（边界已写在段首注释）
     const h3 = await injectStyle(page, '.parse-btn{padding-left:53px !important;padding-right:33px !important}');
-    const asymM = await measureParseBtnSettled(page);
-    const afterAsym = judgeParseBtnChrome(asymM, '内距 53/33');
+    const asymM = await measureBtnSettled(page, PARSE_BTN);
+    const afterAsym = judgeBtnChrome(asymM, '内距 53/33');
     await removeStyle(h3);
     expect(
       afterAsym.length,
@@ -655,7 +700,7 @@ test.describe('判据自证：删除预留后必须报警', () => {
       `三条腿应各自指名报警：[${afterMin.join(' | ')}] / [${afterHidden.join(' | ')}] / [${afterAsym.join(' | ')}]`,
     ).toBe(true);
     // 三次注入都撤净后必须回到绿，否则说明删除实验自己泄漏了
-    expect(judgeParseBtnChrome(await measureParseBtnSettled(page), '撤除注入后'), '删除实验的注入未撤净').toEqual([]);
+    expect(judgeBtnChrome(await measureBtnSettled(page, PARSE_BTN), '撤除注入后'), '删除实验的注入未撤净').toEqual([]);
   });
 
   test('⑤解析按钮的图标槽被撑宽（换图标不再等宽）→ 两态判据转红', async ({ page }) => {
@@ -664,18 +709,56 @@ test.describe('判据自证：删除预留后必须报警', () => {
     await openModelsTab(page, 'zh', 'library');
     await page.locator('.url-row input').fill('https://modelscope.cn/models/Qwen/Qwen3-8B');
     const btn = page.locator('.parse-btn');
-    const idle = await measureParseBtn(page);
+    const idle = await measureBtn(page, PARSE_BTN);
     await btn.click();
-    await expect(page.locator('.parse-btn .arco-icon-loading')).toBeVisible();
-    const baseParsing = await measureParseBtnSettled(page);
-    expect(judgeParseBtnStates(idle, baseParsing), '基线（注入前）两态应等宽等高').toEqual([]);
+    await expect(page.locator(`${PARSE_BTN} .arco-icon-loading`)).toBeVisible();
+    const baseParsing = await measureBtnSettled(page, PARSE_BTN);
+    expect(judgeBtnStates(idle, baseParsing, '解析按钮'), '基线（注入前）两态应等宽等高').toEqual([]);
     // 模拟「图标没做进同一槽位」这一类回归：只撑宽解析态那颗 spinner，idle 不受影响
-    const h = await injectStyle(page, '.parse-btn .arco-icon-loading{width:30px !important}');
-    const after = judgeParseBtnStates(idle, await measureParseBtnSettled(page));
+    const h = await injectStyle(page, `${PARSE_BTN} .arco-icon-loading{width:30px !important}`);
+    const after = judgeBtnStates(idle, await measureBtnSettled(page, PARSE_BTN), '解析按钮');
     await removeStyle(h);
     expect(
       after.length,
       `解析态图标撑到 30px 后仍无报警＝⑤-states 判据空转（注入前宽差 ${toPx(baseParsing.width - idle.width)}）`,
+    ).toBeGreaterThan(0);
+  });
+
+  // ⑤b 的两条腿各自自证（纪律 ③：判据抓不住删除＝没有价值）
+  test('⑤b 清理卡按钮把「宽度预留」加回来 → chrome 判据转红', async ({ page }) => {
+    await gotoPage(page, 'zh', 'settings');
+    await page.locator('.arco-tabs-tab', { hasText: UI.zh.advanced }).click();
+    const base = judgeBtnChrome(await measureBtnSettled(page, TRASH_DETECT_BTN), '基线');
+    expect(base, '基线（注入前）应无报警').toEqual([]);
+    // 150 > 实测自然宽 136 ⇒ 差值腿与 min-width 腿同时报警（旧写法正是 142 的定值预留）
+    const h = await injectStyle(page, `${TRASH_DETECT_BTN}{min-width:150px !important}`);
+    const after = judgeBtnChrome(await measureBtnSettled(page, TRASH_DETECT_BTN), 'min-width:150');
+    await removeStyle(h);
+    expect(
+      after.some((m) => m.includes('min-width')),
+      `注入虚宽后仍无报警＝⑤b-chrome 判据空转（基线：${base.join('；') || '通过'}）`,
+    ).toBe(true);
+    expect(judgeBtnChrome(await measureBtnSettled(page, TRASH_DETECT_BTN), '撤除注入后'), '注入未撤净').toEqual([]);
+  });
+
+  test('⑤b 清理卡按钮的图标槽被撑宽（:size ≠ 字号）→ 两态判据转红', async ({ page }) => {
+    await page.addInitScript({ content: 'globalThis.__mockTrashDelay = 30000;' });
+    await gotoPage(page, 'zh', 'settings');
+    await page.locator('.arco-tabs-tab', { hasText: UI.zh.advanced }).click();
+    const btn = page.locator(TRASH_DETECT_BTN);
+    const idle = await measureBtn(page, TRASH_DETECT_BTN);
+    await btn.click();
+    await expect(page.locator(`${TRASH_DETECT_BTN} .arco-icon-loading`)).toBeVisible();
+    const busy = await measureBtnSettled(page, TRASH_DETECT_BTN);
+    expect(judgeBtnStates(idle, busy, '检测按钮'), '基线（注入前）两态应等宽等高').toEqual([]);
+    // 等价于把常驻图标退回 :size="12"（比 14px 的 IconLoading 窄 2px）——这里撑宽到 30px，
+    // 因为 states 腿的容差是 1px，2px 的回归与 30px 的注入走的是同一条判据
+    const h = await injectStyle(page, `${TRASH_DETECT_BTN} .arco-icon-loading{width:30px !important}`);
+    const after = judgeBtnStates(idle, await measureBtnSettled(page, TRASH_DETECT_BTN), '检测按钮');
+    await removeStyle(h);
+    expect(
+      after.length,
+      `loading 图标撑到 30px 后仍无报警＝⑤b-states 判据空转（注入前宽差 ${toPx(busy.width - idle.width)}）`,
     ).toBeGreaterThan(0);
   });
 

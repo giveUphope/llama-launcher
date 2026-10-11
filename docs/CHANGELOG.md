@@ -6,6 +6,18 @@
 
 ## \[Unreleased]
 
+- **style(ui),a11y: 清理卡两枚按钮对齐「同槽换图标」口径，三枚加载按钮补 `aria-busy`（关闭 TODO T36 / T37）**：
+  - **T36（顺带扫描抓到的同类缺陷）**：T35 修完下载卡后用同一判据扫全站按钮，清理卡两枚动作按钮（`TrashCleanCard.vue:141` / `:169`）在 `size="small"` 的按钮里放 `:size="12"` 的垃圾桶图标，而 small 的字号实测是 **14px**（`es/button/style/index.css:753-756`，只有 mini 才是 12）⇒ `:loading` 换官方转圈那一刻图标从 12 变 14，按钮宽抖 2px。两处改 `:size="14"`。同批撤除 `.trash-detect-btn` / `.trash-clean-btn` 的 `min-width: 142px`——**它们上面的注释已经失真**（写着「两态文案宽窄不同：zh『检测可清理项』/『检测中…』」），而自 2026-10-08 换 `:loading` 起文案恒定，预留于是退化成与下载卡同一类的虚宽；两个类名保留作 e2e 定位锚。全站扫描结论：隐形占位与虚宽预留至此清零。
+  - **T37（读屏侧的账）**：解析/检测/清理在途时读屏不出声——按钮文案恒定，而 Arco 的 `button.js` 全文不写任何 aria 属性，转圈图形对读屏等于不存在。三枚按钮补 `:aria-busy`（随状态翻转，idle 渲染 `"false"`）。按 §7.5.7 的口径明确它的边界：这是**控件级 busy 状态**、不是整句播报，不写成「已无障碍」；也不为播报回插一行可见提示（解析状态区 2026-10-09 已裁定按需渲染、无内容不占位）。
+  - **测试面**：`e2e/web/layout-stability.spec.ts` 的测量与判据参数化（`measureBtn(page, sel)` / `measureBtnSettled` / `judgeBtnChrome` / `judgeBtnStates`），新增 **⑤b** 双语各一条，量清理卡两枚按钮的 idle 与 loading 四组判据；`demo-mock.ts` 把延迟逻辑抽成 `mockDelayed()` 供两个钩子共用（`__mockParseDelay` 与新 `__mockTrashDelay`，默认 0 时行为与此前逐字一致），`demo-mock.test.ts` 由 2 条扩到 3 条（新增「清理卡走 `__mockTrashDelay`、不受解析钩子影响」）；`e2e/web/a11y.spec.ts` 新增 **⑤**（双语：idle `"false"` → 在途 `"true"` → 结束回 `"false"`）+ 一条删除实验，复用该文件既有的 `stripAttr` / `restoreAttr`（摘掉属性后必须读不到 `"true"`，还原后转绿）。
+  - **写用例时踩到两处（都写进了测试注释）**：① 设置页的页签不在 `.page-tabs` 容器里（那是模型页/参数页的），选法沿用语言切换那段的 `.arco-tabs-tab`；② `onDetect()` 首行 `detected.value = null` 会把结果面板连同「清理所选」按钮一起摘掉，所以 ⑤b 的顺序必须是「先量清理按钮的 loading 态、最后再点检测」。
+  - **审查回写（收尾前派只读子代理复查测试面，四项当场补）**：① ⑤b 原本**没有删除实验**，违反 `layout-stability.spec.ts` 头部纪律 ③「每条判据配一个删除实验」——补两条（注入 `.trash-detect-btn{min-width:150px}` 须让 chrome 腿指名报警并断言撤净后转绿；把 loading 图标撑到 30px 须让 states 腿转红，后者等价于 `:size` 退回 12 那一类）；② 三枚按钮共用 judge 之后报错文案仍写死 `.parse-btn 仍有 min-width` 与「解析态」，⑤b 报警会指错文件——改为 `${label}` 参数化并给每个调用点传按钮名；③ a11y ⑤ 只覆盖 `.parse-btn`，而 `aria-busy` 挂了三枚——抽 `busyRoundtrip(page, sel, label, trigger)` 扩到解析/检测/清理三枚（一次性 `getAttribute` 同时换成自动重试断言，本仓 T21 调研已把一次性读取定为 flake 头号成因），删除实验同步覆盖检测按钮；④ 归档漏记——`docs/archive/style-todo-resolved.md` #81 明细段追加「同族推广（2026-10-12，T36）」并在已修复索引 #81 行补后续说明（索引按 STYLE_TODO 编号，不新增行）。
+  - **顺带发现记 TODO**：**T38** —— 按钮宽度纪律目前只由 e2e 守（要 build + 起 preview + 驱动 Chromium，且报的是几何现象），而「按钮类选择器写 `min-width`」是纯语法可判的，建议给 `style-audit.cjs` 加第 25 条静态扫描 + 例外逐条登记（顶栏 `.model-name` 属合法反向需求）。
+  - **文档**：双语 `frontend.md` §7.5.7 新增「加载中的按钮」条目（机制依据 + 三条推论 + `aria-busy` 的边界），§7.5.8 检查清单新增对应项；双语 `testing.md` 的 `demo-mock.test.ts` 行登记可控延迟钩子族。
+  - **验证**：mock 实测两枚按钮 idle 与 loading 宽差 0.00px、`aria-busy` 随状态翻转；`pnpm lint` / `pnpm test`（core 41 文件 567 + ui 24 文件 **247**）/ `pnpm e2e:web` **115 条**（108+7：⑤b 双语 2、⑤b 删除实验 2、a11y ⑤ 双语 2、a11y busy 删除实验 1）/ `pnpm style:audit` 退出码全 0。
+
+- **docs(design-decisions,todo): T23 条目按用户指令从 TODO 移除，决策与调研结论迁进中英 `design-decisions.md` 第 26 条**：出了什么事——TODO 里的 T23（目录选择器原生「浏览…」入口）在 2026-10-11 已整条回退，条目一直挂在「待触发」状态，而它正文里真正有价值的部分不是待办而是**为什么不做**的结论（file 模式选不到文件本身 / 手输路径栏已覆盖目录模式 / 三条触发条件一条未满足），加上盘点过的六条路线、依赖生态结论，以及「自绘列表无虚拟化」这一条已知残留风险。**改法**：把这些整体迁进 `docs/zh/design-decisions.md` 第 26 条并同步英文镜像（含「重做时必须先按模式分流」的口径），`docs/TODO.md` 删除该条——待办归口只留未关闭内容，长期取舍进决策记录。**为什么迁而不直接删**：条目留在 TODO 里等于把一条已裁定不做的事长期当待办读，直接删又会把「曾完整实施一轮并回退」的实测结论丢掉（原生对话框与自绘弹窗的取舍、`vuefinder` 体量错位、`webkitdirectory` 的 `File.path` 陷阱都是实测/调研产物）。**验证**：`pnpm lint` 退出码 0（`verify-doc-pairs` 14 篇成对、结构计数一致；`check-docs-links` 链接与写死路径全有效）。
+
 ## \[0.0.69] - 2026-10-11
 
 

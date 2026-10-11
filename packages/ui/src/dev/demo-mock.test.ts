@@ -89,15 +89,17 @@ describe('demo-mock 参数预览', () => {
   });
 });
 
-// 解析延迟钩子 `globalThis.__mockParseDelay`：下载卡按钮的 loading 图标只存在于解析期，演示侧
-// 默认即时返回就永远量不到那一态（e2e 判据 ⑤ 的「两态等宽」与肉眼目测都靠它）。
-// 双向都要钉：默认路径**不挂定时器**（改成延迟会让 ⑥ 那类等文件列表的用例变慢），置了值才等时钟，
-// 且两条路径的载荷逐字相同（钩子只该改时间，不该改数据）。
-describe('demo-mock 解析延迟钩子', () => {
+// 可控延迟钩子 `globalThis.__mockParseDelay` / `__mockTrashDelay`：下载卡与清理卡按钮的 loading
+// 图标只存在于请求在途那一瞬，演示侧默认即时返回就永远量不到那一态（e2e 判据 ⑤/⑤b 的「两态等宽」
+// 与肉眼目测都靠它）。双向都要钉：默认路径**不挂定时器**（改成延迟会让 ⑥ 那类等结果的用例变慢），
+// 置了值才等时钟，且两条路径的载荷逐字相同（钩子只该改时间，不该改数据）。
+describe('demo-mock 可控延迟钩子', () => {
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => {
     // 反义钩子会跨用例、跨文件残留（同一 worker 共享 globalThis），必须就地清干净
-    delete (globalThis as unknown as { __mockParseDelay?: number }).__mockParseDelay;
+    const g = globalThis as unknown as { __mockParseDelay?: number; __mockTrashDelay?: number };
+    delete g.__mockParseDelay;
+    delete g.__mockTrashDelay;
     vi.useRealTimers();
   });
 
@@ -108,11 +110,18 @@ describe('demo-mock 解析延迟钩子', () => {
     };
     return api.download.parseUrl(url);
   }
+  async function detect() {
+    const api = createDemoApi() as unknown as {
+      system: { detectTrash: () => Promise<{ items: unknown[]; totalSize: number }> };
+    };
+    return api.system.detectTrash();
+  }
 
   it('默认（不设钩子）立即 resolve：不依赖时钟推进', async () => {
     const res = await parse(URL_DEMO);
     expect(res.ok).toBe(true);
     expect(res.data.modelId).toBe('Qwen/Qwen3-8B');
+    expect((await detect()).items.length, '默认路径也应即时拿到演示清理项').toBeGreaterThan(0);
   });
 
   it('钩子 > 0：推进时钟前不 resolve，推进后载荷与即时路径逐字相同', async () => {
@@ -128,6 +137,23 @@ describe('demo-mock 解析延迟钩子', () => {
     await vi.advanceTimersByTimeAsync(30_000);
     expect(settled).toHaveBeenCalledTimes(1);
     expect(await pending).toEqual(immediate);
+  });
+
+  it('清理卡走 __mockTrashDelay，不受解析钩子影响（两个钩子各管各的按钮）', async () => {
+    (globalThis as unknown as { __mockParseDelay?: number }).__mockParseDelay = 30_000;
+    const settled = vi.fn();
+    const pending = detect().then((r) => {
+      settled();
+      return r;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled, '解析钩子不该拖住检测').toHaveBeenCalledTimes(1);
+    (globalThis as unknown as { __mockTrashDelay?: number }).__mockTrashDelay = 30_000;
+    const after = detect();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled, '清理钩子未生效 ⇒ 量不到检测中那一态').toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect((await after).items).toEqual((await pending).items);
   });
 });
 

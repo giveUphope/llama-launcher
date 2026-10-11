@@ -137,8 +137,19 @@ async function onCleanSelected() {
     <!-- 操作按钮上移至卡片头（与标题同行，§7.5.4 卡片头操作区）；说明文字留在体内。
          loading 用 a-button 官方 prop（官方转圈，替代此前的纯文字「检测中…」） -->
     <template #actions>
-      <a-button class="trash-detect-btn" type="outline" status="warning" size="small" :loading="detecting" @click="onDetect">
-        <template #icon><Icon name="trash" :size="12" /></template>
+      <a-button
+        class="trash-detect-btn"
+        type="outline"
+        status="warning"
+        size="small"
+        :loading="detecting"
+        :aria-busy="detecting"
+        @click="onDetect"
+      >
+        <!-- :size 必须等于按钮字号（small 实测同为 14px，见 es/button/style/index.css:753-756）：
+             :loading 是在同一个 .arco-btn-icon 槽位里换成 IconLoading（尺寸=字号），槽里放 12px
+             图标会让按钮在检测那一刻宽 2px。文案恒定，故也不再需要 min-width 预留（T36） -->
+        <template #icon><Icon name="trash" :size="14" /></template>
         {{ i18n.t('msg_detect_trash') }}
       </a-button>
     </template>
@@ -163,10 +174,12 @@ async function onCleanSelected() {
           status="danger"
           size="small"
           :loading="cleaning"
+          :aria-busy="cleaning"
           :disabled="selectedKinds.length === 0"
           @click="onCleanSelected"
         >
-          <template #icon><Icon name="trash" :size="12" /></template>
+          <!-- 图标 :size 与按钮字号对齐、文案恒定不预留宽度，理由同「检测可清理项」那枚 -->
+          <template #icon><Icon name="trash" :size="14" /></template>
           {{ i18n.t('msg_trash_clean_selected') }}
         </a-button>
       </template>
@@ -195,11 +208,9 @@ async function onCleanSelected() {
 </template>
 
 <style scoped lang="scss">
-// 两态文案宽窄不同（zh「检测可清理项」/「检测中…」，en「Scan Cleanables」/「Detecting…」）：
-// 按较宽态定 min-width，按钮不再随检测状态换文案而撑宽，卡片头操作区不横向抖动
-.trash-detect-btn {
-  min-width: 142px;
-}
+/* 两枚动作按钮都不再写 min-width：文案恒定（换 :loading 后不再有「检测中…」这类第二形态），
+   图标与 loading 图形同槽等宽 ⇒ 宽度只由内容决定，切换不改宽（判据见 layout-stability ⑤b）。
+   .trash-detect-btn / .trash-clean-btn 两个类名保留作 e2e 定位锚。 */
 
 .trash-hint {
   display: inline-flex;
@@ -233,10 +244,6 @@ async function onCleanSelected() {
   font-size: var(--fs-sm);
   color: var(--fg-hint);
   font-family: var(--font-mono);
-}
-
-.trash-clean-btn {
-  min-width: 142px;
 }
 
 /* 空态：a-empty 官方组件（紧凑面板隐藏插图只留描述行；描述色用官方 gray-5 配对） */

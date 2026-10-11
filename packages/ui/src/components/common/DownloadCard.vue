@@ -686,6 +686,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
           type="primary"
           class="parse-btn"
           :loading="parsing"
+          :aria-busy="parsing"
           :disabled="!urlInput.trim() || parsing"
           @click="onParseUrl"
         >

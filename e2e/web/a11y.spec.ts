@@ -122,6 +122,26 @@ async function restoreAttr(page: Page): Promise<number> {
   });
 }
 
+/**
+ * 一枚带 :loading 的按钮的 aria-busy 往返：idle 必须是字符串 "false"（Vue 3.5 的 patchAttr
+ * 对不在 isSpecialBooleanAttr 名单里的属性走 setAttribute(key, false)，aria-* 不在名单内，
+ * 所以渲染出 "false" 而不是被移除），在途 "true"，结束后回 "false"。三段都用自动重试断言，
+ * 不用一次性 getAttribute——点击到 Vue 落属性之间有一个微任务窗口，一次性读取正是本仓
+ * 调研点名的 flake 头号成因（见 CHANGELOG 的 T21 段）。
+ */
+async function busyRoundtrip(page: Page, sel: string, label: string, trigger: () => Promise<void>) {
+  const btn = page.locator(sel);
+  await expect(btn, `${label}：应可见`).toBeVisible();
+  await expect(btn, `${label}：idle 不该挂着 busy`).toHaveAttribute('aria-busy', 'false');
+  await trigger();
+  await expect(btn, `${label}：在途必须标出 busy（转圈图形读屏读不到）`).toHaveAttribute('aria-busy', 'true', {
+    timeout: 1_500,
+  });
+  await expect(btn, `${label}：结束后 busy 要收回，否则读屏一直以为还在忙`).toHaveAttribute('aria-busy', 'false', {
+    timeout: 10_000,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // ① 侧栏可达导航：语义属性 + 从干净首屏按 Tab 依次命中全部导航项
 // ---------------------------------------------------------------------------
@@ -550,6 +570,33 @@ for (const lang of ['zh', 'en'] as const) {
       await open(page, lang, 6);
       await censusOn(page, lang, '应用设置', { minTabbable: 15 });
     });
+
+    // ⑤ 按钮级 busy：三枚带 :loading 的按钮（解析 / 检测 / 清理）在途时 aria-busy=true、
+    //   结束后回 false（T37）。为什么是属性而不是换文案或加一行提示：这些按钮的文案恒定
+    //   （换字会改宽，见 §7.5.7「加载中的按钮」），状态区又按 2026-10-09 的裁定按需渲染、
+    //   无内容不占位，所以视觉上的转圈图形是**唯一**信号——而读屏读不到图形。aria-busy 给的是
+    //   控件级 busy 状态（各读屏支持度不同），不等于整句播报，别当成「已完全无障碍」。
+    test('⑤加载中的按钮标 aria-busy：解析 / 检测 / 清理三枚，在途 true、结束 false', async ({ page }) => {
+      // 2.5s：够长到断言轮询一定抓得到在途期，又够短到不必等满一个长超时
+      await page.addInitScript({ content: 'globalThis.__mockParseDelay = 2500; globalThis.__mockTrashDelay = 2500;' });
+      await open(page, lang, 1);
+      await page.locator('.page-tabs .arco-tabs-tab', { hasText: lang === 'zh' ? '模型库' : 'Library' }).click();
+      await busyRoundtrip(page, '.parse-btn', '解析按钮', async () => {
+        await page.locator('.url-row input').fill('https://modelscope.cn/models/Qwen/Qwen3-8B');
+        await page.locator('.parse-btn').click();
+      });
+      await open(page, lang, 6);
+      await page.locator('.arco-tabs-tab', { hasText: lang === 'zh' ? '高级' : 'Advanced' }).click();
+      await busyRoundtrip(page, '.trash-detect-btn', '检测按钮', () => page.locator('.trash-detect-btn').click());
+      // 「清理所选」要等检测结果到位才在 DOM 里，且它还得过一次确认弹窗
+      await expect(page.locator('.trash-kinds')).toBeVisible();
+      await busyRoundtrip(page, '.trash-clean-btn', '清理按钮', async () => {
+        await page.locator('.trash-clean-btn').click();
+        await page
+          .locator('.fc-confirm-modal .confirm-actions .arco-btn', { hasText: lang === 'zh' ? '确认' : 'Confirm' })
+          .click();
+      });
+    });
   });
 }
 
@@ -659,5 +706,30 @@ test.describe('判据自证：摘掉本轮补上的属性必须转红', () => {
     expect(broken.length, '摘掉 aria-current 后播报判据未报警＝②-播报空转').toBeGreaterThan(0);
     await restoreAttr(page);
     expect(judgeAriaCurrent(await readNav(page), 0), '还原后应转绿').toEqual([]);
+  });
+
+  test('⑤在途按钮摘掉 aria-busy → busy 判据转红；还原后转绿（解析与检测两枚，三枚共用同一条判据）', async ({ page }) => {
+    await page.addInitScript({ content: 'globalThis.__mockParseDelay = 30000; globalThis.__mockTrashDelay = 30000;' });
+    await open(page, 'zh', 1);
+    await page.locator('.page-tabs .arco-tabs-tab', { hasText: '模型库' }).click();
+    await page.locator('.url-row input').fill('https://modelscope.cn/models/Qwen/Qwen3-8B');
+    await page.locator('.parse-btn').click();
+    const stripped = await stripAttr(page, '.parse-btn', 'aria-busy');
+    expect(stripped, '样本要求：必须真的摘到解析按钮').toBeGreaterThan(0);
+    expect(await page.locator('.parse-btn').getAttribute('aria-busy'), '摘掉后仍读到 busy＝⑤-判据空转').not.toBe('true');
+    expect(await restoreAttr(page), '还原条数应等于摘除条数').toBe(stripped);
+    expect(await page.locator('.parse-btn').getAttribute('aria-busy'), '还原后应转绿').toBe('true');
+    // 同一套属性透传也管着清理卡那两枚（它们共用 busyRoundtrip 判据），漏一枚即该处无守护
+    await open(page, 'zh', 6);
+    await page.locator('.arco-tabs-tab', { hasText: '高级' }).click();
+    await page.locator('.trash-detect-btn').click();
+    const strippedTrash = await stripAttr(page, '.trash-detect-btn', 'aria-busy');
+    expect(strippedTrash, '样本要求：必须真的摘到检测按钮').toBeGreaterThan(0);
+    expect(
+      await page.locator('.trash-detect-btn').getAttribute('aria-busy'),
+      '摘掉后仍读到 busy＝⑤-清理卡那处判据空转',
+    ).not.toBe('true');
+    expect(await restoreAttr(page), '还原条数应等于摘除条数').toBe(strippedTrash);
+    expect(await page.locator('.trash-detect-btn').getAttribute('aria-busy'), '还原后应转绿').toBe('true');
   });
 });

@@ -274,6 +274,17 @@ function demoFindLlamaExe(dir: string): string {
   return '';
 }
 
+/**
+ * 可控延迟：演示侧默认即时返回（既有用例点完就拿到结果），置对应的
+ * `globalThis.__mockParseDelay` / `__mockTrashDelay`（ms）才挂定时器——按钮的
+ * loading 图标与 `aria-busy` 只存在于请求在途那一瞬，不拖慢就肉眼与 e2e 都抓不到。
+ * 钩子范式同 `__mockPushConsole` / `__mockExternalServer`。
+ */
+function mockDelayed<T>(value: T, delayKey: '__mockParseDelay' | '__mockTrashDelay'): Promise<T> {
+  const delay = (globalThis as unknown as Record<string, number | undefined>)[delayKey] ?? 0;
+  return delay > 0 ? new Promise<T>((r) => setTimeout(() => r(value), delay)) : Promise.resolve(value);
+}
+
 // ---- 应用日志（日志页初始内容） ----
 const DEMO_APP_LOGS: AppLogEntry[] = [
   { kind: 'info', data: 'Service start requested (model: Qwen3-32B-A3B-Instruct-Q4_K_M.gguf)', ts: Date.now() - 62000 },
@@ -963,18 +974,25 @@ export function createDemoApi() {
       detectTrash: () => {
         // 空态：应用刚生成过文件，没有可清理的历史遗留
         const items = FRESH ? [] : DEMO_TRASH_ITEMS.filter((i) => !i.cleaned);
-        return Promise.resolve({ items, totalSize: items.reduce((s, i) => s + i.size, 0) } as never);
+        // 走 __mockTrashDelay（与解析钩子各自独立）：不拖慢就量不到检测按钮的 loading / aria-busy 态
+        return mockDelayed(
+          { items, totalSize: items.reduce((s, i) => s + i.size, 0) } as never,
+          '__mockTrashDelay',
+        );
       },
       cleanTrash: (items: Array<{ absPath: string; size: number }>) => {
         const wanted = new Set(items.map((i) => i.absPath));
         const cleaned = DEMO_TRASH_ITEMS.filter((i) => wanted.has(i.absPath) && !i.cleaned);
         for (const i of cleaned) i.cleaned = true;
-        return Promise.resolve({
-          cleaned: cleaned.length,
-          failed: 0,
-          totalSize: cleaned.reduce((s, i) => s + i.size, 0),
-          failures: [],
-        } as never);
+        return mockDelayed(
+          {
+            cleaned: cleaned.length,
+            failed: 0,
+            totalSize: cleaned.reduce((s, i) => s + i.size, 0),
+            failures: [],
+          } as never,
+          '__mockTrashDelay',
+        );
       },
       listDir: (path: string) => {
         const input = (path ?? '').trim();
@@ -1083,9 +1101,8 @@ export function createDemoApi() {
       },
     },
     download: {
-      // 演示侧解析即时返回。要看/去量「解析中」那一态（下载卡按钮的 loading 图标只在这一段
-      // 存在，无延迟则 e2e 与肉眼都抓不到），置 `globalThis.__mockParseDelay = 30000`（ms）
-      // 让它慢下来——钩子范式同 __mockPushConsole / __mockExternalServer，默认 0 不改既有行为。
+      // 演示侧解析即时返回；要停在「解析中」那一态（下载卡按钮的 loading 图标与 aria-busy
+      // 只在那一段存在），置 `globalThis.__mockParseDelay`（ms）——见 mockDelayed 的说明。
       parseUrl: (url: string) => {
         const res = {
           ok: true,
@@ -1099,8 +1116,7 @@ export function createDemoApi() {
             fileName: '',
           } as never as ParsedModelUrl,
         };
-        const delay = (globalThis as unknown as { __mockParseDelay?: number }).__mockParseDelay ?? 0;
-        return delay > 0 ? new Promise<typeof res>((r) => setTimeout(() => r(res), delay)) : Promise.resolve(res);
+        return mockDelayed(res, '__mockParseDelay');
       },
       search: (_author: string, modelName: string) => Promise.resolve({
         ok: true,
