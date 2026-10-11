@@ -228,15 +228,20 @@ describe('demo-mock 目录浏览树', () => {
   }>;
   type Scan = () => Promise<Array<{ name: string; path: string }>>;
 
-  async function fsApi(search = ''): Promise<{ listDir: ListDir; scan: Scan; fileExists: (p: string) => Promise<boolean> }> {
+  async function fsApi(search = ''): Promise<{ listDir: ListDir; scan: Scan; fileExists: (p: string) => Promise<boolean>; findLlamaExe: (d: string) => Promise<string> }> {
     (globalThis as unknown as { window?: unknown }).window = { location: { search } };
     vi.resetModules();
     const { createDemoApi } = await import('./demo-mock');
     const api = createDemoApi() as unknown as {
-      system: { listDir: ListDir; fileExists: (p: string) => Promise<boolean> };
+      system: { listDir: ListDir; fileExists: (p: string) => Promise<boolean>; findLlamaExe: (d: string) => Promise<string> };
       models: { scan: Scan };
     };
-    return { listDir: api.system.listDir, scan: api.models.scan, fileExists: api.system.fileExists };
+    return {
+      listDir: api.system.listDir,
+      scan: api.models.scan,
+      fileExists: api.system.fileExists,
+      findLlamaExe: api.system.findLlamaExe,
+    };
   }
 
   beforeEach(() => { vi.useFakeTimers(); });
@@ -276,6 +281,30 @@ describe('demo-mock 目录浏览树', () => {
     (globalThis as unknown as { __mockFsMissing?: boolean }).__mockFsMissing = true;
     expect(await fileExists('D:/Models')).toBe(false);
     delete (globalThis as unknown as { __mockFsMissing?: boolean }).__mockFsMissing;
+  });
+
+  it('findLlamaExe 真的按目录查（本目录 / 一层子目录 / 都没有）——与主进程同一深度契约', async () => {
+    const { findLlamaExe } = await fsApi();
+    expect(await findLlamaExe('D:\\Models\\llama-bins'), '引擎就在本目录').toBe('D:\\Models\\llama-bins\\llama-server.exe');
+    expect(await findLlamaExe('D:\\Models'), '引擎在一级子目录里也必须找到').toBe('D:\\Models\\llama-bins\\llama-server.exe');
+    // 用户批注的那一格：模型目录里没有引擎文件，就不许再报就绪
+    expect(await findLlamaExe('D:\\Models\\DeepSeek-R1-7B'), '只有 .gguf 的目录必须回空串').toBe('');
+    expect(await findLlamaExe('D:\\Models\\nope-not-here'), '目录不存在同样回空串').toBe('');
+  });
+
+  it('演示数据里的路径统一 Windows 反斜杠形态（同一输入框不出现两种斜杠）', async () => {
+    const { scan } = await fsApi();
+    const models = await scan();
+    expect(models.length, '样本要求：演示模型列表不能为空').toBeGreaterThan(0);
+    for (const m of models) expect(m.path, `模型路径混进正斜杠：${m.path}`).not.toContain('/');
+    (globalThis as unknown as { window?: unknown }).window = { location: { search: '' } };
+    vi.resetModules();
+    const { createDemoApi } = await import('./demo-mock');
+    const api = createDemoApi() as unknown as { settings: { load: () => Promise<AppSettings> } };
+    const s = await api.settings.load();
+    for (const [k, v] of Object.entries({ models_dir: s.models_dir, llama_dir: s.llama_dir, server_exe: s.server_exe })) {
+      expect(v, `设置默认值 ${k} 混进正斜杠：${v}`).not.toContain('/');
+    }
   });
 
   it('目录在前、文件在后，同组按名称排序（与主进程 FS_LIST_DIR 同一形状）', async () => {

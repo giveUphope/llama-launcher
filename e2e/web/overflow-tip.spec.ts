@@ -50,6 +50,9 @@ test('未截断的值：悬停不出回声气泡（概览页 API 地址）', asy
   await expect(apiVal).toBeVisible();
   const text = (await apiVal.textContent() ?? '').trim();
   expect(text, '样本要求：API 地址格必须有值').not.toBe('');
+  // 顺带钉住「API 地址 = 完整端点」：显示与复制都带 /v1，粘贴即可调用（2026-10-11 用户批注）。
+  // 内置 Web UI 的 iframe 仍走不带后缀的基址，那是另一条链路（WebUiFrame 取 server.apiUrl）。
+  expect(text, 'API 地址必须是带 /v1 的完整端点').toMatch(/\/v1$/);
   expect(await isTruncated(apiVal), '样本要求：这一格在当前视口下必须完整可见').toBe(false);
 
   // 与下一条用例悬停同一类目标（ToolTip 宿主），否则「不出气泡」可能只是「悬停没生效」

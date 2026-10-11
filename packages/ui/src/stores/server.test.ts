@@ -360,6 +360,24 @@ describe('状态事件与运行事实（2026-10-06 停止态补全）', () => {
     expect(server.host).toBe('127.0.0.1');
   });
 
+  it('API 地址两个口径：apiUrl 是基址（内置 Web UI 用），apiEndpoint 带 /v1（显示与复制用）', async () => {
+    const server = useServerStore();
+    server.subscribe();
+    mainStatus = {
+      status: 'running', pid: 23508, host: '127.0.0.1', port: 9931,
+      url: 'http://127.0.0.1:9931/', values: {},
+    };
+    await server.refreshStatus();
+    // 基址原样留给 iframe：llama.cpp 的 Web UI 挂在 `/`，带 /v1 会 404
+    expect(server.apiUrl).toBe('http://127.0.0.1:9931/');
+    // 完整端点：去尾斜杠再补 /v1（用户批注：只给基址要用户自己补后缀）
+    expect(server.apiEndpoint).toBe('http://127.0.0.1:9931/v1');
+    // 停止后一起归零，显示层走占位符，不给已停的服务挂地址
+    statusCb(ev('stopped'));
+    expect(server.apiUrl).toBe('');
+    expect(server.apiEndpoint).toBe('');
+  });
+
   it('stopping 期间 canOpenWeb 为 false、effectiveStatus 报 stopping、外部标记不复活', () => {
     const server = useServerStore();
     server.subscribe();

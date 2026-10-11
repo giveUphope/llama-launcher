@@ -59,7 +59,7 @@ async function copyText(text: string, key: 'url' | 'model') {
 }
 
 async function onCopyUrl() {
-  if (server.apiUrl) await copyText(server.apiUrl, 'url');
+  if (server.apiEndpoint) await copyText(server.apiEndpoint, 'url');
 }
 
 async function onCopyModel() {
@@ -81,14 +81,14 @@ onUnmounted(() => {
       <a-tag :color="statusColor" size="small">{{ statusText }}</a-tag>
       <a-typography-text v-if="pidText" class="pid">{{ pidText }}</a-typography-text>
       <!-- 可点击复制值：a-button type=text 基座（值即按钮，§7.5.7 复制模式）+ 状态栏铬覆盖 -->
-      <ToolTip v-if="server.apiUrl" :text="i18n.t('copy_url')">
+      <ToolTip v-if="server.apiEndpoint" :text="i18n.t('copy_url')">
         <a-button
           class="url pill-copy"
           type="text"
           size="mini"
           @click="onCopyUrl"
         >
-          <span class="url-text">{{ server.apiUrl }}</span>
+          <span class="url-text">{{ server.apiEndpoint }}</span>
           <a-tag v-if="copiedKey === 'url'" class="copied-tag" size="small" color="green">{{ i18n.t('msg_url_copied') }}</a-tag>
         </a-button>
       </ToolTip>

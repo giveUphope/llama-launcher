@@ -82,6 +82,15 @@ const externalUrl = computed(() =>
   server.external ? `http://${server.external.host}:${server.external.port}` : '',
 );
 
+/**
+ * 「API 地址」这一格显示与复制的完整端点（带 `/v1`，2026-10-11 用户批注：只给基址要
+ * 用户自己补后缀）。外部实例同理取 `/v1`；而 `externalUrl` 本身仍用于「在系统浏览器
+ * 打开外部 Web UI」——那是 `/`，不能带后缀。
+ */
+const apiDisplayUrl = computed(() =>
+  server.apiEndpoint || (externalUrl.value ? `${externalUrl.value.replace(/\/+$/, '')}/v1` : ''),
+);
+
 const externalTagLabel = computed(() => {
   if (!server.external) return '';
   return `${i18n.t('lbl_external_instance')} · PID ${server.external.pid ?? '?'}`;
@@ -335,23 +344,24 @@ function onApplyRelief(key: string, value: string | number | boolean) {
         <span v-else class="empty-val">{{ i18n.t('status_model_none') }}</span>
       </a-descriptions-item>
       <!-- API 地址：本应用运行中显示自身地址；停止但探测到外部实例时显示外部地址（悬浮注明来源，
-           两条信息合并进一个 ToolTip：externalHint 本身含 URL，不丢信息） -->
+           两条信息合并进一个 ToolTip：externalHint 本身含 URL，不丢信息）。
+           显示与复制都是带 /v1 的完整端点（apiDisplayUrl），粘贴即可直接调用 -->
       <a-descriptions-item :label="i18n.t('card_dash_api')">
         <a-typography-text
-          v-if="server.apiUrl || externalUrl"
+          v-if="apiDisplayUrl"
           copyable
-          :copy-text="server.apiUrl || externalUrl"
-          @copy="copyViaApi(server.apiUrl || externalUrl)"
+          :copy-text="apiDisplayUrl"
+          @copy="copyViaApi(apiDisplayUrl)"
         >
           <Icon name="link" :size="13" />
           <!-- 这一格的浮层有两种身份：显示自己服务的 API 地址时它是**回声**（未截断就别弹），
                而「本机发现外部 llama-server、自己没起服务」时提示的是 externalHint 那句话——
                那是界面上看不到的信息，必须常开（2026-10-11 用户批注的例外条款） -->
           <ToolTip
-            :text="!server.apiUrl && externalUrl ? externalHint : (server.apiUrl || externalUrl)"
+            :text="!server.apiUrl && externalUrl ? externalHint : apiDisplayUrl"
             :overflow-only="!!server.apiUrl || !externalUrl"
           >
-            <span class="mono-val ellipsis">{{ server.apiUrl || externalUrl }}</span>
+            <span class="mono-val ellipsis">{{ apiDisplayUrl }}</span>
           </ToolTip>
         </a-typography-text>
         <span v-else class="empty-val">—</span>

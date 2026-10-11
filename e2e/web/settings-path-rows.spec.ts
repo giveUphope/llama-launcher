@@ -7,8 +7,9 @@ import { test, expect, type Page } from '@playwright/test';
  *      （同一屏两枚逐字相同的指示器是第二套出口）；
  *   ③ mock 的存在性检测与演示目录树**同源**：树里列得出的目录/文件就算存在，
  *      所以默认现场是「模型目录就绪 + 引擎就绪」这条正向链路，不必开任何钩子。
- * 摘要引擎格四态各有断言：未配置（`?fresh=1`）/ 未找到（`__mockEngineNotFound`）/
- * 就绪（默认）/ 文件缺失（`__mockFsMissing`，此时模型目录那格同步转「不存在」）。
+ * 摘要引擎格四态各有断言：未配置（`?fresh=1`）/ 就绪（默认）/ 未找到（把引擎目录填成
+ * 演示树里没有 exe 的目录——`findLlamaExe` 的演示桩真的按目录查，与主进程同「本目录 +
+ * 一层子目录」深度）/ 文件缺失（`__mockFsMissing`，此时模型目录那格同步转「不存在」）。
  * **每个状态各占一条用例**：钩子经 `addInitScript` 注入，对同一 page 的后续每次导航都
  * 持续生效——挤在一条用例里，第二条起读到的都是上一条的演示现场（第一版就这么假红过）。
  * 「打开目录」还须把**本行显示的目录原样**交给 `openPath`——按钮存在不等于接对了路径，
@@ -34,19 +35,17 @@ const UI: Record<Lang, {
   },
 };
 
-interface Flags { fresh?: boolean; engineNotFound?: boolean; fsMissing?: boolean }
+interface Flags { fresh?: boolean; fsMissing?: boolean }
 
 /** 打开设置页「常规」；演示钩子经 addInitScript 先于页面脚本置位（桩按调用时刻取值）。 */
 async function openSettings(page: Page, lang: Lang, opts: Flags = {}) {
   const q: string[] = [];
   if (opts.fresh) q.push('fresh=1');
   if (lang === 'en') q.push('lang=en');
-  if (opts.engineNotFound || opts.fsMissing) {
-    await page.addInitScript((f) => {
-      const g = globalThis as unknown as Record<string, unknown>;
-      if (f.notFound) g.__mockEngineNotFound = true;
-      if (f.missing) g.__mockFsMissing = true;
-    }, { notFound: !!opts.engineNotFound, missing: !!opts.fsMissing });
+  if (opts.fsMissing) {
+    await page.addInitScript(() => {
+      (globalThis as unknown as Record<string, unknown>).__mockFsMissing = true;
+    });
   }
   await page.goto(`/${q.length ? `?${q.join('&')}` : ''}#/settings`);
   await expect(page.locator('.status-summary')).toBeVisible();
@@ -54,6 +53,15 @@ async function openSettings(page: Page, lang: Lang, opts: Flags = {}) {
   // 摘要三格是「模型目录第二格、引擎第三格」这一前提本身：将来加格或改条件渲染，
   // 下面的 nth() 会指到别处——先把前提钉住，宁可假红也不要指错格还判绿
   await expect(page.locator('.status-summary .summary-item')).toHaveCount(3);
+}
+
+/** 把引擎目录改成演示树里另一个目录（走输入框回车，与真实用户同一入口）。 */
+async function setEngineDir(page: Page, dir: string) {
+  const input = page.locator('.engine-path-row .path-input input').first();
+  await input.fill(dir);
+  await input.press('Enter');
+  // GeneralPanel 的检测有 400ms 去抖，摘要那格还要再跑一次 fileExists
+  await page.waitForTimeout(900);
 }
 
 const engineItem = (page: Page) => page.locator('.status-summary .summary-item').nth(2);
@@ -78,10 +86,15 @@ for (const lang of ['zh', 'en'] as Lang[]) {
       await expect(engineRow(page).locator('.exe-tag'), '行内胶囊必须整体撤除').toHaveCount(0);
     });
 
-    test('目录填了但里面没有 llama-server → 摘要读「未找到」而不是「未配置」', async ({ page }) => {
-      await openSettings(page, lang, { engineNotFound: true });
+    test('引擎目录指到没有 exe 的模型目录 → 摘要读「未找到」；指回有 exe 的目录 → 恢复「就绪」', async ({ page }) => {
+      await openSettings(page, lang);
+      // 演示树里 DeepSeek-R1-7B 只有 .gguf，没有 llama-server.exe，也没有含 exe 的子目录
+      await setEngineDir(page, 'D:\\Models\\DeepSeek-R1-7B');
       await expect(engineItem(page), '填错目录与还没动手是两件事，指示必须分开').toHaveText(UI[lang].exeNotFound);
       await expect(engineRow(page).locator('.exe-tag')).toHaveCount(0);
+      // 「本目录 + 一层子目录」的深度契约：指到 D:\Models 也应经 llama-bins 找到引擎
+      await setEngineDir(page, 'D:\\Models');
+      await expect(engineItem(page), '引擎在一级子目录里时必须仍报就绪（与主进程同一深度）').toHaveText(UI[lang].exeReady);
     });
 
     test('默认现场两行都就绪（检测与演示树同源，正向链路不必开钩子）', async ({ page }) => {

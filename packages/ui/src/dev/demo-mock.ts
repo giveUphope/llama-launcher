@@ -14,8 +14,8 @@ import type {
   PresetValues, PropsCheck,
 } from '@llama-launcher/shared';
 
-const ENGINE_DIR = 'D:/Models/llama-bins';
-const MODELS_DIR = 'D:/Models';
+const ENGINE_DIR = 'D:\\Models\\llama-bins';
+const MODELS_DIR = 'D:\\Models';
 
 /**
  * 首次使用空态开关：URL 带 `?fresh=1` 时，本文件所有预填演示数据一律不出——
@@ -49,12 +49,12 @@ const benchStatusCbs: Array<(job: unknown) => void> = [];
 
 // ---- 模型目录（模型页「本地模型」列表） ----
 const DEMO_MODELS: ModelInfo[] = [
-  { name: 'Qwen3-32B-A3B-Instruct-Q4_K_M.gguf', path: `${MODELS_DIR}/Qwen3-32B-A3B-Instruct/Qwen3-32B-A3B-Instruct-Q4_K_M.gguf`, size: 20899999988, size_str: '19.5 GB', modified: '2026-08-20T09:12:00.000Z' },
-  { name: 'Qwen3-8B-Instruct-Q8_0.gguf', path: `${MODELS_DIR}/Qwen3-8B/Qwen3-8B-Instruct-Q8_0.gguf`, size: 8624000000, size_str: '8.0 GB', modified: '2026-08-18T15:40:00.000Z' },
-  { name: 'gemma-3-27b-it-QAT_Q4_K_M.gguf', path: `${MODELS_DIR}/gemma-3-27b/gemma-3-27b-it-QAT_Q4_K_M.gguf`, size: 16139999999, size_str: '15.0 GB', modified: '2026-08-12T08:03:00.000Z', tags: ['mmproj'] },
-  { name: 'Qwen3-VL-4B-Instruct-fp8.gguf', path: `${MODELS_DIR}/Qwen3-VL-4B/Qwen3-VL-4B-Instruct-fp8.gguf`, size: 5136000000, size_str: '4.8 GB', modified: '2026-08-02T20:21:00.000Z', tags: ['mmproj', 'dflash'] },
-  { name: 'Llama-3.2-1B-Instruct-Q6_K.gguf', path: `${MODELS_DIR}/Llama-3.2-1B/Llama-3.2-1B-Instruct-Q6_K.gguf`, size: 903000000, size_str: '861 MB', modified: '2026-07-28T11:45:00.000Z' },
-  { name: 'DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf', path: `${MODELS_DIR}/DeepSeek-R1-7B/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf`, size: 4500000000, size_str: '4.2 GB', modified: '2026-07-20T16:00:00.000Z' },
+  { name: 'Qwen3-32B-A3B-Instruct-Q4_K_M.gguf', path: `${MODELS_DIR}\\Qwen3-32B-A3B-Instruct\\Qwen3-32B-A3B-Instruct-Q4_K_M.gguf`, size: 20899999988, size_str: '19.5 GB', modified: '2026-08-20T09:12:00.000Z' },
+  { name: 'Qwen3-8B-Instruct-Q8_0.gguf', path: `${MODELS_DIR}\\Qwen3-8B\\Qwen3-8B-Instruct-Q8_0.gguf`, size: 8624000000, size_str: '8.0 GB', modified: '2026-08-18T15:40:00.000Z' },
+  { name: 'gemma-3-27b-it-QAT_Q4_K_M.gguf', path: `${MODELS_DIR}\\gemma-3-27b\\gemma-3-27b-it-QAT_Q4_K_M.gguf`, size: 16139999999, size_str: '15.0 GB', modified: '2026-08-12T08:03:00.000Z', tags: ['mmproj'] },
+  { name: 'Qwen3-VL-4B-Instruct-fp8.gguf', path: `${MODELS_DIR}\\Qwen3-VL-4B\\Qwen3-VL-4B-Instruct-fp8.gguf`, size: 5136000000, size_str: '4.8 GB', modified: '2026-08-02T20:21:00.000Z', tags: ['mmproj', 'dflash'] },
+  { name: 'Llama-3.2-1B-Instruct-Q6_K.gguf', path: `${MODELS_DIR}\\Llama-3.2-1B\\Llama-3.2-1B-Instruct-Q6_K.gguf`, size: 903000000, size_str: '861 MB', modified: '2026-07-28T11:45:00.000Z' },
+  { name: 'DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf', path: `${MODELS_DIR}\\DeepSeek-R1-7B\\DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf`, size: 4500000000, size_str: '4.2 GB', modified: '2026-07-20T16:00:00.000Z' },
 ];
 
 // ---- 体检「历史记录」演示数据 ----
@@ -124,15 +124,15 @@ const DEMO_GGUF: GgufReadResult = {
 // 与真实侧同一 API 面（load/save/clear，按模型路径存取）；mock 只是一块内存——
 // 目录、键派生、文件布局等存储细节在此不存在。
 const DEMO_MODEL_PARAMS = new Map<string, ModelParams>([
-  ['D:/Models/Qwen3-32B-A3B-Instruct/Qwen3-32B-A3B-Instruct-Q4_K_M.gguf', {
+  ['D:\\Models\\Qwen3-32B-A3B-Instruct\\Qwen3-32B-A3B-Instruct-Q4_K_M.gguf', {
     format_version: 1,
-    model_path: 'D:/Models/Qwen3-32B-A3B-Instruct/Qwen3-32B-A3B-Instruct-Q4_K_M.gguf',
+    model_path: 'D:\\Models\\Qwen3-32B-A3B-Instruct\\Qwen3-32B-A3B-Instruct-Q4_K_M.gguf',
     updated_at: '2026-08-26T18:30:00.000Z',
     values: { ctx_size: 32768, n_gpu_layers: 99, temperature: 0.7 },
   }],
-  ['D:/Models/Qwen3-8B/Qwen3-8B-Instruct-Q8_0.gguf', {
+  ['D:\\Models\\Qwen3-8B\\Qwen3-8B-Instruct-Q8_0.gguf', {
     format_version: 1,
-    model_path: 'D:/Models/Qwen3-8B/Qwen3-8B-Instruct-Q8_0.gguf',
+    model_path: 'D:\\Models\\Qwen3-8B\\Qwen3-8B-Instruct-Q8_0.gguf',
     updated_at: '2026-08-10T09:00:00.000Z',
     values: { ctx_size: 8192, n_gpu_layers: 24 },
   }],
@@ -143,9 +143,9 @@ const DEMO_MODEL_PARAMS = new Map<string, ModelParams>([
 // 再点检测看到的是剩余，不会对同一批条目反复「释放 N」；__mockResetTrash() 恢复。
 interface DemoTrashItem { relPath: string; absPath: string; root: 'config' | 'models'; kind: string; size: number; cleaned: boolean }
 const DEMO_TRASH_ITEMS: DemoTrashItem[] = [
-  { relPath: 'stats.jsonl', absPath: 'C:/DEMO-HOME/.llama_launcher/stats.jsonl', root: 'config', kind: 'legacy_stats', size: 18428, cleaned: false },
-  { relPath: 'model-params/old-model-abc12345.tmp', absPath: 'C:/DEMO-HOME/.llama_launcher/model-params/old-model-abc12345.tmp', root: 'config', kind: 'temp_file', size: 512, cleaned: false },
-  { relPath: 'llama-demo.gguf.part', absPath: 'D:/Models/llama-demo.gguf.part', root: 'models', kind: 'download_orphan', size: 1057418, cleaned: false },
+  { relPath: 'stats.jsonl', absPath: 'C:\\DEMO-HOME\\.llama_launcher\\stats.jsonl', root: 'config', kind: 'legacy_stats', size: 18428, cleaned: false },
+  { relPath: 'model-params/old-model-abc12345.tmp', absPath: 'C:\\DEMO-HOME\\.llama_launcher\\model-params\\old-model-abc12345.tmp', root: 'config', kind: 'temp_file', size: 512, cleaned: false },
+  { relPath: 'llama-demo.gguf.part', absPath: 'D:\\Models\\llama-demo.gguf.part', root: 'models', kind: 'download_orphan', size: 1057418, cleaned: false },
 ];
 
 // ---- 目录浏览树（FileBrowserModal 的列表数据）----
@@ -252,6 +252,26 @@ function demoPathExists(p: string): boolean {
   if (!node) return false;
   const base = raw.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? '';
   return node.files.includes(base);
+}
+
+/** 演示树里引擎可执行文件的固定名（真机契约：llama-server(.exe)）。 */
+const DEMO_ENGINE_EXE = 'llama-server.exe';
+
+/**
+ * 在演示树里按「本目录 + 一层子目录」找引擎可执行文件，与主进程 `system:findLlamaExe`
+ * 同一深度契约。此前这个桩无视入参、恒回演示引擎路径，于是把引擎目录指到没有引擎文件的
+ * 模型目录时摘要照样报「引擎就绪」——与实际逻辑不同（2026-10-11 用户批注）。
+ */
+function demoFindLlamaExe(dir: string): string {
+  const node = DEMO_FS_INDEX.get(demoFsKey(dir || ''));
+  if (!node) return '';
+  const sep = node.display.includes('\\') ? '\\' : '/';
+  if (node.files.includes(DEMO_ENGINE_EXE)) return `${node.display}${sep}${DEMO_ENGINE_EXE}`;
+  for (const sub of node.dirs) {
+    const subNode = DEMO_FS_INDEX.get(demoFsKey(`${node.display}${sep}${sub}`));
+    if (subNode?.files.includes(DEMO_ENGINE_EXE)) return `${node.display}${sep}${sub}${sep}${DEMO_ENGINE_EXE}`;
+  }
+  return '';
 }
 
 // ---- 应用日志（日志页初始内容） ----
@@ -747,7 +767,7 @@ export function createDemoApi() {
         stopFeed(id);
         emitProgress(id, dl, 0, 'downloading');
         demoDownloads.delete(id);
-        const payload = { id, localPath: `${MODELS_DIR}/tmp/${dl.fileName}`, modelId: 'demo', fileName: dl.fileName, checksum: 'deadbeef' } as never;
+        const payload = { id, localPath: `${MODELS_DIR}\\tmp\\${dl.fileName}`, modelId: 'demo', fileName: dl.fileName, checksum: 'deadbeef' } as never;
         for (const cb of completeCbs) { try { cb(payload); } catch { /* 忽略 */ } }
       } else {
         emitProgress(id, dl, Math.round(90_000_000 * (0.8 + Math.random() * 0.4)), 'downloading');
@@ -760,7 +780,7 @@ export function createDemoApi() {
   // （llama_dir/models_dir/selected_model 皆空串；server_exe 在生产首次安装也是空串，
   // 由用户在设置页选择引擎目录后内联检测）。
   const demoSettings: AppSettings = {
-    server_exe: FRESH ? '' : `${ENGINE_DIR}/llama-server.exe`,
+    server_exe: FRESH ? '' : `${ENGINE_DIR}\\llama-server.exe`,
     llama_dir: FRESH ? '' : ENGINE_DIR,
     models_dir: FRESH ? '' : MODELS_DIR,
     selected_model: FRESH ? '' : DEMO_MODELS[0].path,
@@ -931,14 +951,10 @@ export function createDemoApi() {
       // 且顶栏「启动」走 useStartServer 的 exe 校验也直接走得通（不必再开钩子放行）；
       // 要看「不存在 / 缺失」那一侧置 `globalThis.__mockFsMissing = true`。
       fileExists: (p: string) => Promise.resolve(demoPathExists(p)),
-      // 引擎可执行文件探测：空态恒找不到；默认回演示引擎路径（该路径就在演示树里，
-      // 上面 fileExists 认它 ⇒ 摘要引擎格默认读「引擎就绪」）。`globalThis.__mockEngineNotFound = true`
-      // 翻成「目录填了但里面没有 llama-server」——行内状态胶囊撤除后（2026-10-11 用户批注），
-      // 摘要引擎格的「引擎未找到」分支是这一情形的唯一出口，得有钩子才下得了判据。
-      findLlamaExe: () => Promise.resolve(
-        FRESH || (globalThis as unknown as { __mockEngineNotFound?: boolean }).__mockEngineNotFound
-          ? '' : `${ENGINE_DIR}/llama-server.exe`,
-      ),
+      // 引擎可执行文件探测：真的按目录查（见 demoFindLlamaExe，与主进程同「本目录 +
+      // 一层子目录」深度）。空态没有目录也不给命中。摘要的「引擎就绪 / 引擎未找到」
+      // 因此完全由用户填的目录内容决定——指错目录一定报未找到（2026-10-11 用户批注）。
+      findLlamaExe: (dir: string) => Promise.resolve(FRESH ? '' : demoFindLlamaExe(dir)),
       // 清理配置目录演示桩（有状态，与真实侧同一契约）：检测返回「尚未清理」的条目，
       // 清理把所选条目从演示集中移除——再点检测只看剩余，不会对同一批幻影文件反复
       // 「释放 1.0 MB」（此前无状态桩每次都全量返回，清理结果看起来像大小算错）。

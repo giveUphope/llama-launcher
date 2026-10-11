@@ -474,6 +474,13 @@ export const useServerStore = defineStore('server', () => {
   });
 
   /**
+   * 完整 API 端点（OpenAI 兼容前缀 `/v1`）：显示与复制用它——用户拿到就能直接拼
+   * `/v1/chat/completions` 调用，不必自己补后缀。**内置 Web UI 仍用 `apiUrl`**
+   * （llama.cpp 的 Web UI 挂在 `/`，带上 `/v1` 会 404），两者不要混用。
+   */
+  const apiEndpoint = computed(() => (apiUrl.value ? `${apiUrl.value.replace(/\/+$/, '')}/v1` : ''));
+
+  /**
    * 「现在能不能打开内置 Web UI」的唯一口径。此前这个判断在顶栏（无门控）、
    * 概览服务状态卡（严格 running）、内嵌帧（严格 running）各写一份，同一时刻
    * 一处可点一处是灰的。内嵌帧只在 running 时真正加载 iframe，所以口径按它定：
@@ -510,7 +517,7 @@ export const useServerStore = defineStore('server', () => {
   });
 
   return {
-    status, pid, host, port, url, readyAt, apiUrl, canOpenWeb, outputs, runningValues, stopInfo, envOverrides, propsCheck,
+    status, pid, host, port, url, readyAt, apiUrl, apiEndpoint, canOpenWeb, outputs, runningValues, stopInfo, envOverrides, propsCheck,
     effectiveStatus, oomDetected,
     external,
     refreshExternal, adoptExternal, clearExternal,
