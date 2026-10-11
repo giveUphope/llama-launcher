@@ -689,12 +689,14 @@ function quantTooltip(q: QuantizationInfo | null): string {
           @click="onParseUrl"
         >
           <!-- #81 ②：图标位常驻（非解析态用 visibility:hidden 仍占 12px），配合 .parse-btn
-               的 min-width（按中英两态较宽者算，推导见样式块注释），「搜索 ↔ 正在搜索...」
-               换字与 loading 图标都不改写按钮宽度 -->
+               的 min-width（按中英两态较宽者算，推导见样式块注释），「搜索 ↔ 搜索中」
+               换字与 loading 图标都不改写按钮宽度。解析态文案走专用的 btn_parsing（短形态，
+               2026-10-11 用户批注「优化按钮宽度」——旧文案 msg_parsing 带省略号，最宽态 121px
+               把 idle 的 78px 撑成 132px 预留），整行加载提示仍读 msg_parsing 的完整说法 -->
           <span class="parse-btn-icon" :class="{ 'is-idle': !parsing }">
             <Icon name="loading" :size="12" />
           </span>
-          <span class="parse-btn-text">{{ parsing ? i18n.t('msg_parsing') : i18n.t('btn_parse_url') }}</span>
+          <span class="parse-btn-text">{{ parsing ? i18n.t('btn_parsing') : i18n.t('btn_parse_url') }}</span>
         </a-button>
       </div>
 
@@ -984,7 +986,12 @@ function quantTooltip(q: QuantizationInfo | null): string {
    .files-section 的 194px = 头部 28 + 24 + 38 + 40 + 32 + 4 段 flex gap(8) ——
    即选中模型那一刻本段已按最终外形出现，后续文件到位不再改变它的最小高。 */
 .parse-btn {
-  min-width: 132px;
+  /* 预留 = 中英两态较宽者的自然宽度（实测 1280 视口：Searching 111 > 搜索中 92 > Search 92 >
+     搜索 78，取 114 留 3px 余量）。旧值 132 是按「正在搜索...」121 算的，2026-10-11 用户批注
+     「优化按钮宽度」后解析态改用短文案 btn_parsing，预留随之收紧——判据见
+     e2e/web/layout-stability.spec.ts 的「解析按钮预留覆盖两态」一条（上下都卡：不得小于最宽态，
+     也不得虚高太多回到 idle 空档）。 */
+  min-width: 114px;
   gap: 8px;
 }
 

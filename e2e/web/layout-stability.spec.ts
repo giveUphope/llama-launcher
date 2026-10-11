@@ -1,6 +1,8 @@
 import { test, expect, type Page, type ElementHandle } from '@playwright/test';
 // 参数总数从事实源取（同 app.spec.ts）：写死的行数每加一个参数就红一次，于是人去改数字而不是看布局。
 import { PARAMS } from '../../packages/shared/dist/index.js';
+// 文案字典同源于 shared（⑤解析按钮判据要按四态文案算预留，不能在这抄一份字面量）
+import { zh as zhDict, en as enDict } from '../../packages/shared/dist/index.js';
 
 // 布局跳变判据 E2E（STYLE_TODO #81）：这一轮修的是「v-if 元素没有默认占位、数据到位才插进正常流」
 // 造成的界面跳一下，修法全是**静态预留**（常驻槽 flex: 0 0 Npx / min-height / visibility: hidden / 绝对定位）。
@@ -365,6 +367,41 @@ for (const lang of ['zh', 'en'] as const) {
       await openModelsTab(page, lang, 'library');
       await expect(page.locator('.task-empty')).toBeVisible();
       expect(judgeDownloadSlots(await collectDownloadSlots(page)), `${langName}态下载卡`).toEqual([]);
+    });
+
+    test(`⑤解析按钮的宽度预留覆盖两态文案（换字不改宽，且不留虚高空档）`, async ({ page }) => {
+      await gotoPage(page, lang, 'models');
+      await openModelsTab(page, lang, 'library');
+      const btn = page.locator('.parse-btn');
+      await expect(btn).toBeVisible();
+      // 预留按「中英 × idle/parsing 四态里最宽者」算（样式注释同口径），所以两种语言下
+      // 断言同一个界——文案从字典取，不在此抄第二份字面量
+      const labels = [zhDict.btn_parse_url, zhDict.btn_parsing, enDict.btn_parse_url, enDict.btn_parsing];
+      const r = await btn.evaluate((el, labels) => {
+        const cs = getComputedStyle(el);
+        const txt = el.querySelector('.parse-btn-text');
+        const icon = el.querySelector('.parse-btn-icon');
+        if (!txt) return null;
+        // 按钮的固定开销：左右内距 + 图标位（visibility:hidden 仍占宽）+ gap
+        const chrome = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
+          + (icon ? icon.getBoundingClientRect().width : 0) + parseFloat(cs.columnGap || cs.gap || '0');
+        const keep = txt.textContent ?? '';
+        const prevMin = el.style.minWidth;
+        el.style.minWidth = '0';
+        const widths = labels.map((label) => {
+          txt.textContent = label;
+          return Math.ceil(txt.scrollWidth + chrome);
+        });
+        el.style.minWidth = prevMin;
+        txt.textContent = keep;
+        return { reserved: parseFloat(getComputedStyle(el).minWidth), widest: Math.max(...widths), widths };
+      }, labels);
+      expect(r, '样本要求：解析按钮与文案节点必须存在').not.toBeNull();
+      const { reserved, widest, widths } = r!;
+      expect(new Set(widths).size, `样本要求：四态文案宽度必须有差异（实测 ${widths}）`).toBeGreaterThan(1);
+      expect(reserved, `预留 ${reserved}px 小于最宽文案态 ${widest}px ⇒ 换字会把按钮撑宽`).toBeGreaterThanOrEqual(widest);
+      // 反向也卡：虚高太多就是本轮批注的「idle 空档」，收紧后应贴着最宽态
+      expect(reserved - widest, `预留比最宽态 ${widest}px 虚高 ${reserved - widest}px ⇒ 又回到空档写法`).toBeLessThanOrEqual(6);
     });
 
     test(`⑥文件行徽章列对齐：cat/quant/size 三列跨行一致，来源徽章不继承标题大写（#119）`, async ({ page }) => {

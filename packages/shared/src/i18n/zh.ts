@@ -297,6 +297,9 @@ export const zh = {
   lbl_download_url_hint: '粘贴 LM Studio / HuggingFace / ModelScope 模型页链接',
   lbl_recent_urls: '最近使用（仅本次运行保存，关闭应用清空）',
   btn_parse_url: '搜索',
+  // 按钮内的解析态文案要短（按钮宽度按中英两态较宽者预留，见 DownloadCard 的 .parse-btn）；
+  // 整行加载提示仍用 msg_parsing 的完整说法
+  btn_parsing: '搜索中',
   btn_open_modelscope: '在 ModelScope 打开',
   msg_parsing: '正在搜索...',
   msg_no_match: '未找到匹配的 ModelScope 模型',

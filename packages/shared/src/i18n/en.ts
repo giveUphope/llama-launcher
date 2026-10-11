@@ -298,6 +298,9 @@ export const en: Dict = {
   lbl_download_url_hint: 'Paste LM Studio / HuggingFace / ModelScope model page URL',
   lbl_recent_urls: 'Recently used (session only, cleared on app quit)',
   btn_parse_url: 'Search',
+  // Short in-button form while parsing (the button reserves the wider of the two labels,
+  // see .parse-btn in DownloadCard); the full-line loading message keeps msg_parsing.
+  btn_parsing: 'Searching',
   btn_open_modelscope: 'Open in ModelScope',
   msg_parsing: 'Searching...',
   msg_no_match: 'No matching ModelScope model found',
