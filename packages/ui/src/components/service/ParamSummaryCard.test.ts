@@ -12,7 +12,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { nextTick, reactive, ref } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
-import ArcoVue from '@arco-design/web-vue';
+import ArcoVue, { Tooltip as ArcoTooltip } from '@arco-design/web-vue';
 import ParamSummaryCard from './ParamSummaryCard.vue';
 import ToolTip from '@/components/common/ToolTip.vue';
 
@@ -47,15 +47,19 @@ async function mountCard(truncated: boolean) {
   await flushPromises();
   await nextTick();
   await nextTick();
+  await nextTick(); // ToolTip 的截断测量在自身 onMounted 的 nextTick 里，多等一帧取到结果
   return wrapper;
 }
 
-/** 按提示文本取 ToolTip 实例（键名那只 text=flag，值区那只 text=值） */
+/** 按提示文本取**内层 a-tooltip** 的 disabled：截断判定已下沉到 ToolTip（T32），
+ *  读组件自己的 prop 会永远得到 false，等于没测。 */
 function tipsByText(wrapper: Awaited<ReturnType<typeof mountCard>>) {
   const map = new Map<string, { disabled: boolean }>();
   for (const tip of wrapper.findAllComponents(ToolTip)) {
     const text = String(tip.props('text') ?? '');
-    map.set(text, { disabled: Boolean(tip.props('disabled')) });
+    const inner = tip.findComponent(ArcoTooltip);
+    expect(inner.exists(), `提示「${text}」必须渲染出 a-tooltip`).toBe(true);
+    map.set(text, { disabled: Boolean(inner.props('disabled')) });
   }
   return map;
 }

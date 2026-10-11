@@ -2,7 +2,7 @@
 // 阶段四：参数摘要预览卡（从原 LaunchPage 迁入 ServicePage）。
 // 按 PARAM_GROUPS 分组展示已启用参数（值非默认），含启动前快速核对。
 // 提示词 §9：「参数保存与应用清晰分离」— 摘要只读，不提供编辑入口。
-import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed } from 'vue';
 import { PARAMS, PARAM_GROUPS, MODEL_KEY } from '@llama-launcher/shared';
 import type { ParamDef } from '@llama-launcher/shared';
 import Card from '@/components/common/Card.vue';
@@ -77,37 +77,8 @@ const activeParamCount = computed(() => {
   for (const p of PARAMS) if (params.values[p.key] !== p.default) n++;
   return n;
 });
-
-// 值区浮层只在「界面真的装不下」时出现（2026-10-11 用户批注：`0.7` 这种短值也弹完整值
-// 是噪声）。截断与否量得出来、猜不出来——chip 宽度随窗口与字体变，写阈值必错。
-const chipRoot = ref<HTMLElement | null>(null);
-const truncatedVals = ref<Set<string>>(new Set());
-
-function measureTruncated() {
-  const root = chipRoot.value;
-  if (!root) return;
-  const next = new Set<string>();
-  for (const el of Array.from(root.querySelectorAll<HTMLElement>('.chip-val'))) {
-    const key = el.dataset.key;
-    // +1 容差：亚像素取整会让未截断的边界值误判成截断
-    if (key && el.scrollWidth > el.clientWidth + 1) next.add(key);
-  }
-  truncatedVals.value = next;
-}
-
-watch(summaryGroups, () => { void nextTick(measureTruncated); });
-onMounted(() => {
-  void nextTick(measureTruncated);
-  window.addEventListener('resize', measureTruncated);
-});
-// keep-alive 铁律①：服务页常驻缓存，onUnmounted 不执行——监听按激活/停用配对收放。
-// addEventListener 对同一 (type, listener) 幂等，故 mounted 与 activated 都加不会重复。
-onActivated(() => {
-  window.addEventListener('resize', measureTruncated);
-  void nextTick(measureTruncated);
-});
-onDeactivated(() => window.removeEventListener('resize', measureTruncated));
-onUnmounted(() => window.removeEventListener('resize', measureTruncated));
+// 值区「量出截断才提示」的判定已上收到 ToolTip 的 overflowOnly（T32）——
+// 同一类判定在概览卡、下载卡、清理卡上都用得上，留在这里就是第二套实现。
 </script>
 
 <template>
@@ -115,7 +86,7 @@ onUnmounted(() => window.removeEventListener('resize', measureTruncated));
     <div class="summary-hint">
       {{ i18n.t('msg_param_summary_hint', [String(activeParamCount)]) }}
     </div>
-    <div ref="chipRoot" class="summary-groups">
+    <div class="summary-groups">
       <div v-for="g in summaryGroups" :key="g.groupKey" class="summary-group">
         <div class="summary-group-title">{{ i18n.t(g.labelKey) }}</div>
         <div class="summary-chips">
@@ -128,8 +99,8 @@ onUnmounted(() => window.removeEventListener('resize', measureTruncated));
             <span class="chip-eq">=</span>
             <!-- 值区单行省略（#81 低档：模型 chip 的值由短文本变成完整绝对路径 →
                  chip 超宽换行、摘要卡整块长高）；完整值提示只在量出截断时启用 -->
-            <ToolTip :text="r.value" :disabled="!truncatedVals.has(r.key)">
-              <span class="chip-val" :data-key="r.key">{{ r.value }}</span>
+            <ToolTip :text="r.value" overflow-only>
+              <span class="chip-val">{{ r.value }}</span>
             </ToolTip>
           </a-tag>
         </div>

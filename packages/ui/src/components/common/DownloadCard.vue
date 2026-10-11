@@ -678,7 +678,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
               @click="pickHistoryUrl(u)"
             >
               <Icon name="link" :size="11" class="url-history-icon" />
-              <ToolTip :text="u"><span class="url-history-text">{{ u }}</span></ToolTip>
+              <ToolTip :text="u" overflow-only><span class="url-history-text">{{ u }}</span></ToolTip>
             </a-doption>
           </template>
         </a-dropdown>
@@ -896,7 +896,7 @@ function quantTooltip(q: QuantizationInfo | null): string {
           <div v-for="t in tasks" :key="t.id" class="task-item">
             <div class="task-main">
               <div class="task-info">
-                <ToolTip :text="t.fileName"><span class="task-name">{{ t.fileName }}</span></ToolTip>
+                <ToolTip :text="t.fileName" overflow-only><span class="task-name">{{ t.fileName }}</span></ToolTip>
                 <span class="task-model">
                   {{ t.modelId }}
                   <a-tag class="source-badge" size="small">{{ sourceLabel(t.source) }}</a-tag>

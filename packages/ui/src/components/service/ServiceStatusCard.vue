@@ -330,7 +330,7 @@ function onApplyRelief(key: string, value: string | number | boolean) {
       <a-descriptions-item :label="i18n.t('lbl_dash_model')">
         <a-typography-text v-if="currentModel" copyable :copy-text="currentModel" @copy="copyViaApi(currentModel)">
           <Icon name="models" :size="13" />
-          <ToolTip :text="currentModel"><span class="mono-val ellipsis">{{ currentModel }}</span></ToolTip>
+          <ToolTip :text="currentModel" overflow-only><span class="mono-val ellipsis">{{ currentModel }}</span></ToolTip>
         </a-typography-text>
         <span v-else class="empty-val">{{ i18n.t('status_model_none') }}</span>
       </a-descriptions-item>
@@ -344,7 +344,13 @@ function onApplyRelief(key: string, value: string | number | boolean) {
           @copy="copyViaApi(server.apiUrl || externalUrl)"
         >
           <Icon name="link" :size="13" />
-          <ToolTip :text="!server.apiUrl && externalUrl ? externalHint : (server.apiUrl || externalUrl)">
+          <!-- 这一格的浮层有两种身份：显示自己服务的 API 地址时它是**回声**（未截断就别弹），
+               而「本机发现外部 llama-server、自己没起服务」时提示的是 externalHint 那句话——
+               那是界面上看不到的信息，必须常开（2026-10-11 用户批注的例外条款） -->
+          <ToolTip
+            :text="!server.apiUrl && externalUrl ? externalHint : (server.apiUrl || externalUrl)"
+            :overflow-only="!!server.apiUrl || !externalUrl"
+          >
             <span class="mono-val ellipsis">{{ server.apiUrl || externalUrl }}</span>
           </ToolTip>
         </a-typography-text>

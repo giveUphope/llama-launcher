@@ -180,7 +180,7 @@ async function onCleanSelected() {
         <div v-for="f in result.failures" :key="f.path" class="trash-fail-row">
           <!-- 截断路径的完整值走 ToolTip（全站唯一提示通道，原生 title 禁令已入审计第 24 条，
                本行正是 STYLE_TODO 118 号的漏网残留） -->
-          <ToolTip :text="f.path">
+          <ToolTip :text="f.path" overflow-only>
             <span class="trash-fail-path">{{ f.path }}</span>
           </ToolTip>
           <span class="trash-fail-reason">{{ i18n.t(FAIL_REASON_KEY[f.reason]) }}<template v-if="f.detail">：{{ f.detail }}</template></span>

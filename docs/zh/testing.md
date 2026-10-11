@@ -6,7 +6,7 @@
 
 - **框架**：Vitest 4（`pnpm test` 经 turbo 一并运行 core 与 ui 两包）
 
-- **规模**：core 41 个测试文件 / **567** 个用例 + ui **23** 个测试文件 / **238** 个用例（`pnpm test` 经 turbo 一并运行两包；2026-10-11 mock 对齐轮按实跑校准）
+- **规模**：core 41 个测试文件 / **567** 个用例 + ui **24** 个测试文件 / **241** 个用例（`pnpm test` 经 turbo 一并运行两包；2026-10-11 回声气泡收口轮按实跑校准）
 
 - **覆盖模块**：
 
@@ -61,6 +61,7 @@
 | `src/dev/demo-mock.test.ts`         | 浏览器 mock 的命令预览：初值态发出 4 个基线推荐值、哨兵不发射、扩展参数不进内置框、与 `shared` 发射实现逐字相等；另钉 `?fresh=1` 首次使用空态开关双向（空态预填全归零 / 默认预填仍在）        |
 | `src/testing/arco-theme.test.ts`       | 主题 token 对齐（HTML `data-theme` / body `arco-theme`）                            |
 | `src/testing/status-tag.test.ts`       | `StatusTag` 状态标签变体渲染                                                         |
+| `src/components/common/ToolTip.test.ts` | 统一提示浮层的 `overflowOnly`：量出截断才不 disabled、未截断必须 disabled、不开关时恒不 disabled（动作提示与信息补充型提示不得被牵连） |
 | `src/components/service/ParamSummaryCard.test.ts` | 参数摘要 chip 的浮层归属：键名那只挂 flag、值区那只挂完整值且**只在量出省略号截断时启用**、等号不落在任何命中区、chip 自身不被提示包裹（两层嵌套即回潮） |
 | `src/components/models/LocalModelsPanel.test.ts` | 本地模型面板（`rowMeta` 行内徽章预计算随条目携带——语言切换不再走渲染路径；体检记录跨子标签保留）                     |
 
@@ -79,7 +80,7 @@ dev 会话收尾的端到端集成验证已迁入 `pnpm test`（`packages/core/t
 
 | 命令 | 前置条件 | 验证内容 |
 | ---- | ---- | ---- |
-| `pnpm e2e:web` | 无（内部先 build `shared`，再 build `ui`） | 真实构建产物（vite preview 服务 `packages/ui/dist` + demo-mock 注入）驱动 Chromium：侧边栏 7 项导航逐一可达、模型页演示列表、服务页 running 状态卡、参数页 a-switch / 滑杆交互；另有**可访问性判据**（侧栏键盘可达与 Enter/Space 导航、弹窗对话框语义与焦点环、控件命名普查，`e2e/web/a11y.spec.ts`）与**最小视口判据**（视口取 `apps/desktop/src/main/window.ts` 的 `minWidth/minHeight`，7 页逐页测文档级与元素级横向溢出，`e2e/web/narrow-viewport.spec.ts`），另有**语义骨架判据**（唯一 `main` 地标、每页恰好一个 `<h1>`、卡片小节标题为 `<h2>`、状态行自身 `aria-live="polite"`，`e2e/web/semantics.spec.ts`），另有**目录选择器滚动判据**（滚动宿主必须是 `a-list` 内层 `.arco-list` 而非被库裁掉的 wrapper：内容高 > 可视高、真滚轮推得动 `scrollTop`、滚到底末行进入可视区，`e2e/web/file-browser.spec.ts`；依赖 demo-mock 的 `DEMO_FS` 目录树——`listDir` 曾是恒回空列表的桩，这条判据此前不可达）。另有**设置页路径行控件判据**（模型目录与引擎目录两行的「更改」+「打开目录」对等、目录为空时后者禁用；引擎状态只由顶部摘要说一次——行内状态胶囊连同定宽槽整体撤除，摘要引擎格四态「未配置 / 未找到 / 文件缺失 / 就绪」各有断言（「未找到」靠 `__mockEngineNotFound`、「文件缺失」靠 `__mockFsMissing` 造现场，「就绪」是默认态不必开钩子——mock 的存在性检测与演示目录树同源；**每态各占一条用例**，因为 `addInitScript` 对同一页的后续导航持续生效）；点击须把本行显示的目录原样交给 `openPath`，由 mock 的 `__mockOpenedPaths` 记录桩取证，`e2e/web/settings-path-rows.spec.ts`）。五类判据都配删除实验。用例见 `e2e/web/*.spec.ts` |
+| `pnpm e2e:web` | 无（内部先 build `shared`，再 build `ui`） | 真实构建产物（vite preview 服务 `packages/ui/dist` + demo-mock 注入）驱动 Chromium：侧边栏 7 项导航逐一可达、模型页演示列表、服务页 running 状态卡、参数页 a-switch / 滑杆交互；另有**可访问性判据**（侧栏键盘可达与 Enter/Space 导航、弹窗对话框语义与焦点环、控件命名普查，`e2e/web/a11y.spec.ts`）与**最小视口判据**（视口取 `apps/desktop/src/main/window.ts` 的 `minWidth/minHeight`，7 页逐页测文档级与元素级横向溢出，`e2e/web/narrow-viewport.spec.ts`），另有**语义骨架判据**（唯一 `main` 地标、每页恰好一个 `<h1>`、卡片小节标题为 `<h2>`、状态行自身 `aria-live="polite"`，`e2e/web/semantics.spec.ts`），另有**目录选择器滚动判据**（滚动宿主必须是 `a-list` 内层 `.arco-list` 而非被库裁掉的 wrapper：内容高 > 可视高、真滚轮推得动 `scrollTop`、滚到底末行进入可视区，`e2e/web/file-browser.spec.ts`；依赖 demo-mock 的 `DEMO_FS` 目录树——`listDir` 曾是恒回空列表的桩，这条判据此前不可达）。另有**设置页路径行控件判据**（模型目录与引擎目录两行的「更改」+「打开目录」对等、目录为空时后者禁用；引擎状态只由顶部摘要说一次——行内状态胶囊连同定宽槽整体撤除，摘要引擎格四态「未配置 / 未找到 / 文件缺失 / 就绪」各有断言（「未找到」靠 `__mockEngineNotFound`、「文件缺失」靠 `__mockFsMissing` 造现场，「就绪」是默认态不必开钩子——mock 的存在性检测与演示目录树同源；**每态各占一条用例**，因为 `addInitScript` 对同一页的后续导航持续生效）；点击须把本行显示的目录原样交给 `openPath`，由 mock 的 `__mockOpenedPaths` 记录桩取证，`e2e/web/settings-path-rows.spec.ts`）另有**回声气泡判据**（概览页未截断的 API 地址悬停零气泡、服务页被截断的模型路径悬停恰一只且内容 = 完整值，两条互为对照；浮层节点在生产构建里没有 `role="tooltip"`，只能选 `.arco-tooltip:visible`，`e2e/web/overflow-tip.spec.ts`）。五类判据都配删除实验。用例见 `e2e/web/*.spec.ts` |
 | `pnpm e2e:electron` | 无（内部先构建 desktop） | `_electron` 以生产模式（loadFile `dist/ui/index.html`）headless 启动打包产物，断言主进程版本、窗口标题、侧边栏渲染，并做一次**推送通道真机往返**：渲染层经真实 preload 订阅 `system:benchOnStatus`，主进程在作业终态迁移时推一次（探针取「确实存在但不是 GGUF」的文件当 modelPath，必然快速失败，不加载模型、不占 GPU）；脚本 `e2e/electron/run-smoke.mjs` |
 | `pnpm test:e2e` | 无 | 先全量构建，再依次执行 `pnpm e2e:web` 与 `pnpm e2e:electron`（2026-09-20 起统一走这两个脚本——旧写法直接 `playwright test --project=web`，绕开了 preview 驱动，配置里 `webServer` 移除后就没人起 4173 了） |
 
